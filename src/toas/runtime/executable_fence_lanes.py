@@ -130,3 +130,32 @@ def extract_powershell_exec_plans(content: str) -> list[tuple[list[dict[str, Any
         if plan is not None:
             plans.append((plan, fence.opening_offset))
     return plans
+
+
+def parse_interpreter_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | None:
+    activation = classify_fence_activation(fence)
+    if activation.status != "active" or activation.language in {"bash", "json", "powershell", "python", "yaml"}:
+        return None
+    script = fence.body.rstrip("\r\n")
+    if not script.strip():
+        return None
+    runtime = next((token.split("=", 1)[1].split() for token in fence.info_tokens[2:] if token.startswith("runtime=")), None)
+    args: dict[str, Any] = {"language": activation.language, "script": script, "runtime": runtime}
+    for token in fence.info_tokens[2:]:
+        key, value = token.split("=", 1)
+        if key in {"cwd", "path"}:
+            args[key] = value
+        elif key in {"persist", "overwrite"}:
+            if value.casefold() not in {"true", "false"}:
+                return None
+            args[key] = value.casefold() == "true"
+    return [{"tool_name": "interpreter_script", "args": args}]
+
+
+def extract_interpreter_exec_plans(content: str) -> list[tuple[list[dict[str, Any]], int]]:
+    plans: list[tuple[list[dict[str, Any]], int]] = []
+    for fence in scan_markdown_fences(content):
+        plan = parse_interpreter_exec_fence(fence)
+        if plan is not None:
+            plans.append((plan, fence.opening_offset))
+    return plans

@@ -12,6 +12,7 @@ from ..shell_intent import (
 )
 from .executable_fence_lanes import (
     extract_bash_exec_plans,
+    extract_interpreter_exec_plans,
     extract_json_exec_plans,
     extract_powershell_exec_plans,
     extract_python_exec_plans,
@@ -85,6 +86,8 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
             (*candidate, "toas") for candidate in extract_json_exec_plans(content)
         ] + [(*candidate, None) for candidate in extract_python_exec_plans(content)] + [
             (*candidate, None) for candidate in extract_powershell_exec_plans(content)
+        ] + [
+            (*candidate, None) for candidate in extract_interpreter_exec_plans(content)
         ]
 
     candidates: list[tuple[list[dict], int, str | None]] = []
@@ -112,6 +115,7 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
         + [(*candidate, "toas") for candidate in extract_json_exec_plans(content)]
         + [(*candidate, None) for candidate in extract_python_exec_plans(content)]
         + [(*candidate, None) for candidate in extract_powershell_exec_plans(content)]
+        + [(*candidate, None) for candidate in extract_interpreter_exec_plans(content)]
     )
 
 

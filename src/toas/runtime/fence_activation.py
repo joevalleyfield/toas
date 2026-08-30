@@ -42,6 +42,7 @@ def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
     if "exec" not in {token.casefold() for token in tokens[1:]}:
         return FenceActivation("inert", language, "none", "no activation marker")
     attributes = tokens[2:]
+    parsed_attributes: dict[str, str] = {}
     toolset = None
     if attributes:
         if any("=" not in attribute for attribute in attributes):
@@ -57,6 +58,8 @@ def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
             return FenceActivation("unsupported", language, "explicit-exec", "toolset value is empty")
     canonical = _LANGUAGE_ALIASES.get(language)
     if canonical is None:
+        if toolset is None and parsed_attributes.get("runtime"):
+            return FenceActivation("active", language, "explicit-runtime", "unregistered language with explicit runtime")
         return FenceActivation("unsupported", language, "explicit-exec", "language is not registered")
     if canonical in {"yaml", "json"} and toolset not in {None, "toas"}:
         return FenceActivation("unsupported", canonical, "explicit-exec", "toolset is not registered")

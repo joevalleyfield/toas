@@ -351,6 +351,20 @@ def test_select_user_intent_candidates_captures_powershell_exec_language():
     }]
 
 
+def test_select_user_intent_candidates_captures_explicit_runtime_for_unknown_language():
+    out = select_user_intent_candidates(
+        content="```bc exec runtime=bc\n1 / 3\n```",
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert out[0]["value"][0]["tool_name"] == "interpreter_script"
+
+
 def test_shell_candidates_from_content_skips_incomplete_span():
     assert iae._shell_candidates_from_content('$ echo "one\ntwo\n') == []
 

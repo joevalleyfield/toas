@@ -18,6 +18,7 @@ from .tools_cluster.basic_ops import run_write_file as run_cluster_write_file
 from .tools_cluster.capability_help_ops import CapabilityHelpDeps
 from .tools_cluster.capability_help_ops import run_capability_help as run_cluster_capability_help
 from .tools_cluster.execution import execute_plan_calls
+from .tools_cluster.interpreter_ops import run_interpreter_script as run_interpreter_script_cluster
 from .tools_cluster.powershell_ops import run_powershell_script as run_powershell_script_cluster
 from .tools_cluster.python_ops import run_python_script as run_python_script_cluster
 from .tools_cluster.registry import (
@@ -335,6 +336,10 @@ def _run_powershell_script(args: dict) -> dict:
     )
 
 
+def _run_interpreter_script(args: dict) -> dict:
+    return run_interpreter_script_cluster(args, workspace_path_fn=_workspace_path)
+
+
 def _shell_launcher_argv(command: str) -> list[str]:
     return shell_launcher_argv_cluster(command)
 
@@ -470,6 +475,13 @@ REGISTRY = {
         required_args=("script",),
         runner=_run_powershell_script,
         optional_args=("cwd", "timeout_s", "runtime", "persist", "path", "overwrite"),
+        default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
+    ),
+    "interpreter_script": Tool(
+        name="interpreter_script",
+        required_args=("language", "script", "runtime"),
+        runner=_run_interpreter_script,
+        optional_args=("cwd", "timeout_s", "persist", "path", "overwrite"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
     ),
     "read_file": Tool(

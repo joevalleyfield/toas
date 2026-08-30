@@ -69,6 +69,20 @@ def test_classify_fence_activation_rejects_unknown_or_ambiguous_exec_forms():
     assert extra.status == "unsupported"
 
 
+def test_classify_fence_activation_allows_unknown_language_with_explicit_runtime():
+    result = classify_fence_activation(_fence("bc exec runtime=bc"))
+
+    assert result.status == "active"
+    assert result.language == "bc"
+    assert result.predicate == "explicit-runtime"
+
+
+def test_classify_fence_activation_keeps_unknown_language_without_runtime_unsupported():
+    result = classify_fence_activation(_fence("bc exec"))
+
+    assert result.status == "unsupported"
+
+
 def test_classify_fence_activation_treats_output_and_missing_structure_as_inert_or_malformed():
     output = classify_fence_activation(_fence("toas-output"))
     malformed = classify_fence_activation(None)

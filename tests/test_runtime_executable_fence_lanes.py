@@ -5,6 +5,7 @@ from toas.runtime.executable_fence_lanes import (
     extract_json_exec_plans,
     json_exec_fence_toolset,
     parse_bash_exec_fence,
+    parse_interpreter_exec_fence,
     parse_json_exec_fence,
     parse_powershell_exec_fence,
     parse_python_exec_fence,
@@ -161,3 +162,38 @@ def test_parse_powershell_exec_fence_accepts_runtime_and_rejects_empty_or_invali
     assert parse_powershell_exec_fence(runtime)[0]["args"]["runtime"] == ["pwsh", "-NoProfile"]
     assert parse_powershell_exec_fence(empty) is None
     assert parse_powershell_exec_fence(invalid) is None
+
+
+def test_parse_interpreter_exec_fence_requires_explicit_runtime_for_bc():
+    active = scan_markdown_fences("```bc exec runtime=bc\nscale=4\n1 / 3\n```")[0]
+    unsupported = scan_markdown_fences("```bc exec\n1 / 3\n```")[0]
+
+    assert parse_interpreter_exec_fence(active) == [
+        {
+            "tool_name": "interpreter_script",
+            "args": {"language": "bc", "script": "scale=4\n1 / 3", "runtime": ["bc"]},
+        }
+    ]
+    assert parse_interpreter_exec_fence(unsupported) is None
+
+
+def test_parse_interpreter_exec_fence_carries_artifact_attributes_and_rejects_bad_forms():
+    fence = scan_markdown_fences(
+        "```bc exec runtime=bc cwd=math path=calc.bc persist=true overwrite=false\n1 / 3\n```"
+    )[0]
+    empty = scan_markdown_fences("```bc exec runtime=bc\n\n```")[0]
+    no_runtime = scan_markdown_fences("```bc exec cwd=math\n1 / 3\n```")[0]
+    invalid = scan_markdown_fences("```bc exec runtime=bc persist=maybe\n1 / 3\n```")[0]
+
+    assert parse_interpreter_exec_fence(fence)[0]["args"] == {
+        "language": "bc",
+        "script": "1 / 3",
+        "runtime": ["bc"],
+        "cwd": "math",
+        "path": "calc.bc",
+        "persist": True,
+        "overwrite": False,
+    }
+    assert parse_interpreter_exec_fence(empty) is None
+    assert parse_interpreter_exec_fence(no_runtime) is None
+    assert parse_interpreter_exec_fence(invalid) is None

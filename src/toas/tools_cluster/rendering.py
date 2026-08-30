@@ -510,6 +510,11 @@ RESULT_RENDERERS: dict[str, Callable[[dict], str]] = {
         status="OK" if result["ok"] else "ERROR",
         tool_name=result["tool_name"],
     ),
+    "interpreter_script": lambda result: render_shell_result(
+        result,
+        status="OK" if result["ok"] else "ERROR",
+        tool_name=result["tool_name"],
+    ),
 }
 
 SUCCESS_RENDERERS: dict[str, Callable[[dict], str]] = {
