@@ -423,7 +423,7 @@ REGISTRY = {
         name="python_script",
         required_args=("script",),
         runner=_run_python_script,
-        optional_args=("cwd", "timeout_s", "runtime"),
+        optional_args=("cwd", "timeout_s", "runtime", "persist", "path", "overwrite"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
     ),
     "read_file": Tool(

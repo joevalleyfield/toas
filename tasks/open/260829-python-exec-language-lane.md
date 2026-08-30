@@ -136,6 +136,10 @@ relative to `cwd`; `###` is an optional generated collision-resistant suffix.
   `cwd`; `python_script` now accepts those values while retaining the current
   Python executable as the local default. Persistence and overwrite remain
   the next artifact slice.
+- 2026-08-29: Added Python artifact controls: `path` with optional `###`
+  generation, ephemeral cleanup, `persist`, and explicit `overwrite` gated on
+  persistence. The generated script runs from the resolved `cwd` and is
+  never silently overwritten.
 
 ## Progress
 
