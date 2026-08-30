@@ -140,6 +140,10 @@ relative to `cwd`; `###` is an optional generated collision-resistant suffix.
   generation, ephemeral cleanup, `persist`, and explicit `overwrite` gated on
   persistence. The generated script runs from the resolved `cwd` and is
   never silently overwritten.
+- 2026-08-29: Added configured Python runtime resolution through
+  `runtime.python_runtime`, with the current Python executable as the system
+  backstop. Explicit runtime argv remains strict; unavailable runtimes report
+  a clear error, and results retain the runtime resolution source.
 
 ## Progress
 

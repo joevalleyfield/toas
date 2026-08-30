@@ -50,7 +50,13 @@ def validate_python_script_args(args: dict, *, workspace_path_fn) -> tuple[str, 
     return script, cwd, timeout_s, runtime, persist, target, overwrite
 
 
-def run_python_script(args: dict, *, workspace_path_fn, stream_stdout_override: bool | None = None) -> dict:
+def run_python_script(
+    args: dict,
+    *,
+    workspace_path_fn,
+    stream_stdout_override: bool | None = None,
+    runtime_source: str = "explicit",
+) -> dict:
     script, cwd, timeout_s, runtime, persist, target, overwrite = validate_python_script_args(
         args, workspace_path_fn=workspace_path_fn
     )
@@ -67,18 +73,24 @@ def run_python_script(args: dict, *, workspace_path_fn, stream_stdout_override: 
             with target.open(mode, encoding="utf-8") as handle:
                 handle.write(script)
             path = target
-        result = run_subprocess(
-            [*runtime, str(path)],
-            cwd=cwd,
-            timeout_s=timeout_s,
-            env=dict(os.environ),
-            stream_stdout_override=stream_stdout_override,
-            tool_name="python_script",
-        )
+        try:
+            result = run_subprocess(
+                [*runtime, str(path)],
+                cwd=cwd,
+                timeout_s=timeout_s,
+                env=dict(os.environ),
+                stream_stdout_override=stream_stdout_override,
+                tool_name="python_script",
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                f"tool python_script runtime not found: {runtime[0]}"
+            ) from exc
         result["tool_name"] = "python_script"
         result["cwd"] = str(cwd)
         result["script_path"] = str(path)
         result["persist"] = persist
+        result["runtime_source"] = runtime_source
         return result
     finally:
         if path is not None and not persist:

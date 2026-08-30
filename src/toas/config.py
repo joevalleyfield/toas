@@ -72,6 +72,7 @@ class RuntimePolicy:
     cancellation_mode: str = "enabled"
     thinking_stream_mode: str = "disabled"
     prompt_progress_mode: str = "disabled"
+    python_runtime: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

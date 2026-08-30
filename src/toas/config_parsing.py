@@ -126,6 +126,8 @@ def parse_config_value(
 
     if dotted_key == "generation.avoid_terms":
         return tuple(part.strip() for part in raw.split(",") if part.strip())
+    if dotted_key == "runtime.python_runtime":
+        return tuple(part for part in raw.split() if part)
     if dotted_key == "generation.thinking_budget_tokens":
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
     if dotted_key == "generation.max_tokens":

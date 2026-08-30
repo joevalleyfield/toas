@@ -28,6 +28,28 @@ def test_run_python_script_uses_explicit_runtime(tmp_path: Path):
     assert result["argv"][0] == sys.executable
 
 
+def test_run_python_script_records_runtime_resolution_source(tmp_path: Path):
+    result = run_python_script(
+        {"script": "print(1)", "runtime": [sys.executable]},
+        workspace_path_fn=lambda path: tmp_path / path,
+        runtime_source="configured",
+    )
+
+    assert result["runtime_source"] == "configured"
+
+
+def test_run_python_script_reports_missing_explicit_runtime(tmp_path: Path):
+    try:
+        run_python_script(
+            {"script": "print(1)", "runtime": ["definitely-not-a-python-runtime"]},
+            workspace_path_fn=lambda path: tmp_path / path,
+        )
+    except RuntimeError as exc:
+        assert str(exc) == "tool python_script runtime not found: definitely-not-a-python-runtime"
+    else:
+        raise AssertionError("expected missing runtime to fail")
+
+
 def test_run_python_script_persists_generated_artifact(tmp_path: Path):
     result = run_python_script(
         {"script": "print(1)", "persist": True},

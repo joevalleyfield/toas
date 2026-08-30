@@ -738,3 +738,9 @@ def test_flatten_config_includes_diagnostics():
     flat = flatten_config(config)
     assert flat["diagnostics.log_level"] == "WARNING"
     assert flat["diagnostics.log_file"] is None
+
+
+def test_python_runtime_config_is_a_valid_argv_tuple():
+    config = apply_dotted_override(OperatorConfig(), "runtime.python_runtime", "uv run python")
+
+    assert config.runtime.python_runtime == ("uv", "run", "python")

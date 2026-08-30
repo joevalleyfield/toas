@@ -293,7 +293,24 @@ def _run_shell_script(args: dict) -> dict:
 
 
 def _run_python_script(args: dict) -> dict:
-    return run_python_script_cluster(args, workspace_path_fn=_workspace_path)
+    if "runtime" in args:
+        return run_python_script_cluster(
+            args,
+            workspace_path_fn=_workspace_path,
+            runtime_source="explicit",
+        )
+    configured = list(_workspace_config().runtime.python_runtime)
+    if configured:
+        return run_python_script_cluster(
+            {**args, "runtime": configured},
+            workspace_path_fn=_workspace_path,
+            runtime_source="configured",
+        )
+    return run_python_script_cluster(
+        args,
+        workspace_path_fn=_workspace_path,
+        runtime_source="system-default",
+    )
 
 
 def _shell_launcher_argv(command: str) -> list[str]:
