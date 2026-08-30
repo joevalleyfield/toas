@@ -178,6 +178,24 @@ Requirements:
 - source spans are retained for intent arbitration and direct-manipulation
   projection.
 
+### Structured-call toolset disambiguation
+
+The language marker identifies the body syntax and parser; it does not by
+itself identify the capability namespace receiving a structured callable.
+Executable fences may therefore carry an optional toolset attribute:
+
+```text
+<language> exec [toolset=<name>]
+```
+
+For structured lanes such as YAML and JSON, an omitted attribute tacitly
+defaults to `toas` for the current implementation. An explicit toolset is
+ingress metadata for later namespace resolution, not execution authority. A
+future follow-on may reject unknown toolsets or require explicit selection;
+the current lanes need not enforce that restriction. Language execution lanes
+such as Bash may continue to rely on the language marker alone when it already
+identifies the capability family.
+
 Do not accept arbitrary free-form attributes or fuzzy marker discovery merely
 because alternate activators are supported. Every fallback is a named,
 testable predicate with deterministic precedence and provenance.
