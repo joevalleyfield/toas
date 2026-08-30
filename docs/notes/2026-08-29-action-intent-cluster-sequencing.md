@@ -156,6 +156,57 @@ work is to decide which contextual facts must travel at this boundary and
 whether any incumbent setting, especially `yaml_position`, needs a bounded
 compatibility follow-on.
 
+#### Canonical ingress checkpoint
+
+The evidence pass now resolves the immediate boundary questions. The canonical
+handoff is a narrow `ActionPlan` envelope containing ordered, inert
+`ToolRequest` values. A `ToolRequest` contains normalized capability data,
+arguments, and optional stated intention. The enclosing plan may carry origin,
+ingress, source, plan position, and grouping context. Neither object grants
+authority or carries effective execution policy.
+
+The incumbent normalized list-of-dictionaries remains a valid serialization and
+execution boundary. The envelope is an adjacent domain boundary, not a demand
+for immediate migration or a new class hierarchy. Durable request records and
+result records remain separate occurrence and outcome evidence; provenance or
+policy fields do not move into callable arguments merely for convenience.
+
+The accepted call flow is:
+
+```text
+recognize and parse
+  → ActionPlan / ToolRequest
+  → configured candidate arbitration
+  → authority resolution
+  → shared validation and execution
+  → durable request/result facts
+  → inert projection and next explicit step
+```
+
+User and assistant frontiers use the same recognition and arbitration model,
+but retain distinct authority inputs. Direct-user action is intentionally
+unbounded; assistant action follows the user-configurable assistant policy.
+Assistant text alone does not execute, and explicit adoption creates a new user
+frontier rather than laundering assistant origin.
+
+The action contract does not define semantic equivalence. Requests are not
+compared or deduplicated as a consequence of normalization; repeated requests
+remain distinct occurrences. Shared implementation and seam guardrails provide
+the relevant consistency without introducing an equivalence evaluator.
+
+The current configuration distinction is also settled provisionally:
+`yaml_position` remains legacy single-plan compatibility vocabulary. Candidate
+discovery and configured arbitration are the converged path; no new meaning or
+rename is warranted without a concrete consumer. `/extract` remains a manual
+inspection/adoption surface, separate from automatic `step` arbitration.
+
+Future ingress adapters must recognize, normalize, and diagnose only. They
+must enter shared authority, validation, execution, durable-evidence, and
+projection paths, preserve explicit `step` boundaries, and avoid hidden loops.
+Native provider identity, broader durable metadata, parallel plans, and
+history restaging remain deferred until a concrete replay, audit, provider, or
+operator use case cannot be expressed by the existing relationships.
+
 ### 4. Add text ingress corollaries selectively — first wave complete
 
 The first executable-fence wave is complete: shared scanning and activation,
@@ -195,8 +246,7 @@ one additional decision or observed use case:
 - history restaging: a recurring operator job with a crisp distinction between
   staging prior intent and executing it now.
 
-The next meaningful action is therefore a documentation checkpoint under the
-canonical ingress task: update the contract from the completed implementation
-evidence, especially the distinction between inert request data, plan context,
-authority context, and durable occurrence metadata. Open another implementation
-follow-on only after its invariant, owner, and focused test story are clear.
+The canonical-ingress documentation checkpoint is complete. Close that child
+task with this note as its durable design reference. Open another
+implementation follow-on only after its invariant, owner, and focused test
+story are clear.
