@@ -50,6 +50,24 @@ def test_shape_result_content_shell_success_and_error():
     )
 
 
+def test_shape_result_content_python_error_preserves_process_output():
+    rendered = shape_result_content(
+        {
+            "tool_name": "python_script",
+            "ok": False,
+            "summary": "exit=1",
+            "stdout": "partial output",
+            "stderr": "traceback detail",
+        }
+    )
+
+    assert "[ERROR] python_script: exit=1" in rendered
+    assert "stdout:" in rendered
+    assert "partial output" in rendered
+    assert "stderr:" in rendered
+    assert "traceback detail" in rendered
+
+
 def test_shape_result_content_read_and_search_success():
     read = shape_result_content(
         {

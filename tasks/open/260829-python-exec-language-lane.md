@@ -129,6 +129,9 @@ relative to `cwd`; `###` is an optional generated collision-resistant suffix.
 - Remaining in this task: explicit/configured runtime resolution, fence-level
   `cwd`, `path`, `persist`, and `overwrite` attributes, and durable execution
   metadata. These remain deliberately separate from the working first lane.
+- 2026-08-29: Registered `python_script` with the stream-preserving result
+  renderer so nonzero execution results retain captured stdout and stderr in
+  the projected UI output.
 
 ## Progress
 
