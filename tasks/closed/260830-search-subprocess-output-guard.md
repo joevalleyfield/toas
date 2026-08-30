@@ -3,7 +3,7 @@ FKA:
 AKA: search stdout None; ripgrep output guard; search retry failure
 Legacy index:
 
-keywords: tooling, hardening, historical, correctness, compatibility, search
+keywords: tooling, hardening, historical, correctness, compatibility, search, timeout
 
 Related: `260830-windows-test-session-path`
 
@@ -39,3 +39,9 @@ replay-state explanation remain separate follow-up questions.
   and `stderr=None` failure results.
 - 2026-08-30: `uv run pytest tests/test_tools_basic_ops.py tests/test_cli.py
   -q --no-cov` passes with 249 tests.
+- 2026-08-30: Search now accepts explicit `timeout_s`, inherits the active
+  `shell.assistant_timeout_s` when omitted, preserves partial timeout output,
+  and renders partial matches from timeout results.
+- 2026-08-30: Added timeout propagation, validation, partial-output, and
+  timeout-rendering regression tests. Targeted coverage is 100% for
+  `toas.tools_cluster.basic_ops` and `toas.tools` across 225 tests.

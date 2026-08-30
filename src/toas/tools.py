@@ -425,6 +425,8 @@ def _run_read_file(args: dict) -> dict:
 
 
 def _run_search(args: dict) -> dict:
+    if "timeout_s" not in args:
+        args = {**args, "timeout_s": _ASSISTANT_TIMEOUT_S}
     return run_cluster_search(args, workspace_path_fn=_workspace_path)
 
 
@@ -530,8 +532,8 @@ REGISTRY = {
         name="search",
         required_args=("query",),
         runner=_run_search,
-        optional_args=("path", "limit", "regex"),
-        default_args=("path=.", "limit=20", "regex=false"),
+        optional_args=("path", "limit", "regex", "timeout_s"),
+        default_args=("path=.", "limit=20", "regex=false", "timeout_s=shell.assistant_timeout_s"),
     ),
     "write_file": Tool(
         name="write_file",

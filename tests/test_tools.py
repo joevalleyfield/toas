@@ -443,6 +443,27 @@ def test_shape_result_content_groups_search_matches_and_uses_one_result_block():
     assert "kind=result source=tool.search potency=inert" in result
 
 
+def test_shape_result_content_preserves_partial_search_matches_on_timeout():
+    result = shape_result_content(
+        {
+            "tool_name": "search",
+            "ok": False,
+            "summary": "timed out after 3s (1 partial matches)",
+            "error": "search timed out after 3s",
+            "path": ".",
+            "matches": ["src/a.py:12:third"],
+            "content": "src/a.py:12:third",
+            "failure_kind": "timeout",
+            "outcome": "indeterminate",
+        }
+    )
+
+    assert result.startswith("[ERROR] search: search timed out after 3s")
+    assert "partial matches:" in result
+    assert "src/a.py" in result
+    assert "    12: third" in result
+
+
 def test_shape_result_content_includes_capability_help_content_block():
     rendered = shape_result_content(
         {
@@ -991,6 +1012,42 @@ def test_search_tool_uses_rg_and_returns_matches(tmp_path, monkeypatch):
     assert "a.txt:2:beta" in content["content"]
     assert "b.txt:1:beta" in content["content"]
     assert len(content["matches"]) == 2
+
+
+def test_search_tool_uses_assistant_timeout_when_omitted(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    seen = {}
+
+    class _Done:
+        returncode = 1
+        stderr = ""
+        stdout = ""
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        seen["kwargs"] = kwargs
+        return _Done()
+
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", fake_run)
+    results = execute_plan(
+        [{"tool_name": "search", "args": {"query": "missing"}}],
+        assistant_timeout_s=23,
+        assistant_timeout_source="session_override",
+    )
+
+    assert results == [
+        {
+            "tool_name": "search",
+            "ok": True,
+            "summary": "0 matches",
+            "query": "missing",
+            "regex": False,
+            "path": ".",
+            "matches": [],
+            "content": "",
+        }
+    ]
+    assert seen["kwargs"]["timeout"] == 23
 
 
 def test_search_tool_literal_default_handles_regex_metacharacters(tmp_path, monkeypatch):

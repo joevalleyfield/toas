@@ -240,6 +240,9 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
     regex = args.get("regex", False)
     if not isinstance(regex, bool):
         raise RuntimeError("invalid arguments for tool search: regex must be a bool")
+    timeout_s = args.get("timeout_s", 5)
+    if not isinstance(timeout_s, int) or timeout_s <= 0:
+        raise RuntimeError("invalid arguments for tool search: timeout_s must be a positive int")
 
     path = workspace_path_fn(path_arg)
     command = ["rg", "-n", "--color=never", "--max-count", str(limit)]
@@ -251,9 +254,29 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
             command,
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=timeout_s,
             check=False,
         )
+    except subprocess.TimeoutExpired as exc:
+        output = _captured_text(getattr(exc, "stdout", None)).strip()
+        stderr = _captured_text(getattr(exc, "stderr", None)).strip()
+        matches = [line for line in output.splitlines() if line]
+        return {
+            "tool_name": "search",
+            "ok": False,
+            "summary": f"timed out after {timeout_s}s ({len(matches)} partial matches)",
+            "error": f"search timed out after {timeout_s}s",
+            "failure_kind": "timeout",
+            "outcome": "indeterminate",
+            "timed_out": True,
+            "partial": bool(matches),
+            "query": query,
+            "regex": regex,
+            "path": path_arg,
+            "matches": matches,
+            "stderr": stderr,
+            "content": output,
+        }
     except FileNotFoundError:
         matches = _fallback_search_matches(path=path, query=query, regex=regex, limit=limit)
         output = "\n".join(matches)
@@ -268,7 +291,7 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
             "content": output,
         }
     if completed.returncode not in (0, 1):
-        stderr = (completed.stderr or "").strip() or "rg failed"
+        stderr = _captured_text(completed.stderr).strip() or "rg failed"
         if regex:
             raise RuntimeError(
                 f"tool search failed: {stderr}\n"
@@ -276,7 +299,7 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
             )
         raise RuntimeError(f"tool search failed: {stderr}")
 
-    output = (completed.stdout or "").strip()
+    output = _captured_text(completed.stdout).strip()
     matches = [line for line in output.splitlines() if line]
     return {
         "tool_name": "search",
@@ -288,6 +311,12 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
         "matches": matches,
         "content": output,
     }
+
+
+def _captured_text(value: object) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value if isinstance(value, str) else ""
 
 
 def _fallback_search_matches(*, path: Path, query: str, regex: bool, limit: int) -> list[str]:

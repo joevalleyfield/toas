@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -319,6 +320,71 @@ def test_run_search_non_regex_subprocess_error(monkeypatch, tmp_path):
     monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *a, **k: _Done())
     with pytest.raises(RuntimeError, match="tool search failed: ripgrep boom"):
         run_search({"query": "a", "path": str(path), "regex": False}, workspace_path_fn=lambda p: Path(p))
+
+
+def test_run_search_passes_explicit_timeout_to_rg(monkeypatch, tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("alpha\n", encoding="utf-8")
+    seen = {}
+
+    class _Done:
+        returncode = 0
+        stderr = ""
+        stdout = "x.txt:1:alpha\n"
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        seen["kwargs"] = kwargs
+        return _Done()
+
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", fake_run)
+    out = run_search(
+        {"query": "alpha", "path": str(path), "timeout_s": 17},
+        workspace_path_fn=lambda p: Path(p),
+    )
+
+    assert out["matches"] == ["x.txt:1:alpha"]
+    assert seen["kwargs"]["timeout"] == 17
+
+
+def test_run_search_rejects_non_positive_timeout(tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("alpha\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="timeout_s must be a positive int"):
+        run_search(
+            {"query": "alpha", "path": str(path), "timeout_s": 0},
+            workspace_path_fn=lambda p: Path(p),
+        )
+
+
+def test_run_search_returns_partial_matches_on_timeout(monkeypatch, tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("alpha\n", encoding="utf-8")
+    timeout = subprocess.TimeoutExpired(["rg"], 3, output=b"x.txt:1:alpha\n", stderr=b"slow\n")
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *a, **k: (_ for _ in ()).throw(timeout))
+
+    out = run_search(
+        {"query": "alpha", "path": str(path), "timeout_s": 3},
+        workspace_path_fn=lambda p: Path(p),
+    )
+
+    assert out == {
+        "tool_name": "search",
+        "ok": False,
+        "summary": "timed out after 3s (1 partial matches)",
+        "error": "search timed out after 3s",
+        "failure_kind": "timeout",
+        "outcome": "indeterminate",
+        "timed_out": True,
+        "partial": True,
+        "query": "alpha",
+        "regex": False,
+        "path": str(path),
+        "matches": ["x.txt:1:alpha"],
+        "stderr": "slow",
+        "content": "x.txt:1:alpha",
+    }
 
 
 def test_run_search_treats_missing_subprocess_stdout_as_empty(monkeypatch, tmp_path):

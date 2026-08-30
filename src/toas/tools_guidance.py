@@ -17,6 +17,7 @@ def _tool_lines(*, compact: bool) -> list[str]:
             lines.append(f"  defaults: {', '.join(tool.default_args)}")
         if name == "search":
             lines.append("  use when structured query/path/limit handling is needed; for first-pass discovery prefer `$ rg ...`.")
+            lines.append("  timeout: any positive timeout_s; omitted values use shell.assistant_timeout_s")
         if name == "shell":
             allowed = ", ".join(sorted(SHELL_ALLOWED))
             lines.append(f"  allowed commands: {allowed}")

@@ -264,6 +264,14 @@ def render_search_success(result: dict, *, status: str, tool_name: str) -> str:
     return f"[{status}] {tool_name}: {result['summary']}"
 
 
+def render_search_error(result: dict, *, status: str, tool_name: str) -> str:
+    rendered_error = render_default_error(result, status=status, tool_name=tool_name)
+    excerpt_blocks = render_search_excerpt_blocks(result)
+    if not excerpt_blocks:
+        return rendered_error
+    return f"{rendered_error}\npartial matches:\n" + "\n".join(excerpt_blocks)
+
+
 def _make_relative(path: str, base: str | None) -> str:
     if not isinstance(path, str) or not isinstance(base, str):
         return path
@@ -557,6 +565,8 @@ def shape_result_content(result: dict) -> str:
 
     status = "OK" if result["ok"] else "ERROR"
     if not result["ok"]:
+        if tool_name == "search":
+            return render_search_error(result, status=status, tool_name=tool_name)
         return render_default_error(result, status=status, tool_name=tool_name)
 
     success_renderer = SUCCESS_RENDERERS.get(tool_name)
