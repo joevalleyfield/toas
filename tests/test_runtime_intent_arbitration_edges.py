@@ -300,7 +300,7 @@ def test_select_user_intent_candidates_rejects_unknown_yaml_toolset():
     assert out[0]["value"]["reason"] == "toolset is not registered"
 
 
-def test_select_user_intent_candidates_captures_unsupported_exec_language():
+def test_select_user_intent_candidates_captures_python_exec_language():
     out = select_user_intent_candidates(
         content='```python exec\nprint("Hi Mom!")\n```',
         plan=None,
@@ -311,8 +311,8 @@ def test_select_user_intent_candidates_captures_unsupported_exec_language():
         arbitration_mode="in_order",
     )
 
-    assert out[0]["kind"] == "unsupported_exec"
-    assert out[0]["value"]["language"] == "python"
+    assert out[0]["kind"] == "plan"
+    assert out[0]["value"] == [{"tool_name": "python_script", "args": {"script": 'print("Hi Mom!")'}}]
 
 
 def test_shell_candidates_from_content_skips_incomplete_span():

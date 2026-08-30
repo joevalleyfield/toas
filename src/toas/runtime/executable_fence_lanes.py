@@ -70,3 +70,22 @@ def extract_json_exec_plans(content: str) -> list[tuple[list[dict[str, Any]], in
         if plan is not None:
             plans.append((plan, fence.opening_offset))
     return plans
+
+
+def parse_python_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | None:
+    activation = classify_fence_activation(fence)
+    if activation.status != "active" or activation.language != "python":
+        return None
+    script = fence.body.rstrip("\r\n")
+    if not script.strip():
+        return None
+    return [{"tool_name": "python_script", "args": {"script": script}}]
+
+
+def extract_python_exec_plans(content: str) -> list[tuple[list[dict[str, Any]], int]]:
+    plans: list[tuple[list[dict[str, Any]], int]] = []
+    for fence in scan_markdown_fences(content):
+        plan = parse_python_exec_fence(fence)
+        if plan is not None:
+            plans.append((plan, fence.opening_offset))
+    return plans

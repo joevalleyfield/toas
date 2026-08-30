@@ -10,7 +10,11 @@ from ..shell_intent import (
     shell_argv_from_command,
     strip_inert_regions,
 )
-from .executable_fence_lanes import extract_bash_exec_plans, extract_json_exec_plans
+from .executable_fence_lanes import (
+    extract_bash_exec_plans,
+    extract_json_exec_plans,
+    extract_python_exec_plans,
+)
 from .fence_activation import classify_fence_activation
 from .markdown_fence import scan_markdown_fences
 
@@ -78,7 +82,7 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
     if not matches:
         return [(*candidate, None) for candidate in extract_bash_exec_plans(content)] + [
             (*candidate, "toas") for candidate in extract_json_exec_plans(content)
-        ]
+        ] + [(*candidate, None) for candidate in extract_python_exec_plans(content)]
 
     candidates: list[tuple[list[dict], int, str | None]] = []
     for match in matches:
@@ -99,9 +103,12 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
             continue
         candidates.append((candidate_plan, match.start(), "toas"))
 
-    return candidates + [
-        (*candidate, None) for candidate in extract_bash_exec_plans(content)
-    ] + [(*candidate, "toas") for candidate in extract_json_exec_plans(content)]
+    return (
+        candidates
+        + [(*candidate, None) for candidate in extract_bash_exec_plans(content)]
+        + [(*candidate, "toas") for candidate in extract_json_exec_plans(content)]
+        + [(*candidate, None) for candidate in extract_python_exec_plans(content)]
+    )
 
 
 def _shell_candidates_from_content(content: str) -> list[tuple[dict, int]]:
@@ -121,7 +128,7 @@ def _shell_candidates_from_content(content: str) -> list[tuple[dict, int]]:
 
 def _unsupported_exec_candidates(content: str) -> list[tuple[dict, int]]:
     candidates: list[tuple[dict, int]] = []
-    implemented_languages = {"bash", "json", "yaml"}
+    implemented_languages = {"bash", "json", "python", "yaml"}
     for fence in scan_markdown_fences(content):
         activation = classify_fence_activation(fence)
         if (

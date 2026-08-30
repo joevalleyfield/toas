@@ -118,3 +118,21 @@ relative to `cwd`; `###` is an optional generated collision-resistant suffix.
 - the exact normalized capability name (`python_script` is provisional);
 - whether artifact attributes live in fence info metadata or a structured
   execution envelope while preserving the source surface above.
+
+## Progress
+
+- 2026-08-29: Initial implementation slice landed. Active `python exec` fences
+  normalize to `python_script`, execute through an ephemeral `.py` file in the
+  resolved current directory, use the shared subprocess runner, and clean up
+  the file afterward. Parser, registry, execution, cleanup, and arbitration
+  coverage are green.
+- Remaining in this task: explicit/configured runtime resolution, fence-level
+  `cwd`, `path`, `persist`, and `overwrite` attributes, and durable execution
+  metadata. These remain deliberately separate from the working first lane.
+
+## Progress
+
+- 2026-08-29: Claimed for implementation. The first slice will use the
+  existing runtime configuration and subprocess ownership seams, retaining
+  the provisional `python_script` capability name unless code evidence
+  requires a narrower compatibility choice.
