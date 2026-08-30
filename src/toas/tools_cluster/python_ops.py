@@ -9,7 +9,7 @@ from pathlib import Path
 from .shell_ops import run_subprocess
 
 
-def validate_python_script_args(args: dict, *, workspace_path_fn) -> tuple[str, Path, int]:
+def validate_python_script_args(args: dict, *, workspace_path_fn) -> tuple[str, Path, int, list[str]]:
     script = args.get("script")
     if not isinstance(script, str) or not script.strip():
         raise RuntimeError("invalid arguments for tool python_script: script must be a non-empty string")
@@ -25,11 +25,14 @@ def validate_python_script_args(args: dict, *, workspace_path_fn) -> tuple[str, 
     timeout_s = args.get("timeout_s", 5)
     if not isinstance(timeout_s, int) or timeout_s <= 0:
         raise RuntimeError("invalid arguments for tool python_script: timeout_s must be a positive int")
-    return script, cwd, timeout_s
+    runtime = args.get("runtime", [sys.executable])
+    if not isinstance(runtime, list) or not runtime or not all(isinstance(part, str) and part for part in runtime):
+        raise RuntimeError("invalid arguments for tool python_script: runtime must be a non-empty list[str]")
+    return script, cwd, timeout_s, runtime
 
 
 def run_python_script(args: dict, *, workspace_path_fn, stream_stdout_override: bool | None = None) -> dict:
-    script, cwd, timeout_s = validate_python_script_args(args, workspace_path_fn=workspace_path_fn)
+    script, cwd, timeout_s, runtime = validate_python_script_args(args, workspace_path_fn=workspace_path_fn)
     path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -43,7 +46,7 @@ def run_python_script(args: dict, *, workspace_path_fn, stream_stdout_override: 
             handle.write(script)
             path = Path(handle.name)
         result = run_subprocess(
-            [sys.executable, str(path)],
+            [*runtime, str(path)],
             cwd=cwd,
             timeout_s=timeout_s,
             env=dict(os.environ),

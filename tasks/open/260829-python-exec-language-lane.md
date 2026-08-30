@@ -132,6 +132,10 @@ relative to `cwd`; `###` is an optional generated collision-resistant suffix.
 - 2026-08-29: Registered `python_script` with the stream-preserving result
   renderer so nonzero execution results retain captured stdout and stderr in
   the projected UI output.
+- 2026-08-29: Added quoted fence attributes for explicit runtime argv and
+  `cwd`; `python_script` now accepts those values while retaining the current
+  Python executable as the local default. Persistence and overwrite remain
+  the next artifact slice.
 
 ## Progress
 

@@ -44,10 +44,16 @@ def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
     attributes = tokens[2:]
     toolset = None
     if attributes:
-        if len(attributes) != 1 or not attributes[0].casefold().startswith("toolset="):
+        if any("=" not in attribute for attribute in attributes):
             return FenceActivation("unsupported", language, "explicit-exec", "activation form has extra tokens")
-        toolset = attributes[0].split("=", 1)[1]
-        if not toolset:
+        parsed_attributes = dict(attribute.split("=", 1) for attribute in attributes)
+        if len(parsed_attributes) != len(attributes):
+            return FenceActivation("unsupported", language, "explicit-exec", "activation form repeats an attribute")
+        unknown_attributes = set(parsed_attributes) - {"toolset", "runtime", "cwd", "persist", "path", "overwrite"}
+        if unknown_attributes:
+            return FenceActivation("unsupported", language, "explicit-exec", "activation form has unknown attributes")
+        toolset = parsed_attributes.get("toolset")
+        if "toolset" in parsed_attributes and not toolset:
             return FenceActivation("unsupported", language, "explicit-exec", "toolset value is empty")
     canonical = _LANGUAGE_ALIASES.get(language)
     if canonical is None:

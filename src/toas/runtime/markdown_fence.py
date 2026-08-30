@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 from dataclasses import dataclass
 
 _OPENING_RE = re.compile(r"^(?P<indent> {0,3})(?P<ticks>`{3,})(?P<info>[^\r\n]*)$")
@@ -55,10 +56,14 @@ def scan_markdown_fences(content: str) -> list[MarkdownFence]:
         if body_end is not None and closing_offset is not None and closing_line is not None:
             body = content[body_start:body_end]
             info_string = opening.group("info").strip()
+            try:
+                info_tokens = tuple(shlex.split(info_string))
+            except ValueError:
+                info_tokens = ()
             fences.append(
                 MarkdownFence(
                     info_string=info_string,
-                    info_tokens=tuple(info_string.split()),
+                    info_tokens=info_tokens,
                     body=body,
                     opening_offset=offset,
                     closing_offset=closing_offset,

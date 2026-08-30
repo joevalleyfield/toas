@@ -5,6 +5,7 @@ from toas.runtime.executable_fence_lanes import (
     extract_json_exec_plans,
     parse_bash_exec_fence,
     parse_json_exec_fence,
+    parse_python_exec_fence,
 )
 from toas.runtime.markdown_fence import scan_markdown_fences
 
@@ -64,3 +65,20 @@ def test_extract_json_exec_plans_returns_source_position():
 
     assert plans[0][0] == [{"tool_name": "echo", "args": {"text": "hi"}}]
     assert plans[0][1] == content.index("```json exec")
+
+
+def test_parse_python_exec_fence_carries_runtime_and_cwd_arguments():
+    fence = scan_markdown_fences(
+        '```python exec runtime="uv run python" cwd="scripts"\nprint("hi")\n```'
+    )[0]
+
+    assert parse_python_exec_fence(fence) == [
+        {
+            "tool_name": "python_script",
+            "args": {
+                "script": 'print("hi")',
+                "runtime": ["uv", "run", "python"],
+                "cwd": "scripts",
+            },
+        }
+    ]

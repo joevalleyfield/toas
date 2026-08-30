@@ -79,7 +79,18 @@ def parse_python_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | None
     script = fence.body.rstrip("\r\n")
     if not script.strip():
         return None
-    return [{"tool_name": "python_script", "args": {"script": script}}]
+    args: dict[str, Any] = {"script": script}
+    for token in fence.info_tokens[2:]:
+        key, value = token.split("=", 1)
+        if key == "runtime":
+            args[key] = value.split()
+        elif key in {"cwd", "path"}:
+            args[key] = value
+        elif key in {"persist", "overwrite"}:
+            if value.casefold() not in {"true", "false"}:
+                return None
+            args[key] = value.casefold() == "true"
+    return [{"tool_name": "python_script", "args": args}]
 
 
 def extract_python_exec_plans(content: str) -> list[tuple[list[dict[str, Any]], int]]:
