@@ -245,6 +245,22 @@ def test_select_user_intent_candidates_interleaves_all_operator_commands_with_pl
     ]
 
 
+def test_select_user_intent_candidates_does_not_duplicate_prompted_bash_fence_as_shell():
+    content = "```bash exec\n$ echo one\n$ echo two\n```"
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=None,
+        shell_command="echo two",
+        shell_argv=["echo", "two"],
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert [item["kind"] for item in out] == ["plan"]
+    assert out[0]["value"] == [{"tool_name": "shell_script", "args": {"script": "echo one\necho two"}}]
+
+
 def test_shell_candidates_from_content_skips_incomplete_span():
     assert iae._shell_candidates_from_content('$ echo "one\ntwo\n') == []
 
