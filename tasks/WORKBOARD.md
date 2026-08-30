@@ -238,6 +238,7 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260823-intent-tail-focus-trace]** Explore how TOAS can derive a durable or inspectable trace of changing focus from intent-tracking tails and surrounding transcript evidence.
 - **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ...
 - **[T260825-visible-transcript-turn-ids]** Define a general transcript-facing way to display stable turn identifiers that are normally excluded from the LLM message projection, so users and edi...
+- **[T260829-configurable-interpreter-runtime-lane]** Add configuration-driven interpreter resolution for executable language fences and make PowerShell the next registered non-shell language lane.
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context.
 <!-- WORKBOARD:NOW:END -->
 
