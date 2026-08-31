@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from .config import config_from_discovered_paths
 from .procedures import load_procedure
+from .runtime.environment_policy import active_environment_policy
 from .runtime.executable_grants import ExecutableGrantPolicy
 from .shell_grants import (
     normalize_shell_grants,
@@ -640,6 +641,7 @@ def execute_plan(
         shell_allow_policy(allowed_commands=shell_allowed_commands),
         assistant_execution_policy(timeout_s=assistant_timeout_s, timeout_source=assistant_timeout_source),
         _executable_grant_policy(policy=executable_grant_policy, authority=authority),
+        active_environment_policy(_workspace_config().shell.environment),
     ):
         return execute_plan_calls(
             plan,

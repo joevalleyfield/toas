@@ -8,6 +8,11 @@ from .config_parsing import build_valid_config_keys
 from .config_parsing import config_value_choices as _config_value_choices_impl
 from .config_parsing import parse_config_value as _parse_config_value_impl
 from .runtime.activity_health import HealthTimingProfile, resolve_health_timing_profile
+from .runtime.environment_policy import (
+    EnvironmentPolicy,
+    EnvironmentProfile,
+    RuntimeEnvironmentBinding,
+)
 
 
 @dataclass(frozen=True)
@@ -123,6 +128,7 @@ class ShellPolicy:
         "sed",
         "awk",
     )
+    environment: EnvironmentPolicy = field(default_factory=EnvironmentPolicy)
 
 
 @dataclass(frozen=True)
@@ -251,6 +257,9 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "HealthTimingPolicy": HealthTimingPolicy,
                 "StoragePolicy": StoragePolicy,
                 "ShellPolicy": ShellPolicy,
+                "EnvironmentPolicy": EnvironmentPolicy,
+                "EnvironmentProfile": EnvironmentProfile,
+                "RuntimeEnvironmentBinding": RuntimeEnvironmentBinding,
                 "CapabilityAdvertisementPolicy": CapabilityAdvertisementPolicy,
                 "PromptPolicy": PromptPolicy,
                 "SessionPolicy": SessionPolicy,

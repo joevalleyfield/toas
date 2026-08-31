@@ -97,11 +97,48 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     storage = classes["StoragePolicy"](**merged.get("storage", {}))
 
     shell_values = merged.get("shell", {})
+    shell_values = dict(shell_values)
     if isinstance(shell_values.get("allowed_commands"), list):
         shell_values = dict(shell_values)
         shell_values["allowed_commands"] = normalize_shell_grants(
             tuple(str(item).strip() for item in shell_values["allowed_commands"] if str(item).strip())
         )
+    environment_values = dict(shell_values.get("environment", {}))
+    raw_profiles = environment_values.get("profiles", ())
+    profiles = []
+    for item in raw_profiles if isinstance(raw_profiles, (list, tuple)) else ():
+        if isinstance(item, classes.get("EnvironmentProfile", ())):
+            profiles.append(item)
+            continue
+        if not isinstance(item, dict) or not str(item.get("name", "")).strip():
+            continue
+        variables = item.get("variables", {})
+        if isinstance(variables, dict):
+            variables = tuple((str(k), str(v)) for k, v in variables.items())
+        else:
+            variables = tuple((str(pair[0]), str(pair[1])) for pair in variables if isinstance(pair, (list, tuple)) and len(pair) == 2)
+        profiles.append(classes["EnvironmentProfile"](
+            name=str(item["name"]).strip(),
+            variables=variables,
+            path_prepend=tuple(str(value) for value in item.get("path_prepend", ()) if str(value)),
+            path_append=tuple(str(value) for value in item.get("path_append", ()) if str(value)),
+        ))
+    raw_bindings = environment_values.get("bindings", ())
+    bindings = []
+    for item in raw_bindings if isinstance(raw_bindings, (list, tuple)) else ():
+        if isinstance(item, classes.get("RuntimeEnvironmentBinding", ())):
+            bindings.append(item)
+            continue
+        if not isinstance(item, dict) or not str(item.get("selector", "")).strip() or not str(item.get("profile", "")).strip():
+            continue
+        bindings.append(classes["RuntimeEnvironmentBinding"](
+            selector=str(item["selector"]).strip(),
+            profile=str(item["profile"]).strip(),
+            mode=str(item.get("mode", "merge")).strip().lower() or "merge",
+        ))
+    environment_values["profiles"] = tuple(profiles)
+    environment_values["bindings"] = tuple(bindings)
+    shell_values["environment"] = classes["EnvironmentPolicy"](**environment_values)
     shell = classes["ShellPolicy"](**shell_values)
 
     capability_advertisement = classes["CapabilityAdvertisementPolicy"](**merged.get("capability_advertisement", {}))

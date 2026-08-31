@@ -9,14 +9,17 @@ keywords: tooling, implementation, active, compatibility, shell, windows, path
 
 ## Current Reality
 
-The first implementation pass is landed, but one Windows tool-resolution seam
-is still open and the result still needs verification on a real Windows box.
+The environment-policy implementation pass is landed, but the result still
+needs verification on a real Windows box.
 
 - The shared shell launcher now prefers `bash -lc` instead of `bash -ic` for
   Windows non-TTY subprocess execution.
-- Windows shell subprocess environment shaping currently derives `PATH` entries
-  from the selected shell executable, but local operator evidence shows this
-  can manufacture paths for native runtimes and resolve tools incorrectly.
+- The shared subprocess boundary now resolves bare outer executables through the
+  effective PATH before process creation, avoiding Windows `CreateProcess`
+  lookup surprises.
+- Explicit environment profiles can now select `inherit`, `replace`, or
+  `merge`, with runtime-family and exact-runtime bindings and deduplicated PATH
+  prepend/append composition.
 - The legacy launcher duplication in `src/toas/tools.py` has been collapsed
   onto the shared shell launcher.
 - The remaining uncertainty is now narrower: we need both a code-level fix for
@@ -67,8 +70,8 @@ levels, so profile lists or profile inheritance are deferred.
   user-shell execution.
 - `src/toas/tools.py` now delegates `_shell_launcher_argv(...)` to the shared
   cluster implementation used by user-shell execution.
-- Regression coverage now expects `bash -lc` on Windows launcher paths and
-  asserts Windows `PATH` seeding from the selected shell executable.
+- Regression coverage expects `bash -lc` on Windows launcher paths and asserts
+  that default normalization does not seed PATH from the selected executable.
 
 ## Decisions
 
@@ -109,11 +112,14 @@ levels, so profile lists or profile inheritance are deferred.
 - 2026-08-30: Began the implementation slice by removing implicit
   child-executable `PATH` shaping and adding a runtime matrix proving that
   Bash, `cmd.exe`, PowerShell, and Python preserve the host path.
+- 2026-08-30: Implemented the explicit environment-policy seam. Bare outer
+  executables are resolved through the effective PATH before subprocess launch;
+  configured profiles support inherit/replace/merge, exact bindings take
+  precedence over family bindings, and PATH prepend/append composition is
+  deduplicated with case-insensitive comparison on Windows.
 
 ## Next Actions
 
-- Implement explicit environment/profile configuration for intentional MSYS or
-  runtime-specific path composition.
 - Verify the launcher and command-resolution behavior on a real Windows host.
 - Confirm that `find` resolves to the intended MSYS/Git-Bash binary in the
   bound stdio TOAS process, not just in isolated tests.

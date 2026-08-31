@@ -5,6 +5,15 @@ from pathlib import Path
 
 import pytest
 
+from toas.runtime.environment_policy import (
+    EnvironmentPolicy,
+    EnvironmentProfile,
+    RuntimeEnvironmentBinding,
+    active_environment_policy,
+    apply_environment_policy,
+    current_environment_policy,
+    resolve_executable,
+)
 from toas.tools_cluster.shell_ops import (
     _append_shell_diag,
     _normalize_windows_shell_env,
@@ -60,6 +69,75 @@ def test_normalize_windows_shell_env_is_noop_on_non_windows(monkeypatch):
     env = {"ONEDRIVE": "C:/one"}
     normalized = _normalize_windows_shell_env(dict(env))
     assert normalized == env
+
+
+def test_apply_environment_policy_resolves_outer_executable_and_composes_path(monkeypatch):
+    monkeypatch.setattr("toas.runtime.environment_policy.shutil.which", lambda name, path=None: f"/bin/{name}")
+    policy = EnvironmentPolicy(
+        profiles=(EnvironmentProfile("msys", path_prepend=("/msys/bin",), path_append=("/tail",)),),
+        bindings=(RuntimeEnvironmentBinding("family:bash", "msys"),),
+    )
+    argv, env = apply_environment_policy(
+        {"PATH": "/msys/bin:/host:/HOST:/tail"},
+        ["bash", "-lc", "echo hi"],
+        policy=policy,
+    )
+    assert argv == ["/bin/bash", "-lc", "echo hi"]
+    assert env["PATH"] == "/msys/bin:/host:/HOST:/tail"
+
+
+def test_environment_policy_context_restores_previous_policy():
+    assert current_environment_policy() is None
+    policy = EnvironmentPolicy(mode="merge")
+    with active_environment_policy(policy):
+        assert current_environment_policy() == policy
+    assert current_environment_policy() is None
+
+
+def test_resolve_executable_preserves_explicit_paths_and_unresolved_names(monkeypatch):
+    monkeypatch.setattr("toas.runtime.environment_policy.shutil.which", lambda name, path=None: None)
+    assert resolve_executable("./tool", env={}) == "./tool"
+    assert resolve_executable("missing", env={}) == "missing"
+
+
+def test_apply_environment_policy_prefers_exact_binding_and_supports_replace(monkeypatch):
+    monkeypatch.setattr(
+        "toas.runtime.environment_policy.shutil.which",
+        lambda name, path=None: "/opt/python.exe" if name == "python" else None,
+    )
+    policy = EnvironmentPolicy(
+        profiles=(
+            EnvironmentProfile("family", variables=(("FAMILY", "yes"),)),
+            EnvironmentProfile("exact", variables=(("EXACT", "yes"),), path_prepend=("/python",)),
+        ),
+        bindings=(
+            RuntimeEnvironmentBinding("family:python", "family"),
+            RuntimeEnvironmentBinding("exact:/opt/python.exe", "exact", mode="replace"),
+        ),
+    )
+    argv, env = apply_environment_policy({"PATH": "/host", "HOST": "yes"}, ["python", "-V"], policy=policy)
+    assert argv == ["/opt/python.exe", "-V"]
+    assert env == {"EXACT": "yes", "PATH": "/python"}
+
+
+def test_apply_environment_policy_deduplicates_windows_path_case_insensitively(monkeypatch):
+    monkeypatch.setattr("toas.runtime.environment_policy.os.name", "nt")
+    monkeypatch.setattr("toas.runtime.environment_policy.os.pathsep", ";")
+    policy = EnvironmentPolicy(
+        profiles=(EnvironmentProfile("windows", path_prepend=("C:/Git/bin",)),),
+        bindings=(RuntimeEnvironmentBinding("family:cmd", "windows"),),
+    )
+    _, env = apply_environment_policy(
+        {"PATH": "C:/git/bin;C:/Windows;C:/WINDOWS"},
+        ["cmd.exe"],
+        policy=policy,
+    )
+    assert env["PATH"] == "C:/Git/bin;C:/Windows"
+
+
+def test_apply_environment_policy_rejects_unknown_mode():
+    with pytest.raises(RuntimeError, match="invalid environment mode: bad"):
+        apply_environment_policy({"PATH": "/host"}, ["echo"], policy=EnvironmentPolicy(mode="bad"))
 
 
 @pytest.mark.parametrize(
