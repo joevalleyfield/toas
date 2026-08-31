@@ -85,13 +85,15 @@ def _is_inert_fence_start(marker: str) -> bool:
     return False
 
 
-def strip_inert_regions(content: str) -> str:
-    """Remove inert-marked regions from content before intent extraction."""
+def _retained_lines_with_offsets(content: str) -> list[tuple[str, int]]:
+    """Return retained lines with offsets into the original content."""
     depth = 0
     active_fence_ticks = 0
     nested_fence_depth = 0
-    out_lines: list[str] = []
-    for line in content.splitlines():
+    retained: list[tuple[str, int]] = []
+    offset = 0
+    for raw_line in content.splitlines(keepends=True):
+        line = raw_line.rstrip("\r\n")
         marker = line.strip()
         if active_fence_ticks > 0:
             match = re.match(r"^`+", marker)
@@ -101,26 +103,37 @@ def strip_inert_regions(content: str) -> str:
                         nested_fence_depth -= 1
                     else:
                         active_fence_ticks = 0
-                    continue
-                nested_fence_depth += 1
+                else:
+                    nested_fence_depth += 1
+                offset += len(raw_line)
                 continue
+            offset += len(raw_line)
             continue
         if _is_inert_fence_start(marker):
             match = re.match(r"^`+", marker)
             if match:
                 active_fence_ticks = len(match.group(0))
                 nested_fence_depth = 0
+                offset += len(raw_line)
                 continue
         if marker == _INERT_START:
             depth += 1
+            offset += len(raw_line)
             continue
         if marker == _INERT_END:
             if depth > 0:
                 depth -= 1
+            offset += len(raw_line)
             continue
         if depth == 0 and active_fence_ticks == 0:
-            out_lines.append(line)
-    return "\n".join(out_lines)
+            retained.append((line, offset))
+        offset += len(raw_line)
+    return retained
+
+
+def strip_inert_regions(content: str) -> str:
+    """Remove inert-marked regions while retaining filtered text semantics."""
+    return "\n".join(line for line, _offset in _retained_lines_with_offsets(content))
 
 
 def has_turn_header_inert_directive(content: str) -> bool:
@@ -181,28 +194,26 @@ def extract_user_tail_shell_command_with_status(content: str) -> tuple[str | Non
 
 
 def extract_user_shell_command_spans(content: str) -> list[tuple[str, bool, int]]:
-    lines = strip_inert_regions(content).splitlines(keepends=True)
+    retained = _retained_lines_with_offsets(content)
+    lines = [line for line, _offset in retained]
+    offsets = [offset for _line, offset in retained]
     if not lines:
         return []
     spans: list[tuple[str, bool, int]] = []
-    cursor = 0
     index = 0
     while index < len(lines):
-        raw = lines[index].rstrip("\r\n")
+        raw = lines[index]
         if not raw.startswith("$ "):
-            cursor += len(lines[index])
             index += 1
             continue
-        prompt_pos = cursor
-        remaining = [line.rstrip("\r\n") for line in lines[index:]]
+        prompt_pos = offsets[index]
+        remaining = lines[index:]
         span, complete = _collect_shell_command_span(remaining, 0)
         if span is None:
-            cursor += len(lines[index])
             index += 1
             continue
         spans.append(("\n".join(span), complete, prompt_pos))
         consumed = max(1, len(span))
-        cursor += sum(len(lines[index + offset]) for offset in range(consumed) if index + offset < len(lines))
         index += consumed
     return spans
 

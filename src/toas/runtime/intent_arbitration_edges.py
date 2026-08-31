@@ -6,6 +6,7 @@ import yaml
 
 from ..graph import normalize_tool_plan
 from ..shell_intent import (
+    _retained_lines_with_offsets,
     extract_user_shell_command_spans,
     shell_argv_from_command,
     strip_inert_regions,
@@ -24,31 +25,23 @@ _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 
 def _last_prefixed_line_position(content: str, *, prefix: str) -> int | None:
-    stripped = strip_inert_regions(content).rstrip()
-    if not stripped:
+    retained = _retained_lines_with_offsets(content)
+    if not retained:
         return None
-    cursor = 0
     last: int | None = None
-    for line in stripped.splitlines(keepends=True):
-        raw = line.rstrip("\r\n")
+    for raw, source_offset in retained:
         marker = raw.lstrip()
         if marker.startswith(prefix):
-            offset = len(raw) - len(marker)
-            last = cursor + offset
-        cursor += len(line)
+            last = source_offset + len(raw) - len(marker)
     return last
 
 
 def _prefixed_line_positions(content: str, *, prefix: str) -> list[int]:
-    stripped = strip_inert_regions(content).rstrip()
     positions: list[int] = []
-    cursor = 0
-    for line in stripped.splitlines(keepends=True):
-        raw = line.rstrip("\r\n")
+    for raw, source_offset in _retained_lines_with_offsets(content):
         marker = raw.lstrip()
         if marker.startswith(prefix):
-            positions.append(cursor + len(raw) - len(marker))
-        cursor += len(line)
+            positions.append(source_offset + len(raw) - len(marker))
     return positions
 
 

@@ -121,6 +121,15 @@ def test_extract_user_shell_command_spans_skips_blank_prompt_and_tracks_position
     ]
 
 
+def test_extract_user_shell_command_spans_positions_follow_original_result_text():
+    result = "```text toas-output kind=result source=tool.python_script potency=inert\n" + "x\n" + "```\n"
+    content = "## TOAS:USER\n\n## RESULT\n\n" + result + "\n$ find . -name \"README.md\"\n"
+
+    spans = extract_user_shell_command_spans(content)
+
+    assert spans == [("find . -name \"README.md\"", True, content.index("$ find"))]
+
+
 def test_scan_shell_line_tracks_quote_escape_transitions():
     state = _scan_shell_line('"a\\"b"', _ShellScanState())
     assert state.quote is None

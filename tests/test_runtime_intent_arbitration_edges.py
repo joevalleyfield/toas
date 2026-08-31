@@ -199,6 +199,32 @@ def test_select_user_intent_candidates_in_order_includes_multiple_shell_lines():
     assert out[2]["value"]["command"] == "echo two"
 
 
+def test_select_user_intent_candidates_keeps_shell_after_inert_result():
+    content = (
+        "## RESULT\n\n"
+        "[OK] python_script: exit=0\n"
+        "```text toas-output kind=stdout source=tool.python_script potency=inert\n"
+        "output\n"
+        "```\n\n"
+        "## TOAS:USER\n\n"
+        "$ find . -name \"README.md\"\n"
+    )
+
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=None,
+        shell_command='find . -name "README.md"',
+        shell_argv=["find", ".", "-name", "README.md"],
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert [item["kind"] for item in out] == ["shell"]
+    assert out[0]["value"]["command"] == 'find . -name "README.md"'
+    assert out[0]["position"] == content.index("$ find")
+
+
 def test_select_user_intent_candidates_ignores_quoted_yaml_block():
     content = (
         "> ```yaml\n"

@@ -221,7 +221,7 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more... ⚠️ Stale
 - **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination ⚠️ Stale
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
-- **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution ⚠️ Stale
+- **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures ⚠️ Stale
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening ⚠️ Stale
@@ -323,10 +323,10 @@ corollary follows the executable-fence scanner rather than preceding it.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260830-write-file-default-seed]** Add `write_file` to the effective core tool profile used by the default seed so the advertised editing capability and the model-visible default invent...
+- **[T260830-windows-test-session-path]** Make the CLI test setup work on Windows without requiring filesystem symlink support.
+- **[T260830-search-subprocess-output-guard]** Keep the search tool from turning an unusual subprocess result into an unhelpful `AttributeError` while preserving the existing search contract.
+- **[T260830-result-following-shell-position-fix]** Fix user `$` shell extraction when a command follows a projected inert result block in the same user turn.
 - **[T260830-replace-block-indentation]** Make the ordinary no-indent `replace_block` call robust when its YAML-decoded `search_block` has lost the leading indentation present in the file. Mat...
-- **[T260829-user-authority-profile-propagation]** - direct-user non-process actions no longer inherit assistant-only bounds;
-- **[T260829-structured-fence-toolset-provenance]** Give structured YAML/JSON callable fences a durable, extensible toolset imprint without changing the inert callable payload shape.
-- **[T260829-ruff-cleanup]** Restore clean Ruff and mypy results after the repository check reported import-formatting, style, unused-variable, and typing violations.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
