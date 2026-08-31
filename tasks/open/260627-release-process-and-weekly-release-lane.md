@@ -200,6 +200,10 @@ This task will be complete when:
   feature and fix slice passed the routine gate. Its release notes are at
   `docs/releases/0.0.2.0.md`, with the operational record at
   `tasks/recurring/runs/2026-08-17-release-review-weekly-tagged-lane.md`.
+- The fourth release review cut `0.0.3.0` on 2026-08-30 after the action-intent,
+  executable-fence, and transparent-compaction slice passed the routine gate.
+  Its release notes are at `docs/releases/0.0.3.0.md`, with the operational
+  record at `tasks/recurring/runs/2026-08-30-release-review-weekly-tagged-lane.md`.
 - Decide whether future changelog aggregation is worthwhile beyond individual
   release note files.
 - Determine whether future publishable artifacts should extend this lane or sit
