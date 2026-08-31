@@ -21,6 +21,7 @@ from toas.config import (
     valid_config_keys,
 )
 from toas.config_parsing import _field_default_for_key
+from toas.runtime.environment_policy import EnvironmentProfile, RuntimeEnvironmentBinding
 
 
 def test_default_config_fields():
@@ -672,6 +673,44 @@ def test_apply_overrides_handles_entry_instances_and_env_list_shape():
     assert b3.tags == ()
     assert result.shell.allowed_commands == ("echo", "rg")
     assert result.backend.managed_local.env == (("A", "1"), ("B", "2"))
+
+
+def test_apply_overrides_parses_environment_profiles_and_bindings():
+    profile = EnvironmentProfile(name="existing", variables=(("EXISTING", "yes"),))
+    binding = RuntimeEnvironmentBinding(selector="family:python", profile="existing")
+    result = apply_overrides(
+        OperatorConfig(),
+        {
+            "shell": {
+                "environment": {
+                    "mode": "merge",
+                    "profiles": [
+                        profile,
+                        {"name": "msys", "variables": [("MSYS", "yes"), ("PATH", "/msys")], "path_prepend": ["/usr/bin"]},
+                        {"name": "mapping", "variables": {"MAPPING": "yes"}},
+                        {"name": ""},
+                        "skip",
+                    ],
+                    "bindings": [
+                        binding,
+                        {"selector": "family:bash", "profile": "msys", "mode": "replace"},
+                        {"selector": "", "profile": "skip"},
+                        "skip",
+                    ],
+                }
+            }
+        },
+    )
+    assert result.shell.environment.mode == "merge"
+    assert result.shell.environment.profiles == (
+        profile,
+        EnvironmentProfile(name="msys", variables=(("MSYS", "yes"), ("PATH", "/msys")), path_prepend=("/usr/bin",)),
+        EnvironmentProfile(name="mapping", variables=(("MAPPING", "yes"),)),
+    )
+    assert result.shell.environment.bindings == (
+        binding,
+        RuntimeEnvironmentBinding(selector="family:bash", profile="msys", mode="replace"),
+    )
 
 
 def test_load_file_config_invalid_toml_returns_empty(tmp_path):

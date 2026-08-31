@@ -101,6 +101,7 @@ files = [
     "src/toas/bench.py",
     "src/toas/capability_prompts.py",
     "src/toas/config.py",
+    "src/toas/config_overrides.py",
     "src/toas/graph.py",
     "src/toas/llm.py",
     "src/toas/prompts.py",
@@ -117,6 +118,7 @@ files = [
     "src/toas/step.py",
     "src/toas/transcript.py",
     "src/toas/tools.py",
+    "src/toas/runtime/environment_policy.py",
 ]
 mypy_path = "src"
 explicit_package_bases = true
