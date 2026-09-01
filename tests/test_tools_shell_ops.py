@@ -478,6 +478,31 @@ def test_run_subprocess_streaming_branch(monkeypatch, tmp_path):
     assert out["stdout"] == "out"
 
 
+def test_run_subprocess_environment_overrides_preserve_inherited_path(monkeypatch, tmp_path):
+    from toas.tools_cluster.shell_ops import run_subprocess
+
+    inherited_path = "/caller/bin:/usr/local/bin:/usr/bin"
+    monkeypatch.setenv("PATH", inherited_path)
+    seen = {}
+
+    def _fake_run(*_args, **kwargs):
+        seen["env"] = kwargs["env"]
+        return subprocess.CompletedProcess(["echo"], 0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.subprocess.run", _fake_run)
+    result = run_subprocess(
+        ["echo", "ok"],
+        cwd=tmp_path,
+        timeout_s=1,
+        env={"TOAS_STREAM_STDOUT": "0"},
+        stream_stdout_override=False,
+    )
+
+    assert result["ok"] is True
+    assert seen["env"]["PATH"] == inherited_path
+    assert seen["env"]["TOAS_STREAM_STDOUT"] == "0"
+
+
 def test_probe_process_snapshot_returns_process_output(monkeypatch):
     monkeypatch.setattr(
         "toas.tools_cluster.shell_ops.subprocess.run",

@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-08-30
+> **Last Sync:** 2026-08-31
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -322,11 +322,11 @@ corollary follows the executable-fence scanner rather than preceding it.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260831-replace-block-empty-preview-anchor]** Status: closed
+- **[T260831-preserve-exec-fence-path]** Runtime executable fences must inherit the caller/runtime environment faithfully. A fence that receives environment overrides must not replace the cal...
 - **[T260830-write-file-default-seed]** Add `write_file` to the effective core tool profile used by the default seed so the advertised editing capability and the model-visible default invent...
 - **[T260830-windows-test-session-path]** Make the CLI test setup work on Windows without requiring filesystem symlink support.
 - **[T260830-search-subprocess-output-guard]** Keep the search tool from turning an unusual subprocess result into an unhelpful `AttributeError` while preserving the existing search contract.
-- **[T260830-result-following-shell-position-fix]** Fix user `$` shell extraction when a command follows a projected inert result block in the same user turn.
-- **[T260830-replace-block-indentation]** Make the ordinary no-indent `replace_block` call robust when its YAML-decoded `search_block` has lost the leading indentation present in the file. Mat...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

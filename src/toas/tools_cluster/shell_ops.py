@@ -134,10 +134,15 @@ def run_subprocess(
     tool_name: str = "shell",
 ) -> dict:
     requested_argv = list(argv)
-    effective_env = _normalize_windows_shell_env(
-        env if env is not None else dict(os.environ),
-        argv=argv,
-    )
+    # Callers commonly pass a small set of environment overrides (for
+    # example, the streaming flag).  Keep the process environment as the
+    # baseline so an override cannot accidentally drop PATH or other
+    # inherited variables.  The explicit environment-policy ``replace``
+    # mode remains responsible for intentionally starting from an empty env.
+    inherited_env = dict(os.environ)
+    if env is not None:
+        inherited_env.update(env)
+    effective_env = _normalize_windows_shell_env(inherited_env, argv=argv)
     argv, effective_env = apply_environment_policy(
         effective_env,
         argv,
