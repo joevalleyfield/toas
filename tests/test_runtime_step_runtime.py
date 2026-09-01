@@ -8,6 +8,7 @@ import pytest
 
 import toas.step as real_step_mod
 from toas.config import OperatorConfig, SessionPolicy, ShellPolicy, apply_overrides
+from toas.runtime import frontier_resolution as frontier_mod
 from toas.runtime.step_runtime import (
     _append_plan_frontier_results,
     _append_plan_recovery_consequence,
@@ -2519,6 +2520,47 @@ def test_append_plan_recovery_consequence_splits_failed_call_from_forward_plan()
     assert real_step_mod._extract_staged_plan(recovery["content"]) == [plan[2]]
 
 
+@pytest.mark.parametrize("failed_index", [0, 1, 2])
+def test_append_plan_recovery_preserves_original_source_for_each_failure_position(failed_index):
+    content = """```yaml
+- tool_name: echo # A comment
+  args:
+    text: "A"
+
+- tool_name: echo
+  args:
+    text: |
+      B line
+
+- tool_name: shell
+  args:
+    command: "rg --glob '[' src"
+```"""
+    plan = real_step_mod.extract_plan_with_status(content, yaml_position="tail")[0]
+    assert plan is not None
+    results = [
+        _result(str(index), payload={"tool_name": call["tool_name"], "ok": index != failed_index})
+        for index, call in enumerate(plan)
+    ]
+    consequences = list(results)
+
+    assert _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=plan,
+        results=results,
+        frontier_content=content,
+    ) is True
+
+    recovery = consequences[-1]["content"]
+    source = frontier_mod.extract_plan_source(content, plan=plan)
+    assert source is not None
+    assert source.operation_sources[failed_index].strip() in recovery
+    for tail_source in source.operation_sources[failed_index + 1 :]:
+        assert tail_source.strip() in recovery
+    assert "```yaml staged" in recovery if failed_index < len(plan) - 1 else "```yaml staged" not in recovery
+
+
 def test_append_plan_recovery_consequence_promotes_remainder_after_successful_retry():
     retry = {"tool_name": "echo", "args": {"text": "retry"}}
     remainder = [{"tool_name": "echo", "args": {"text": "later"}}]
@@ -2540,6 +2582,40 @@ def test_append_plan_recovery_consequence_promotes_remainder_after_successful_re
         "content": real_step_mod._render_plan_as_yaml_preview(remainder, projection_shape="yaml"),
         "provenance": {"source": "adopted"},
     }
+
+
+def test_append_plan_recovery_preserves_staged_source_after_failed_retry():
+    retry = {"tool_name": "echo", "args": {"text": "retry"}}
+    frontier_content = """Retry failed operation (edit directly, then step):
+
+```yaml
+- tool_name: echo # preserve retry
+  args:
+    text: "retry"
+```
+
+Remaining forward plan (staged; not yet executable):
+
+```yaml staged
+- tool_name: echo # preserve tail
+  args:
+    text: |
+      later
+```"""
+    results = [_result("failed", payload={"tool_name": "echo", "ok": False})]
+    consequences = list(results)
+
+    assert _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=[retry],
+        results=results,
+        frontier_content=frontier_content,
+    ) is True
+    recovery = consequences[-1]["content"]
+    assert "# preserve retry" in recovery
+    assert "# preserve tail" in recovery
+    assert "text: |" in recovery
 
 
 def test_append_plan_recovery_consequence_leaves_completed_nonzero_shell_result_final():

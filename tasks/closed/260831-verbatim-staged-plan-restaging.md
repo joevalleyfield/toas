@@ -74,21 +74,21 @@ staged continuation:        source slice for B, C
 
 ## Acceptance criteria
 
-- [ ] A first, middle, and final action failure each reproduce the failed YAML
+- [x] A first, middle, and final action failure each reproduce the failed YAML
   action from its original source rather than a reserialized object.
-- [ ] The unattempted suffix is reproduced from its original source, in order,
+- [x] The unattempted suffix is reproduced from its original source, in order,
   under `yaml staged`, with no key/schema translation or formatting rewrite.
-- [ ] Tests prove fidelity for comments, quoting, block scalar style, ordering
+- [x] Tests prove fidelity for comments, quoting, block scalar style, ordering
   or spacing, and blank-line-sensitive presentation where these occur within
   preserved spans.
-- [ ] An exact malformed-but-parseable command token visible in the original
+- [x] An exact malformed-but-parseable command token visible in the original
   failed action remains visible in the retry projection, so recovery evidence
   is not cosmetically repaired or obscured.
-- [ ] Retrying the failed action never rewrites or reserializes its staged tail;
+- [x] Retrying the failed action never rewrites or reserializes its staged tail;
   successful retry still exposes the original tail as the next frontier.
-- [ ] Existing first-failure recovery behavior and relevant `/heal
+- [x] Existing first-failure recovery behavior and relevant `/heal
   search_indent` coverage remain green.
-- [ ] Focused regression tests and the default suite pass.
+- [x] Focused regression tests and the default suite pass.
 
 ## Implementation latitude
 
@@ -107,3 +107,23 @@ guess boundaries solely from indentation without parser-backed checks.
 - A concise note naming the source-provenance seam chosen and why it preserves
   recovery output without changing execution authority.
 - Focused test command/result and default suite result.
+
+## Completion evidence
+
+- Source seam: `src/toas/runtime/frontier_resolution.py` composes the authored
+  YAML body and uses PyYAML sequence-node marks to derive parser-validated
+  operation spans. `step_runtime.py` passes those spans into recovery
+  rendering; parsed plans remain authoritative for validation and execution.
+- Before fixture: a fenced three-operation plan containing an inline comment,
+  quoted malformed-but-parseable shell token, and literal block scalar.
+- After fixture: first, middle, and final failure projections retain the
+  corresponding authored operation slice; the remaining slices stay under
+  `yaml staged`, and retry-to-tail promotion retains the same source.
+- Focused verification: `./.codex-local/bin/uvt run pytest
+  tests/test_step_frontier.py tests/test_runtime_step_runtime.py -q --no-cov`
+  — 140 passed.
+- Lint verification: `./.codex-local/bin/uvt run ruff check
+  src/toas/runtime/frontier_resolution.py src/toas/runtime/step_runtime.py
+  tests/test_step_frontier.py tests/test_runtime_step_runtime.py` — passed.
+- Default verification: `./.codex-local/bin/uvt run pytest -q` — 3059 passed,
+  9 deselected; 100% coverage gate reached.

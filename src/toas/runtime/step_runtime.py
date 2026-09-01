@@ -14,6 +14,7 @@ from ..transcript import (
 )
 from .action_plan import ActionPlan
 from .frontier_resolution import (
+    extract_plan_source,
     extract_staged_plan,
     render_plan_as_yaml_preview,
     render_plan_recovery,
@@ -855,20 +856,42 @@ def _append_plan_recovery_consequence(
     if failed_index is not None:
         if _is_completed_shell_result(results[failed_index]):
             return False
+        source = extract_plan_source(frontier_content, plan=plan)
+        if source is not None:
+            failed_source = source.operation_sources[failed_index]
+            remainder_source = "".join(source.operation_sources[failed_index + 1 :])
+        else:
+            failed_source = None
+            remainder_source = None
         remainder = staged_remainder if len(plan) == 1 and staged_remainder else plan[failed_index + 1 :]
+        if len(plan) == 1 and staged_remainder:
+            staged_source = extract_plan_source(frontier_content, plan=staged_remainder, staged=True)
+            remainder_source = (
+                "".join(staged_source.operation_sources) if staged_source is not None else remainder_source
+            )
         consequences.append(
             {
                 "role": "user",
-                "content": render_plan_recovery(plan[failed_index], remainder),
+                "content": render_plan_recovery(
+                    plan[failed_index],
+                    remainder,
+                    retry_source=failed_source,
+                    remainder_source=remainder_source,
+                ),
                 "provenance": {"source": "adopted"},
             }
         )
         return True
     if staged_remainder:
+        staged_source = extract_plan_source(frontier_content, plan=staged_remainder, staged=True)
         consequences.append(
             {
                 "role": "user",
-                "content": render_plan_as_yaml_preview(staged_remainder, projection_shape="yaml"),
+                "content": (
+                    f"```yaml\n{''.join(staged_source.operation_sources).strip()}\n```"
+                    if staged_source is not None
+                    else render_plan_as_yaml_preview(staged_remainder, projection_shape="yaml")
+                ),
                 "provenance": {"source": "adopted"},
             }
         )

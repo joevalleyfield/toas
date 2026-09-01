@@ -1,5 +1,6 @@
 import re
 import shlex
+from dataclasses import dataclass
 
 import yaml
 
@@ -13,6 +14,48 @@ from ..shell_intent import (
 from ..tools import validate_call
 
 _STAGED_PLAN_RE = re.compile(r"```yaml staged\s*\n(.*?)\n```", re.DOTALL)
+_YAML_PLAN_RE = re.compile(r"```yaml(?: staged)?\s*\n(.*?)\n```", re.DOTALL)
+
+
+@dataclass(frozen=True)
+class PlanSource:
+    """Normalized plan plus the authored source span for each operation."""
+
+    plan: list[dict]
+    operation_sources: tuple[str, ...]
+
+
+def _source_operation_spans(body: str, parsed: object, plan: list[dict]) -> tuple[str, ...] | None:
+    if isinstance(parsed, list):
+        node = yaml.compose(body)
+        if not isinstance(node, yaml.SequenceNode) or len(node.value) != len(plan):
+            return None
+        starts = []
+        for item in node.value:
+            start = item.start_mark.index
+            starts.append(body.rfind("\n", 0, start) + 1)
+        return tuple(body[start:end] for start, end in zip(starts, starts[1:] + [len(body)], strict=True))
+    return (body,)
+
+
+def extract_plan_source(content: str, *, plan: list[dict], staged: bool = False) -> PlanSource | None:
+    """Find *plan* in a YAML fence and retain parser-validated authored spans."""
+    for match in _YAML_PLAN_RE.finditer(content):
+        is_staged = content[match.start() : match.start() + 14].startswith("```yaml staged")
+        if is_staged != staged:
+            continue
+        body = match.group(1)
+        try:
+            parsed = yaml.safe_load(body)
+            normalized, error = normalize_tool_plan(parsed)
+            if error is not None or normalized != plan:
+                continue
+            spans = _source_operation_spans(body, parsed, normalized)
+        except yaml.YAMLError:
+            continue
+        if spans is not None:
+            return PlanSource(plan=normalized, operation_sources=spans)
+    return None
 
 
 def render_loose_command_preview(command: str) -> str:
@@ -31,11 +74,19 @@ def render_plan_as_yaml_preview(
     return render_plan_preview(plan, verbose=verbose, projection_shape=projection_shape)
 
 
-def render_plan_recovery(retry: dict, remainder: list[dict]) -> str:
-    retry_yaml = yaml.safe_dump([retry], sort_keys=False).strip()
+def render_plan_recovery(
+    retry: dict,
+    remainder: list[dict],
+    *,
+    retry_source: str | None = None,
+    remainder_source: str | None = None,
+) -> str:
+    retry_yaml = (retry_source if retry_source is not None else yaml.safe_dump([retry], sort_keys=False)).strip()
     sections = ["Retry failed operation (edit directly, then step):", f"```yaml\n{retry_yaml}\n```"]
     if remainder:
-        remainder_yaml = yaml.safe_dump(remainder, sort_keys=False).strip()
+        remainder_yaml = (
+            remainder_source if remainder_source is not None else yaml.safe_dump(remainder, sort_keys=False)
+        ).strip()
         sections.extend(
             [
                 "Remaining forward plan (staged; not yet executable):",

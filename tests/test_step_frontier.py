@@ -1,4 +1,6 @@
 
+import yaml
+
 from toas.runtime import frontier_resolution as step_frontier
 
 
@@ -43,6 +45,59 @@ def test_plan_recovery_projection_without_remainder_is_still_directly_editable()
 
 def test_extract_staged_plan_rejects_malformed_yaml():
     assert step_frontier.extract_staged_plan("```yaml staged\n- [\n```") == []
+
+
+def test_extract_plan_source_handles_mapping_and_rejects_invalid_or_mismatched_blocks():
+    mapping = "```yaml\ntool_name: echo\nargs:\n  text: hi\n```"
+    plan = step_frontier.extract_plan_source(
+        mapping,
+        plan=[{"tool_name": "echo", "args": {"text": "hi"}}],
+    )
+    assert plan is not None
+    assert plan.operation_sources == ("tool_name: echo\nargs:\n  text: hi",)
+    assert step_frontier.extract_plan_source(mapping, plan=[]) is None
+    assert step_frontier.extract_plan_source("```yaml\n- [\n```", plan=[]) is None
+
+
+def test_source_operation_spans_rejects_non_sequence_node_with_list_plan(monkeypatch):
+    scalar = yaml.compose("value")
+    monkeypatch.setattr(step_frontier.yaml, "compose", lambda _body: scalar)
+    assert step_frontier._source_operation_spans("value", [], []) is None
+
+
+def test_plan_recovery_preserves_authored_operation_spans():
+    content = """```yaml
+# authored plan header
+- tool_name: shell # keep this comment
+  args:
+    command: "rg --glob '[' src"  # malformed-but-parseable token
+
+- tool_name: echo
+  args:
+    text: |
+      line one
+      line two
+```"""
+    plan = step_frontier.extract_plan_source(
+        content,
+        plan=[
+            {"tool_name": "shell", "args": {"argv": ["rg", "--glob", "[", "src"], "command": "rg --glob '[' src"}},
+            {"tool_name": "echo", "args": {"text": "line one\nline two"}},
+        ],
+    )
+
+    assert plan is not None
+    rendered = step_frontier.render_plan_recovery(
+        plan.plan[0],
+        plan.plan[1:],
+        retry_source=plan.operation_sources[0],
+        remainder_source="".join(plan.operation_sources[1:]),
+    )
+    assert '# keep this comment' in rendered
+    assert 'command: "rg --glob \'[\' src"' in rendered
+    assert "text: |" in rendered
+    assert "      line two" in rendered
+    assert rendered.index("command:") < rendered.index("text:")
 
 
 def test_render_plan_as_yaml_preview_compacts_shell_default_and_keeps_verbose_option():
