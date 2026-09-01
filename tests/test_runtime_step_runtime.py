@@ -1525,6 +1525,52 @@ def test_step_runtime_helper_execute_frontier_consequences_user_respects_text_or
     ]
 
 
+def test_source_reference_recovery_stops_later_in_order_commands():
+    calls: list[str] = []
+
+    def execute_operator(command, *_args, **_kwargs):
+        calls.append(command)
+        if command == "run":
+            return [
+                {
+                    "role": "user",
+                    "content": "retry",
+                        "provenance": {"source": "adopted", "source_reference": {"selectors": ["p1"]}},
+                        "recovery_transition": "frontier",
+                }
+            ]
+        return [_result("must not run", origin_kind="slash_command")]
+
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: ("help", []),
+        extract_operator_commands=lambda _content: [("run", []), ("help", [])],
+        _extract_user_shell_command=lambda _content: None,
+        _extract_user_shell_argv=lambda _cmd: None,
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_operator_command=execute_operator,
+    )
+    consequences, _ = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "user", "content": "/run\n/help"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=None,
+    )
+    assert calls == ["run"]
+    assert consequences[0]["recovery_transition"] == "frontier"
+
+
 def test_user_dollar_command_sequence_continues_after_nonzero_result():
     calls: list[str] = []
 

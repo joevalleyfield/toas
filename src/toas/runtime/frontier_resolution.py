@@ -80,10 +80,13 @@ def render_plan_recovery(
     *,
     retry_source: str | None = None,
     remainder_source: str | None = None,
+    remainder_reference: str | None = None,
 ) -> str:
     retry_yaml = (retry_source if retry_source is not None else yaml.safe_dump([retry], sort_keys=False)).strip()
     sections = ["Retry failed operation (edit directly, then step):", f"```yaml\n{retry_yaml}\n```"]
-    if remainder:
+    if remainder_reference is not None:
+        sections.extend(["Remaining referenced assistant source (bounded):", remainder_reference])
+    elif remainder:
         remainder_yaml = (
             remainder_source if remainder_source is not None else yaml.safe_dump(remainder, sort_keys=False)
         ).strip()

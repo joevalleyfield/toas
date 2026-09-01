@@ -242,7 +242,6 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered...
 - **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations
-- **[T260901-source-reference-recovery-integration]** Integrate Source References With Frontier Recovery
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -325,11 +324,11 @@ corollary follows the executable-fence scanner rather than preceding it.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260901-source-reference-recovery-integration]** Integrate Source References With Frontier Recovery
 - **[T260831-verbatim-staged-plan-restaging]** Preserve Verbatim YAML During Failed-Plan Restaging
 - **[T260831-replace-block-empty-preview-anchor]** Status: closed
 - **[T260831-preserve-exec-fence-path]** Runtime executable fences must inherit the caller/runtime environment faithfully. A fence that receives environment overrides must not replace the cal...
 - **[T260830-write-file-default-seed]** Add `write_file` to the effective core tool profile used by the default seed so the advertised editing capability and the model-visible default invent...
-- **[T260830-windows-test-session-path]** Make the CLI test setup work on Windows without requiring filesystem symlink support.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

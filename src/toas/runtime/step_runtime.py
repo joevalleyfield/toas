@@ -850,6 +850,9 @@ def _append_plan_recovery_consequence(
     plan: list[dict],
     results: list[dict],
     frontier_content: str,
+    retry_source: str | None = None,
+    remainder_reference: str | None = None,
+    recovery_provenance: dict | None = None,
 ) -> bool:
     failed_index = _failed_result_index(results)
     staged_remainder = extract_staged_plan(frontier_content)
@@ -875,10 +878,12 @@ def _append_plan_recovery_consequence(
                 "content": render_plan_recovery(
                     plan[failed_index],
                     remainder,
-                    retry_source=failed_source,
+                    retry_source=retry_source if retry_source is not None else failed_source,
                     remainder_source=remainder_source,
+                    remainder_reference=remainder_reference,
                 ),
-                "provenance": {"source": "adopted"},
+                "provenance": {"source": "adopted", **(recovery_provenance or {})},
+                "recovery_transition": "frontier",
             }
         )
         return True
@@ -1070,6 +1075,11 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
                 live_config = getattr(execute, "__dict__", {}).get("_toas_live_config")
                 if isinstance(live_config, list):
                     live_config[0] = config
+        if any(
+            isinstance(node, dict) and node.get("recovery_transition") == "frontier"
+            for node in consequences[consequence_start:]
+        ):
+            break
     return _handle_user_generation_fallback(
         step_mod=step_mod,
         frontier=frontier,

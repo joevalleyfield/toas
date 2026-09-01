@@ -7,7 +7,13 @@ import pytest
 from toas.config import OperatorConfig
 from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_commands import execute_operator_command
-from toas.runtime.source_reference_operations import handle_source_reference_commands
+from toas.runtime.source_reference_operations import (
+    SourceSelection,
+    _retry_source,
+    _selected_source_for_index,
+    _tail_selector_for_failure,
+    handle_source_reference_commands,
+)
 
 
 def _ctx(working):
@@ -135,6 +141,117 @@ def test_run_executes_selected_source_in_assistant_lane():
     assert out[0]["source_reference"]["selectors"] == ["p2.o1"]
 
 
+def test_failed_run_projects_direct_retry_and_bounded_reference_tail():
+    class FailingStep(_Step):
+        @staticmethod
+        def _execute_plan(plan, **_kwargs):
+            return [
+                {"role": "result", "content": "ok", "payload": {"ok": True}},
+                {
+                    "role": "result",
+                    "content": "failed",
+                    "payload": {"tool_name": "echo", "ok": False, "error": "boom"},
+                },
+            ]
+
+    out = handle_source_reference_commands(
+        "run",
+        [],
+        step_mod=FailingStep,
+        context=_ctx(
+            [
+                {
+                    "role": "assistant",
+                    "id": "a1",
+                    "content": (
+                        "```yaml\n- tool_name: echo\n  args:\n    text: one\n```\n"
+                        "```yaml\n- tool_name: echo\n  args:\n    text: two\n- tool_name: echo\n  args:\n    text: three\n```"
+                    ),
+                },
+                {"role": "user", "content": "/run"},
+            ]
+        ),
+    )
+    recovery = out[-1]
+    assert recovery["role"] == "user"
+    assert "timeout_s: 5" in recovery["content"]
+    assert "Remaining referenced assistant source (bounded):\n\n/run p2.o2.." in recovery["content"]
+    assert recovery["provenance"]["source"] == "adopted"
+    assert recovery["provenance"]["source_reference"]["selectors"] == ["p1..", "p2.."]
+    assert recovery["recovery_transition"] == "frontier"
+
+
+def test_failed_final_operation_of_one_plan_references_the_next_plan():
+    class FirstFailureStep(_Step):
+        @staticmethod
+        def _execute_plan(plan, **_kwargs):
+            return [{"role": "result", "content": "failed", "payload": {"ok": False}}]
+
+    out = handle_source_reference_commands(
+        "run",
+        [],
+        step_mod=FirstFailureStep,
+        context=_ctx([{"role": "assistant", "content": "source"}, {"role": "user", "content": "/run"}]),
+    )
+    assert "/run p2.." in out[-1]["content"]
+
+
+def test_tail_selector_returns_none_for_unmatched_failure_position():
+    assert _tail_selector_for_failure(selections=[], failed_index=0) is None
+    selection = SourceSelection(
+        plan=[{"tool_name": "echo", "args": {}}],
+        selector="p1",
+        source_plan_start=1,
+        source_operation_start=1,
+        source_operation_end=1,
+    )
+    assert _tail_selector_for_failure(selections=[selection], failed_index=0) is None
+
+
+def test_retry_source_preserves_existing_timeout_and_handles_missing_args():
+    assert _retry_source("# authored\n- tool_name: echo\n  args:\n    timeout_s: 2\n", 9).endswith("timeout_s: 2\n")
+    assert "timeout_s: 9" in _retry_source("- tool_name: echo\n", 9)
+    assert "timeout_s: 9" in _retry_source("- tool_name: echo\n  args: {}\n", 9)
+    assert _retry_source("", 9) is None
+
+
+def test_selected_source_for_index_returns_none_outside_selected_sequence():
+    selection = SourceSelection(
+        plan=[{"tool_name": "echo", "args": {}}],
+        selector="p1",
+        source_plan_start=1,
+        source_operation_start=1,
+        source_operation_end=1,
+        operation_sources=("authored",),
+    )
+    assert _selected_source_for_index(selections=[selection], index=1) is None
+
+
+def test_completed_shell_failure_does_not_create_reference_recovery():
+    class ShellFailureStep(_Step):
+        @staticmethod
+        def _select_assistant_plan_candidates(**_kwargs):
+            return [{"kind": "plan", "value": [{"tool_name": "shell", "args": {"argv": ["false"]}}]}]
+
+        @staticmethod
+        def _execute_plan(plan, **_kwargs):
+            return [
+                {
+                    "role": "result",
+                    "content": "exit=1",
+                    "payload": {"tool_name": "shell", "ok": False, "exit_code": 1},
+                }
+            ]
+
+    out = handle_source_reference_commands(
+        "run",
+        ["p1"],
+        step_mod=ShellFailureStep,
+        context=_ctx([{"role": "assistant", "content": "source"}, {"role": "user", "content": "/run p1"}]),
+    )
+    assert len(out) == 1
+
+
 def test_run_without_selector_executes_all_local_operations():
     out = handle_source_reference_commands(
         "run",
@@ -229,6 +346,38 @@ def test_operator_dispatch_reaches_source_reference_handler():
     )
     assert out[0]["content"] == "/run p1"
     assert out[0]["provenance"]["source"] == "assistant_reference"
+
+
+def test_real_dispatch_keeps_inert_blocks_out_of_coordinates_and_recovers_tail():
+    working = [
+        {
+            "role": "assistant",
+            "id": "a1",
+            "content": (
+                "[[inert]]\n"
+                "```yaml\n- tool_name: echo\n  args:\n    text: inert\n```\n"
+                "[[/inert]]\n"
+                "```yaml\n- tool_name: unknown_reference_tool\n  args: {}\n- tool_name: echo\n  args:\n    text: tail\n```"
+            ),
+        },
+        {"role": "user", "content": "/run p1"},
+    ]
+    out = execute_operator_command(
+        "run",
+        ["p1"],
+        execute=lambda _working, _plan: [],
+        events=[],
+        working=working,
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=[str(Path(".").resolve())],
+        config=OperatorConfig(),
+    )
+    assert out[-1]["role"] == "user"
+    assert "timeout_s: 5" in out[-1]["content"]
+    assert "Remaining referenced assistant source (bounded):\n\n/run p1.o2.." in out[-1]["content"]
 
 
 def test_empty_candidate_plan_is_not_selectable():

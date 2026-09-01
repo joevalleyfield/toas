@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .frontier_resolution import extract_plan_source
 from .intent_arbitration_edges import select_user_intent_candidates
 from .operator_command_context import OperatorCommandContext
 
@@ -20,6 +21,7 @@ class SourceSelection:
     source_plan_start: int
     source_operation_start: int
     source_operation_end: int
+    operation_sources: tuple[str, ...] = ()
 
 
 def _latest_assistant_message(working: list[dict]) -> tuple[dict, int]:
@@ -80,8 +82,9 @@ def resolve_source_selections(
     *, step_mod, context: OperatorCommandContext, args: list[str], command: str
 ) -> tuple[list[SourceSelection], dict]:
     source, source_index = _latest_assistant_message(context.working)
+    source_content = str(source.get("content", ""))
     plan_index, operation_index, tail = _parse_selector(args, command=command)
-    candidates = _assistant_candidates(step_mod=step_mod, content=str(source.get("content", "")), context=context)
+    candidates = _assistant_candidates(step_mod=step_mod, content=source_content, context=context)
     if not candidates:
         raise ValueError("latest assistant message has no addressable executable plans")
 
@@ -98,6 +101,8 @@ def resolve_source_selections(
         plan = list(candidate["value"])
         if not plan:
             continue
+        source_plan = extract_plan_source(source_content, plan=plan)
+        operation_sources = source_plan.operation_sources if source_plan is not None else tuple("" for _ in plan)
         if operation_index is None:
             operation_start = 1
             operation_end = len(plan)
@@ -115,6 +120,7 @@ def resolve_source_selections(
                 source_plan_start=candidate_number,
                 source_operation_start=operation_start,
                 source_operation_end=operation_end,
+                operation_sources=operation_sources[operation_start - 1 : operation_end],
             )
         )
 
@@ -132,6 +138,7 @@ def resolve_source_selections(
                         source_plan_start=candidate_number,
                         source_operation_start=1,
                         source_operation_end=len(plan),
+                        operation_sources=operation_sources,
                     )
                 )
 
@@ -187,7 +194,95 @@ def _run(*, selections: list[SourceSelection], provenance: dict, step_mod, conte
     for node in nodes:
         if isinstance(node, dict):
             node["source_reference"] = provenance
+    from .step_runtime import _append_plan_recovery_consequence
+
+    failed_index = _failed_index(nodes)
+    retry_source = (
+        _selected_source_for_index(selections=selections, index=failed_index)
+        if failed_index is not None
+        else None
+    )
+    _append_plan_recovery_consequence(
+        step_mod=step_mod,
+        consequences=nodes,
+        plan=plan,
+        results=nodes,
+        frontier_content="",
+        retry_source=(
+            _retry_source(retry_source, context.config.shell.assistant_timeout_s)
+            if retry_source is not None and failed_index is not None
+            else None
+        ),
+        remainder_reference=_tail_reference(selections=selections, results=nodes),
+        recovery_provenance={"source_reference": provenance},
+    )
     return nodes
+
+
+def _completed_shell_failure(node: dict) -> bool:
+    payload = node.get("payload")
+    return (
+        isinstance(payload, dict)
+        and payload.get("tool_name") in {"shell", "shell_script"}
+        and type(payload.get("exit_code")) is int
+    )
+
+
+def _tail_selector_for_failure(*, selections: list[SourceSelection], failed_index: int) -> str | None:
+    position = 0
+    for selection_index, selection in enumerate(selections):
+        selection_end = position + len(selection.plan)
+        if failed_index < selection_end:
+            offset = failed_index - position
+            next_operation = selection.source_operation_start + offset + 1
+            if next_operation <= selection.source_operation_end:
+                return f"p{selection.source_plan_start}.o{next_operation}.."
+            next_selection = selections[selection_index + 1 :]
+            if next_selection:
+                return f"p{next_selection[0].source_plan_start}.."
+            return None
+        position = selection_end
+    return None
+
+
+def _retry_source(source: str, timeout_s: int) -> str | None:
+    if not source:
+        return None
+    if "timeout_s:" in source:
+        return source
+    args_match = re.search(r"(?m)^(\s*)args:\s*(\{\})?\s*$", source)
+    if args_match is not None:
+        indent = args_match.group(1)
+        replacement = f"{indent}args:\n{indent}  timeout_s: {timeout_s}"
+        return source[: args_match.start()] + replacement + source[args_match.end() :]
+    return source.rstrip() + f"\n  args:\n    timeout_s: {timeout_s}\n"
+
+
+def _failed_index(nodes: list[dict]) -> int | None:
+    for index, node in enumerate(nodes):
+        payload = node.get("payload") if isinstance(node, dict) else None
+        if isinstance(payload, dict) and payload.get("ok") is False:
+            return index
+    return None
+
+
+def _selected_source_for_index(*, selections: list[SourceSelection], index: int) -> str | None:
+    position = 0
+    for selection in selections:
+        end = position + len(selection.plan)
+        if index < end:
+            source_index = index - position
+            return selection.operation_sources[source_index] or None
+        position = end
+    return None
+
+
+def _tail_reference(*, selections: list[SourceSelection], results: list[dict]) -> str | None:
+    failed_index = _failed_index(results)
+    if failed_index is None or _completed_shell_failure(results[failed_index]):
+        return None
+    selector = _tail_selector_for_failure(selections=selections, failed_index=failed_index)
+    return f"/run {selector}" if selector is not None else None
 
 
 def handle_source_reference_commands(

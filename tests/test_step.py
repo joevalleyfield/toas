@@ -1319,11 +1319,12 @@ please run this
             "provenance": {"source": "user_authored"},
         },
         _tool_result("[ERROR] missing: unknown tool: missing", payload={"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing", "failure_kind": "validation", "outcome": "failed"}),
-        {
-            "role": "user",
-            "content": "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: missing\n  args: {}\n```",
-            "provenance": {"source": "adopted"},
-        },
+            {
+                "role": "user",
+                "content": "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: missing\n  args: {}\n```",
+                "provenance": {"source": "adopted"},
+                "recovery_transition": "frontier",
+            },
     ]
     assert out == new_nodes[1:]
 
@@ -1357,11 +1358,12 @@ please run this
             "provenance": {"source": "user_authored"},
         },
         _tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text", "failure_kind": "validation", "outcome": "failed"}),
-        {
-            "role": "user",
-            "content": "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: echo\n  args: {}\n```",
-            "provenance": {"source": "adopted"},
-        },
+            {
+                "role": "user",
+                "content": "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: echo\n  args: {}\n```",
+                "provenance": {"source": "adopted"},
+                "recovery_transition": "frontier",
+            },
     ]
     assert out == new_nodes[1:]
 
