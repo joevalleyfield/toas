@@ -248,3 +248,12 @@ or recovery model.
 
 Follow-on implementation tasks should own one bounded seam each and preserve
 the original source/projection/authority distinctions above.
+
+## Follow-on disposition
+
+- `260901-source-reference-recovery-integration` is the one ready next slice:
+  real transcript fixtures, mixed `in_order` integration, and identical
+  recovery for reached references.
+- Loud `stage --verbose` materialization remains intentionally deferred until
+  its projection shape is useful enough to decide. It does not yet merit a
+  separate implementation task.
