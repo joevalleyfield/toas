@@ -243,7 +243,14 @@ def run_replace_block(args: dict) -> dict:
     changed_line_start = None
     changed_line_end = None
     preview = None
-    replacement_pos = updated.find(effective_replacement)
+    # An empty replacement has no text to search for.  Use the first matched
+    # block's start, which is also its post-edit position because it is the
+    # first match and everything before it is unchanged.
+    replacement_pos = (
+        updated.find(effective_replacement)
+        if effective_replacement
+        else matches[0].start()
+    )
     if replacement_pos >= 0:
         changed_line_start = updated.count("\n", 0, replacement_pos) + 1
         replacement_lines = max(1, len(effective_replacement.splitlines()))

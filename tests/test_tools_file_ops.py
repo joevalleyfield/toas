@@ -411,7 +411,7 @@ def test_run_replace_block_inference_rejects_relative_indent_drift(tmp_path, mon
 def test_run_replace_block_inferred_match_supports_empty_replacement(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     test_file = Path("test.py")
-    test_file.write_text("    first\n    second\nafter\n", encoding="utf-8")
+    test_file.write_text("before\n    first\n    second\nafter\n", encoding="utf-8")
 
     out = run_replace_block(
         {
@@ -422,7 +422,10 @@ def test_run_replace_block_inferred_match_supports_empty_replacement(tmp_path, m
     )
 
     assert out["ok"] is True
-    assert test_file.read_text(encoding="utf-8") == "after\n"
+    assert test_file.read_text(encoding="utf-8") == "before\nafter\n"
+    assert out["changed_line_start"] == 2
+    assert out["changed_line_end"] == 2
+    assert out["preview"] == "1: before\n2: after"
 
 
 def test_run_replace_block_infers_mixed_horizontal_prefix_and_tolerates_blank_lines(
