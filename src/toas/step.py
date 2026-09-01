@@ -101,6 +101,8 @@ SLASH_COMMANDS = [
     ("concept-graph", "/concept-graph",                          "append an LLM-generated concept graph to the transcript"),
     ("abridge",   "/abridge [--dry-run] [--threshold <n>]",     "mechanically collapse RESULT blocks above a character threshold"),
     ("extract",   "/extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN] | --coalesce [#cN]", "preview/adopt valid callable content, explicitly salvage malformed YAML literals, or coalesce adjacent YAML plans from the latest assistant message"),
+    ("run",        "/run [pN|pN..|pN.oM|pN.oM..]",            "run selected executable source from the latest assistant message under assistant policy"),
+    ("stage",      "/stage [pN|pN..|pN.oM|pN.oM..]",          "quietly stage a source reference for a later explicit run"),
     (
         "replay",
         "/replay [--dry-run] [--index <n|rN>] [--force] "

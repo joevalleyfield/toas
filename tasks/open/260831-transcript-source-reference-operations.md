@@ -205,6 +205,19 @@ the remaining part of that selected source range. There is no distinct
   identity before local transcript examples require them.
 - Broad redesign of all failure/recovery behavior in this task.
 
+## Implemented first slice
+
+- Added local `/run` and `/stage` operator commands for the latest prior
+  assistant message.
+- Added canonical source-ordered plan selection for whole plans, plan tails,
+  single operations, operation tails, and positive/negative coordinates.
+- Quiet staging now projects an explicit `/run` reference with source-message
+  and selector provenance; it does not copy source into user YAML or execute.
+- Referenced `/run` execution uses the assistant authority/policy lane and
+  records source-reference provenance on projected results.
+- The implementation intentionally leaves verbose materialization, finite
+  cross-plan ranges, aliases, and generated recovery disposition deferred.
+
 ## Elaboration questions
 
 - Should operation coordinates also allow negative tail indexing (`o-1`), or

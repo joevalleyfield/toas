@@ -7,6 +7,7 @@ from .operator_command_config_help import handle_config_help_commands
 from .operator_command_context import OperatorCommandContext
 from .operator_command_extract_replay import handle_extract_replay_commands
 from .operator_command_prompt_workspace import handle_prompt_workspace_commands
+from .source_reference_operations import handle_source_reference_commands
 
 
 def execute_operator_command(
@@ -46,6 +47,7 @@ def execute_operator_command(
     )
 
     handlers = (
+        handle_source_reference_commands,
         handle_prompt_workspace_commands,
         handle_extract_replay_commands,
         handle_config_help_commands,
