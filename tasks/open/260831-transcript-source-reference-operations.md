@@ -257,3 +257,7 @@ the original source/projection/authority distinctions above.
 - Loud `stage --verbose` materialization remains intentionally deferred until
   its projection shape is useful enough to decide. It does not yet merit a
   separate implementation task.
+- `260901-retry-materialization-adapters` follows the completed YAML recovery
+  slice with a representation-neutral source-preserving adapter boundary. It
+  covers executable language fences and other source forms only where their
+  visible timeout/constraint syntax is already established.
