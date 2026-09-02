@@ -242,6 +242,7 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered...
 - **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations
+- **[T260901-help-system-design-survey]** Describe the current TOAS help and discoverability surfaces in design/docs space, drawing on their existing behavior before proposing implementation s...
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
 <!-- WORKBOARD:NOW:END -->
 
