@@ -335,3 +335,37 @@ Batch result: ten collections complete with unresolved semantics and open
 divergence status; no implementation task is proposed yet. The next bounded
 step is a validator-oriented slice over these records, or a narrowly scoped
 design follow-on for human-help workflow links if product vocabulary is ready.
+
+## Thirty-seventh through forty-sixth collection passes
+
+Ten validator-oriented bounded collection runs are recorded under
+`docs/notes/help-corpus/2026-09-02-validator-parseability/` through
+`docs/notes/help-corpus/2026-09-02-validator-report-contract/`. They examine
+artifact parseability, source-ledger closure, candidate adjudication
+cardinality, subdivision coverage, accepted-item completeness, typed evidence,
+conflict/divergence handling, workflow-reference resolution, independent
+surface/audience/intent coverage, and the run-report/exit-code contract.
+
+All ten runs passed the manual collection gates: five declared sources per
+run, no pending/blocked/excluded sources, typed observations, adjudication for
+each candidate, typed evidence, and parseable control artifacts. They remain
+self-reviewed only and retain unresolved semantics/open divergence. A
+read-only PyYAML probe loaded all 180 pre-existing corpus YAML files without
+parse errors; this establishes structural parseability only and does not
+detect duplicate keys or semantic/reference errors.
+
+Lessons and light critique across this batch: the design note’s gates divide
+cleanly into structural closure and semantic review, and the distinction
+between ordinary open questions and conflicts is important for reporting.
+Workflow targets, parent/child subdivision, and surface/audience/intent
+coverage need typed references or explicit coverage sections before they can
+be checked reliably. The procedure’s five-source ledger continues to preserve
+provenance, but repeated ledgers are increasingly expensive when the same
+artifacts are sampled across validator slices. The proposed exit-code contract
+also needs precedence rules for runs that are structurally complete but have
+open divergence.
+
+Batch result: ten validator-oriented collections complete with unresolved
+semantics and open divergence status; no implementation task is proposed yet.
+The next step is synthesis into a narrow design follow-on or validator task
+only after product vocabulary and exit-status precedence are selected.

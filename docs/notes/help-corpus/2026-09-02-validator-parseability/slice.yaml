@@ -1,0 +1,10 @@
+slice: {id: validator-parseability, source_ids: [validator-parseability-s1, validator-parseability-s2, validator-parseability-s3, validator-parseability-s4, validator-parseability-s5], collector: codex, reviewer: self-review, purpose: test the pre-review artifact parsing gate, boundary: excludes semantic validation and prose quality, collection_state: reviewed, review_level: self, parent_slice: validator-orientation}
+observations:
+  - {id: obs-01, kind: documentation_claim, claim: "Parsing is a collection gate before review, not a semantic judgment.", evidence: [validator-parseability-s1]}
+  - {id: obs-02, kind: behavior_observation, claim: "All 180 currently enumerated corpus YAML files loaded without parse errors.", evidence: [validator-parseability-s2, validator-parseability-s4]}
+candidate_items:
+  - {provisional_identity: parseability-gate, adjudication: new_item, dimensions: {item: corpus artifact parseability gate, surface: [corpus artifact, runtime probe, documentation], audience: [maintainer, test/acceptance reader], intent: inspect}, identity: {canonical_name: corpus parseability gate, aliases: [], compatibility_forms: []}, content: {summary: reject malformed run artifacts before coverage review, when_to_use: before semantic review, invocation: validate(run_directory), examples: []}, behavior: {output_shape: machine-readable findings and exit status, state_effect: none, durability: none, authority: structural}, constraints: {policy: do not infer semantics from successful parsing, safety: malformed input must fail closed}, availability: {static_or_dynamic: static, runtime_dependencies: [YAML parser]}, disclosure: {role: diagnostic, next_topics: [source coverage]}, evidence: [obs-01, obs-02], collection_status: complete, semantic_status: unresolved, status: accepted}
+candidate_fields: [parser_mode, duplicate_key_policy]
+open_questions: ["Should duplicate YAML keys be a parse error or a separate exit-4 finding?"]
+lessons_learned: [Parseability is necessary but weak evidence of corpus validity]
+light_critique: [The current safe_load probe does not detect duplicate keys]
