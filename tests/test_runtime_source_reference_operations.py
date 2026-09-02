@@ -5,8 +5,11 @@ from pathlib import Path
 import pytest
 
 from toas.config import OperatorConfig
+from toas.runtime import source_reference_operations
+from toas.runtime.intent_arbitration_edges import select_user_intent_candidates
 from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_commands import execute_operator_command
+from toas.runtime.retry_materialization import RetryMaterialization
 from toas.runtime.source_reference_operations import (
     SourceSelection,
     _retry_source,
@@ -197,6 +200,72 @@ def test_failed_final_operation_of_one_plan_references_the_next_plan():
     assert "/run p2.." in out[-1]["content"]
 
 
+def test_failed_referenced_python_fence_preserves_fence_form_and_materializes_timeout():
+    class FailingFenceStep:
+        @staticmethod
+        def _select_assistant_plan_candidates(**kwargs):
+            return select_user_intent_candidates(
+                content=kwargs["content"],
+                plan=None,
+                operator_command=None,
+                shell_command=None,
+                shell_argv=None,
+                yaml_position="any",
+                arbitration_mode="in_order",
+                include_plan_candidates=True,
+                include_shell_candidates=False,
+            )
+
+        resolve_effective_env_modifiers = staticmethod(_Step.resolve_effective_env_modifiers)
+        resolve_effective_shell_allowed = staticmethod(_Step.resolve_effective_shell_allowed)
+        resolve_effective_shell_stream_stdout = staticmethod(_Step.resolve_effective_shell_stream_stdout)
+
+        @staticmethod
+        def _execute_plan(_plan, **_kwargs):
+            return [{"role": "result", "content": "failed", "payload": {"ok": False}}]
+
+    content = '```python exec runtime="uv run python"\nprint("hello")\n```'
+    out = handle_source_reference_commands(
+        "run",
+        [],
+        step_mod=FailingFenceStep,
+        context=_ctx([{"role": "assistant", "content": content}, {"role": "user", "content": "/run"}]),
+    )
+
+    recovery = out[-1]["content"]
+    assert '```python exec runtime="uv run python" timeout_s=5' in recovery
+    assert 'print("hello")' in recovery
+    assert "```yaml" not in recovery
+
+
+def test_failed_referenced_fence_surfaces_explicit_materialization_refusal(monkeypatch):
+    class FailingFenceStep:
+        _select_assistant_plan_candidates = staticmethod(
+            lambda **kwargs: select_user_intent_candidates(
+                content=kwargs["content"], plan=None, operator_command=None, shell_command=None, shell_argv=None,
+                yaml_position="any", arbitration_mode="in_order", include_plan_candidates=True, include_shell_candidates=False,
+            )
+        )
+        resolve_effective_env_modifiers = staticmethod(_Step.resolve_effective_env_modifiers)
+        resolve_effective_shell_allowed = staticmethod(_Step.resolve_effective_shell_allowed)
+        resolve_effective_shell_stream_stdout = staticmethod(_Step.resolve_effective_shell_stream_stdout)
+        _execute_plan = staticmethod(lambda _plan, **_kwargs: [{"role": "result", "content": "failed", "payload": {"ok": False}}])
+
+    monkeypatch.setattr(
+        source_reference_operations,
+        "materialize_executable_fence_timeout",
+        lambda **_kwargs: RetryMaterialization(None, "unsupported fence contract"),
+    )
+    out = handle_source_reference_commands(
+        "run",
+        [],
+        step_mod=FailingFenceStep,
+        context=_ctx([{"role": "assistant", "content": "```python exec\nprint(1)\n```"}, {"role": "user", "content": "/run"}]),
+    )
+
+    assert "Timeout could not be safely materialized: unsupported fence contract." in out[-1]["content"]
+
+
 def test_tail_selector_returns_none_for_unmatched_failure_position():
     assert _tail_selector_for_failure(selections=[], failed_index=0) is None
     selection = SourceSelection(
@@ -248,6 +317,7 @@ def test_selected_source_for_index_returns_none_outside_selected_sequence():
         operation_sources=("authored",),
     )
     assert _selected_source_for_index(selections=[selection], index=1) is None
+    assert source_reference_operations._selected_form_for_index(selections=[selection], index=1) is None
 
 
 def test_completed_shell_failure_does_not_create_reference_recovery():

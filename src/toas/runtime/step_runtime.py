@@ -851,6 +851,8 @@ def _append_plan_recovery_consequence(
     results: list[dict],
     frontier_content: str,
     retry_source: str | None = None,
+    retry_content: str | None = None,
+    retry_note: str | None = None,
     remainder_reference: str | None = None,
     recovery_provenance: dict | None = None,
 ) -> bool:
@@ -879,6 +881,8 @@ def _append_plan_recovery_consequence(
                     plan[failed_index],
                     remainder,
                     retry_source=retry_source if retry_source is not None else failed_source,
+                    retry_content=retry_content,
+                    retry_note=retry_note,
                     remainder_source=remainder_source,
                     remainder_reference=remainder_reference,
                 ),

@@ -5,9 +5,12 @@ import re
 from dataclasses import dataclass
 
 from ..tools import REGISTRY
+from .fence_activation import classify_fence_activation
 from .frontier_resolution import extract_plan_source
 from .intent_arbitration_edges import select_user_intent_candidates
+from .markdown_fence import scan_markdown_fences
 from .operator_command_context import OperatorCommandContext
+from .retry_materialization import materialize_executable_fence_timeout
 
 _SELECTOR_RE = re.compile(r"^p(?P<plan>-?[1-9][0-9]*)(?:\.o(?P<operation>-?[1-9][0-9]*))?(?P<tail>\.\.)?$")
 _USAGE = "usage: /run|/stage [pN|pN..|pN.oM|pN.oM..]"
@@ -23,6 +26,7 @@ class SourceSelection:
     source_operation_start: int
     source_operation_end: int
     operation_sources: tuple[str, ...] = ()
+    operation_forms: tuple[str, ...] = ()
 
 
 def _latest_assistant_message(working: list[dict]) -> tuple[dict, int]:
@@ -79,6 +83,19 @@ def _assistant_candidates(*, step_mod, content: str, context: OperatorCommandCon
     return [candidate for candidate in candidates if candidate.get("kind") == "plan"]
 
 
+def _candidate_operation_sources(*, content: str, candidate: dict, plan: list[dict]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    source_plan = extract_plan_source(content, plan=plan, source_position=candidate.get("position"))
+    if source_plan is not None:
+        return source_plan.operation_sources, tuple("yaml" for _ in plan)
+    position = candidate.get("position")
+    fence = next((item for item in scan_markdown_fences(content) if item.opening_offset == position), None)
+    if fence is not None and len(plan) == 1:
+        activation = classify_fence_activation(fence)
+        if activation.status == "active" and activation.language not in {"json", "yaml"}:
+            return (content[fence.opening_offset : fence.closing_line_end],), ("fence",)
+    return tuple("" for _ in plan), tuple("unknown" for _ in plan)
+
+
 def resolve_source_selections(
     *, step_mod, context: OperatorCommandContext, args: list[str], command: str
 ) -> tuple[list[SourceSelection], dict]:
@@ -102,12 +119,7 @@ def resolve_source_selections(
         plan = list(candidate["value"])
         if not plan:
             continue
-        source_plan = extract_plan_source(
-            source_content,
-            plan=plan,
-            source_position=candidate.get("position"),
-        )
-        operation_sources = source_plan.operation_sources if source_plan is not None else tuple("" for _ in plan)
+        operation_sources, operation_forms = _candidate_operation_sources(content=source_content, candidate=candidate, plan=plan)
         if operation_index is None:
             operation_start = 1
             operation_end = len(plan)
@@ -126,6 +138,7 @@ def resolve_source_selections(
                 source_operation_start=operation_start,
                 source_operation_end=operation_end,
                 operation_sources=operation_sources[operation_start - 1 : operation_end],
+                operation_forms=operation_forms[operation_start - 1 : operation_end],
             )
         )
 
@@ -136,13 +149,8 @@ def resolve_source_selections(
         for candidate_number in range(plan_start + 1, len(candidates) + 1):
             plan = list(candidates[candidate_number - 1]["value"])
             if plan:
-                source_plan = extract_plan_source(
-                    source_content,
-                    plan=plan,
-                    source_position=candidates[candidate_number - 1].get("position"),
-                )
-                operation_sources = (
-                    source_plan.operation_sources if source_plan is not None else tuple("" for _ in plan)
+                operation_sources, operation_forms = _candidate_operation_sources(
+                    content=source_content, candidate=candidates[candidate_number - 1], plan=plan
                 )
                 selections.append(
                     SourceSelection(
@@ -152,6 +160,7 @@ def resolve_source_selections(
                         source_operation_start=1,
                         source_operation_end=len(plan),
                         operation_sources=operation_sources,
+                        operation_forms=operation_forms,
                     )
                 )
 
@@ -215,6 +224,16 @@ def _run(*, selections: list[SourceSelection], provenance: dict, step_mod, conte
         if failed_index is not None
         else None
     )
+    retry_form = _selected_form_for_index(selections=selections, index=failed_index) if failed_index is not None else None
+    retry_content = None
+    retry_note = None
+    if retry_source is not None and retry_form == "fence":
+        materialization = materialize_executable_fence_timeout(
+            content=retry_source, opening_offset=0, timeout_s=context.config.shell.assistant_timeout_s
+        )
+        retry_content = materialization.content or retry_source
+        if materialization.reason is not None:
+            retry_note = f"Timeout could not be safely materialized: {materialization.reason}. Edit the source explicitly before stepping."
     _append_plan_recovery_consequence(
         step_mod=step_mod,
         consequences=nodes,
@@ -223,9 +242,11 @@ def _run(*, selections: list[SourceSelection], provenance: dict, step_mod, conte
         frontier_content="",
         retry_source=(
             _retry_source(retry_source, plan[failed_index], context.config.shell.assistant_timeout_s)
-            if retry_source is not None and failed_index is not None
+            if retry_source is not None and retry_form == "yaml" and failed_index is not None
             else None
         ),
+        retry_content=retry_content,
+        retry_note=retry_note,
         remainder_reference=_tail_reference(selections=selections, results=nodes),
         recovery_provenance={"source_reference": provenance},
     )
@@ -289,6 +310,17 @@ def _selected_source_for_index(*, selections: list[SourceSelection], index: int)
         if index < end:
             source_index = index - position
             return selection.operation_sources[source_index] or None
+        position = end
+    return None
+
+
+def _selected_form_for_index(*, selections: list[SourceSelection], index: int) -> str | None:
+    position = 0
+    for selection in selections:
+        end = position + len(selection.plan)
+        if index < end:
+            source_index = index - position
+            return selection.operation_forms[source_index] if source_index < len(selection.operation_forms) else None
         position = end
     return None
 

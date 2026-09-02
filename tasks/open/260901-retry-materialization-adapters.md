@@ -141,3 +141,10 @@ is an interchangeable recovery lingua franca.
   explicitly refuses inactive, malformed, duplicate, JSON, and YAML forms.
   Wiring the adapter into generic source-reference recovery remains the next
   slice of this task.
+- 2026-09-01: Wired the executable-fence adapter through the existing generic
+  source-reference recovery transition. A failed referenced executable fence
+  now projects the original fence with only the timeout header patch; it is
+  not converted into YAML. A materialization refusal leaves the authored fence
+  visible with an explicit instruction to edit its timeout before stepping.
+  JSON and YAML remain deliberately body-governed forms rather than receiving
+  a fence-header timeout projection.

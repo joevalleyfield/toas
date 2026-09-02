@@ -88,11 +88,17 @@ def render_plan_recovery(
     remainder: list[dict],
     *,
     retry_source: str | None = None,
+    retry_content: str | None = None,
+    retry_note: str | None = None,
     remainder_source: str | None = None,
     remainder_reference: str | None = None,
 ) -> str:
     retry_yaml = (retry_source if retry_source is not None else yaml.safe_dump([retry], sort_keys=False)).strip()
-    sections = ["Retry failed operation (edit directly, then step):", f"```yaml\n{retry_yaml}\n```"]
+    rendered_retry = retry_content.strip() if retry_content is not None else f"```yaml\n{retry_yaml}\n```"
+    sections = ["Retry failed operation (edit directly, then step):"]
+    if retry_note is not None:
+        sections.append(retry_note)
+    sections.append(rendered_retry)
     if remainder_reference is not None:
         sections.extend(["Remaining referenced assistant source (bounded):", remainder_reference])
     elif remainder:
