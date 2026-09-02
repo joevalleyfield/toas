@@ -1,0 +1,14 @@
+result:
+  collection_status: complete
+  semantic_status: unresolved
+  divergence_status: open
+  status: complete_with_divergence
+  review_level: self
+  source_counts: {declared: 6, reviewed: 6, pending: 0, blocked: 0, excluded: 0}
+  candidate_counts: {extracted: 2, adjudicated: 2, accepted: 1, related_or_partial: 1}
+  item_counts: {semantically_established: 2, unresolved: 0}
+  unresolved_questions: [whether capability_help should expose optional args/defaults/examples for every registered tool, whether prompt policy belongs in focused tool help or remains profile-specific, whether core is a priority label or only a visibility profile]
+  unresolved_conflicts: [capture-detail-drift]
+  excluded_sources: []
+  schema_changes: [added explicit surface-specific detail levels, added profile-conditioned availability and hidden-tool observations, added policy as separate prompt content rather than callable shape]
+  next_run_scope: Examine one prompt asset and one projection to test item identity, intent, and disclosure role, as prescribed by the design note.

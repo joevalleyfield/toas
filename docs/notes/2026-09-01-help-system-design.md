@@ -298,6 +298,12 @@ entries. Its purpose is to prevent premature flattening. In particular,
 aliases, examples, evidence, and relationships may each need their own shape;
 they should not automatically become string-valued columns.
 
+When a dimension has multiple values, the collection must represent that
+multiplicity structurally—using a sequence or nested object—not by joining
+values with semicolons or embedding a second classification in prose. The
+four dimensions remain separate even when one item is exposed on several
+surfaces or serves more than one audience.
+
 The first real collection pass should therefore gather a few representative
 items as nested objects, test whether the four dimensions stay independent,
 and only then decide which subordinate structures are genuinely needed.

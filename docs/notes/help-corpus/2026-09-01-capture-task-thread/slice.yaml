@@ -1,0 +1,87 @@
+slice:
+  id: callable-capture-task-thread
+  source_ids: [capture-registry, capture-registry-help, capture-capability-help, capture-prompt-renderer, capture-runtime-profile, capture-behavior-tests]
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self
+  purpose: compare one callable tool across registry help, capability_help, and prompt advertisement
+  boundary: excludes the complete tool inventory, unrelated prompt assets, human-only CLI/slash help, and task-tracker implementation semantics except where needed to establish callable behavior
+  collection_state: reviewed
+  parent_slice: cli-history-command
+
+observations:
+  - {id: obs-01, kind: implementation_reference, claim: 'The registered callable item is capture_task_thread with required args title and kind, optional args evidence, blocks_progress, active_task_id, scope_hint, and capture_id, plus explicit defaults for each optional arg.', evidence: [capture-registry]}
+  - {id: obs-02, kind: surface_content, claim: 'Registry-derived tools help lists the full required/optional/default argument shape but does not provide a summary, example, or task-capture policy.', evidence: [capture-registry-help]}
+  - {id: obs-03, kind: implementation_reference, claim: 'Direct capability_help for capture_task_thread identifies the tool and required args only; it omits the registered optional args/defaults and has no tool-specific example or policy lines.', evidence: [capture-capability-help]}
+  - {id: obs-04, kind: surface_content, claim: 'The dynamic capability overview advertises capture_task_thread with a summary, required args, a concrete YAML shape hint containing optional fields, and a profile-conditioned Task Capture Policy covering trigger, fork, payload, and resume behavior.', evidence: [capture-prompt-renderer]}
+  - {id: obs-05, kind: behavior_observation, claim: 'The default discovered config selects advertisement profile core with no hidden tools; capture_task_thread is visible in core, full, and debug profiles, while an explicit core hidden_tools override removes it.', evidence: [capture-runtime-profile]}
+  - {id: obs-06, kind: behavior_observation, claim: 'The rendered dynamic overview includes Task Capture Policy when capture_task_thread is visible and omits that policy when the tool is hidden.', evidence: [capture-runtime-profile, capture-behavior-tests]}
+  - {id: obs-07, kind: implementation_reference, claim: 'The callable runner forwards the registered fields to route_and_capture and therefore has stateful task-tracker behavior, while the prompt policy describes when and how the callable should be used.', evidence: [capture-registry, capture-behavior-tests]}
+  - {id: obs-08, kind: design_inference, claim: 'Profile visibility, callable shape, and operating policy are independent dimensions: the same item can be available or hidden, fully shaped by registry metadata, and selectively explained by a prompt asset.', evidence: [obs-01, obs-04, obs-05, obs-06]}
+
+candidate_items:
+  - provisional_identity: capture-task-thread
+    adjudication: new_item
+    dimensions:
+      item: task-thread capture capability
+      surface: [callable capability, registry help, prompt advertisement]
+      audience: [model, operator]
+      intent: defer
+    identity: {canonical_name: capture_task_thread, aliases: [], compatibility_forms: []}
+    placement: {workflow_areas: [continue primary work while recording side work], parent_topics: [callable capabilities, task tracking]}
+    content:
+      summary: Synchronously records a side thread, cleanup, risk, blocker, or missing test for later task handling.
+      when_to_use: When relevant follow-up work is outside the immediate scope of the primary task and should not be pursued inline.
+      invocation: 'operation: capture_task_thread; arguments: {title, kind, optional evidence/blocks_progress/active_task_id/scope_hint/capture_id}'
+      examples: ['operation: capture_task_thread with title, kind, and concise evidence']
+    behavior: {output_shape: task-capture result from route_and_capture, state_effect: creates or routes task-tracker work and may signal continuation, durability: task record is durable outside the current conversation, authority: active runtime callable capability; exact routing semantics delegated to task subsystem}
+    constraints: {policy: prompt policy says trigger only for out-of-scope side work and do not pursue the fork inline, safety: payloads should be minimal and concise, prerequisites: tool must be visible in the active profile and not hidden by configuration}
+    availability: {static_or_dynamic: dynamic visibility with static registry shape, runtime_dependencies: [capability_advertisement.profile, capability_advertisement.hidden_tools, task-tracker routing state]}
+    disclosure: {role: focused callable reference plus profile-conditioned operating guidance, next_topics: [capability_help, task tracker, primary-task resume]}
+    evidence: [obs-01, obs-04, obs-05, obs-06, obs-07]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+  - provisional_identity: capture-task-thread-policy
+    adjudication: related_item_not_merged
+    dimensions: {item: task-capture operating policy, surface: dynamic prompt advertisement, audience: model, intent: authorize}
+    identity: {canonical_name: Task Capture Policy, aliases: [], compatibility_forms: []}
+    placement: {workflow_areas: [callable capability use], parent_topics: [capture_task_thread]}
+    content: {summary: Guidance for when capture_task_thread is appropriate and how to resume the primary task, when_to_use: When the capability is visible in the current prompt profile, invocation: embedded prompt text; no separate invocation, examples: []}
+    behavior: {output_shape: prompt prose, state_effect: none by itself, durability: prompt-only guidance, authority: runtime prompt advertisement; not a registry validation rule}
+    constraints: {policy: trigger/fork/payload/resume rules, safety: do not pursue the side thread inline, prerequisites: capture_task_thread visible}
+    availability: {static_or_dynamic: dynamic, runtime_dependencies: [active profile, hidden tool configuration]}
+    disclosure: {role: operating guidance after callable availability is established, next_topics: [capture_task_thread focused help]}
+    evidence: [obs-04, obs-06]
+    collection_status: complete
+    semantic_status: established
+    status: accepted_as_related_surface
+
+candidate_relationships:
+  - {from: capture-task-thread, to: capture-task-thread-policy, kind: guided_by, evidence: [obs-04, obs-06]}
+  - {from: capture-task-thread, to: capability-profile, kind: availability_conditioned_by, evidence: [obs-05]}
+
+candidate_fields:
+  - availability must distinguish registry existence from effective profile visibility and explicit hidden-tool filtering.
+  - content and disclosure must distinguish callable argument shape from profile-specific operating policy.
+  - focused capability help needs an explicit representation for optional args, defaults, examples, and policy detail; their absence is currently observable divergence, not unknown data.
+  - audience should remain separate from profile: core/full/debug selects exposure, while the prompt remains model-facing.
+
+open_questions:
+  - Should capability_help derive optional args, defaults, and an example from registry metadata, or intentionally remain a compact required-args index?
+  - Should the Task Capture Policy be available through capability_help when the tool is queried directly, or remain only in composed prompt assets?
+  - Does “core” describe priority, default exposure, or merely one profile membership list?
+  - Is task capture a defer intent, an authorize intent, or both depending on whether the surface is callable shape versus prompt policy?
+
+lessons_learned:
+  - A single registered tool can have three materially different disclosure levels without being three item identities.
+  - Profile visibility and hidden-tool configuration are runtime facts and should not be inferred from registry membership alone.
+  - The prompt renderer already models policy as conditional content, which is useful evidence that policy should not be flattened into callable argument metadata.
+  - The direct capability_help path is the clearest current drift point because it consults the registry for required args but does not expose the registry’s optional/default metadata.
+  - Targeted tests confirm both visibility behavior and task-capture policy gating; they do not establish that the divergent help levels are intentional.
+
+light_critique:
+  - The procedure’s tool-slice follow-ups exposed the intended cross-surface comparison, but “registry help” needs to be named explicitly as a separate surface from focused capability_help; otherwise their different disclosure roles look like accidental duplication.
+  - The term “core” is overloaded: it is a configurable advertisement profile, a topic name in capability_help, and an implied priority label. The slice provides evidence of exposure, not priority.
+  - The current implementation makes the strongest policy guidance available only in the composed dynamic overview, while the direct tool lookup is least complete. That may be a reasonable progressive-disclosure choice, but it is undocumented and creates a poor path for a model that asks about one tool after the overview is absent.
+  - The coverage gate remains manual because no corpus validator exists yet; all six declared sources and all artifacts were checked in this run.

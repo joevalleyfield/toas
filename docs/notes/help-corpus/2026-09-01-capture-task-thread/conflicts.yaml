@@ -1,0 +1,7 @@
+conflicts:
+  - id: capture-detail-drift
+    candidates: [capture-registry-help, capture-capability-help, capture-prompt-renderer]
+    claim: "The same callable capability is described with different levels of argument, example, and policy detail."
+    evidence: [capture-registry-help, capture-capability-help, capture-prompt-renderer]
+    adjudication: "Observed surface divergence; no source is promoted to a universal authority by this survey. Registry defines callable shape, capability_help is the focused lookup surface, and the dynamic prompt supplies profile-conditioned operating policy."
+    status: open

@@ -109,3 +109,46 @@ the design note:
 The slice should specifically test whether profile visibility, audience, and
 callable shape remain independent dimensions, and should record any resulting
 schema changes before expanding to additional tools.
+
+## Third collection pass
+
+The third bounded collection run is recorded at
+`docs/notes/help-corpus/2026-09-01-capture-task-thread/`. It compares the
+`capture_task_thread` callable across registry-derived tool help, direct
+`capability_help`, and the dynamic capability overview, with a runtime/profile
+probe and targeted behavior tests.
+
+The probe confirms that registry membership, effective profile visibility, and
+prompt policy are separate dimensions: the tool is visible in the default
+`core` profile and in `full`/`debug`, can be hidden explicitly, and causes the
+dynamic task-capture policy to appear only when visible. The focused
+`capability_help` view currently reports only required arguments, while the
+registry help and prompt shape expose optional arguments/defaults and the
+prompt adds operational policy.
+
+Lessons and light critique are captured in the slice record. In brief, a
+single callable item can have multiple disclosure levels without becoming
+multiple item identities. “Core” is an exposure-profile term, not established
+priority, and the current direct tool lookup is the clearest description-drift
+point because it omits registry metadata already available elsewhere.
+
+Run result: collection complete with unresolved semantics and open
+surface-detail divergence; independent review was not performed.
+
+## Next slice sign-post
+
+The next bounded collection run should examine one prompt asset together with
+one related projection, as prescribed by the design note:
+
+- primary questions: whether item identity, intent, and disclosure role remain
+  independent when the asset teaches a workflow and the projection changes
+  what is visible;
+- required evidence: prompt-asset source and rendered content, projection
+  implementation and runtime behavior, plus any related acceptance or
+  documentation claim;
+- boundary: excludes broad prompt-library enumeration and unrelated projection
+  families; select one asset/projection pair with an explicit relationship.
+
+The slice should use structural multiplicity for any item exposed across
+several surfaces or audiences, and should record whether the prompt is
+instructional, executable-context, or projection-oriented content.

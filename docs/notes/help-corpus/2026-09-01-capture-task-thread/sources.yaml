@@ -1,0 +1,49 @@
+sources:
+  - id: capture-registry
+    kind: implementation
+    path_or_reference: "src/toas/tools.py:31-37, 85-106, 601-607"
+    revision_or_observed_at: "4260d2da"
+    expected_item_families: [capture-task-thread]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: capture-registry-help
+    kind: rendered_help
+    path_or_reference: "src/toas/tools_guidance.py:7-34; render_tools_help_full()"
+    revision_or_observed_at: "2026-09-01 local probe"
+    expected_item_families: [capture-task-thread]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: capture-capability-help
+    kind: implementation
+    path_or_reference: "src/toas/tools_cluster/capability_help_ops.py:82-139, 201-222"
+    revision_or_observed_at: "4260d2da"
+    expected_item_families: [capture-task-thread]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: capture-prompt-renderer
+    kind: prompt_asset
+    path_or_reference: "src/toas/capability_prompts.py:6-18, 40-53, 155-168, 227-260; src/toas/prompts/dynamic/capabilities/overview_v1.txt:1-38"
+    revision_or_observed_at: "4260d2da"
+    expected_item_families: [capture-task-thread]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: capture-runtime-profile
+    kind: runtime_probe
+    path_or_reference: "config_from_discovered_paths(workdir=.); visible_tool_names(core|full|debug); hidden_tools override; load_prompt_asset(dynamic/capabilities/overview_v1)"
+    revision_or_observed_at: "2026-09-01 local probe"
+    expected_item_families: [capture-task-thread, capability-profile]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: capture-behavior-tests
+    kind: acceptance
+    path_or_reference: "tests/test_tools.py:249-274; tests/test_tasks_capture.py:369-387; tests/test_prompts.py:622-644"
+    revision_or_observed_at: "4260d2da"
+    expected_item_families: [capture-task-thread, capability-profile]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"

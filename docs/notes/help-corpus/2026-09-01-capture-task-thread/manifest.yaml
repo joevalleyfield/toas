@@ -1,0 +1,13 @@
+run:
+  id: help-corpus-2026-09-01-s3
+  date: 2026-09-01
+  scope:
+    product_surfaces: [tool_registry, rendered_help, capability_help, prompt_asset, runtime_probe, acceptance_tests]
+    source_paths: [src/toas/tools.py, src/toas/tools_guidance.py, src/toas/tools_cluster/capability_help_ops.py, src/toas/capability_prompts.py, src/toas/prompts/dynamic/capabilities/overview_v1.txt, src/toas/config.py, tests/test_tools.py, tests/test_prompts.py, tests/test_tasks_capture.py]
+    source_revisions: [4260d2da]
+    runtime_profiles: [default_discovered_config, core, full, debug, core_hidden_capture_task_thread]
+    observed_scenarios: [registry_spec, tools_help_capture_task_thread, capability_help_capture_task_thread, dynamic_overview_core, profile_visibility_matrix, hidden_tool_override]
+  schema_revision: 2026-09-01-design-note-procedure-v1
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self
