@@ -1,0 +1,156 @@
+slice:
+  id: slash-help-config
+  source_ids:
+    - step-help-renderer
+    - operator-help-dispatch
+    - rendered-help-config
+    - config-help-acceptance-seed
+    - config-help-behavior-tests
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self
+  purpose: test the minimum collection and review loop on a representative operator path
+  boundary: excludes other /help topics, CLI help, prompt asset enumeration, and full config command behavior beyond links from this topic
+  collection_state: reviewed
+
+observations:
+  - id: obs-01
+    kind: implementation_reference
+    claim: render_help_config exposes show, show --sources, values, set, unset, restore, load, save, backend, and secret forms.
+    evidence: [step-help-renderer]
+  - id: obs-02
+    kind: implementation_reference
+    claim: /help accepts exactly the config topic as one of its named topic selectors and dispatches it to render_help_config.
+    evidence: [operator-help-dispatch]
+  - id: obs-03
+    kind: behavior_observation
+    claim: A local default-config probe returns one result node with role result and origin_kind slash_command; multiline content is fenced as an inert view with source command.config.
+    evidence: [rendered-help-config]
+  - id: obs-04
+    kind: surface_content
+    claim: The rendered topic presents command forms, durability classes, precedence, compatibility notes, prompt guidance constraints, and a next-step tip.
+    evidence: [rendered-help-config]
+  - id: obs-05
+    kind: implementation_reference
+    claim: Config mutations are represented as config_update or secret_update fields on result nodes, while config save is represented as config_save; the help text describes these distinctions at a high level.
+    evidence: [operator-help-dispatch]
+  - id: obs-06
+    kind: documentation_claim
+    claim: The operator starter triad treats /help config as the primary first-principles discovery scenario and /config values <key> as a follow-on.
+    evidence: [config-help-acceptance-seed]
+  - id: obs-07
+    kind: behavior_observation
+    claim: Focused tests assert topic dispatch, config guidance, inert result projection, precedence/source reporting, and the /config values path.
+    evidence: [config-help-behavior-tests]
+
+candidate_items:
+  - provisional_identity: config-help
+    adjudication: new_item
+    dimensions:
+      item: config help topic
+      surface: slash command
+      audience: human operator
+      intent: discover and explain configuration controls
+    identity:
+      canonical_name: /help config
+      aliases: []
+      compatibility_forms: []
+    content:
+      summary: Provides a compact orientation to configuration commands, persistence, precedence, compatibility, and related prompt guidance.
+      when_to_use: When an operator needs to understand configuration options before choosing a focused /config operation.
+      invocation: /help config
+      examples:
+        - /config show
+        - /config values <key>
+        - /config set <key> <value>
+    behavior:
+      output_shape: one inert fenced view result node
+      state_effect: none observed for the help request itself
+      durability: help output is not a config mutation; linked config operations have distinct durability
+      authority: operator-facing slash-command result
+    constraints:
+      policy: examples are presented inside an inert view projection
+      safety: the topic itself does not execute the listed config commands
+      prerequisites: active TOAS session
+    availability:
+      static_or_dynamic: mostly static guidance; output projection is runtime-shaped
+      runtime_dependencies: current build and result rendering policy
+    disclosure:
+      role: start-here orientation and pointer to focused config operations
+      next_topics: [/config show, /config values <key>, /help full, /prompt]
+    evidence: [obs-01, obs-02, obs-03, obs-04, obs-06]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+
+  - provisional_identity: config-command
+    adjudication: related_item_not_merged
+    dimensions:
+      item: configuration command family
+      surface: slash command
+      audience: human operator
+      intent: inspect, select, mutate, restore, load, save, or manage configuration
+    identity:
+      canonical_name: /config
+      aliases: []
+      compatibility_forms: [toas.toml compatibility path]
+    content:
+      summary: Focused command family linked from /help config; its subcommands have different state and durability behavior.
+      when_to_use: After orientation, when performing or inspecting a specific configuration operation.
+      invocation: /config [show] [--sources] | /config paths | values <key> | set <key> <value> | unset <key> | restore | load [path] | save [path] | secret ...
+      examples: []
+    behavior:
+      output_shape: result nodes whose fields vary by subcommand
+      state_effect: subcommand-dependent; includes no mutation, durable session override, ephemeral secret, or disk save
+      durability: subcommand-dependent
+      authority: operator slash-command lane
+    constraints:
+      policy: key/value validation and secret redaction apply to focused operations
+      safety: save writes to disk; secret values are non-durable and must not be displayed
+      prerequisites: valid subcommand and, where applicable, known config key/path
+    availability:
+      static_or_dynamic: command forms are static; values, sources, paths, and effective config are runtime-dependent
+      runtime_dependencies: current config, config sources, command cwd, filesystem, and active lineage
+    disclosure:
+      role: focused reference and execution surface
+      next_topics: [/help config, /config show, /config values <key>]
+    evidence: [obs-01, obs-05, obs-06]
+    collection_status: incomplete
+    semantic_status: unresolved
+    status: intentionally_partial; outside this slice's full behavior boundary
+
+candidate_relationships:
+  - from: config-help
+    to: config-command
+    kind: discloses
+    evidence: [obs-04, obs-06]
+  - from: config-command
+    to: config-values
+    kind: focused_follow_on
+    evidence: [obs-06]
+
+candidate_fields:
+  - dimensions.item and dimensions.surface must remain independent: /help config is a topic, while /config is an executable command family.
+  - behavior.durability must support subcommand-specific values rather than one value for the whole family.
+  - disclosure.next_topics is needed to represent orientation-to-focused-operation flow.
+  - evidence entries need typed provenance and claim-level references.
+  - availability must distinguish static command guidance from runtime values, sources, paths, and config state.
+  - constraints needs an inertness/potency field for rendered examples.
+
+open_questions:
+  - Should /config show and /config values <key> become separate inventory items linked to the /config concept, or remain sub-items of one command family?
+  - Should /help config explicitly label its listed forms as examples/reference rather than executable commands?
+  - Is prompt guidance under this topic a next disclosure target, a documentation cross-link, or a fourth kind of content inside config help?
+  - Which claims in config help should be runtime-generated (for example valid keys and current sources) rather than static prose?
+  - Does “durable session override” need a user-facing distinction from durable history record semantics in the eventual vocabulary?
+
+lessons_learned:
+  - The four dimensions remain independent in this small slice; surface alone cannot identify the item because the topic and the command family share a surface.
+  - A single candidate record is insufficient for /config because subcommands have materially different state effects and durability.
+  - The live result wrapper is important evidence: inertness is behavior/projection metadata, not merely prose in the help text.
+  - Existing tests are useful behavioral evidence, but they are not a source ledger substitute because they cover selected assertions rather than every rendered claim.
+
+light_critique:
+  - The design procedure is strong on provenance and completeness gates, but its fixture's single config-help candidate understates the need to model the linked executable command family separately.
+  - “Candidate item” and “item/surface projection” remain intentionally unresolved in the note; this slice confirms that the ambiguity appears immediately, not only at corpus scale.
+  - The procedure asks for a reviewer but does not define the minimum independent-review standard; this run therefore marks self-review explicitly instead of implying adjudication confidence.

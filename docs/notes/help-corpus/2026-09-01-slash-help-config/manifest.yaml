@@ -1,0 +1,18 @@
+run:
+  id: help-corpus-2026-09-01-s1
+  date: 2026-09-01
+  scope:
+    product_surfaces: [slash_command, documentation, acceptance, runtime_probe]
+    source_paths:
+      - src/toas/step.py
+      - src/toas/runtime/operator_command_config_help.py
+      - docs/acceptance/operator-starter-triad.md
+      - tests/test_step.py
+      - tests/test_runtime_operator_command_handlers.py
+    source_revisions: [1f1f31be362650f7123ec4043528c2df786f7964]
+    runtime_profiles: [local_default_config]
+    observed_scenarios: [/help config]
+  schema_revision: 2026-09-01-design-note-procedure-v1
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self

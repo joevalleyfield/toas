@@ -434,6 +434,24 @@ observations and candidate records. The conflict file contains adjudication
 that cannot be represented as an ordinary item decision. The report is the
 only place that claims whether the run is complete.
 
+The process uses separate state vocabularies for collection and review:
+
+```text
+collection_state:
+  pending → collecting → collected → reviewed
+                      ↘ subdivided → reviewed
+                      ↘ blocked
+                      ↘ excluded
+
+review_level: self | independent | dual
+```
+
+`subdivided` is a parent-source state. It is terminal only after every child
+source has reached a terminal state and the parent-to-child coverage claim is
+complete. `reviewed` means the collection artifact was inspected at the
+declared `review_level`; it does not imply independent review or semantic
+agreement.
+
 ### 2. Build a source ledger before extracting items
 
 The source ledger is the completeness boundary. It should enumerate each
@@ -446,7 +464,8 @@ sources:
     path_or_reference:
     revision_or_observed_at:
     expected_item_families: []
-    state: pending | collected | reviewed | blocked | excluded
+    collection_state: pending | collecting | collected | subdivided | reviewed | blocked | excluded
+    review_level: none | self | independent | dual
     exclusion_reason:
 ```
 
@@ -511,7 +530,8 @@ slice:
   reviewer:
   purpose:
   boundary:
-  state: pending | collecting | collected | subdivided | reviewed | blocked | excluded
+  collection_state: pending | collecting | collected | subdivided | reviewed | blocked | excluded
+  review_level: none | self | independent | dual
   parent_slice:
   child_slices: []
 ```
@@ -582,11 +602,13 @@ item:
 The exact field names may change. The important process rule is that blanks are
 not silently accepted as completion.
 
-Collection completeness and semantic completeness are separate statuses:
+Collection completeness, semantic completeness, and divergence are separate
+statuses:
 
 ```yaml
 collection_status: complete | incomplete | blocked
 semantic_status: established | disputed | unresolved | not_applicable
+divergence_status: none | open | accepted
 ```
 
 For example, a source can be completely collected while producing an item
@@ -651,8 +673,9 @@ pending → collecting → collected → reviewed
 
 `subdivided` is a controlled terminal state for the parent only when every
 child is terminal and the parent coverage claim is satisfied. `blocked` and
-`excluded` require reasons. `reviewed` means the slice passed review; it does
-not imply that every item inside it is semantically established.
+`excluded` require reasons. `reviewed` means the slice passed its declared
+review level; it does not imply that every item inside it is semantically
+established.
 
 ### 8. Publish a run result, not just a corpus snapshot
 
@@ -660,6 +683,9 @@ The corpus should be accompanied by a run report:
 
 ```yaml
 result:
+  collection_status: complete | incomplete | blocked
+  semantic_status: established | unresolved | disputed
+  divergence_status: none | open | accepted
   status: complete | complete_with_divergence | incomplete | blocked
   source_counts: {}
   candidate_counts: {}
@@ -672,9 +698,11 @@ result:
 ```
 
 This keeps “we collected everything in scope” separate from “the product is
-fully documented” and from “the sources agree.” A complete run may still
-contain accepted divergences or unresolved product questions, but those must
-be visible in the result.
+fully documented” and from “the sources agree.” A complete collection may
+still contain unresolved semantic questions. `complete_with_divergence` should
+mean `collection_status: complete` plus `divergence_status: open` or
+`accepted`; it should not be used merely because the corpus contains ordinary
+open questions.
 
 ### Executable exit criteria
 
@@ -690,8 +718,8 @@ A collection run can claim `complete` only if all of the following are true:
 5. Every candidate has one and only one adjudication outcome.
 6. Every accepted item satisfies the completeness contract.
 7. Every item has typed evidence, including provenance for inferred claims.
-8. No unresolved conflict remains unless the result is downgraded to
-   `complete_with_divergence`.
+8. No unresolved conflict remains unless `divergence_status` is `open` or
+   `accepted` and the result is downgraded to `complete_with_divergence`.
 9. Coverage reports show every declared surface, audience, and intent was
    examined, even when the result is zero items.
 10. The validator reports zero schema errors and zero orphan references.
@@ -707,7 +735,7 @@ The future validator should have a narrow, deterministic contract:
 ```text
 validate(run_directory)
 
-exit 0  complete collection with no unaccepted divergence
+exit 0  complete collection with no open or unaccepted divergence
 exit 1  incomplete coverage or non-terminal source/slice
 exit 2  schema or required-field error
 exit 3  unresolved conflict or unaccepted divergence
@@ -717,6 +745,11 @@ exit 4  orphan, duplicate, or invalid parent/child reference
 The validator should report machine-readable findings in addition to its exit
 code. It should validate the run artifacts and references, not attempt to
 judge prose quality or decide product intent.
+
+Across runs, accepted items also need a global identity check. A later slice
+must either reference an existing canonical item, create a new canonical item,
+or record an explicit duplicate/split decision. Slice-local completion does
+not permit two unlinked records to silently represent the same item.
 
 ### Worked process fixture: `/help config`
 

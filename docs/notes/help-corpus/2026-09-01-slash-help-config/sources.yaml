@@ -1,0 +1,36 @@
+sources:
+  - id: step-help-renderer
+    kind: implementation
+    path_or_reference: src/toas/step.py:283-315
+    revision_or_observed_at: 1f1f31be
+    expected_item_families: [config-help-topic, config-command-reference]
+    state: reviewed
+    extraction_result: recorded in slice.yaml
+  - id: operator-help-dispatch
+    kind: implementation
+    path_or_reference: src/toas/runtime/operator_command_config_help.py:353-390
+    revision_or_observed_at: 1f1f31be
+    expected_item_families: [slash-help-dispatch, config-command]
+    state: reviewed
+    extraction_result: recorded in slice.yaml
+  - id: rendered-help-config
+    kind: runtime_probe
+    path_or_reference: step("## TOAS:USER\\n/help config\\n", [])
+    revision_or_observed_at: 2026-09-01 local probe
+    expected_item_families: [config-help-topic, result-projection]
+    state: reviewed
+    extraction_result: recorded in slice.yaml
+  - id: config-help-acceptance-seed
+    kind: acceptance
+    path_or_reference: docs/acceptance/operator-starter-triad.md:6-14
+    revision_or_observed_at: 1f1f31be
+    expected_item_families: [config-help-topic, config-values]
+    state: reviewed
+    extraction_result: recorded in slice.yaml
+  - id: config-help-behavior-tests
+    kind: acceptance
+    path_or_reference: tests/test_step.py:4008-4022; tests/test_runtime_operator_command_handlers.py:473-492
+    revision_or_observed_at: 1f1f31be
+    expected_item_families: [config-help-topic, help-dispatch]
+    state: reviewed
+    extraction_result: recorded in slice.yaml
