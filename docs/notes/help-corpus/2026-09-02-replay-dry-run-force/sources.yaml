@@ -1,0 +1,7 @@
+sources:
+  - {id: replay-dry-run-force-s1, kind: implementation, path_or_reference: "src/toas/runtime/operator_command_extract_replay.py", revision_or_observed_at: parent, expected_item_families: [replay-dry-run-force], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: replay-dry-run-force-s2, kind: implementation, path_or_reference: "src/toas/runtime/operator_commands.py", revision_or_observed_at: parent, expected_item_families: [replay-dry-run-force], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: replay-dry-run-force-s3, kind: documentation, path_or_reference: "docs/capabilities.md", revision_or_observed_at: parent, expected_item_families: [replay-dry-run-force], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: replay-dry-run-force-s4, kind: runtime_probe, path_or_reference: "isolated workspace; /replay --dry-run|--force", revision_or_observed_at: 2026-09-02 local probe, expected_item_families: [replay-dry-run-force], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: replay-dry-run-force-s5, kind: acceptance, path_or_reference: "tests/test_runtime_operator_command_handlers.py", revision_or_observed_at: parent, expected_item_families: [replay-dry-run-force], collection_state: reviewed, review_level: self, extraction_result: recorded}
+

@@ -270,3 +270,34 @@ divergence status; no implementation task is proposed yet. The next bounded
 slice should cover replay/extraction surfaces, with explicit separation of
 preview, adoption, execution, queue authorization, and malformed-content
 salvage.
+
+## Seventeenth through twenty-sixth collection passes
+
+Ten further bounded collection runs are recorded under
+docs/notes/help-corpus/2026-09-02-extract-preview/ through
+docs/notes/help-corpus/2026-09-02-replay-script/. They cover extraction
+preview, shape selection, adoption, malformed YAML salvage, plan coalescing,
+replay discovery, dry-run/force controls, queue authorization, queue controls,
+and the standalone replay-script harness. Each run has a manifest, five-source
+ledger, typed observations, candidate adjudication, conflicts, and a report.
+
+All ten runs passed the manual collection gates: five declared sources per
+run, no pending/blocked/excluded sources, typed observations, adjudication for
+each candidate, typed evidence, and parseable control artifacts. They remain
+self-reviewed only and report unresolved semantics/open divergence rather than
+silently deciding terminology.
+
+Lessons and light critique across this batch: “extract,” “replay,” “run,” and
+“stage” form a workflow but are not interchangeable intents. The strongest
+boundary is between content selection/transformation, execution authorization,
+and durable queue control. Malformed-content salvage demonstrates that
+recoverability is a first-class disclosure role: repaired content must not be
+described as the original callable content. The procedure scales to ten small
+runs, but repeated five-source ledgers are costly when slices share files, and
+the distinction between a runtime probe and an acceptance test remains partly
+conventional.
+
+Batch result: ten collections complete with unresolved semantics and open
+divergence status; no implementation task is proposed yet. The next bounded
+slice should test how these recovery/execution surfaces should be named and
+linked from human-facing help topics.
