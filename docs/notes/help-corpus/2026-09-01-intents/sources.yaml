@@ -1,0 +1,6 @@
+sources:
+  - {id: intents-cli, kind: implementation, path_or_reference: "src/toas/cli.py:96,277-282", revision_or_observed_at: parent, expected_item_families: [intents], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: intents-api, kind: implementation, path_or_reference: "src/toas/operator_api.py:intent_records; src/toas/graph.py", revision_or_observed_at: parent, expected_item_families: [intents], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: intents-doc, kind: documentation, path_or_reference: "docs/capabilities.md:101,134-136", revision_or_observed_at: parent, expected_item_families: [intents], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: intents-probe, kind: runtime_probe, path_or_reference: "isolated workspace; toas intents", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [intents], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: intents-tests, kind: acceptance, path_or_reference: "tests/test_cli.py; tests/test_graph.py", revision_or_observed_at: parent, expected_item_families: [intents], collection_state: reviewed, review_level: self, extraction_result: recorded}

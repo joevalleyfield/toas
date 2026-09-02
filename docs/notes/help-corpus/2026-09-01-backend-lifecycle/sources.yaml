@@ -1,0 +1,6 @@
+sources:
+  - {id: backend-cli, kind: implementation, path_or_reference: "src/toas/cli.py:94,250-254", revision_or_observed_at: parent, expected_item_families: [backend-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: backend-runtime, kind: implementation, path_or_reference: "src/toas/cli_async_commands.py; src/toas/runtime", revision_or_observed_at: parent, expected_item_families: [backend-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: backend-doc, kind: documentation, path_or_reference: "docs/capabilities.md:104-106,204-226", revision_or_observed_at: parent, expected_item_families: [backend-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: backend-probe, kind: runtime_probe, path_or_reference: "isolated workspace; toas backend status", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [backend-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: backend-tests, kind: acceptance, path_or_reference: "tests/test_cli_async_commands.py; tests/test_runtime*", revision_or_observed_at: parent, expected_item_families: [backend-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}

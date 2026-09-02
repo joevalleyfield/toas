@@ -1,0 +1,6 @@
+sources:
+  - {id: continue-cli, kind: implementation, path_or_reference: "src/toas/cli.py:103,500-550", revision_or_observed_at: parent, expected_item_families: [session-continue], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: continue-runtime, kind: implementation, path_or_reference: "src/toas/cli_session_commands.py; src/toas/runtime", revision_or_observed_at: parent, expected_item_families: [session-continue], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: continue-doc, kind: documentation, path_or_reference: "docs/capabilities.md:104,125-133", revision_or_observed_at: parent, expected_item_families: [session-continue], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: continue-probe, kind: runtime_probe, path_or_reference: "isolated workspace; toas session continue", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [session-continue], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: continue-tests, kind: acceptance, path_or_reference: "tests/test_cli.py; tests/test_cli_session_commands.py; tests/test_vim*", revision_or_observed_at: parent, expected_item_families: [session-continue], collection_state: reviewed, review_level: self, extraction_result: recorded}

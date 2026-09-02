@@ -1,0 +1,6 @@
+sources:
+  - {id: heads-cli, kind: implementation, path_or_reference: "src/toas/cli.py:95,283-291", revision_or_observed_at: parent, expected_item_families: [heads], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: heads-api, kind: implementation, path_or_reference: "src/toas/operator_api.py:180-225", revision_or_observed_at: parent, expected_item_families: [heads], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: heads-doc, kind: documentation, path_or_reference: "docs/capabilities.md:99-100,280-282", revision_or_observed_at: parent, expected_item_families: [heads], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: heads-probe, kind: runtime_probe, path_or_reference: "isolated workspace; toas heads", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [heads], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: heads-tests, kind: acceptance, path_or_reference: "tests/test_cli.py; tests/test_operator_api.py", revision_or_observed_at: parent, expected_item_families: [heads], collection_state: reviewed, review_level: self, extraction_result: recorded}

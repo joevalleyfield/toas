@@ -1,0 +1,6 @@
+sources:
+  - {id: graph-cli, kind: implementation, path_or_reference: "src/toas/cli.py:97,292-320", revision_or_observed_at: parent, expected_item_families: [graph-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: graph-api, kind: implementation, path_or_reference: "src/toas/cli_session_views.py:21-49; src/toas/operator_api.py:520-590", revision_or_observed_at: parent, expected_item_families: [graph-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: graph-renderer, kind: implementation, path_or_reference: "src/toas/tools_cluster/event_graph.py", revision_or_observed_at: parent, expected_item_families: [graph-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: graph-help-doc, kind: documentation, path_or_reference: "docs/capabilities.md:99-100,138-150", revision_or_observed_at: parent, expected_item_families: [graph-projection, prompt-discovery], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: graph-runtime, kind: runtime_probe, path_or_reference: "isolated workspace; toas graph and --projection consequence", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [graph-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}

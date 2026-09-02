@@ -1,0 +1,6 @@
+sources:
+  - {id: transcript-cli, kind: implementation, path_or_reference: "src/toas/cli.py:98,350-360", revision_or_observed_at: parent, expected_item_families: [transcript-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: transcript-api, kind: implementation, path_or_reference: "src/toas/operator_api.py:620-680; src/toas/graph.py", revision_or_observed_at: parent, expected_item_families: [transcript-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: transcript-doc, kind: documentation, path_or_reference: "docs/capabilities.md:138-150", revision_or_observed_at: parent, expected_item_families: [transcript-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: transcript-probe, kind: runtime_probe, path_or_reference: "isolated workspace; toas transcript", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [transcript-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: transcript-tests, kind: acceptance, path_or_reference: "tests/test_operator_api.py; tests/test_cli.py", revision_or_observed_at: parent, expected_item_families: [transcript-projection], collection_state: reviewed, review_level: self, extraction_result: recorded}

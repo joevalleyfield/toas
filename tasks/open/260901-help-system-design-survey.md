@@ -222,3 +222,51 @@ expanding the corpus further, the next bounded slice should test one adjacent
 history/projection family and explicitly compare its navigation vocabulary with
 prompt discovery. No implementation task is proposed yet; the remaining gaps
 are still suitable for narrow design follow-ons.
+
+## Seventh through sixteenth collection passes
+
+Ten further bounded collection runs are recorded under
+`docs/notes/help-corpus/2026-09-01-graph-projection/` through
+`docs/notes/help-corpus/2026-09-01-session-continue/`:
+
+- `graph-projection` compares temporal/consequence topology views with prompt
+  prefix navigation and adds an explicit navigation crosswalk.
+- `transcript-projection` records durable-history reprojection as an
+  executable-context/recovery view distinct from step-time reconciliation.
+- `llm-input-projection` separates the core model-visible body from optional
+  envelope shaping.
+- `heads-leaf-set` records heads as compact graph-leaf navigation targets,
+  distinct from bounded lineage history.
+- `ancestry-diff` compares message-to-parent and head-to-head diagnostics and
+  adds a diagnostic-axis field.
+- `intents` records non-message intent inspection as its own durable-state
+  family.
+- `async-watch-cancel` records run creation, event observation, and
+  cancellation as one lifecycle workflow, including cursor and policy gates.
+- `backend-lifecycle` keeps backend process health/ownership separate from
+  asynchronous run lifecycle.
+- `surface-binding` records named transcript routing and durable selection
+  controls, including rebind provenance.
+- `session-continue` records explicit CLI/editor continuation and its
+  non-generating behavior.
+
+All ten runs passed the manual collection gates: five declared sources per
+run, no pending/blocked/excluded sources, typed observations, adjudication for
+each candidate, typed evidence, and parseable control artifacts. Each remains
+self-reviewed only and reports open terminology or disclosure questions where
+the sources do not settle product intent.
+
+Lessons and light critique across this batch: the history family benefits from
+explicit projection roles and navigation targets; “projection,” “view,”
+“diagnostic,” and “recovery” currently overlap in user-facing wording. Runtime
+ownership, state effect, and non-generation safety are more discriminating
+than command grouping. The procedure scales to ten small runs, but the lack of
+an executable validator still makes source/candidate/orphan checks manual,
+and the repeated five-source ledger is useful ceremony that should eventually
+be generated or checked mechanically.
+
+Batch result: ten collections complete with unresolved semantics and open
+divergence status; no implementation task is proposed yet. The next bounded
+slice should cover replay/extraction surfaces, with explicit separation of
+preview, adoption, execution, queue authorization, and malformed-content
+salvage.

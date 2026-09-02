@@ -1,0 +1,6 @@
+sources:
+  - {id: async-cli, kind: implementation, path_or_reference: "src/toas/cli.py:91-94,234-250", revision_or_observed_at: parent, expected_item_families: [async-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: async-runtime, kind: implementation, path_or_reference: "src/toas/cli_async_commands.py", revision_or_observed_at: parent, expected_item_families: [async-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: async-doc, kind: documentation, path_or_reference: "docs/capabilities.md:96-98,173-226", revision_or_observed_at: parent, expected_item_families: [async-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: async-probe, kind: runtime_probe, path_or_reference: "isolated workspace; async status/watch/cancel paths", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [async-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: async-tests, kind: acceptance, path_or_reference: "tests/test_cli_async_commands.py; tests/test_cli.py", revision_or_observed_at: parent, expected_item_families: [async-lifecycle], collection_state: reviewed, review_level: self, extraction_result: recorded}

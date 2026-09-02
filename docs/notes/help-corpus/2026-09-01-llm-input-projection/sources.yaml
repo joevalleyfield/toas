@@ -1,0 +1,6 @@
+sources:
+  - {id: llm-cli, kind: implementation, path_or_reference: "src/toas/cli.py:99,370-390", revision_or_observed_at: parent, expected_item_families: [llm-input], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: llm-api, kind: implementation, path_or_reference: "src/toas/operator_api.py:690-735; src/toas/runtime/context_assembly.py", revision_or_observed_at: parent, expected_item_families: [llm-input], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: llm-doc, kind: documentation, path_or_reference: "docs/capabilities.md:266-272", revision_or_observed_at: parent, expected_item_families: [llm-input], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: llm-probe, kind: runtime_probe, path_or_reference: "isolated workspace; toas llm-input and --envelope", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [llm-input], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: llm-tests, kind: acceptance, path_or_reference: "tests/test_operator_api.py; tests/test_cli.py", revision_or_observed_at: parent, expected_item_families: [llm-input], collection_state: reviewed, review_level: self, extraction_result: recorded}

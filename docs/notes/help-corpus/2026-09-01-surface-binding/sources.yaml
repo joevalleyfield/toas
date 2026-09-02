@@ -1,0 +1,6 @@
+sources:
+  - {id: surface-cli, kind: implementation, path_or_reference: "src/toas/cli.py:111,430-490", revision_or_observed_at: parent, expected_item_families: [surface-binding], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: surface-api, kind: implementation, path_or_reference: "src/toas/operator_api.py:surface_bindings; bind_surface; select_surface; rebind_surface", revision_or_observed_at: parent, expected_item_families: [surface-binding], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: surface-doc, kind: documentation, path_or_reference: "docs/capabilities.md:102-104,125-133", revision_or_observed_at: parent, expected_item_families: [surface-binding], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: surface-probe, kind: runtime_probe, path_or_reference: "isolated workspace; toas surface list/bind/select/rebind", revision_or_observed_at: "2026-09-01 local probe", expected_item_families: [surface-binding], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: surface-tests, kind: acceptance, path_or_reference: "tests/test_cli.py; tests/test_operator_api.py", revision_or_observed_at: parent, expected_item_families: [surface-binding], collection_state: reviewed, review_level: self, extraction_result: recorded}

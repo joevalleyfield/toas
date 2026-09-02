@@ -1,0 +1,24 @@
+slice:
+  id: graph-projection
+  source_ids: [graph-cli, graph-api, graph-renderer, graph-help-doc, graph-runtime]
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self
+  purpose: compare topology projection navigation with prompt discovery vocabulary
+  boundary: excludes heads, transcript, llm-input, and concept-graph generation internals
+  collection_state: reviewed
+  parent_slice: prompt-browse-render
+observations:
+  - {id: obs-01, kind: implementation_reference, claim: "toas graph accepts temporal or consequence projection, anchor and before/after selectors, source selection, and optional stitch diagnostics.", evidence: [graph-cli, graph-api]}
+  - {id: obs-02, kind: behavior_observation, claim: "The default graph is a topology rendering over selected message events; consequence mode changes the projection rather than selecting another history head.", evidence: [graph-renderer, graph-runtime]}
+  - {id: obs-03, kind: surface_content, claim: "CLI help calls graph a selected history graph topology view, while prompt browsing presents prefix selectors and leaf rendering.", evidence: [graph-help-doc]}
+  - {id: obs-04, kind: design_inference, claim: "Graph projection and prompt browsing both have selector-to-render navigation, but their selectors are not interchangeable identities.", evidence: [obs-01, obs-03]}
+candidate_items:
+  - {provisional_identity: graph-topology, adjudication: new_item, dimensions: {item: history graph topology projection, surface: [CLI command, documentation], audience: [human operator, maintainer], intent: inspect}, identity: {canonical_name: toas graph, aliases: [], compatibility_forms: []}, content: {summary: renders selected history topology, when_to_use: inspect branching and consequence structure, invocation: "toas graph [anchor] [--projection temporal|consequence]", examples: ["toas graph --projection consequence"]}, behavior: {output_shape: graph node/edge text, state_effect: none observed, durability: none, authority: read-only projection}, constraints: {policy: selectors scope the view, safety: no mutation}, availability: {static_or_dynamic: static shape with runtime history, runtime_dependencies: [events, selected sources, anchor]}, disclosure: {role: focused history inspection, next_topics: [heads, transcript, llm-input]}, evidence: [obs-01, obs-02, obs-03], collection_status: complete, semantic_status: established, status: accepted}
+  - {provisional_identity: graph-selector, adjudication: related_item_not_merged, dimensions: {item: graph selection controls, surface: CLI command, audience: human operator, intent: select}, identity: {canonical_name: graph selectors, aliases: [], compatibility_forms: []}, content: {summary: limits or changes the graph view, when_to_use: focus on an anchor, range, source set, or projection, invocation: "anchor, -N, +N, --sources, --projection", examples: []}, behavior: {output_shape: altered graph projection, state_effect: none, durability: none, authority: view scope}, constraints: {policy: invalid anchors fail}, availability: {static_or_dynamic: runtime-dependent, runtime_dependencies: [history graph]}, disclosure: {role: focused navigation, next_topics: [graph]}, evidence: [obs-01, obs-02], collection_status: complete, semantic_status: unresolved, status: accepted_with_open_terms}
+candidate_relationships:
+  - {from: graph-topology, to: graph-selector, kind: scoped_by, evidence: [obs-01]}
+candidate_fields: [disclosure should distinguish selector from projection identity, navigation vocabulary should not imply prompt assets are history nodes]
+open_questions: ["Should history selectors use the same name as prompt prefixes?", "Should temporal and consequence be called projections or views?"]
+lessons_learned: [The adjacent-family comparison exposes navigation similarity without semantic identity, Graph help names topology more clearly than generic history wording]
+light_critique: [The design procedure correctly asks for neighboring navigation, but does not prescribe a vocabulary crosswalk; the crosswalk is useful evidence here]
