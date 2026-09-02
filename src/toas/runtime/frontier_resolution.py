@@ -38,9 +38,18 @@ def _source_operation_spans(body: str, parsed: object, plan: list[dict]) -> tupl
     return (body,)
 
 
-def extract_plan_source(content: str, *, plan: list[dict], staged: bool = False) -> PlanSource | None:
+def extract_plan_source(
+    content: str,
+    *,
+    plan: list[dict],
+    staged: bool = False,
+    source_position: int | None = None,
+) -> PlanSource | None:
     """Find *plan* in a YAML fence and retain parser-validated authored spans."""
-    for match in _YAML_PLAN_RE.finditer(content):
+    source_view = strip_inert_regions(content)
+    for match in _YAML_PLAN_RE.finditer(source_view):
+        if source_position is not None and match.start() != source_position:
+            continue
         is_staged = content[match.start() : match.start() + 14].startswith("```yaml staged")
         if is_staged != staged:
             continue

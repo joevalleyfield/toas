@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from ..tools import REGISTRY
 from .frontier_resolution import extract_plan_source
 from .intent_arbitration_edges import select_user_intent_candidates
 from .operator_command_context import OperatorCommandContext
@@ -101,7 +102,11 @@ def resolve_source_selections(
         plan = list(candidate["value"])
         if not plan:
             continue
-        source_plan = extract_plan_source(source_content, plan=plan)
+        source_plan = extract_plan_source(
+            source_content,
+            plan=plan,
+            source_position=candidate.get("position"),
+        )
         operation_sources = source_plan.operation_sources if source_plan is not None else tuple("" for _ in plan)
         if operation_index is None:
             operation_start = 1
@@ -131,6 +136,14 @@ def resolve_source_selections(
         for candidate_number in range(plan_start + 1, len(candidates) + 1):
             plan = list(candidates[candidate_number - 1]["value"])
             if plan:
+                source_plan = extract_plan_source(
+                    source_content,
+                    plan=plan,
+                    source_position=candidates[candidate_number - 1].get("position"),
+                )
+                operation_sources = (
+                    source_plan.operation_sources if source_plan is not None else tuple("" for _ in plan)
+                )
                 selections.append(
                     SourceSelection(
                         plan=plan,
@@ -209,7 +222,7 @@ def _run(*, selections: list[SourceSelection], provenance: dict, step_mod, conte
         results=nodes,
         frontier_content="",
         retry_source=(
-            _retry_source(retry_source, context.config.shell.assistant_timeout_s)
+            _retry_source(retry_source, plan[failed_index], context.config.shell.assistant_timeout_s)
             if retry_source is not None and failed_index is not None
             else None
         ),
@@ -245,10 +258,13 @@ def _tail_selector_for_failure(*, selections: list[SourceSelection], failed_inde
     return None
 
 
-def _retry_source(source: str, timeout_s: int) -> str | None:
+def _retry_source(source: str, call: dict, timeout_s: int) -> str | None:
     if not source:
         return None
-    if "timeout_s:" in source:
+    tool = REGISTRY.get(call.get("tool_name"))
+    if tool is None or "timeout_s" not in tool.optional_args:
+        return source
+    if re.search(r"(?m)^\s+timeout_s\s*:", source):
         return source
     args_match = re.search(r"(?m)^(\s*)args:\s*(\{\})?\s*$", source)
     if args_match is not None:

@@ -214,3 +214,21 @@ Verification passed:
   coverage.
 - Targeted source-reference coverage — 100%.
 - Ruff checks for the changed runtime and test files — passed.
+
+## Follow-up fidelity correction
+
+The reopened review identified and corrected two source-span hazards. Plan
+source lookup is now keyed by the canonical candidate fence position, so
+duplicate normalized YAML plans retain their own comments and formatting.
+Cross-plan operation tails independently resolve each later candidate's source
+spans rather than reusing the initiating plan's spans. Retry timeout insertion
+is also limited to tools whose registry schema declares `timeout_s` as an
+optional argument; unsupported tools retain their authored source unchanged.
+
+Added regression coverage:
+
+- `test_source_spans_follow_candidate_identity_for_duplicate_plans_and_cross_plan_tail`
+- `test_retry_source_preserves_existing_timeout_and_handles_missing_args`
+
+The full repository verification was rerun after this correction: 3084 passed,
+9 deselected, 100% coverage, with all required Ruff checks passing.

@@ -13,6 +13,7 @@ from toas.runtime.source_reference_operations import (
     _selected_source_for_index,
     _tail_selector_for_failure,
     handle_source_reference_commands,
+    resolve_source_selections,
 )
 
 
@@ -174,7 +175,7 @@ def test_failed_run_projects_direct_retry_and_bounded_reference_tail():
     )
     recovery = out[-1]
     assert recovery["role"] == "user"
-    assert "timeout_s: 5" in recovery["content"]
+    assert "timeout_s:" not in recovery["content"]
     assert "Remaining referenced assistant source (bounded):\n\n/run p2.o2.." in recovery["content"]
     assert recovery["provenance"]["source"] == "adopted"
     assert recovery["provenance"]["source_reference"]["selectors"] == ["p1..", "p2.."]
@@ -209,10 +210,32 @@ def test_tail_selector_returns_none_for_unmatched_failure_position():
 
 
 def test_retry_source_preserves_existing_timeout_and_handles_missing_args():
-    assert _retry_source("# authored\n- tool_name: echo\n  args:\n    timeout_s: 2\n", 9).endswith("timeout_s: 2\n")
-    assert "timeout_s: 9" in _retry_source("- tool_name: echo\n", 9)
-    assert "timeout_s: 9" in _retry_source("- tool_name: echo\n  args: {}\n", 9)
-    assert _retry_source("", 9) is None
+    shell = {"tool_name": "shell", "args": {"argv": ["echo", "ok"]}}
+    echo = {"tool_name": "echo", "args": {"text": "ok"}}
+    assert _retry_source("# authored\n- tool_name: shell\n  args:\n    timeout_s: 2\n", shell, 9).endswith("timeout_s: 2\n")
+    assert "timeout_s: 9" in _retry_source("- tool_name: shell\n", shell, 9)
+    assert "timeout_s: 9" in _retry_source("- tool_name: shell\n  args: {}\n", shell, 9)
+    assert _retry_source("- tool_name: echo\n  args:\n    text: ok\n", echo, 9).endswith("text: ok\n")
+    assert _retry_source("", echo, 9) is None
+
+
+def test_source_spans_follow_candidate_identity_for_duplicate_plans_and_cross_plan_tail():
+    import toas.step as step_mod
+
+    content = (
+        "```yaml\n- tool_name: echo # first\n  args:\n    text: same\n```\n"
+        "```yaml\n- tool_name: echo # second\n  args:\n    text: same\n"
+        "- tool_name: shell # second tail\n  args:\n    argv: [echo, tail]\n```"
+    )
+    selections, _ = resolve_source_selections(
+        step_mod=step_mod,
+        context=_ctx([{"role": "assistant", "content": content}, {"role": "user", "content": "/run"}]),
+        args=["p1.o1.."],
+        command="run",
+    )
+    assert "# first" in selections[0].operation_sources[0]
+    assert "# second" in selections[1].operation_sources[0]
+    assert "# second tail" in selections[1].operation_sources[1]
 
 
 def test_selected_source_for_index_returns_none_outside_selected_sequence():
@@ -376,7 +399,7 @@ def test_real_dispatch_keeps_inert_blocks_out_of_coordinates_and_recovers_tail()
         config=OperatorConfig(),
     )
     assert out[-1]["role"] == "user"
-    assert "timeout_s: 5" in out[-1]["content"]
+    assert "timeout_s:" not in out[-1]["content"]
     assert "Remaining referenced assistant source (bounded):\n\n/run p1.o2.." in out[-1]["content"]
 
 
