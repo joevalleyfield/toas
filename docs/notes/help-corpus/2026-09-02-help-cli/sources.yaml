@@ -1,0 +1,6 @@
+sources:
+  - {id: help-cli-s1, kind: rendered_help, path_or_reference: "src/toas/step.py: render_help_cli", revision_or_observed_at: parent, expected_item_families: [help-cli], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: help-cli-s2, kind: implementation, path_or_reference: "src/toas/cli.py: usage and dispatcher", revision_or_observed_at: parent, expected_item_families: [help-cli], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: help-cli-s3, kind: documentation, path_or_reference: "docs/capabilities.md: primary CLI surfaces", revision_or_observed_at: parent, expected_item_families: [help-cli], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: help-cli-s4, kind: runtime_probe, path_or_reference: "isolated workspace; /help cli", revision_or_observed_at: 2026-09-02 local probe, expected_item_families: [help-cli], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: help-cli-s5, kind: acceptance, path_or_reference: "tests/test_cli.py: help and dispatch coverage", revision_or_observed_at: parent, expected_item_families: [help-cli], collection_state: reviewed, review_level: self, extraction_result: recorded}

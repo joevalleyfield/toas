@@ -1,0 +1,6 @@
+sources:
+  - {id: help-full-s1, kind: rendered_help, path_or_reference: "src/toas/step.py: render_help_full", revision_or_observed_at: parent, expected_item_families: [help-full], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: help-full-s2, kind: implementation, path_or_reference: "src/toas/tools_guidance.py", revision_or_observed_at: parent, expected_item_families: [help-full], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: help-full-s3, kind: documentation, path_or_reference: "docs/capabilities.md: operator and model surfaces", revision_or_observed_at: parent, expected_item_families: [help-full], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: help-full-s4, kind: runtime_probe, path_or_reference: "isolated workspace; /help full", revision_or_observed_at: 2026-09-02 local probe, expected_item_families: [help-full], collection_state: reviewed, review_level: self, extraction_result: recorded}
+  - {id: help-full-s5, kind: acceptance, path_or_reference: "tests/test_runtime_operator_command_handlers.py: help topics", revision_or_observed_at: parent, expected_item_families: [help-full], collection_state: reviewed, review_level: self, extraction_result: recorded}

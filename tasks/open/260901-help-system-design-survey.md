@@ -301,3 +301,37 @@ Batch result: ten collections complete with unresolved semantics and open
 divergence status; no implementation task is proposed yet. The next bounded
 slice should test how these recovery/execution surfaces should be named and
 linked from human-facing help topics.
+
+## Twenty-seventh through thirty-sixth collection passes
+
+Ten further bounded collection runs are recorded under
+`docs/notes/help-corpus/2026-09-02-help-approvals/` through
+`docs/notes/help-corpus/2026-09-02-acceptance-recovery-path/`. They cover the
+`/help approvals`, `/help commands`, `/help cli`, and `/help full` topics;
+the extraction-to-replay and replay-to-queue help links; the standalone
+`toas replay-script` entrypoint; a capabilities terminology crosswalk; and
+the operator starter acceptance path.
+
+All ten runs passed the manual collection gates: five declared sources per
+run, no pending/blocked/excluded sources, typed observations, adjudication for
+each candidate, typed evidence, and parseable control artifacts. They remain
+self-reviewed only and retain unresolved semantics/open divergence rather
+than silently selecting a canonical vocabulary.
+
+Lessons and light critique across this batch: the recovery family is better
+understood as a directed workflow of selection, execution, authorization, and
+continuation than as one “replay” item. Help composition, index scope, inert
+examples, target resolution, execution mode, workflow edges, and acceptance
+observability each emerged as separate schema pressures. The current surfaces
+are generally safe and behaviorally distinct, but their links are implicit;
+the same word (“replay”) covers interactive and standalone entrypoints, while
+`force`, `approve`, and `resume` have different authority or state effects.
+The procedure remains useful for preserving those distinctions, although the
+repeated five-source ledgers are still costly and a future validator should
+check duplicate YAML keys, workflow references, and declared surface/audience
+coverage in addition to parseability.
+
+Batch result: ten collections complete with unresolved semantics and open
+divergence status; no implementation task is proposed yet. The next bounded
+step is a validator-oriented slice over these records, or a narrowly scoped
+design follow-on for human-help workflow links if product vocabulary is ready.

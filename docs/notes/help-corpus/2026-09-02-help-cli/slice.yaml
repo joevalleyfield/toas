@@ -1,0 +1,12 @@
+slice: {id: help-cli, source_ids: [help-cli-s1, help-cli-s2, help-cli-s3, help-cli-s4, help-cli-s5], collector: codex, reviewer: self-review, purpose: compare CLI index wording with executable recovery commands, boundary: excludes full option semantics and slash-only command behavior, collection_state: reviewed, review_level: self, parent_slice: recovery-execution-linkage}
+observations:
+  - {id: obs-01, kind: surface_content, claim: "CLI help presents replay-script and neighboring lifecycle commands as an index, not as a recovery workflow.", evidence: [help-cli-s1, help-cli-s4]}
+  - {id: obs-02, kind: implementation_reference, claim: "The CLI dispatcher defines commands whose names and option forms exceed the compact slash CLI topic.", evidence: [help-cli-s2]}
+  - {id: obs-03, kind: documentation_claim, claim: "Capabilities documentation provides broader CLI coverage than /help cli.", evidence: [help-cli-s3]}
+  - {id: obs-04, kind: behavior_observation, claim: "The help topic itself is read-only and does not route or execute a CLI command.", evidence: [help-cli-s4, help-cli-s5]}
+candidate_items:
+  - {provisional_identity: help-cli, adjudication: new_item, dimensions: {item: CLI command index, surface: [slash help, CLI implementation, documentation], audience: [human operator, maintainer], intent: discover}, identity: {canonical_name: "/help cli", aliases: [], compatibility_forms: []}, content: {summary: point to executable toas commands, when_to_use: choose a command family before consulting exact usage, invocation: "/help cli", examples: []}, behavior: {output_shape: inert help projection, state_effect: none, durability: none, authority: explanatory}, constraints: {policy: index is not a command runner, safety: avoid implying omitted commands are unavailable}, availability: {static_or_dynamic: static with implementation drift risk, runtime_dependencies: [CLI dispatcher]}, disclosure: {role: index, next_topics: [replay-script, history, async]}, evidence: [obs-01, obs-02, obs-03, obs-04], collection_status: complete, semantic_status: unresolved, status: accepted}
+candidate_fields: [inventory_parity, command_family_link]
+open_questions: ["Should /help cli claim parity with the dispatcher or explicitly label itself as a curated index?"]
+lessons_learned: ["Index scope is a product claim", "Human help needs a link from family selection to exact CLI usage"]
+light_critique: ["The current topic can make an omitted command look unsupported"]

@@ -1,0 +1,12 @@
+slice: {id: help-full, source_ids: [help-full-s1, help-full-s2, help-full-s3, help-full-s4, help-full-s5], collector: codex, reviewer: self-review, purpose: inspect the composed operator help surface as a progressive-disclosure hub, boundary: excludes exhaustive tool and config item adjudication, collection_state: reviewed, review_level: self, parent_slice: recovery-execution-linkage}
+observations:
+  - {id: obs-01, kind: surface_content, claim: "Full help composes commands, tools, configuration, and workflow examples in one response.", evidence: [help-full-s1, help-full-s4]}
+  - {id: obs-02, kind: implementation_reference, claim: "Tool guidance and operator help are assembled by related but separate renderers.", evidence: [help-full-s2]}
+  - {id: obs-03, kind: documentation_claim, claim: "Documentation distinguishes human operator help from model capability advertisement.", evidence: [help-full-s3]}
+  - {id: obs-04, kind: behavior_observation, claim: "Full help remains explanatory and does not execute its embedded workflow examples.", evidence: [help-full-s4, help-full-s5]}
+candidate_items:
+  - {provisional_identity: help-full, adjudication: new_item, dimensions: {item: composed operator help hub, surface: [slash help, implementation, documentation], audience: [human operator, model, maintainer], intent: discover}, identity: {canonical_name: "/help full", aliases: [], compatibility_forms: []}, content: {summary: compose broad command/tool/config guidance, when_to_use: orient across help families before narrowing to a topic, invocation: "/help full", examples: []}, behavior: {output_shape: inert multi-section projection, state_effect: none, durability: none, authority: explanatory}, constraints: {policy: mixed audience content must be labeled, safety: examples remain inert}, availability: {static_or_dynamic: mixed, runtime_dependencies: [visible tools, effective config]}, disclosure: {role: hub, next_topics: [commands, tools, cli, approvals, config]}, evidence: [obs-01, obs-02, obs-03, obs-04], collection_status: complete, semantic_status: unresolved, status: accepted}
+candidate_fields: [section_audience, mixed_truth_label]
+open_questions: ["Should full help remain a composed hub or become only a map to focused topics?"]
+lessons_learned: ["Composition is itself a disclosure role", "Static guidance and runtime facts need visible labels"]
+light_critique: ["The broad response is useful for orientation but costly as a precise reference"]
