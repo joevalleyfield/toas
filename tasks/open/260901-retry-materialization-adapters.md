@@ -128,3 +128,16 @@ is an interchangeable recovery lingua franca.
   and explicit editable constraint syntax.
 - Reworking the attempt-local `/run` selection or generic recovery transition
   semantics already settled by the source-reference parent.
+
+## Progress
+
+- 2026-09-01: Added the first executable-fence adapter slice. Markdown fence
+  scanning now retains source spans for individual header attribute values and
+  the opening-header insertion point. `timeout_s` is accepted by the existing
+  bash, Python, PowerShell, and explicit-runtime interpreter fence lanes.
+  `retry_materialization.materialize_executable_fence_timeout` replaces only
+  an existing timeout value or appends one header attribute, then reparses the
+  patched fence. It preserves the body and closing fence byte-for-byte and
+  explicitly refuses inactive, malformed, duplicate, JSON, and YAML forms.
+  Wiring the adapter into generic source-reference recovery remains the next
+  slice of this task.

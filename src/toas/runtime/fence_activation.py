@@ -50,7 +50,7 @@ def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
         parsed_attributes = dict(attribute.split("=", 1) for attribute in attributes)
         if len(parsed_attributes) != len(attributes):
             return FenceActivation("unsupported", language, "explicit-exec", "activation form repeats an attribute")
-        unknown_attributes = set(parsed_attributes) - {"toolset", "runtime", "cwd", "persist", "path", "overwrite"}
+        unknown_attributes = set(parsed_attributes) - {"toolset", "runtime", "cwd", "persist", "path", "overwrite", "timeout_s"}
         if unknown_attributes:
             return FenceActivation("unsupported", language, "explicit-exec", "activation form has unknown attributes")
         toolset = parsed_attributes.get("toolset")

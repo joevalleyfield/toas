@@ -29,6 +29,14 @@ def test_parse_bash_exec_fence_preserves_unprompted_multiline_body():
     ]
 
 
+def test_parse_bash_exec_fence_carries_timeout_attribute():
+    fence = scan_markdown_fences("```bash exec timeout_s=30\necho hi\n```")[0]
+
+    assert parse_bash_exec_fence(fence) == [
+        {"tool_name": "shell_script", "args": {"script": "echo hi", "timeout_s": 30}}
+    ]
+
+
 def test_parse_bash_exec_fence_rejects_inactive_or_non_bash_fences():
     inert = scan_markdown_fences("```bash\necho hi\n```")[0]
     python = scan_markdown_fences("```python exec\nprint('hi')\n```")[0]
@@ -111,6 +119,41 @@ def test_parse_python_exec_fence_carries_runtime_and_cwd_arguments():
             },
         }
     ]
+
+
+def test_parse_python_exec_fence_carries_timeout_attribute():
+    fence = scan_markdown_fences("```python exec timeout_s=30\nprint('hi')\n```")[0]
+
+    assert parse_python_exec_fence(fence) == [
+        {"tool_name": "python_script", "args": {"script": "print('hi')", "timeout_s": 30}}
+    ]
+
+
+def test_other_script_fences_carry_timeout_attribute():
+    powershell = scan_markdown_fences("```powershell exec timeout_s=30\nWrite-Host hi\n```")[0]
+    interpreter = scan_markdown_fences("```sql exec runtime=sqlite3 timeout_s=30\nselect 1;\n```")[0]
+
+    assert parse_powershell_exec_fence(powershell) == [
+        {"tool_name": "powershell_script", "args": {"script": "Write-Host hi", "timeout_s": 30}}
+    ]
+    assert parse_interpreter_exec_fence(interpreter) == [
+        {
+            "tool_name": "interpreter_script",
+            "args": {"language": "sql", "script": "select 1;", "runtime": ["sqlite3"], "timeout_s": 30},
+        }
+    ]
+
+
+def test_script_fences_reject_nonpositive_timeout_attribute():
+    bash = scan_markdown_fences("```bash exec timeout_s=0\necho hi\n```")[0]
+    python = scan_markdown_fences("```python exec timeout_s=nope\nprint(1)\n```")[0]
+    powershell = scan_markdown_fences("```powershell exec timeout_s=0\nWrite-Host hi\n```")[0]
+    interpreter = scan_markdown_fences("```sql exec runtime=sqlite3 timeout_s=nope\nselect 1;\n```")[0]
+
+    assert parse_bash_exec_fence(bash) is None
+    assert parse_python_exec_fence(python) is None
+    assert parse_powershell_exec_fence(powershell) is None
+    assert parse_interpreter_exec_fence(interpreter) is None
 
 
 def test_parse_python_exec_fence_rejects_empty_or_invalid_boolean_attributes():

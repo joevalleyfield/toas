@@ -23,7 +23,14 @@ def parse_bash_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | None:
         script = fence.body.rstrip("\r\n")
     if not script.strip():
         return None
-    return [{"tool_name": "shell_script", "args": {"script": script}}]
+    args: dict[str, Any] = {"script": script}
+    for token in fence.info_tokens[2:]:
+        key, value = token.split("=", 1)
+        if key == "timeout_s":
+            if not value.isdigit() or int(value) <= 0:
+                return None
+            args[key] = int(value)
+    return [{"tool_name": "shell_script", "args": args}]
 
 
 def extract_bash_exec_plans(content: str) -> list[tuple[list[dict[str, Any]], int]]:
@@ -86,6 +93,10 @@ def parse_python_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | None
             args[key] = value.split()
         elif key in {"cwd", "path"}:
             args[key] = value
+        elif key == "timeout_s":
+            if not value.isdigit() or int(value) <= 0:
+                return None
+            args[key] = int(value)
         elif key in {"persist", "overwrite"}:
             if value.casefold() not in {"true", "false"}:
                 return None
@@ -116,6 +127,10 @@ def parse_powershell_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | 
             args[key] = value.split()
         elif key in {"cwd", "path"}:
             args[key] = value
+        elif key == "timeout_s":
+            if not value.isdigit() or int(value) <= 0:
+                return None
+            args[key] = int(value)
         elif key in {"persist", "overwrite"}:
             if value.casefold() not in {"true", "false"}:
                 return None
@@ -145,6 +160,10 @@ def parse_interpreter_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] |
         key, value = token.split("=", 1)
         if key in {"cwd", "path"}:
             args[key] = value
+        elif key == "timeout_s":
+            if not value.isdigit() or int(value) <= 0:
+                return None
+            args[key] = int(value)
         elif key in {"persist", "overwrite"}:
             if value.casefold() not in {"true", "false"}:
                 return None
