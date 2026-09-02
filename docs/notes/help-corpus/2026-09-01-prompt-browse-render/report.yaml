@@ -1,0 +1,14 @@
+result:
+  collection_status: complete
+  semantic_status: unresolved
+  divergence_status: open
+  status: complete_with_divergence
+  review_level: self
+  source_counts: {declared: 5, reviewed: 5, pending: 0, blocked: 0, excluded: 0}
+  candidate_counts: {extracted: 2, adjudicated: 2, accepted: 2, related_or_partial: 0}
+  item_counts: {semantically_established: 2, unresolved: 0}
+  unresolved_questions: [parent selector disclosure, shared metadata shape, dynamic-content labeling, compatibility visibility]
+  unresolved_conflicts: []
+  excluded_sources: []
+  schema_changes: [added browse/render operation distinction, added invocation-surface effect, added asset role as a possible field]
+  next_run_scope: Expand to one neighboring history/projection family only after deciding whether prompt discovery and projection discovery share navigation vocabulary.

@@ -152,3 +152,73 @@ one related projection, as prescribed by the design note:
 The slice should use structural multiplicity for any item exposed across
 several surfaces or audiences, and should record whether the prompt is
 instructional, executable-context, or projection-oriented content.
+
+## Fourth collection pass
+
+The fourth bounded collection run is recorded at
+`docs/notes/help-corpus/2026-09-01-concept-graph-projection/`. It compares the
+`concept-graph/projection_v1` prompt asset with `/concept-graph`, its generated
+projection message, and the durable concept-graph record/artifact.
+
+The run keeps the instructional prompt, activation command, and generated
+projection as related but distinct items. It confirms that provenance,
+artifact materialization, and continuation ordering are behavior evidence, not
+properties of the prompt asset itself.
+
+Lessons and light critique are captured in the slice record. In brief, the
+prompt/projection pairing required a third linked item—the slash command—to
+explain activation, and the current help grouping under “prompt surfaces”
+understates the durable projection effect.
+
+Run result: collection complete with unresolved semantics and open projection
+detail; self-review only.
+
+## Fifth collection pass
+
+The fifth bounded collection run is recorded at
+`docs/notes/help-corpus/2026-09-01-compaction-handoff/`. It compares the
+`compaction/handoff_v1` prompt asset with `/compact` and the durable
+`compaction_projection` handoff record.
+
+The run establishes compaction as a recovery/continuation projection rather
+than merely a text-shortening prompt. It records source-transcript
+preservation, handoff provenance, and explicit successor-context behavior as
+separate help fields.
+
+Lessons and light critique are captured in the slice record. In brief, the
+user-facing transition is more specific than the generic word “projection,”
+and the threshold option is exposed without explaining its relationship to
+RESULT blocks and durable continuation evidence.
+
+Run result: collection complete with unresolved terminology and open handoff
+detail; self-review only.
+
+## Sixth collection pass
+
+The sixth bounded collection run is recorded at
+`docs/notes/help-corpus/2026-09-01-prompt-browse-render/`. It examines prompt
+browsing and rendering across static and dynamic assets through `toas prompt`,
+`toas prompts`, `/prompt`, and `/prompts`.
+
+The run confirms that parent-prefix browsing and leaf rendering are separate
+disclosure operations over shared asset identities. Dynamic assets share the
+same navigation surface but have runtime-conditioned content, and the slash
+compatibility alias remains a surface concern rather than a new asset.
+
+Lessons and light critique are captured in the slice record. In brief, prompt
+progressive disclosure already has a useful list-versus-render shape, but the
+relationship among `/help`, `/prompt`, and projection discovery is implicit;
+CLI and slash metadata/navigation contracts also differ without a documented
+shared shape.
+
+Run result: collection complete with unresolved navigation semantics and open
+metadata divergence; self-review only.
+
+## Follow-on sign-post
+
+These three slices add evidence for prompt roles, recovery intent, durability
+layers, browse/render operations, and invocation-surface effects. Before
+expanding the corpus further, the next bounded slice should test one adjacent
+history/projection family and explicitly compare its navigation vocabulary with
+prompt discovery. No implementation task is proposed yet; the remaining gaps
+are still suitable for narrow design follow-ons.

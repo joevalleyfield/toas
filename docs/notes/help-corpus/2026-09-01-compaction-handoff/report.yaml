@@ -1,0 +1,14 @@
+result:
+  collection_status: complete
+  semantic_status: unresolved
+  divergence_status: open
+  status: complete_with_divergence
+  review_level: self
+  source_counts: {declared: 6, reviewed: 6, pending: 0, blocked: 0, excluded: 0}
+  candidate_counts: {extracted: 2, adjudicated: 2, accepted: 2, related_or_partial: 0}
+  item_counts: {semantically_established: 2, unresolved: 0}
+  unresolved_questions: [dry-run disclosure, compaction terminology, successor-context inspection]
+  unresolved_conflicts: []
+  excluded_sources: []
+  schema_changes: [added recovery/continuation disclosure intent, added source-preservation behavior]
+  next_run_scope: Examine prompt browsing and rendering as a discovery surface over static and dynamic assets.

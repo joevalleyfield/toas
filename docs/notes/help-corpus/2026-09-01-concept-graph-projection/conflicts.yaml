@@ -1,0 +1,7 @@
+conflicts:
+  - id: concept-prompt-projection-identity
+    candidates: [concept-graph-prompt, concept-graph-projection]
+    claim: "The prompt asset and the durable concept-graph output are related but have different identity, audience, and state effects."
+    evidence: [concept-prompt, concept-side-effect, concept-record]
+    adjudication: "Keep as related items: the prompt is instructional model input; the projection is generated conceptual output persisted with provenance."
+    status: resolved_as_related

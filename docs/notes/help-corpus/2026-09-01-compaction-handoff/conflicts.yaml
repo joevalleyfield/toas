@@ -1,0 +1,7 @@
+conflicts:
+  - id: handoff-visible-versus-durable
+    candidates: [compaction-handoff-prompt, compaction-projection]
+    claim: "Compaction guidance is temporarily visible executable context, while the handoff and projection record are durable consequences."
+    evidence: [handoff-prompt, handoff-side-effect, handoff-record, handoff-tests]
+    adjudication: "Keep separate: prompt visibility guides generation; the assistant handoff, compaction record, and successor transcript behavior establish durable state."
+    status: resolved_as_related

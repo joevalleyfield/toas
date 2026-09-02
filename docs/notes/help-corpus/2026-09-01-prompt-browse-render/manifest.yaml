@@ -1,0 +1,13 @@
+run:
+  id: help-corpus-2026-09-01-s6
+  date: 2026-09-01
+  scope:
+    product_surfaces: [cli_help, slash_help, prompt_browser, prompt_renderer, prompt_asset]
+    source_paths: [src/toas/prompts.py, src/toas/cli.py, src/toas/step.py, src/toas/cli_dispatch.py, tests/test_prompts.py, tests/test_runtime_operator_command_handlers.py, docs/capabilities.md]
+    source_revisions: [102e39f9]
+    runtime_profiles: [local_default_config, dynamic_capability_profile]
+    observed_scenarios: [toas_prompts, toas_prompts_concept_graph, toas_prompt_leaf, slash_prompt_leaf, slash_prompt_parent]
+  schema_revision: 2026-09-01-design-note-procedure-v1
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self

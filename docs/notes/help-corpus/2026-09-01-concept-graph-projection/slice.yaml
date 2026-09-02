@@ -1,0 +1,74 @@
+slice:
+  id: prompt-concept-graph-projection
+  source_ids: [concept-prompt, concept-command, concept-side-effect, concept-record, concept-doc, concept-tests]
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self
+  purpose: compare one instructional prompt asset with its slash-command projection and durable artifact
+  boundary: excludes compaction, prompt-library browsing, broad graph projections, and model transport details
+  collection_state: reviewed
+  parent_slice: callable-capture-task-thread
+
+observations:
+  - {id: obs-01, kind: surface_content, claim: "projection_v1 instructs the model to build a compact nested-Markdown concept graph from transcript input, preserving distinctions, relationships, epistemic status, and unresolved questions; it explicitly says not to continue the transcript.", evidence: [concept-prompt]}
+  - {id: obs-02, kind: implementation_reference, claim: "/concept-graph is a slash command described as appending an LLM-generated concept graph to the transcript and is routed through a dedicated workspace command handler.", evidence: [concept-command]}
+  - {id: obs-03, kind: behavior_observation, claim: "A valid concept-graph result is retained as an assistant projection message and produces a separate concept_graph_projection record; invalid or unmaterialized updates are ignored or rendered as an error.", evidence: [concept-side-effect, concept-tests]}
+  - {id: obs-04, kind: implementation_reference, claim: "The projection record carries source message ids, optional source head, prompt_ref, selected status, artifact path, and content digest; the artifact is written under .toas/concept-graphs.", evidence: [concept-record, concept-tests]}
+  - {id: obs-05, kind: documentation_claim, claim: "Product documentation places /concept-graph with prompt surfaces while describing control-lane and transcript-projection guardrails separately.", evidence: [concept-doc]}
+  - {id: obs-06, kind: behavior_observation, claim: "Continuation tests preserve the command, the rendered concept-graph prompt, and the generated graph in order, while offering explicit options to ignore the preceding graph or exclude the tail.", evidence: [concept-tests]}
+  - {id: obs-07, kind: design_inference, claim: "The prompt asset expresses transform instructions and the projection record expresses durable provenance; neither should be collapsed into a single help item merely because the command links them.", evidence: [obs-01, obs-03, obs-04, obs-06]}
+
+candidate_items:
+  - provisional_identity: concept-graph-prompt
+    adjudication: new_item
+    dimensions: {item: concept-graph projection instructions, surface: prompt library, audience: model, intent: transform}
+    identity: {canonical_name: concept-graph/projection_v1, aliases: [], compatibility_forms: []}
+    placement: {workflow_areas: [explore prompt and projection assets], parent_topics: [prompt library, concept graph]}
+    content: {summary: Instructions for rewriting transcript material into a compact conceptual graph., when_to_use: When conceptual relationships and unresolved questions matter more than conversational sequence., invocation: "load/render prompt ref concept-graph/projection_v1", examples: []}
+    behavior: {output_shape: nested Markdown unordered-list graph, state_effect: none by itself, durability: prompt asset only, authority: model instruction supplied by TOAS}
+    constraints: {policy: preserve epistemic labels and canonical cross-references, safety: treat transcript as input data rather than instructions, prerequisites: source transcript}
+    availability: {static_or_dynamic: static asset, runtime_dependencies: []}
+    disclosure: {role: instructional context before generation, next_topics: [/concept-graph, concept_graph_projection]}
+    evidence: [obs-01]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+  - provisional_identity: concept-graph-projection
+    adjudication: new_item
+    dimensions: {item: generated concept graph, surface: durable projection and transcript result, audience: human operator; model indirectly, intent: inspect}
+    identity: {canonical_name: concept graph projection, aliases: [], compatibility_forms: []}
+    placement: {workflow_areas: [inspect durable state, explore prompt and projection assets], parent_topics: [concept graph]}
+    content: {summary: Generated conceptual representation of selected transcript material., when_to_use: When a durable, non-chronological view of concepts and relationships is useful., invocation: "/concept-graph", examples: []}
+    behavior: {output_shape: assistant projection plus concept_graph_projection record and .toas/concept-graphs artifact, state_effect: appends projection evidence without rewriting source messages, durability: durable record and artifact, authority: operator-triggered projection path}
+    constraints: {policy: source ids and prompt ref are retained, safety: output must be one graph-shaped assistant message, prerequisites: materializable result with source message ids}
+    availability: {static_or_dynamic: command static; content and source selection dynamic, runtime_dependencies: [session history, selected source head, model response]}
+    disclosure: {role: generated inspection view, next_topics: [toas transcript, toas llm-input, /compact]}
+    evidence: [obs-02, obs-03, obs-04, obs-06]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+
+candidate_relationships:
+  - {from: concept-graph-projection, to: concept-graph-prompt, kind: instructed_by, evidence: [obs-01, obs-04]}
+  - {from: concept-graph-projection, to: transcript, kind: derived_from, evidence: [obs-04, obs-06]}
+
+candidate_fields:
+  - content and behavior must separate an instructional prompt from generated output.
+  - projection records need provenance fields distinct from human-readable result content.
+  - disclosure should represent both the executable slash command and the prompt ref it causes to be visible during continuation.
+  - durability must distinguish prompt-library storage, transcript message evidence, projection record, and materialized artifact.
+
+open_questions:
+  - Should help expose the prompt ref when explaining /concept-graph, or is the command-level description sufficient?
+  - Is the generated assistant projection part of the ordinary transcript view or a specialized projection lane?
+  - Should concept-graph artifacts be listed or browsable through a future inspection surface?
+
+lessons_learned:
+  - A prompt asset can be executable context for a projection without being the projection’s identity.
+  - Provenance and artifact materialization are essential evidence for distinguishing a durable projection from ordinary generated prose.
+  - Continuation behavior is a useful disclosure test: it shows which prompt material is deliberately retained in a successor transcript.
+
+light_critique:
+  - The design note’s phrase “one prompt asset and one projection” is sound, but the slice needed a third linked item—the slash command—to explain the activation path.
+  - Documentation groups /concept-graph under prompt surfaces even though its user-visible effect is durable projection; the grouping is navigational, not a complete semantic classification.
+  - The current help description does not reveal the artifact/provenance behavior, so a future focused help view may need a projection-specific detail level.

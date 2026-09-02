@@ -1,0 +1,76 @@
+slice:
+  id: prompt-browse-render
+  source_ids: [prompt-registry, prompt-cli, prompt-slash, prompt-tests, prompt-doc]
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self
+  purpose: examine prompt browsing and rendering as progressive disclosure over static and dynamic assets
+  boundary: excludes prompt authoring, full asset content comparison, and unrelated capability-policy semantics
+  collection_state: reviewed
+  parent_slice: prompt-compaction-handoff
+
+observations:
+  - {id: obs-01, kind: implementation_reference, claim: "Prompt assets have path-like refs, metadata, and either file-backed or dynamic renderers; dynamic capability refs are registered separately from filesystem assets.", evidence: [prompt-registry]}
+  - {id: obs-02, kind: implementation_reference, claim: "Listing accepts an optional prefix and returns matching assets with ref, category/name, and description; missing prefixes fail unless a dynamic match exists.", evidence: [prompt-registry, prompt-tests]}
+  - {id: obs-03, kind: behavior_observation, claim: "A leaf prompt ref renders content, while a parent/non-leaf ref is represented as a browse/list operation rather than being silently rendered as one combined document.", evidence: [prompt-slash, prompt-tests]}
+  - {id: obs-04, kind: implementation_reference, claim: "The CLI exposes `toas prompt <ref>` for rendering and `toas prompts [prefix]` for listing; mode and constraints apply to rendering.", evidence: [prompt-cli]}
+  - {id: obs-05, kind: implementation_reference, claim: "The slash surface exposes /prompt as canonical and /prompts as a compatibility alias, and emits navigable child commands for a prefix.", evidence: [prompt-slash, prompt-tests]}
+  - {id: obs-06, kind: behavior_observation, claim: "Dynamic capability assets are listed alongside file-backed assets but their rendered content depends on runtime profile/configuration.", evidence: [prompt-registry, prompt-tests]}
+  - {id: obs-07, kind: documentation_claim, claim: "Documentation presents prompt browsing, explicit rendering, composed templates, and dynamic capability advertisements as related but distinct prompt-system capabilities.", evidence: [prompt-doc]}
+  - {id: obs-08, kind: design_inference, claim: "Prompt identity, navigation operation, rendering operation, and runtime-conditioned content should be separate fields; a prefix is a selector, not an asset identity.", evidence: [obs-01, obs-02, obs-03, obs-06]}
+
+candidate_items:
+  - provisional_identity: prompt-browser
+    adjudication: new_item
+    dimensions: {item: prompt asset browser, surface: CLI and slash command, audience: human operator; maintainer, intent: discover}
+    identity: {canonical_name: prompt browse, aliases: [/prompts, "toas prompts"], compatibility_forms: ["/prompt <prefix>"]}
+    placement: {workflow_areas: [explore prompt and projection assets], parent_topics: [prompt library]}
+    content: {summary: Lists prompt assets or child topics matching a prefix., when_to_use: When the exact prompt ref is unknown or a family should be explored., invocation: "toas prompts [prefix] or /prompt [prefix]", examples: ["toas prompts concept-graph", "/prompt session-start"]}
+    behavior: {output_shape: tabular CLI lines or navigable slash-command lines, state_effect: none observed, durability: none, authority: discovery surface}
+    constraints: {policy: prefix must be path-like and safe, safety: listing does not execute or append prompt content, prerequisites: existing file-backed or dynamic asset}
+    availability: {static_or_dynamic: static index with dynamic entries, runtime_dependencies: [registered dynamic renderers, runtime profile for dynamic descriptions/content]}
+    disclosure: {role: start-here navigation, next_topics: [prompt render, child prompt topics]}
+    evidence: [obs-02, obs-03, obs-05, obs-07]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+  - provisional_identity: prompt-render
+    adjudication: new_item
+    dimensions: {item: rendered prompt asset, surface: CLI and slash command, audience: human operator; model indirectly, intent: explain}
+    identity: {canonical_name: prompt render, aliases: ["toas prompt", /prompt leaf], compatibility_forms: []}
+    placement: {workflow_areas: [explore prompt and projection assets], parent_topics: [prompt library]}
+    content: {summary: Renders one leaf prompt asset, optionally composed with mode and constraints., when_to_use: When exact prompt instructions or asset content must be inspected or supplied., invocation: "toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]", examples: ["toas prompt concept-graph/projection_v1"]}
+    behavior: {output_shape: prompt text, state_effect: CLI read-only; slash use may append visible prompt context, durability: depends on invoking surface, authority: prompt asset renderer}
+    constraints: {policy: invalid refs and traversal-like refs are rejected, safety: rendering is distinct from executing the described workflow, prerequisites: leaf asset or valid dynamic renderer}
+    availability: {static_or_dynamic: static or runtime-conditioned, runtime_dependencies: [prompt mode, constraints, capability profile, hidden tools]}
+    disclosure: {role: focused exact-content reference, next_topics: [prompt browse, related projection or workflow command]}
+    evidence: [obs-03, obs-04, obs-06]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+
+candidate_relationships:
+  - {from: prompt-browser, to: prompt-render, kind: navigates_to, evidence: [obs-02, obs-03, obs-05]}
+  - {from: prompt-render, to: prompt-asset, kind: renders, evidence: [obs-01, obs-04]}
+
+candidate_fields:
+  - identity must distinguish a leaf asset from a prefix selector and from compatibility command aliases.
+  - disclosure should represent browse versus render as separate operations with a next-step relationship.
+  - availability must distinguish static asset existence from runtime-conditioned rendered content.
+  - behavior needs invocation-surface effects: CLI rendering is read-only, while slash rendering can become visible transcript context.
+
+open_questions:
+  - Should `/prompt <parent>` always advertise whether it will list children or render a composed asset?
+  - Should CLI and slash output share one stable metadata shape for asset lists?
+  - Should dynamic asset descriptions identify which fields change with profile/configuration?
+  - Is `/prompts` compatibility status visible enough to operators discovering the family?
+
+lessons_learned:
+  - Progressive disclosure is already implemented as selector/list versus leaf/render, not merely as short versus long prose.
+  - Dynamic and static assets can share identity and navigation semantics while differing in content availability.
+  - Compatibility aliases belong to surface identity, not to the underlying prompt asset’s canonical name.
+
+light_critique:
+  - The design note correctly treats `/prompt` as a parallel discovery path, but the current relationship between `/help`, `/prompt`, and `/concept-graph` remains implicit.
+  - CLI and slash browsing return different presentation shapes, which is reasonable for audience, but there is no documented shared contract for metadata or child navigation.
+  - The phrase “prompt asset” covers instructional fragments, templates, and dynamic advertisements; category metadata helps, but the help model may need an explicit asset role.

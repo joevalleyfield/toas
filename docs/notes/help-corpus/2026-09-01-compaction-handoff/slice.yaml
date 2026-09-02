@@ -1,0 +1,74 @@
+slice:
+  id: prompt-compaction-handoff
+  source_ids: [handoff-prompt, handoff-command, handoff-side-effect, handoff-record, handoff-doc, handoff-tests]
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self
+  purpose: compare compaction instructions with the executable command and durable handoff projection
+  boundary: excludes concept graphs, generic result compaction, backend transport, and full session-rotation design
+  collection_state: reviewed
+  parent_slice: prompt-concept-graph-projection
+
+observations:
+  - {id: obs-01, kind: surface_content, claim: "handoff_v1 instructs the model to produce a concise continuation handoff with summary, files, commands, decisions, and next action; it is not itself the continuation.", evidence: [handoff-prompt]}
+  - {id: obs-02, kind: implementation_reference, claim: "/compact accepts dry-run and threshold options and routes a generated handoff through a dedicated compaction handler.", evidence: [handoff-command]}
+  - {id: obs-03, kind: behavior_observation, claim: "A valid compaction result is recorded as an assistant projection message and a compaction_projection record; the original session transcript remains unchanged during the side effect.", evidence: [handoff-side-effect, handoff-tests]}
+  - {id: obs-04, kind: implementation_reference, claim: "The compaction record retains projection message id, source message ids, source head id when present, prompt ref, and selected status.", evidence: [handoff-record]}
+  - {id: obs-05, kind: documentation_claim, claim: "Documentation describes /compact as an executable handoff operation and distinguishes fresh transcript projection from history-backed reprojection.", evidence: [handoff-doc]}
+  - {id: obs-06, kind: behavior_observation, claim: "Continuation logic recognizes the compaction prompt/handoff sequence and can include or exclude the preceding graph/tail through explicit options.", evidence: [handoff-tests]}
+  - {id: obs-07, kind: design_inference, claim: "Compaction is a state-transition aid rather than merely a text-shortening prompt: its key help needs are trigger, threshold, handoff shape, and continuation effect.", evidence: [obs-01, obs-02, obs-03, obs-06]}
+
+candidate_items:
+  - provisional_identity: compaction-handoff-prompt
+    adjudication: new_item
+    dimensions: {item: compaction handoff instructions, surface: prompt library, audience: model, intent: transform}
+    identity: {canonical_name: compaction/handoff_v1, aliases: [], compatibility_forms: []}
+    placement: {workflow_areas: [operate current session], parent_topics: [prompt library, session continuation]}
+    content: {summary: Instructions for producing a concise continuation handoff from session context., when_to_use: During compaction before continuing work in a successor context., invocation: "load/render prompt ref compaction/handoff_v1", examples: []}
+    behavior: {output_shape: handoff prose with structured sections, state_effect: none by itself, durability: prompt asset only, authority: model instruction supplied by TOAS}
+    constraints: {policy: preserve actionable context and avoid pretending to continue, safety: do not lose next action or required files/commands, prerequisites: session context}
+    availability: {static_or_dynamic: static asset, runtime_dependencies: []}
+    disclosure: {role: executable-context instruction, next_topics: [/compact, compaction_projection, session continue]}
+    evidence: [obs-01]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+  - provisional_identity: compaction-projection
+    adjudication: new_item
+    dimensions: {item: durable compaction handoff projection, surface: session projection and durable record, audience: human operator; model indirectly, intent: recover}
+    identity: {canonical_name: compaction projection, aliases: [], compatibility_forms: []}
+    placement: {workflow_areas: [operate current session, inspect durable state], parent_topics: [session continuation]}
+    content: {summary: Generated handoff retained with provenance so continuation can reconstruct a usable successor context., when_to_use: When the current context should be reduced while preserving continuation evidence., invocation: "/compact [--dry-run] [--threshold <n>]", examples: []}
+    behavior: {output_shape: assistant handoff plus compaction_projection record, state_effect: appends projection evidence and affects continuation selection without rewriting the source transcript, durability: durable history record, authority: operator-triggered session rotation path}
+    constraints: {policy: threshold controls candidate result blocks and continuation recognizes the handoff sequence, safety: source transcript is not silently overwritten, prerequisites: valid handoff result and source message ids}
+    availability: {static_or_dynamic: command static; selected content dynamic, runtime_dependencies: [session results, threshold, model response, source head]}
+    disclosure: {role: recovery/continuation projection, next_topics: [session continue, toas transcript, toas llm-input]}
+    evidence: [obs-02, obs-03, obs-04, obs-06]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+
+candidate_relationships:
+  - {from: compaction-projection, to: compaction-handoff-prompt, kind: instructed_by, evidence: [obs-01, obs-04]}
+  - {from: compaction-projection, to: session-continuation, kind: enables, evidence: [obs-05, obs-06]}
+
+candidate_fields:
+  - behavior must distinguish a preview/dry-run from a durable projection side effect.
+  - durability needs to represent source transcript preservation alongside appended projection evidence.
+  - disclosure needs a recovery relationship, not only a generic “next topic” link.
+  - prompt assets used for transformations should identify whether their output is intended for continuation, inspection, or ordinary conversation.
+
+open_questions:
+  - Should /compact help explain the difference between dry-run output and durable compaction evidence?
+  - Is “compaction” the right operator term when the durable object is primarily a continuation handoff?
+  - Should the projection record expose the selected successor context more directly to inspection commands?
+
+lessons_learned:
+  - A prompt can be temporary executable context while its result becomes a durable recovery artifact.
+  - “Does not rewrite the source transcript” is a critical behavior claim for help, not an implementation footnote.
+  - Recovery and continuation are distinct disclosure intents from ordinary inspection even when they share projection machinery.
+
+light_critique:
+  - The design note’s prompt/projection pairing works here, but “projection” hides the user-facing transition; the help model should name the handoff and successor-context behavior.
+  - Documentation has the right guardrail but does not surface the prompt ref or record provenance, leaving operators to infer the relationship.
+  - The threshold option is visible at the command layer while its effect is mainly on RESULT blocks; this is a likely future explanation gap.

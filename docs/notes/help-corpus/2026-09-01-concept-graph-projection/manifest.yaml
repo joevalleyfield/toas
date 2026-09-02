@@ -1,0 +1,13 @@
+run:
+  id: help-corpus-2026-09-01-s4
+  date: 2026-09-01
+  scope:
+    product_surfaces: [prompt_asset, slash_command, projection, durable_artifact, acceptance_tests]
+    source_paths: [src/toas/prompts/concept-graph/projection_v1.txt, src/toas/step.py, src/toas/runtime/operator_command_prompt_workspace.py, src/toas/runtime/session_step_edges.py, src/toas/graph.py, docs/capabilities.md, tests/test_runtime_session_step_edges.py, tests/test_runtime_session_rotation.py]
+    source_revisions: [102e39f9]
+    runtime_profiles: [local_default_config]
+    observed_scenarios: [prompt_load, concept_graph_command_shape, projection_record_contract]
+  schema_revision: 2026-09-01-design-note-procedure-v1
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self

@@ -1,0 +1,13 @@
+run:
+  id: help-corpus-2026-09-01-s5
+  date: 2026-09-01
+  scope:
+    product_surfaces: [prompt_asset, slash_command, projection, durable_artifact, acceptance_tests]
+    source_paths: [src/toas/prompts/compaction/handoff_v1.txt, src/toas/runtime/operator_command_prompt_workspace.py, src/toas/runtime/session_step_edges.py, src/toas/graph.py, docs/capabilities.md, tests/test_runtime_session_step_edges.py, tests/test_runtime_session_rotation.py]
+    source_revisions: [102e39f9]
+    runtime_profiles: [local_default_config]
+    observed_scenarios: [compaction_prompt_load, compact_command_shape, compaction_record_contract]
+  schema_revision: 2026-09-01-design-note-procedure-v1
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self

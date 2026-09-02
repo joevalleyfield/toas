@@ -1,0 +1,7 @@
+conflicts:
+  - id: prompt-parent-leaf-shape
+    candidates: [prompt-browser, prompt-cli, prompt-slash]
+    claim: "The same prompt reference can be browsed as a parent topic or rendered as a leaf asset, while CLI and slash surfaces expose different forms."
+    evidence: [prompt-registry, prompt-cli, prompt-slash, prompt-tests]
+    adjudication: "Treat browsing and rendering as separate disclosure operations over shared asset identities; parent refs list children and leaf refs render content."
+    status: resolved_as_related
