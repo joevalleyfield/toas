@@ -1,0 +1,13 @@
+run:
+  id: help-corpus-2026-09-01-s2
+  date: 2026-09-01
+  scope:
+    product_surfaces: [cli_help, cli_command, documentation, acceptance_tests, runtime_probe]
+    source_paths: [src/toas/cli_usage.py, src/toas/cli.py, src/toas/cli_dispatch_ops.py, src/toas/operator_api.py, docs/capabilities.md, tests/test_cli.py, tests/test_cli_dispatch.py, tests/test_operator_api.py]
+    source_revisions: [432730a3]
+    runtime_profiles: [local_default_config]
+    observed_scenarios: [toas --help, toas history, toas history 2, toas history 1 n1]
+  schema_revision: 2026-09-01-design-note-procedure-v1
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self

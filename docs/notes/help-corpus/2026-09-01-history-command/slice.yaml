@@ -1,0 +1,85 @@
+slice:
+  id: cli-history-command
+  source_ids: [history-usage, history-dispatch, history-projection, history-runtime-default, history-cli-help, history-capabilities-doc, history-behavior-tests]
+  collector: codex
+  reviewer: self-review; independent review not performed
+  review_level: self
+  purpose: compare one CLI history command with its help and projection explanation
+  boundary: excludes heads, graph, transcript, llm-input, ancestry, diff, index, slash commands, and runtime transport behavior except neighboring-projection context
+  collection_state: reviewed
+  parent_slice: slash-help-config
+
+observations:
+  - {id: obs-01, kind: implementation_reference, claim: 'The CLI contract is `toas history [limit] [anchor] [--sources <hot|segments|path> ...]`; zero-argument scope follows the shared implicit anchor.', evidence: [history-usage]}
+  - {id: obs-02, kind: implementation_reference, claim: Dispatch parses an optional integer limit, optional anchor, and source selectors before routing to the history view runner., evidence: [history-dispatch]}
+  - {id: obs-03, kind: implementation_reference, claim: The projection selects events and a head, derives message lineage, retains the newest max(limit, 0) rows, and reports omitted earlier events., evidence: [history-projection]}
+  - {id: obs-04, kind: behavior_observation, claim: 'In an empty isolated workspace, `toas history` returned `history: root-to-head lineage (-)`.', evidence: [history-runtime-default]}
+  - {id: obs-05, kind: behavior_observation, claim: 'With a three-message fixture, `toas history 2` showed the newest two rows and one omission; `toas history 1 n1` ended at explicit anchor n1.', evidence: [history-runtime-default]}
+  - {id: obs-06, kind: surface_content, claim: Top-level CLI help places history beside heads, graph, transcript, and llm-input but gives it only a short bounded-lineage description., evidence: [history-cli-help]}
+  - {id: obs-07, kind: documentation_claim, claim: The capabilities document calls history a bounded root-to-head lineage view and contrasts heads as a compact leaf-set view., evidence: [history-capabilities-doc]}
+  - {id: obs-08, kind: implementation_reference, claim: Tests cover formatting, source selection, limit/anchor parsing, invalid options, and source/anchor resolution edges., evidence: [history-behavior-tests]}
+  - {id: obs-09, kind: design_inference, claim: 'The primary user question is “which message lineage led to this selected head, and what recent portion should I read?”; selectors are scope controls, not separate items.', evidence: [obs-01, obs-02, obs-03, obs-05, obs-07]}
+
+candidate_items:
+  - provisional_identity: history-command
+    adjudication: new_item
+    dimensions: {item: bounded history lineage inspection, surface: CLI command, audience: human operator; maintainer or acceptance reader secondarily, intent: inspect}
+    identity: {canonical_name: toas history, aliases: [], compatibility_forms: []}
+    placement: {workflow_areas: [inspect durable state], parent_topics: [history surfaces]}
+    content:
+      summary: Shows a bounded readable window over the selected root-to-head message lineage.
+      when_to_use: When recent readable context is needed without rendering the whole graph or transcript projection.
+      invocation: 'toas history [limit] [anchor] [--sources <hot|segments|path> ...]'
+      examples: [toas history, 'toas history 20', 'toas history 10 hot:n2', 'toas history --sources segments hot']
+    behavior: {output_shape: 'history: root-to-head lineage (<head>) plus formatted rows and optional omission count', state_effect: none observed; read-only projection, durability: no append or mutation, authority: operator CLI inspection surface}
+    constraints: {policy: limit is a display window and selectors/anchors resolve within projection rules, safety: read-only, prerequisites: resolvable event-log source; empty source is valid}
+    availability: {static_or_dynamic: invocation/output shape mostly static; selected data runtime-dependent, runtime_dependencies: [event-log contents, selected sources, implicit or explicit anchor, limit]}
+    disclosure: {role: focused reference and durable-state inspection entry point, next_topics: [toas heads, toas graph, toas transcript, toas llm-input, toas history --sources]}
+    evidence: [obs-01, obs-02, obs-03, obs-05, obs-06, obs-07, obs-08]
+    collection_status: complete
+    semantic_status: established
+    status: accepted
+  - provisional_identity: history-projection-concept
+    adjudication: related_item_not_merged
+    dimensions: {item: root-to-head lineage projection, surface: documentation explanation, audience: human operator; maintainer, intent: explain}
+    identity: {canonical_name: history lineage view, aliases: [], compatibility_forms: []}
+    content: {summary: Conceptual explanation of the lineage projection exposed by toas history., when_to_use: To distinguish lineage inspection from leaf-set, topology, transcript, or model-input projections., invocation: documentation cross-reference; no separate executable invocation, examples: []}
+    behavior: {output_shape: prose explanation, state_effect: none, durability: documentation-only claim, authority: product documentation; behavior remains governed by implementation/probes}
+    constraints: {policy: not a full option reference, safety: none observed, prerequisites: history-graph terminology}
+    availability: {static_or_dynamic: static documentation claim, runtime_dependencies: []}
+    disclosure: {role: conceptual distinction and cross-projection orientation, next_topics: [toas history, toas heads, toas graph]}
+    evidence: [obs-07]
+    collection_status: complete
+    semantic_status: established
+    status: accepted_as_related_surface
+
+candidate_relationships:
+  - {from: history-command, to: history-projection-concept, kind: explained_by, evidence: [obs-07]}
+  - {from: history-command, to: toas-heads, kind: neighboring_projection, evidence: [obs-06, obs-07]}
+  - {from: history-command, to: toas-graph, kind: neighboring_projection, evidence: [obs-06]}
+
+candidate_fields:
+  - behavior.output_shape must distinguish a bounded recent window from the complete lineage selected underneath it.
+  - availability.runtime_dependencies must include source selection and anchor resolution.
+  - disclosure needs neighboring projection links so history is not mistaken for graph topology or transcript reconstruction.
+  - surface must remain independent from item; documentation explanation is related to, not identical with, the executable item.
+  - future corpus identity checks should resolve toas-heads and toas-graph when those slices are collected.
+
+open_questions:
+  - Should short CLI help explain the choice among history, heads, graph, transcript, and llm-input?
+  - Should limit zero be documented as intentional, or remain an implementation edge case?
+  - Should selectors and anchors be advanced options or a separate scope topic?
+  - Is history the best name for a message-lineage view?
+
+lessons_learned:
+  - The comparison separates an executable CLI item from a documentation-facing explanation of the same projection concept.
+  - “Bounded history” is display behavior, while “root-to-head lineage” is semantic scope; both terms prevent describing history as merely a tail view.
+  - Source and anchor selectors are runtime-dependent scope controls, not new item identities in this slice.
+  - An empty-workspace probe records the actual `(-)` no-head output, absent from prose.
+  - Tests provide broad edge evidence, but a small probe and source ledger are easier to audit than test names alone.
+
+light_critique:
+  - The procedure’s authority order works well, but documentation explanation is not an explicit adjudication outcome; this record uses a related item instead of forcing prose into the executable command.
+  - Top-level CLI help is accurate but under-explains how to choose among neighboring history projections.
+  - “Bounded readable window” is less precise than the implementation and capabilities wording, which identify message lineage.
+  - The coverage gate remains manual because no validator exists yet.

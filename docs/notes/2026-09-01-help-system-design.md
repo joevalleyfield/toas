@@ -434,6 +434,11 @@ observations and candidate records. The conflict file contains adjudication
 that cannot be represented as an ordinary item decision. The report is the
 only place that claims whether the run is complete.
 
+Before review begins, every run artifact must parse as the declared format.
+This is a collection gate, not a semantic review judgment: malformed YAML or
+JSON should be found before a reviewer evaluates coverage, evidence, or
+adjudication.
+
 The process uses separate state vocabularies for collection and review:
 
 ```text
@@ -617,6 +622,12 @@ without claiming that every product decision has been settled.
 
 ### 6. Review evidence and conflicts
 
+Review begins only after the run directory passes structural parsing. The
+pre-review check should load the manifest, source ledger, every slice, the
+conflict record, and the report, and should fail on malformed YAML/JSON,
+missing required top-level sections, or unreadable references. A parseable
+artifact may still fail later semantic and coverage gates.
+
 Every consequential claim should point to typed evidence. Review should
 separate:
 
@@ -652,6 +663,7 @@ The future validator should be able to evaluate gates equivalent to:
 ```text
 source_ledger has no pending entries
 source_ledger has no blocked entries
+every run artifact parses as its declared YAML/JSON format before review
 every subdivided source has a non-empty child list and complete child coverage
 no subdivided source is also treated as directly collected without an explicit reason
 every collected/reviewed source has candidate_items or an explicit empty result
@@ -736,7 +748,7 @@ The future validator should have a narrow, deterministic contract:
 validate(run_directory)
 
 exit 0  complete collection with no open or unaccepted divergence
-exit 1  incomplete coverage or non-terminal source/slice
+exit 1  malformed artifact, incomplete coverage, or non-terminal source/slice
 exit 2  schema or required-field error
 exit 3  unresolved conflict or unaccepted divergence
 exit 4  orphan, duplicate, or invalid parent/child reference

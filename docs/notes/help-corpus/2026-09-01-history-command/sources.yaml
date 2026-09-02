@@ -1,0 +1,57 @@
+sources:
+  - id: history-usage
+    kind: implementation
+    path_or_reference: "src/toas/cli_usage.py:10-15"
+    revision_or_observed_at: "432730a3"
+    expected_item_families: [history-command]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: history-dispatch
+    kind: implementation
+    path_or_reference: "src/toas/cli_dispatch_ops.py:213-245; src/toas/cli.py:323-337"
+    revision_or_observed_at: "432730a3"
+    expected_item_families: [history-command]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: history-projection
+    kind: implementation
+    path_or_reference: "src/toas/operator_api.py:248-271"
+    revision_or_observed_at: "432730a3"
+    expected_item_families: [history-command, history-projection]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: history-runtime-default
+    kind: runtime_probe
+    path_or_reference: "isolated workspace; toas history, toas history 2, toas history 1 n1"
+    revision_or_observed_at: "2026-09-01 local probe"
+    expected_item_families: [history-command, history-projection]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: history-cli-help
+    kind: rendered_help
+    path_or_reference: "toas --help History surfaces section"
+    revision_or_observed_at: "2026-09-01 local probe"
+    expected_item_families: [history-command, neighboring-projections]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: history-capabilities-doc
+    kind: documentation
+    path_or_reference: "docs/capabilities.md:99-100; 138-150"
+    revision_or_observed_at: "432730a3"
+    expected_item_families: [history-command, history-projection, neighboring-projections]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
+  - id: history-behavior-tests
+    kind: acceptance
+    path_or_reference: "tests/test_cli.py:875-915; tests/test_cli_dispatch.py:235-264; tests/test_operator_api.py:248-450"
+    revision_or_observed_at: "432730a3"
+    expected_item_families: [history-command, history-projection]
+    collection_state: reviewed
+    review_level: self
+    extraction_result: "recorded in slice.yaml"
