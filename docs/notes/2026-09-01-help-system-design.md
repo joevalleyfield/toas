@@ -397,6 +397,56 @@ boundary. The process must first enumerate the sources in scope, then account
 for every discoverable item in those sources, and finally prove that every
 record has either passed review or has an explicit unresolved disposition.
 
+### Corpus tracks and phase gate
+
+Every run must declare one track before collection:
+
+```yaml
+track: product | process
+phase: product_coverage | process_review
+```
+
+`product` runs collect current help surfaces, related behavior, and the
+relationships needed to describe what users or models can discover. `process`
+runs inspect the inventory shape, collection procedure, validators, or review
+mechanics. A product artifact may record a schema pressure as a local
+candidate, but it must not turn that pressure into a process slice by default.
+
+The process track is locked until a separate product-coverage report declares
+all in-scope product surface families closed. That report must enumerate the
+families and show each as `covered`, `covered_with_gap`, `empty_by_design`, or
+`blocked`, with source references and an explicit reason for every non-clean
+state. `covered_with_gap` is sufficient to move phases only when the gap is
+recorded as a follow-on and no source family remains unexamined. A process
+probe may run early only when it is the minimum check needed to make this gate
+executable; it must be marked `gate_probe`, not used to expand process review.
+
+The initial product-family checklist is deliberately broad rather than a
+permanent inventory schema:
+
+```yaml
+product_surface_families:
+  - cli_and_command_help
+  - slash_command_help
+  - callable_tool_reference
+  - capability_and_dynamic_prompts
+  - configuration_help_and_state
+  - prompt_browse_and_render
+  - history_and_projection_views
+  - recovery_extract_replay_and_queue_workflows
+  - documentation_and_acceptance_surfaces
+```
+
+The next product run must select an unclosed family or a cross-family seam
+needed to close one. It must not select a validator concern merely because a
+previous report listed it in `schema_changes` or `open_questions`.
+
+At the end of each run, the report must include `track`, `phase`, and
+`next_run_scope`. A report is invalid if a `process` run exists while the
+product-coverage gate is open, unless it is explicitly marked `gate_probe`.
+This prevents the word “matrix” or a growing schema-change list from silently
+changing the work from product discovery to process review.
+
 ### 1. Declare a collection run
 
 Every run should begin with a small run manifest. This is not yet the final
@@ -406,6 +456,8 @@ inventory schema; it is control metadata for the collection process.
 run:
   id:
   date:
+  track: product | process
+  phase: product_coverage | process_review
   scope:
     product_surfaces: []
     source_paths: []
@@ -415,6 +467,7 @@ run:
   schema_revision:
   collector:
   reviewer:
+  gate_probe: false
 ```
 
 The scope must say whether the run covers source code, rendered output,
@@ -712,6 +765,12 @@ result:
   unresolved_conflicts: []
   excluded_sources: []
   schema_changes: []
+  track: product | process
+  phase: product_coverage | process_review
+  gate_probe: false
+  product_coverage:
+    status: open | ready_for_process_review
+    families: []
   next_run_scope:
 ```
 
@@ -743,6 +802,11 @@ A collection run can claim `complete` only if all of the following are true:
 10. The validator reports zero schema errors and zero orphan references.
 11. The run report records its source revisions, schema revision, and any
    excluded material.
+12. If `track: process`, the product-coverage report has status
+   `ready_for_process_review`, unless the run is explicitly a `gate_probe`.
+13. A product-coverage report lists every declared product family and gives
+   each a terminal disposition with evidence; an unexamined family keeps the
+   gate open regardless of how many individual slices are complete.
 
 These are intentionally phrased so they can later be implemented as a
 validator over YAML/JSON. Until then, they are review gates and should be

@@ -19,6 +19,14 @@ structure.
 This task deliberately does not introduce a structured runtime registry,
 generated help, or a synchronization mechanism.
 
+## Current phase
+
+This remains in `product_coverage`. The recorded validator batch is retained
+as process-track calibration, but ordinary process/schema review is paused
+until the product-surface families are examined and the coverage gate is
+reported in the design note. The current operating lessons live in
+`docs/notes/2026-09-02-help-survey-lessons.md`.
+
 ## Acceptance criteria
 
 - Inventory the current CLI, slash-command, tool, capability-prompt, config,
@@ -32,6 +40,9 @@ generated help, or a synchronization mechanism.
   unresolved product questions.
 - Define and exercise a repeatable bounded-slice collection process with
   explicit source coverage, review level, subdivision, and exit status.
+- Keep product-surface collection separate from process/schema review.
+- Do not begin ordinary process review until the declared product-surface
+  families have all been examined and the product-coverage gate is recorded.
 
 ## Deliverable
 
@@ -51,13 +62,9 @@ confirms that the help response is a slash-command result projected as an
 inert fenced view, which should be represented as behavior rather than inferred
 from the prose alone.
 
-Lessons and light critique are captured in the slice record. In brief, the
-procedure's provenance/completeness gates were useful immediately, but the
-worked fixture is slightly too coarse for the first slice: it treats “config
-help” as one candidate even though the help topic and the executable command
-family already diverge in audience intent, disclosure role, and state effect.
-The procedure also leaves the independent-review threshold unspecified; this
-run marks itself as self-reviewed rather than implying a stronger review.
+Retrospective lessons and light critique are collected in
+`docs/notes/2026-09-02-help-survey-lessons.md`; they are not repeated here so
+they do not become accidental slice prescriptions.
 
 Run result: collection complete with unresolved semantics and self-review;
 the remaining divergence is represented as explicit open questions rather than
@@ -80,13 +87,6 @@ explicit anchor changes the endpoint, and an empty source renders a `(-)` head.
 The record keeps the documentation explanation related but distinct from the
 CLI item, and leaves neighboring `heads`, `graph`, `transcript`, and `llm-input`
 surfaces outside the slice except as navigation context.
-
-Lessons and light critique are captured in the slice record. In brief, the
-procedure's comparison step usefully separates executable behavior from
-conceptual documentation, while the short CLI help under-explains how to
-choose among neighboring history projections. The phrase “bounded readable
-window” is also less precise than the implementation and capabilities wording,
-which identify the underlying message lineage.
 
 Run result: collection complete with unresolved semantics and self-review; the
 remaining product questions concern projection vocabulary, advanced option
@@ -126,12 +126,6 @@ dynamic task-capture policy to appear only when visible. The focused
 registry help and prompt shape expose optional arguments/defaults and the
 prompt adds operational policy.
 
-Lessons and light critique are captured in the slice record. In brief, a
-single callable item can have multiple disclosure levels without becoming
-multiple item identities. “Core” is an exposure-profile term, not established
-priority, and the current direct tool lookup is the clearest description-drift
-point because it omits registry metadata already available elsewhere.
-
 Run result: collection complete with unresolved semantics and open
 surface-detail divergence; independent review was not performed.
 
@@ -165,11 +159,6 @@ projection as related but distinct items. It confirms that provenance,
 artifact materialization, and continuation ordering are behavior evidence, not
 properties of the prompt asset itself.
 
-Lessons and light critique are captured in the slice record. In brief, the
-prompt/projection pairing required a third linked item—the slash command—to
-explain activation, and the current help grouping under “prompt surfaces”
-understates the durable projection effect.
-
 Run result: collection complete with unresolved semantics and open projection
 detail; self-review only.
 
@@ -185,11 +174,6 @@ than merely a text-shortening prompt. It records source-transcript
 preservation, handoff provenance, and explicit successor-context behavior as
 separate help fields.
 
-Lessons and light critique are captured in the slice record. In brief, the
-user-facing transition is more specific than the generic word “projection,”
-and the threshold option is exposed without explaining its relationship to
-RESULT blocks and durable continuation evidence.
-
 Run result: collection complete with unresolved terminology and open handoff
 detail; self-review only.
 
@@ -204,12 +188,6 @@ The run confirms that parent-prefix browsing and leaf rendering are separate
 disclosure operations over shared asset identities. Dynamic assets share the
 same navigation surface but have runtime-conditioned content, and the slash
 compatibility alias remains a surface concern rather than a new asset.
-
-Lessons and light critique are captured in the slice record. In brief, prompt
-progressive disclosure already has a useful list-versus-render shape, but the
-relationship among `/help`, `/prompt`, and projection discovery is implicit;
-CLI and slash metadata/navigation contracts also differ without a documented
-shared shape.
 
 Run result: collection complete with unresolved navigation semantics and open
 metadata divergence; self-review only.
@@ -256,14 +234,8 @@ each candidate, typed evidence, and parseable control artifacts. Each remains
 self-reviewed only and reports open terminology or disclosure questions where
 the sources do not settle product intent.
 
-Lessons and light critique across this batch: the history family benefits from
-explicit projection roles and navigation targets; “projection,” “view,”
-“diagnostic,” and “recovery” currently overlap in user-facing wording. Runtime
-ownership, state effect, and non-generation safety are more discriminating
-than command grouping. The procedure scales to ten small runs, but the lack of
-an executable validator still makes source/candidate/orphan checks manual,
-and the repeated five-source ledger is useful ceremony that should eventually
-be generated or checked mechanically.
+Retrospective lessons from this batch are consolidated in
+`docs/notes/2026-09-02-help-survey-lessons.md`.
 
 Batch result: ten collections complete with unresolved semantics and open
 divergence status; no implementation task is proposed yet. The next bounded
@@ -287,15 +259,8 @@ each candidate, typed evidence, and parseable control artifacts. They remain
 self-reviewed only and report unresolved semantics/open divergence rather than
 silently deciding terminology.
 
-Lessons and light critique across this batch: “extract,” “replay,” “run,” and
-“stage” form a workflow but are not interchangeable intents. The strongest
-boundary is between content selection/transformation, execution authorization,
-and durable queue control. Malformed-content salvage demonstrates that
-recoverability is a first-class disclosure role: repaired content must not be
-described as the original callable content. The procedure scales to ten small
-runs, but repeated five-source ledgers are costly when slices share files, and
-the distinction between a runtime probe and an acceptance test remains partly
-conventional.
+Retrospective lessons from this batch are consolidated in
+`docs/notes/2026-09-02-help-survey-lessons.md`.
 
 Batch result: ten collections complete with unresolved semantics and open
 divergence status; no implementation task is proposed yet. The next bounded
@@ -318,23 +283,14 @@ each candidate, typed evidence, and parseable control artifacts. They remain
 self-reviewed only and retain unresolved semantics/open divergence rather
 than silently selecting a canonical vocabulary.
 
-Lessons and light critique across this batch: the recovery family is better
-understood as a directed workflow of selection, execution, authorization, and
-continuation than as one “replay” item. Help composition, index scope, inert
-examples, target resolution, execution mode, workflow edges, and acceptance
-observability each emerged as separate schema pressures. The current surfaces
-are generally safe and behaviorally distinct, but their links are implicit;
-the same word (“replay”) covers interactive and standalone entrypoints, while
-`force`, `approve`, and `resume` have different authority or state effects.
-The procedure remains useful for preserving those distinctions, although the
-repeated five-source ledgers are still costly and a future validator should
-check duplicate YAML keys, workflow references, and declared surface/audience
-coverage in addition to parseability.
+Retrospective lessons from this batch are consolidated in
+`docs/notes/2026-09-02-help-survey-lessons.md`.
 
 Batch result: ten collections complete with unresolved semantics and open
 divergence status; no implementation task is proposed yet. The next bounded
-step is a validator-oriented slice over these records, or a narrowly scoped
-design follow-on for human-help workflow links if product vocabulary is ready.
+step is a product-track slice from an unclosed surface family or a narrowly
+scoped human-help workflow-link slice. Validator-oriented work is deferred
+until the product-coverage gate is closed.
 
 ## Thirty-seventh through forty-sixth collection passes
 
@@ -354,18 +310,14 @@ read-only PyYAML probe loaded all 180 pre-existing corpus YAML files without
 parse errors; this establishes structural parseability only and does not
 detect duplicate keys or semantic/reference errors.
 
-Lessons and light critique across this batch: the design note’s gates divide
-cleanly into structural closure and semantic review, and the distinction
-between ordinary open questions and conflicts is important for reporting.
-Workflow targets, parent/child subdivision, and surface/audience/intent
-coverage need typed references or explicit coverage sections before they can
-be checked reliably. The procedure’s five-source ledger continues to preserve
-provenance, but repeated ledgers are increasingly expensive when the same
-artifacts are sampled across validator slices. The proposed exit-code contract
-also needs precedence rules for runs that are structurally complete but have
-open divergence.
+Retrospective lessons from this batch are consolidated in
+`docs/notes/2026-09-02-help-survey-lessons.md`. This validator batch is now
+classified as process-track calibration and does not authorize further process
+review before the product-coverage gate closes.
 
 Batch result: ten validator-oriented collections complete with unresolved
 semantics and open divergence status; no implementation task is proposed yet.
-The next step is synthesis into a narrow design follow-on or validator task
-only after product vocabulary and exit-status precedence are selected.
+These are process-track calibration artifacts, not evidence that product
+coverage is complete. The next step is a product-track slice from an unclosed
+surface family, followed by a product-coverage report before any ordinary
+process-review synthesis or validator task.
