@@ -261,3 +261,7 @@ the original source/projection/authority distinctions above.
   slice with a representation-neutral source-preserving adapter boundary. It
   covers executable language fences and other source forms only where their
   visible timeout/constraint syntax is already established.
+- `260903-user-lane-timeout-recovery` is the next behavioral hardening slice:
+  it separates unbounded direct-user execution and terminal user failures from
+  bounded assistant-source `/run` recovery, while requiring recovery to retain
+  the closest available source notation.

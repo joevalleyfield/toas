@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-01
+> **Last Sync:** 2026-09-03
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -244,6 +244,7 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations
 - **[T260901-help-system-design-survey]** Describe the current TOAS help and discoverability surfaces in design/docs space, drawing on their existing behavior before proposing implementation s...
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
+- **[T260903-user-lane-timeout-recovery]** Make direct user execution unbounded by default and distinguish its terminal-on-failure behavior from recovery of assistant source reached through `/r...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
