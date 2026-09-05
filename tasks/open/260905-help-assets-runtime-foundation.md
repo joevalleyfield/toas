@@ -7,6 +7,10 @@ Parent: `260905-common-asset-library-migration`
 Depends on: `260901-help-system-design-survey`
 Related: `260905-common-asset-library-migration`; `260904-config-help-state-feedback`
 
+The first prerequisite for the help-backed onward path is
+`260905-config-show-filters`, which defines the small read-only state-query
+surface before help assets begin linking to filtered inspection.
+
 keywords: surface, migration, follow-on, usability, config, search, assets, help
 
 # Runtime Help Assets Foundation
