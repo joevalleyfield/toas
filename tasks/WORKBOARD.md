@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-03
+> **Last Sync:** 2026-09-04
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -47,8 +47,8 @@ continuation, and authority concerns without reopening completed slices.
    kept separate from the unbounded-but-interruptible user lane. The remaining
    shell authorization work should be allowed to express contextual,
    multi-token grants rather than inheriting the legacy one-token ceiling.
-2. **Config UX:** prioritize the implementation follow-on from
-   `260901-help-system-design-survey`: `/help config` and `/config --help`
+2. **Config UX:** prioritize `260904-config-help-state-feedback`, the implementation
+   follow-on from `260901-help-system-design-survey`: `/help config` and `/config --help`
    should be useful, bare `/config` should be an explicit inspection surface,
    and `/config set` should report compact effective deltas. Mutation output
    should report deltas; inspection output should report state.
@@ -273,6 +273,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260901-help-system-design-survey]** Describe the current TOAS help and discoverability surfaces in design/docs space, drawing on their existing behavior before proposing implementation s...
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
 - **[T260903-user-lane-timeout-recovery]** Make direct user execution unbounded by default and distinguish its terminal-on-failure behavior from recovery of assistant source reached through `/r...
+- **[T260904-config-help-state-feedback]** Make config discovery and feedback follow the operator priority vote: `/help config` and `/config --help` explain usage, bare `/config` inspects curre...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

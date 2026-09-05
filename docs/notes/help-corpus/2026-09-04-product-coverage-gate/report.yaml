@@ -1,0 +1,21 @@
+track: product
+phase: product_coverage
+result:
+  collection_status: complete
+  semantic_status: unresolved
+  divergence_status: open
+  status: complete_with_divergence
+  review_level: self
+  source_counts: {declared: 5, reviewed: 5, pending: 0, blocked: 0, excluded: 0}
+  next_run_scope: process_review or a narrowly scoped product follow-on selected from the gap list
+product_surface_families:
+  - {id: cli_and_command_help, status: covered_with_gap, evidence: ["2026-09-01-history-command", "2026-09-02-help-cli", "2026-09-02-cli-replay-script-link"], gap: "Curated /help cli coverage is not yet a declared parity contract for the dispatcher."}
+  - {id: slash_command_help, status: covered_with_gap, evidence: ["2026-09-01-slash-help-config", "2026-09-02-help-commands", "2026-09-02-help-approvals"], gap: "Topic vocabulary and workflow links remain partly hand-authored and unresolved."}
+  - {id: callable_tool_reference, status: covered_with_gap, evidence: ["2026-09-01-capture-task-thread", "2026-09-02-help-full", "2026-09-02-capabilities-recovery-crosswalk"], gap: "Core visibility, capability-help detail, and prompt advertisement do not yet have one agreed disclosure contract."}
+  - {id: capability_and_dynamic_prompts, status: covered_with_gap, evidence: ["2026-09-01-capture-task-thread", "2026-09-01-prompt-browse-render"], gap: "Static asset identity and runtime-conditioned availability are related but not yet labeled consistently."}
+  - {id: configuration_help_and_state, status: covered_with_gap, evidence: ["2026-09-01-slash-help-config"], gap: "Conceptual guidance, effective state, and focused value lookup still duplicate precedence and example prose."}
+  - {id: prompt_browse_and_render, status: covered_with_gap, evidence: ["2026-09-01-prompt-browse-render"], gap: "Browse, render, and compatibility-alias semantics remain unresolved across CLI and slash surfaces."}
+  - {id: history_and_projection_views, status: covered_with_gap, evidence: ["2026-09-01-history-command", "2026-09-01-graph-projection", "2026-09-01-transcript-projection", "2026-09-01-llm-input-projection", "2026-09-01-heads-leaf-set", "2026-09-01-ancestry-diff", "2026-09-01-intents"], gap: "Projection, view, diagnostic, and selector vocabulary is observed but not product-settled."}
+  - {id: recovery_extract_replay_and_queue_workflows, status: covered_with_gap, evidence: ["2026-09-02-extract-preview", "2026-09-02-replay-discovery", "2026-09-02-replay-queue-authorization", "2026-09-02-queue-controls", "2026-09-02-replay-script"], gap: "Preview, adoption, execution, authorization, and continuation links need a canonical human-facing workflow."}
+  - {id: documentation_and_acceptance_surfaces, status: covered_with_gap, evidence: ["2026-09-02-capabilities-recovery-crosswalk", "2026-09-02-acceptance-recovery-path"], gap: "Documentation and acceptance claims expose navigation friction but do not yet define the minimum observable link sequence."}
+coverage_decision: "All declared product families have been examined; no family is pending, blocked, or empty by design. The product-coverage gate is closed with recorded gaps. The validator-oriented runs remain calibration evidence and do not expand process review."

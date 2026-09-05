@@ -892,6 +892,16 @@ Each help item should eventually distinguish four layers:
 Short help should answer layer 1 and point onward. Focused help should answer
 layers 2–4 without reproducing every neighboring topic.
 
+## Product-coverage gate
+
+The declared product surface families have now all been examined in bounded
+product-track runs. The gate is closed with `covered_with_gap` status for each
+family; no family is pending, blocked, or empty by design. The evidence and
+follow-on gaps are recorded in
+`docs/notes/help-corpus/2026-09-04-product-coverage-gate/`. The validator
+batch remains process-track calibration and is not treated as product
+coverage.
+
 ## Design questions to resolve later
 
 - Should `toas help` and `/help` share headings and vocabulary while remaining
@@ -945,7 +955,75 @@ The immediate problem is not that TOAS lacks help text. It has several useful
 help mechanisms, each optimized for a different audience or moment. The
 problem is that their boundaries and relationships are implicit.
 
-The next useful artifact is therefore a reviewed structured-schema sketch and a
-small representative sample of audience/workflow scenarios. The sample should
-test dimensional independence without becoming the inventory itself.
-Implementation should follow those decisions, not precede them.
+The next useful artifact is a product decision synthesis tied to observable
+discovery paths. The representative corpus already exists; further schema
+sketching is not the default next step. Implement bounded, sufficiently settled
+improvements while leaving unrelated design questions explicit.
+
+## Steering review — 2026-09-04
+
+This is a direction-setting synthesis, not an independent review of all corpus
+claims. The existing coverage-gate report establishes that nine families were
+examined. It does not establish exhaustive item coverage or certify the runtime
+probes in prior slices. Historical collection instructions above are procedure
+reference; this section determines the next work.
+
+The main risk is now failure to convert observations into decisions. Forty-six
+collection passes include ten validator calibration passes, yet the candidate
+gap list still largely asks for more definition. Permission to do process review
+is not a reason to make it the next priority. The workboard's config UX vote
+provides a concrete product outcome without requiring a global help registry.
+
+### Decisions and dispositions
+
+These are steering decisions/recommendations, not claims that current behavior
+already satisfies the proposed contract.
+
+| Covered family | Disposition and next evidence |
+| --- | --- |
+| Configuration help and state | Proceed with `260904-config-help-state-feedback`: guidance explains, inspection reports state, mutation reports effective change. Verify the starter discovery path. |
+| Slash-command help | Apply that disclosure rule to config first. Defer global topic rearrangement until the config path demonstrates a navigation failure the local change cannot fix. |
+| CLI and command help | Treat `/help cli` as curated orientation pending an explicit parity decision. Defer full inventory parity work; the history scenario must establish whether a missing onward link prevents discovery. |
+| History and projection views | Retain distinct selection, lineage, topology, transcript, and model-input meanings. Next synthesis records one path from CLI help to the appropriate read-only view; use existing slices before collecting more. |
+| Callable tool reference | Recommend that focused tool lookup expose exact required/optional arguments and defaults, while keeping profile visibility separate. Validate the `capture_task_thread` path before opening a child; whether “core” names priority or exposure remains undecided. |
+| Capability and dynamic prompts | Keep runtime availability distinct from general instructions. Revisit labeling when the focused-tool scenario shows stale or misleading availability; do not make a static registry claim mean callable now. |
+| Prompt browse and render | Preserve browse, render, activation, and resulting projection as distinct operations. Defer new metadata until a recorded discovery path requires it. |
+| Recovery, extraction, replay, queue | Preserve preview, adoption, execution, and authorization boundaries. Defer broad renaming; reopen on a concrete help link that implies execution or approval incorrectly. Existing recovery slices are evidence, not proof of one canonical workflow. |
+| Documentation and acceptance | Use scenario outcomes as the synthesis check. New prose or more corpus files alone do not demonstrate improved discoverability. |
+
+### First concrete handoff
+
+Current source inspection of
+`src/toas/runtime/operator_command_config_help.py` establishes that bare
+`/config` already routes to inspection; `/config --help` has no dispatch branch
+and raises usage; `_config_set_result` renders the entire flattened config.
+`src/toas/step.py:render_help_config` already supplies focused guidance. Thus
+the first child can improve a known seam without inventing a help framework.
+The workboard's 2026-09-04 priority vote supplies the desired behavior; source
+inspection supplies the before-state. No runtime probe was performed in this
+steering pass.
+
+### Stop collecting; finish the synthesis
+
+The next survey turn should record three bounded discovery scenarios using
+existing evidence plus only the missing observations:
+
+1. Human: `/help` → config guidance → inspect state → inspect choices → set one
+   value → understand what changed and how long it lasts.
+2. Human: CLI help → choose among heads/history/transcript/llm-input for one
+   stated inspection intent, with no state mutation needed for discovery.
+3. Model: overview → focused `capture_task_thread` lookup → recover full callable
+   shape and distinguish availability from operating guidance.
+
+For each, record entry point, user question, actual onward link, expected
+answer, observed outcome, and any remaining failure with evidence. Do not
+claim success from the presence of prose alone. These scenarios test the help
+model; they do not require all three implementations to land before synthesis.
+
+The parent can close when this nine-family disposition table and those three
+scenario outcomes form a usable design reference, selected children have
+bounded acceptance criteria, and remaining gaps are explicitly deferred with
+reopening triggers. It stays open until those scenario outcomes are recorded.
+No validator, exhaustive inventory, or universal vocabulary agreement is a
+prerequisite. Reopen collection only for a specific missing fact that would
+change a product decision.

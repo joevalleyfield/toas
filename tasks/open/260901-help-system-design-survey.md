@@ -6,7 +6,7 @@ Legacy index:
 Parent: `260823-projection-discoverability`
 Related: `260628-heads-selected-history-leaf-framing`; `260627-history-affordances-semantic-restaging`
 
-keywords: docs, exploration, inception, usability, discoverability, parity, surface
+keywords: docs, investigation, active, usability, discoverability, parity, surface
 
 # Help System Design Survey
 
@@ -21,11 +21,16 @@ generated help, or a synchronization mechanism.
 
 ## Current phase
 
-This remains in `product_coverage`. The recorded validator batch is retained
-as process-track calibration, but ordinary process/schema review is paused
-until the product-surface families are examined and the coverage gate is
-reported in the design note. The current operating lessons live in
-`docs/notes/2026-09-02-help-survey-lessons.md`.
+The product-family coverage gate is recorded as closed with gaps. Current work
+is product synthesis and bounded handoff, not another collection batch. The
+2026-09-04 steering review in the design note supersedes historical “next slice”
+sign-posts below. The gate establishes sampled family coverage, not exhaustive
+command coverage, independent validation, or resolved product semantics.
+
+First implementation follow-on: `260904-config-help-state-feedback`. It is
+ready to start from the existing operator priority vote and does not depend on
+closing this parent. Ordinary process/schema work remains deferred unless a
+specific defect prevents a product decision.
 
 ## Acceptance criteria
 
@@ -321,3 +326,31 @@ These are process-track calibration artifacts, not evidence that product
 coverage is complete. The next step is a product-track slice from an unclosed
 surface family, followed by a product-coverage report before any ordinary
 process-review synthesis or validator task.
+
+## Product-coverage gate turn
+
+The declared nine product-surface families are now all examined. The gate is
+closed with `covered_with_gap` status for every family; no family is pending,
+blocked, or empty by design. Evidence, source accounting, and the explicit
+gap disposition are recorded in
+`docs/notes/help-corpus/2026-09-04-product-coverage-gate/`.
+
+The validator-oriented batch remains process-track calibration only. Ordinary
+process review may now be considered, but unresolved product vocabulary and
+workflow-link gaps remain follow-on candidates rather than silently resolved
+decisions.
+
+## Steering pass — 2026-09-04
+
+Reconciled the stale current phase with the existing coverage-gate update and
+checked the config handoff against current handler source. The design note now
+contains a decision/disposition table and a finite parent completion contract.
+Opened `260904-config-help-state-feedback` for the already prioritized config
+UX seam. No runtime changes or new corpus review claims were made.
+
+Close this parent when the synthesis table has a disposition for all nine
+covered families, three discovery scenarios have recorded outcomes (config,
+history inspection, focused capability lookup), and every selected follow-on
+has an owner seam and testable acceptance criteria. Deferred gaps need a reason
+and reopening trigger, not speculative child tasks. Child implementation need
+not be complete for this design parent to close.
