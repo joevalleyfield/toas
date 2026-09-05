@@ -421,8 +421,12 @@ def _handle_help_command(args: list[str], *, step_mod, context: OperatorCommandC
         else:
             content = step_mod.render_help_config(" ".join(args[1:]))
         return [_result_node(content, step_mod=step_mod, context=context)]
-    else:
-        raise ValueError("usage: /help")
+    if len(args) == 1:
+        render_topic = getattr(step_mod, "render_help_topic", None)
+        content = render_topic(args[0]) if callable(render_topic) else None
+        if content is not None:
+            return [_result_node(content, step_mod=step_mod, context=context)]
+    raise ValueError("usage: /help")
 
 
 def handle_config_help_commands(

@@ -9,6 +9,7 @@ from toas.assets.help_catalog import (
     HelpTopic,
     load_config_help_catalog,
     render_config_help,
+    render_plain_help,
     resolve_config_help_topic,
 )
 from toas.assets.loader import (
@@ -67,6 +68,35 @@ def test_config_help_renders_overview_curated_and_search_results():
     assert "matched by description" in description
     no_match = render_config_help("unknown", valid_keys=["llm.model"])
     assert "no matches" in no_match
+
+
+def test_plain_help_renders_behavioral_facet_and_config_cross_link():
+    rendered = render_plain_help("backend")
+    assert rendered is not None
+    assert rendered.startswith("help: models")
+    assert "provider endpoint" in rendered
+    assert "configuration: /help config models" in rendered
+
+    assert render_plain_help("generation") is None
+    assert render_plain_help("unknown") is None
+
+
+def test_plain_help_renders_facet_next_actions(monkeypatch):
+    catalog = ConfigHelpCatalog(
+        summary="summary",
+        overview_lines=(),
+        topics=(
+            HelpTopic(
+                "topic",
+                (),
+                "topic summary",
+                {"plain": HelpFacet(summary="plain", next_actions=("/help config topic",))},
+            ),
+        ),
+        key_descriptions={},
+    )
+    monkeypatch.setattr(help_catalog, "load_config_help_catalog", lambda: catalog)
+    assert render_plain_help("topic") == "help: topic\nplain\n\nnext:\n  /help config topic"
 
 
 def test_config_help_rendering_handles_empty_query_and_topics_without_config_facet():

@@ -9,6 +9,41 @@ Related: `260901-help-system-design-survey`
 
 keywords: surface, follow-on, usability, help, assets, facets, config
 
+Claimed for implementation on 2026-09-05.
+
+## Completion evidence
+
+Implemented the plain facet route through the packaged help catalog and narrow
+help dispatcher seam.
+
+Paired output examples:
+
+```text
+/help models
+help: models
+A backend supplies a provider endpoint; a model identifies the generation model used there.
+
+configuration: /help config models
+```
+
+```text
+/help config models
+config help: models
+Choose a direct model or configure backend/model catalogs.
+```
+
+Tests cover direct facet selection, aliases, the configuration cross-link,
+read-only inert projection, unknown topics, and topics without a plain facet.
+Focused result: `398 passed` (with `--no-cov`). Ruff passed. The full required
+suite reached `3108 passed, 20 failed, 9 deselected`; the failures are existing
+sandbox restrictions preventing socket/HTTP binds and Vim integration, and are
+unrelated to this help slice. Strict coverage for the changed help module is
+covered by the focused suite; the full run's coverage gate was affected by the
+same sandbox failures.
+
+The remaining plain-help topic catalog is intentionally deferred; this task
+only establishes the paired route using the existing `models` asset.
+
 # Plain Help Facet Route
 
 ## Objective

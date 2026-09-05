@@ -54,6 +54,7 @@ from .tools import (
 )
 from .tools_guidance import render_tools_help_full
 from .assets.help_catalog import render_config_help as _render_config_help_asset
+from .assets.help_catalog import render_plain_help as _render_plain_help_asset
 from .transcript import _lcp as _transcript_lcp
 from .transcript import parse_transcript as _parse_transcript
 
@@ -283,6 +284,10 @@ def render_help_cli() -> str:
 
 def render_help_config(query: str | None = None) -> str:
     return _render_config_help_asset(query, valid_keys=valid_config_keys())
+
+
+def render_help_topic(query: str) -> str | None:
+    return _render_plain_help_asset(query)
 
 
 

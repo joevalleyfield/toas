@@ -161,3 +161,20 @@ def render_config_help(query: str | None = None, *, valid_keys: list[str]) -> st
         lines.append(f"  {key}{suffix} (matched by {reason})")
     lines.extend(["", "inspect: /config show <filter>", "set: /config set <key> <value>"])
     return "\n".join(lines)
+
+
+def render_plain_help(query: str) -> str | None:
+    """Render a behavioral topic facet, if the packaged catalog provides one."""
+    catalog = load_config_help_catalog()
+    topic = resolve_config_help_topic(catalog, query)
+    if topic is None:
+        return None
+    facet = topic.facets.get("plain")
+    if facet is None:
+        return None
+    lines = [f"help: {topic.topic_id}", facet.summary or topic.summary]
+    if "config" in topic.facets:
+        lines.extend(["", f"configuration: /help config {topic.topic_id}"])
+    if facet.next_actions:
+        lines.extend(["", "next:", *(f"  {action}" for action in facet.next_actions)])
+    return "\n".join(lines)

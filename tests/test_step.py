@@ -4050,6 +4050,16 @@ def test_slash_help_config_supports_curated_topics_and_search():
     assert "shell.assistant_timeout_s" in searched_out[0]["content"]
 
 
+def test_slash_help_models_renders_plain_facet_and_config_cross_link():
+    transcript = "## TOAS:USER\n/help models\n"
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "help: models" in content
+    assert "provider endpoint" in content
+    assert "/help config models" in content
+    assert "llm.model =" not in content
+
+
 def test_config_help_alias_is_equivalent_and_read_only():
     help_transcript = "## TOAS:USER\n/help config\n"
     config_help_transcript = "## TOAS:USER\n/config --help\n"
