@@ -35,6 +35,34 @@ before session rotation decides what crosses a boundary. New native and fenced
 ingress should normalize through the common tool-intent seam; the JSON
 corollary follows the executable-fence scanner rather than preceding it.
 
+### Operator priority vote — 2026-09-04
+
+The following operator-friction cluster is a higher-priority signal wherever
+the work remains open. The vote consolidates the config, fidelity,
+continuation, and authority concerns without reopening completed slices.
+
+1. **Authority and guardrail semantics:** prioritize the remaining slices of
+   `260830-exec-grant-policy-matchers` and `260903-user-lane-timeout-recovery`.
+   Assistant-side bounds should be explicit, overridable per restriction, and
+   kept separate from the unbounded-but-interruptible user lane. The remaining
+   shell authorization work should be allowed to express contextual,
+   multi-token grants rather than inheriting the legacy one-token ceiling.
+2. **Config UX:** prioritize the implementation follow-on from
+   `260901-help-system-design-survey`: `/help config` and `/config --help`
+   should be useful, bare `/config` should be an explicit inspection surface,
+   and `/config set` should report compact effective deltas. Mutation output
+   should report deltas; inspection output should report state.
+3. **Failure continuation and execution fidelity:** prioritize the remaining
+   integration work in `260901-retry-materialization-adapters`, preserving the
+   authored plan/source and making the surviving retry and forward continuation
+   obvious. `260627-history-affordances-semantic-restaging` remains useful
+   adjacent design context, not a prerequisite for this implementation slice.
+4. **Completed fidelity checks:** do not reopen
+   `260831-replace-block-empty-preview-anchor`,
+   `260831-preserve-exec-fence-path`, or
+   `260831-verbatim-staged-plan-restaging`; their acceptance evidence is
+   recorded in `tasks/closed/`.
+
 - `260614-architecture-follow-through-coordination` is the active coordination
   object for top-down architecture follow-through. It ties subtasks to
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, and
