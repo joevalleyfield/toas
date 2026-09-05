@@ -233,16 +233,24 @@ def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandCon
             details += "\nexample: /config set generation.transport_mode single_user_blob"
         raise ValueError(details) from exc
 
+    before = step_mod.flatten_config(context.config)
     updated = step_mod.flatten_config(new_config)
-    lines = [f"{k} = {v}" for k, v in updated.items()]
+    changed = [(key, before.get(key), updated.get(key)) for key in updated if before.get(key) != updated.get(key)]
     section, key = dotted_key.split(".", 1)
     nested = {section: {key: updated[dotted_key]}}
+    if changed:
+        lines = ["effective changes (session scope):"]
+        lines.extend(f"  {changed_key}: {old} -> {new}" for changed_key, old, new in changed)
+    else:
+        lines = [
+            f"no effective change for {dotted_key}: already {updated[dotted_key]}",
+            "session override recorded; effective value was already the requested value.",
+        ]
     lines.extend(
         [
             "",
-            f"Updated {dotted_key} for this session.",
             "Persist in project defaults by editing .toas/config.toml (or toas.toml compatibility path).",
-            f"Revert in-session with: /config set {dotted_key} {step_mod.flatten_config(context.config)[dotted_key]}",
+            f"Revert in-session with: /config set {dotted_key} {before[dotted_key]}",
         ]
     )
     if dotted_key == "extraction.yaml_position":
@@ -327,6 +335,8 @@ def _config_save_result(args: list[str], *, step_mod, context: OperatorCommandCo
 
 
 def _handle_config_command(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args == ["--help"]:
+        return [_result_node(step_mod.render_help_config(), step_mod=step_mod, context=context)]
     if not args or args[0] == "show" or (len(args) == 1 and args[0] == "--sources"):
         return _config_show_result(args, step_mod=step_mod, context=context)
     if args[0] == "secret":

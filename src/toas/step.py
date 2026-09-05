@@ -284,6 +284,12 @@ def render_help_config() -> str:
     return "\n".join(
         [
             "config help:",
+            "start here:",
+            "  /config                  inspect effective current values",
+            "  /config show --sources   inspect values with their provenance",
+            "  /config values <key>    inspect allowed categorical values and the current value",
+            "  /config set <key> <value> set a durable session override and report effective changes",
+            "",
             "- /config show                  list current configuration values",
             "- /config show --sources        list current configuration values with their sources",
             "- /config values <key>          list allowed categorical values for a key",

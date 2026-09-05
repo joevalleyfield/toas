@@ -1027,3 +1027,112 @@ reopening triggers. It stays open until those scenario outcomes are recorded.
 No validator, exhaustive inventory, or universal vocabulary agreement is a
 prerequisite. Reopen collection only for a specific missing fact that would
 change a product decision.
+
+## Collaborative synthesis — 2026-09-04
+
+The configuration discussion narrows the help model without requiring a
+global runtime registry. The survey corpus and its proposed inventory shape
+are useful inspiration: they expose concepts, aliases, relationships,
+audiences, and surface-specific behavior that can inform a smaller curated
+configuration-help catalog. They remain evidence and design material, not an
+automatic source of executable help output.
+
+Configuration help and configuration operation should be treated as two entry
+points into the same domain:
+
+```text
+/help config [topic-or-query]
+  discover configuration concepts, keys, relationships, and next actions
+
+/config
+  compact usage and navigation hints, optimized for continued use
+
+/config --help
+  exact config-interface usage and syntax
+
+/config show [filter]
+  inspect effective live configuration, with filters
+```
+
+`/help config <query>` should combine a small curated topic vocabulary with
+implicit apropos-like search over configuration key names and descriptions.
+Curated topics provide semantic recall and a compact up-front explanation;
+lexical matches provide broader discovery when the topic has not been
+explicitly curated. A topic result should lead with the explanation, then
+show related keys and onward operations. A search-only result may show ranked
+matches and why each match was found.
+
+The intended progression is:
+
+```text
+curated concept → compact explanation → related keys → exact config actions
+keyword query  → ranked matches → descriptions → exact config actions
+```
+
+The same vocabulary may be shared by help search and `/config show` filters,
+but their outputs must remain distinct: help explains what a setting means;
+`show` reports current state. Help should not silently become a state dump.
+
+The token `help` should remain meta-syntax rather than become a configuration
+subcommand or topic. `/config --help` is the command-interface form, while
+`/help config` is the conceptual discovery form. `/config` itself should
+advertise both paths. Whether `/config help` is rejected with a diagnostic or
+later accepted as a compatibility alias remains an explicit product choice;
+it should not acquire a third semantic meaning.
+
+The minimum conceptual record for a curated configuration topic is therefore
+likely compact: a topic name, aliases, a short explanation, related config
+keys, and onward inspection/value/mutation links. Exact key names and live
+values should continue to come from the configuration system; descriptions
+and topic relationships need an intentionally chosen static source rather
+than accumulating independently in help prose, README text, and design notes.
+
+### Optional help facets
+
+Plain help and configuration help are best understood as optional facets of a
+topic, not as a required one-to-one pair. Where a domain has both stable
+behavioral invariants and user-adjustable behavior, the facets should share a
+topic identity and cross-link:
+
+```text
+topic: extraction
+  /help extraction
+  /help config extraction
+
+topic: history
+  /help history
+  (no config facet)
+
+topic: shell
+  /help shell
+  /help config shell
+  (possibly a capability facet)
+```
+
+Plain help explains what the domain does, what it guarantees, and which
+distinctions matter. Its config cross-link is selective rather than a full
+settings dump. Config help explains what is mutable, which keys and aliases
+control it, what values are allowed, and when changes take effect. A
+configuration area may temporarily have no mature plain-help counterpart;
+the relationship is earned by semantic overlap rather than matching names.
+
+The current major open questions are now bounded:
+
+1. What is the smallest curated domain-topic set, and which lower-frequency
+   config areas should remain search-only initially?
+2. What static source owns topic summaries, key descriptions, aliases, and
+   cross-links, while live schema and state remain owned by configuration
+   code?
+3. How should implicit search rank exact keys, key prefixes, descriptions,
+   aliases, and curated-topic matches, especially for ambiguous queries?
+4. What filter language should `/config show` use, and how much of that
+   vocabulary should it share with `/help config` search?
+5. How should dynamic facts—current values, provenance, available models,
+   and timing/availability—be labeled so they are not mistaken for static
+   help?
+6. Should `/config help` be rejected with guidance or retained only as a
+   compatibility alias for `/config --help`? It should not become a third
+   semantic help surface.
+7. Which plain-help topics need to be added before configuration topics can
+   explain their invariants, particularly around extraction, execution,
+   shell, and runtime timing?

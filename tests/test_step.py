@@ -4022,6 +4022,18 @@ def test_slash_help_config_returns_config_section():
     assert "tools-guidance-full" in content
 
 
+def test_config_help_alias_is_equivalent_and_read_only():
+    help_transcript = "## TOAS:USER\n/help config\n"
+    config_help_transcript = "## TOAS:USER\n/config --help\n"
+
+    _, help_out = step(help_transcript, [])
+    _, config_help_out = step(config_help_transcript, [])
+
+    assert config_help_out[0]["content"] == help_out[0]["content"]
+    assert "config_update" not in config_help_out[0]
+    assert "llm.model =" not in config_help_out[0]["content"]
+
+
 def test_render_help_tools_lists_registry_names():
     out = render_help_tools()
     assert out.startswith("tools:")
@@ -4216,9 +4228,18 @@ def test_config_set_success_includes_session_scope_and_revert_hint():
 """
     _, out = step(transcript, [])
     content = out[0]["content"]
-    assert "Updated generation.thinking_mode for this session." in content
+    assert "effective changes (session scope):" in content
+    assert "generation.thinking_mode: disabled -> enabled" in content
     assert "Persist in project defaults by editing .toas/config.toml" in content
     assert "Revert in-session with: /config set generation.thinking_mode disabled" in content
+
+
+def test_config_set_same_value_reports_override_without_effective_change():
+    transcript = "## TOAS:USER\n/config set generation.thinking_mode disabled\n"
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "no effective change for generation.thinking_mode: already disabled" in content
+    assert "session override recorded" in content
 
 
 

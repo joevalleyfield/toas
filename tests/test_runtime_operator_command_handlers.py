@@ -1565,6 +1565,55 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
     assert "captured backend b2" in out[0]["content"]
 
 
+def test_config_help_alias_matches_help_topic_without_mutation():
+    import toas.step as step_mod
+
+    context = _ctx()
+    topic = handle_config_help_commands("help", ["config"], step_mod=step_mod, context=context)
+    alias = handle_config_help_commands("config", ["--help"], step_mod=step_mod, context=context)
+
+    assert alias == topic
+    assert "start here:" in alias[0]["content"]
+    assert "config_update" not in alias[0]
+
+
+def test_config_set_feedback_reports_only_effective_changes(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "valid_config_keys", lambda: ["llm.model", "runtime.streaming_mode"])
+    context = _ctx(config=OperatorConfig())
+    updated_config = OperatorConfig()
+    monkeypatch.setattr(step_mod, "apply_dotted_override", lambda config, key, value: updated_config)
+    monkeypatch.setattr(
+        step_mod,
+        "flatten_config",
+        lambda config: {
+            "llm.model": "old" if config is context.config else "new",
+            "runtime.streaming_mode": "enabled",
+        },
+    )
+    out = handle_config_help_commands("config", ["set", "llm.model", "new"], step_mod=step_mod, context=context)
+
+    content = out[0]["content"]
+    assert "effective changes (session scope):" in content
+    assert "llm.model: old -> new" in content
+    assert "runtime.streaming_mode" not in content
+
+
+def test_config_set_feedback_reports_unchanged_effective_value(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "valid_config_keys", lambda: ["llm.model"])
+    monkeypatch.setattr(step_mod, "apply_dotted_override", lambda config, key, value: config)
+    monkeypatch.setattr(step_mod, "flatten_config", lambda _config: {"llm.model": "same"})
+
+    out = handle_config_help_commands("config", ["set", "llm.model", "same"], step_mod=step_mod, context=_ctx())
+    content = out[0]["content"]
+    assert "no effective change for llm.model: already same" in content
+    assert "session override recorded" in content
+    assert out[0]["config_update"] == {"llm": {"model": "same"}}
+
+
 def test_config_values_non_categorical_branch(monkeypatch):
     import toas.step as step_mod
 
