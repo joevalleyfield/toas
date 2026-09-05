@@ -106,3 +106,25 @@ the matching key or description. The same vocabulary may later serve
 - search behavior examples for curated and uncurated queries;
 - tests and results for safety, parsing, and projection parity;
 - explicit list of deferred prompt/procedure migration work.
+
+## Completion evidence
+
+- 2026-09-05: Added the shared packaged-resource primitives under
+  `src/toas/assets/` and registered YAML asset data in `pyproject.toml`.
+- 2026-09-05: Added `assets/help/config.yaml` with an overview, curated
+  `models` and `generation` topics, optional plain/config facets, related keys,
+  next actions, and initial key descriptions.
+- 2026-09-05: Wired `/help config` and `/help config <topic-or-query>` to the
+  runtime help catalog. Curated topics render compact explanations; other
+  queries search exact keys, prefixes, key tokens, and descriptions.
+- 2026-09-05: Preserved inert help-result projection and read-only behavior.
+  `/config show` remains the live-state surface, with filtered inspection
+  supplied by the completed `260905-config-show-filters` task.
+- 2026-09-05: Added coverage for loader safety, malformed assets, metadata and
+  facet parsing, curated lookup, search-only lookup, no-match behavior, and
+  end-to-end help rendering.
+- 2026-09-05: Focused tests pass: 395 tests with `--no-cov`; Ruff passes.
+- 2026-09-05: Full suite passes: 3,126 tests, 9 deselected, 100% coverage.
+
+Deferred: prompt and procedure directories remain in their existing locations;
+their migration belongs to the parent common asset-library task.

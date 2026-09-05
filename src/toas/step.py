@@ -53,6 +53,7 @@ from .tools import (
     shape_result_content,
 )
 from .tools_guidance import render_tools_help_full
+from .assets.help_catalog import render_config_help as _render_config_help_asset
 from .transcript import _lcp as _transcript_lcp
 from .transcript import parse_transcript as _parse_transcript
 
@@ -280,47 +281,8 @@ def render_help_cli() -> str:
     return "\n".join(lines)
 
 
-def render_help_config() -> str:
-    return "\n".join(
-        [
-            "config help:",
-            "start here:",
-            "  /config                  inspect effective current values",
-            "  /config show --sources   inspect values with their provenance",
-            "  /config values <key>    inspect allowed categorical values and the current value",
-            "  /config set <key> <value> set a durable session override and report effective changes",
-            "",
-            "- /config show                  list current configuration values",
-            "- /config show --sources        list current configuration values with their sources",
-            "- /config values <key>          list allowed categorical values for a key",
-            "- /config set <key> <value>     set a durable session override",
-            "- /config unset <key>           remove a durable session override",
-            "- /config restore               clear all durable session overrides",
-            "- /config load [path]           load session overrides from a TOML file",
-            "- /config save [path]           save effective configuration to a TOML file",
-            "- /config backend ...           configure backends dynamically",
-            "- /config secret ...            configure ephemeral/in-memory runtime secrets",
-            "",
-            "config classes & durability:",
-            "- durable overrides: /config [set|unset|restore|load] write config_override records",
-            "  to the event log, persisting across session restarts in the active head lineage.",
-            "- ephemeral secrets: /config secret set ... updates in-memory process secrets only.",
-            "- side effects: /config save [path] writes the effective configuration to disk.",
-            "",
-            "precedence stack (highest to lowest):",
-            "  ephemeral_secrets > session_override (events) > config_file (local > global) > env > defaults",
-            "",
-            "compatibility notes:",
-            "- extraction.yaml_position remains available for legacy extraction flows.",
-            "- execution-time intent selection is controlled by extraction.intent_arbitration.",
-            "prompt guidance constraints (for /prompt --constraint ...):",
-            "- tools-guidance-core      compact callable-shape + bounded-discovery guidance",
-            "- tools-guidance-repo-work repo-work-first discovery/edit/test guidance",
-            "- tools-guidance-first-edit-pass concrete discover->edit->test first pass scaffold",
-            "- tools-guidance-full      expanded callable-shape + capability-help guidance",
-            "tip: run /config show to see all valid keys in the current build",
-        ]
-    )
+def render_help_config(query: str | None = None) -> str:
+    return _render_config_help_asset(query, valid_keys=valid_config_keys())
 
 
 

@@ -1,0 +1,66 @@
+summary: "Configuration controls how TOAS behaves; help explains the controls, while /config show reports live state."
+overview:
+  - "start here:"
+  - "  /config                  compact usage and navigation"
+  - "  /config --help           exact config-interface usage"
+  - "  /config show             inspect effective current values"
+  - "  /config show --sources   inspect values with their provenance"
+  - "  /config values <key>     inspect allowed categorical values"
+  - "  /config set <key> <value> set a durable session override"
+  - ""
+  - "discover configuration concepts with:"
+  - "  /help config <topic-or-query>"
+  - ""
+  - "config classes & durability:"
+  - "  - durable overrides: /config set, unset, restore, and load write config_override records"
+  - "  - ephemeral secrets: /config secret set updates in-memory process secrets only"
+  - "  - /config save writes the effective configuration to disk"
+  - ""
+  - "precedence stack (highest to lowest):"
+  - "  ephemeral_secrets > session_override > config_file > env > defaults"
+  - ""
+  - "compatibility notes:"
+  - "  extraction.yaml_position remains available for legacy extraction flows."
+  - "  execution-time intent selection is controlled by extraction.intent_arbitration."
+  - ""
+  - "prompt guidance constraints (for /prompt --constraint ...):"
+  - "  tools-guidance-core"
+  - "  tools-guidance-repo-work"
+  - "  tools-guidance-first-edit-pass"
+  - "  tools-guidance-full"
+  - ""
+  - "tip: use /config show to see all valid keys in the current build"
+topics:
+  - id: models
+    aliases: [model, backend, backends]
+    summary: "Models and backends determine which provider and model handle generation."
+    facets:
+      plain:
+        summary: "A backend supplies a provider endpoint; a model identifies the generation model used there."
+      config:
+        summary: "Choose a direct model or configure backend/model catalogs."
+        related_keys: [llm.model, llm.models, llm.backends, llm.base_url, backend.mode]
+        next_actions: [/config show models, /config values llm.model, /config set llm.model <value>]
+  - id: generation
+    aliases: [generate, thinking, tokens, retries]
+    summary: "Generation settings control thinking, output budgets, retries, and request transport."
+    facets:
+      config:
+        summary: "Adjust generation behavior without changing transcript or tool semantics."
+        related_keys: [generation.thinking_mode, generation.thinking_budget_tokens, generation.max_tokens, generation.max_retries, generation.retry_delay_s, generation.transport_mode]
+        next_actions: [/config show generation, /config values generation.thinking_mode]
+key_descriptions:
+  llm.model: "Selects the active model for generation."
+  llm.models: "Defines available model catalog entries."
+  llm.backends: "Defines configured backend catalog entries and their models."
+  llm.base_url: "Sets the provider-compatible base URL."
+  generation.thinking_mode: "Enables or disables backend thinking behavior."
+  generation.thinking_budget_tokens: "Limits the token budget available for thinking."
+  generation.max_tokens: "Limits generated output tokens."
+  generation.max_retries: "Controls retry attempts after a generation failure."
+  generation.retry_delay_s: "Controls the delay between generation retries."
+  health_timing.first_frame_timeout_ms: "Controls the timeout before the first response frame."
+  health_timing.inter_frame_timeout_ms: "Controls the timeout between response frames."
+  health_timing.host_request_deadline_ms: "Controls the host request deadline."
+  health_timing.recovery_timeout_ms: "Controls recovery timing after a stalled activity."
+  shell.assistant_timeout_s: "Limits assistant-directed shell execution time."

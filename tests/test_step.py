@@ -4038,6 +4038,18 @@ def test_slash_help_config_returns_config_section():
     assert "tools-guidance-full" in content
 
 
+def test_slash_help_config_supports_curated_topics_and_search():
+    curated = "## TOAS:USER\n/help config models\n"
+    _, curated_out = step(curated, [])
+    assert "config help: models" in curated_out[0]["content"]
+    assert "llm.model" in curated_out[0]["content"]
+
+    searched = "## TOAS:USER\n/help config timeout\n"
+    _, searched_out = step(searched, [])
+    assert "config help search: timeout" in searched_out[0]["content"]
+    assert "shell.assistant_timeout_s" in searched_out[0]["content"]
+
+
 def test_config_help_alias_is_equivalent_and_read_only():
     help_transcript = "## TOAS:USER\n/help config\n"
     config_help_transcript = "## TOAS:USER\n/config --help\n"

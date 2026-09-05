@@ -415,8 +415,12 @@ def _handle_help_command(args: list[str], *, step_mod, context: OperatorCommandC
         return [_result_node(step_mod.render_help_cli(), step_mod=step_mod, context=context)]
     if args == ["approvals"]:
         return [_result_node(step_mod.render_help_approvals(), step_mod=step_mod, context=context)]
-    if args == ["config"]:
-        return [_result_node(step_mod.render_help_config(), step_mod=step_mod, context=context)]
+    if args and args[0] == "config":
+        if len(args) == 1:
+            content = step_mod.render_help_config()
+        else:
+            content = step_mod.render_help_config(" ".join(args[1:]))
+        return [_result_node(content, step_mod=step_mod, context=context)]
     else:
         raise ValueError("usage: /help")
 
