@@ -1136,3 +1136,12 @@ The current major open questions are now bounded:
 7. Which plain-help topics need to be added before configuration topics can
    explain their invariants, particularly around extraction, execution,
    shell, and runtime timing?
+
+The shared asset-library direction is now a candidate architecture rather
+than an immediate relocation plan. Prompts, procedures, and help may move
+under a common `assets/` package with a narrow shared loader for resource
+identity, safe lookup, metadata, listing, and provenance. Their family
+loaders should retain distinct semantics. The migration target and staged
+posture are tracked in `260905-common-asset-library-migration`: old paths may
+survive temporarily during bounded moves, but the intended final form has no
+remaining compatibility adapters.

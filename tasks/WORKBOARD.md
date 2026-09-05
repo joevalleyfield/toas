@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-04
+> **Last Sync:** 2026-09-05
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -273,7 +273,8 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260901-help-system-design-survey]** Describe the current TOAS help and discoverability surfaces in design/docs space, drawing on their existing behavior before proposing implementation s...
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
 - **[T260903-user-lane-timeout-recovery]** Make direct user execution unbounded by default and distinguish its terminal-on-failure behavior from recovery of assistant source reached through `/r...
-- **[T260904-config-help-state-feedback]** Make config discovery and feedback follow the operator priority vote: `/help config` and `/config --help` explain usage, bare `/config` inspects curre...
+- **[T260905-common-asset-library-migration]** Establish a common packaged asset layer for prompts, procedures, and runtime help, with family-specific loaders and a final layout under `assets/`.  T...
+- **[T260905-help-assets-runtime-foundation]** Implement the first vertical slice of runtime-loadable help assets so configuration help can move out of hardcoded source prose without requiring a gr...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -356,11 +357,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260904-config-help-state-feedback]** Make config discovery and feedback follow the operator priority vote: `/help config` and `/config --help` explain usage, bare `/config` inspects curre...
 - **[T260901-source-reference-recovery-integration]** Integrate Source References With Frontier Recovery
 - **[T260831-verbatim-staged-plan-restaging]** Preserve Verbatim YAML During Failed-Plan Restaging
 - **[T260831-replace-block-empty-preview-anchor]** Status: closed
 - **[T260831-preserve-exec-fence-path]** Runtime executable fences must inherit the caller/runtime environment faithfully. A fence that receives environment overrides must not replace the cal...
-- **[T260830-write-file-default-seed]** Add `write_file` to the effective core tool profile used by the default seed so the advertised editing capability and the model-visible default invent...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
