@@ -84,3 +84,23 @@ reports state only; it must not mutate config or emit a config update.
 - examples of each supported filter form;
 - targeted and full test results;
 - confirmation that inspection remains read-only and provenance-safe.
+
+## Implementation note
+
+The first implementation uses one optional positional filter with matching
+precedence exact key, dotted-key prefix, then case-insensitive key-token
+containment (all query tokens must occur in a key). `--sources` remains
+composable before or after the filter.
+Topic aliases and description search remain deferred to the help-assets child.
+
+## Completion evidence
+
+- 2026-09-05: Added read-only `/config show` filters with exact-key,
+  dotted-prefix, and case-insensitive key-token matching. `--sources` is
+  composable before or after the filter, and unfiltered `/config show`
+  behavior remains unchanged.
+- 2026-09-05: Added actionable no-match output and defensive validation for
+  empty or multiple filters. Help-topic aliases, description search, and
+  `/config show` topic resolution remain deferred to the help-assets child.
+- 2026-09-05: Focused tests pass: 376 tests with `--no-cov`.
+- 2026-09-05: Full suite passes: 3,107 tests, 9 deselected, 100% coverage.

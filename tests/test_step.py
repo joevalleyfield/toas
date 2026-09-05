@@ -3371,6 +3371,22 @@ def test_config_show_sources():
     assert "[source=session_override]" in content
 
 
+def test_config_show_filter_returns_matching_keys_only():
+    transcript = "## TOAS:USER\n/config show timeout\n"
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "shell.assistant_timeout_s =" in content
+    assert "llm.model =" not in content
+
+
+def test_config_show_filter_no_match_is_actionable():
+    transcript = "## TOAS:USER\n/config show not-a-key\n"
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "no matching keys" in content
+    assert "/help config" in content
+
+
 def test_config_show_sources_reports_assistant_timeout_provenance():
     transcript = "## TOAS:USER\n/config show --sources\n"
     config = OperatorConfig(shell=ShellPolicy(assistant_timeout_s=900))

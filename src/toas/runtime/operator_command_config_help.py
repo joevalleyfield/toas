@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from ..config import OperatorConfig
@@ -41,22 +42,63 @@ def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **f
     )
 
 
-def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_show_filter(args: list[str]) -> tuple[str | None, bool]:
     show_sources = False
-    if args and args[0] == "--sources":
-        show_sources = True
-    if args and args[0] == "show":
-        if len(args) == 2 and args[1] == "--sources":
+    filters: list[str] = []
+    for arg in args:
+        if arg == "--sources":
             show_sources = True
-        elif len(args) > 1:
-            raise ValueError("usage: /config show [--sources]")
+        else:
+            filters.append(arg)
+    if len(filters) > 1:
+        raise ValueError("usage: /config show [filter] [--sources]")
+    return (filters[0] if filters else None), show_sources
+
+
+def _config_key_matches(keys: list[str], filter_text: str | None) -> list[str]:
+    if filter_text is None:
+        return list(keys)
+    query = filter_text.strip().casefold()
+    if not query:
+        raise ValueError("usage: /config show [filter] [--sources]")
+
+    exact = [key for key in keys if key.casefold() == query]
+    if exact:
+        return exact
+
+    prefix = [key for key in keys if key.casefold().startswith(query + ".")]
+    if prefix:
+        return sorted(prefix)
+
+    query_tokens = {token for token in re.split(r"[._-]+", query) if token}
+    token_matches = []
+    for key in keys:
+        key_tokens = {token for token in re.split(r"[._-]+", key.casefold()) if token}
+        if query_tokens <= key_tokens:
+            token_matches.append(key)
+    return sorted(token_matches)
+
+
+def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    filter_text, show_sources = _config_show_filter(args[1:] if args and args[0] == "show" else args)
 
     flat = step_mod.flatten_config(context.config)
+    keys = _config_key_matches(list(flat), filter_text)
+    if filter_text is not None and not keys:
+        return [
+            _result_node(
+                f"config show: no matching keys for {filter_text!r}\n"
+                "hint: use /help config to search configuration concepts, or "
+                "/config show for all current keys",
+                step_mod=step_mod,
+                context=context,
+            )
+        ]
     if show_sources:
         sources = context.config_sources or {}
-        lines = [f"{k} = {flat[k]}    [source={sources.get(k, 'default')}]" for k in sorted(flat)]
+        lines = [f"{k} = {flat[k]}    [source={sources.get(k, 'default')}]" for k in keys]
     else:
-        lines = [f"{k} = {v}" for k, v in flat.items()]
+        lines = [f"{k} = {flat[k]}" for k in keys]
 
     lines.extend(
         [

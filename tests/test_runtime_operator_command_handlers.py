@@ -538,6 +538,52 @@ def test_config_help_handler_config_show_sources(monkeypatch):
     assert "timing semantics:" in content
 
 
+def test_config_show_supports_exact_prefix_and_token_filters():
+    import toas.step as step_mod
+
+    context = _ctx()
+    exact = handle_config_help_commands("config", ["show", "llm.model"], step_mod=step_mod, context=context)[0]["content"]
+    prefix = handle_config_help_commands("config", ["show", "llm"], step_mod=step_mod, context=context)[0]["content"]
+    token = handle_config_help_commands("config", ["show", "timeout"], step_mod=step_mod, context=context)[0]["content"]
+
+    assert "llm.model =" in exact
+    assert "llm.base_url =" not in exact
+    assert "llm.base_url =" in prefix
+    assert "llm.model =" in prefix
+    assert "shell.assistant_timeout_s =" in token
+    assert "llm.model =" not in token
+
+
+def test_config_show_filter_sources_and_no_match_are_read_only():
+    import toas.step as step_mod
+
+    context = _ctx(config_sources={"llm.model": "env"})
+    out = handle_config_help_commands("config", ["show", "--sources", "llm.model"], step_mod=step_mod, context=context)
+    content = out[0]["content"]
+    assert "llm.model =" in content
+    assert "[source=env]" in content
+    assert "precedence stack" in content
+    assert "config_update" not in out[0]
+
+    no_match = handle_config_help_commands("config", ["show", "not-a-key"], step_mod=step_mod, context=context)[0]["content"]
+    assert "no matching keys" in no_match
+    assert "/help config" in no_match
+
+
+def test_config_show_rejects_multiple_filters():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match=r"usage: /config show \[filter\]"):
+        handle_config_help_commands("config", ["show", "llm", "runtime"], step_mod=step_mod, context=_ctx())
+
+
+def test_config_show_rejects_empty_filter():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /config show"):
+        handle_config_help_commands("config", ["show", ""], step_mod=step_mod, context=_ctx())
+
+
 def test_handlers_return_none_for_non_matching_command():
     import toas.step as step_mod
 
@@ -2143,9 +2189,9 @@ def test_config_show_sources(monkeypatch):
     assert out is not None
     assert "source" in out[0]["content"].lower()
 
-    # /config show extra args
-    with pytest.raises(ValueError, match="usage: /config show"):
-        handle_config_help_commands("config", ["show", "extra"], step_mod=step_mod, context=_ctx())
+    # /config show filter
+    out = handle_config_help_commands("config", ["show", "extra"], step_mod=step_mod, context=_ctx())
+    assert "no matching keys" in out[0]["content"]
 
     # /config extra args
     with pytest.raises(ValueError, match="usage: /config"):
