@@ -440,44 +440,22 @@ def test_capability_repo_work_core_profile_includes_capability_help():
 def test_capability_prompt_loader_strips_yaml_frontmatter(monkeypatch):
     import toas.capability_prompts as mod
 
-    class _FakePath:
-        def read_text(self, encoding: str) -> str:  # noqa: ARG002
-            return "---\nname: test\n---\nbody line\n"
-
-    class _FakeNode:
-        def joinpath(self, *parts: str):  # noqa: ANN001
-            if parts and parts[-1] == "overview_v1.txt":
-                return _FakePath()
-            return self
-
-    class _FakeResources:
-        @staticmethod
-        def files(_pkg: str) -> _FakeNode:
-            return _FakeNode()
-
-    monkeypatch.setattr(mod, "resources", _FakeResources)
+    monkeypatch.setattr(
+        mod,
+        "load_packaged_asset",
+        lambda kind, ref, *, suffix: type("Asset", (), {"content": "---\nname: test\n---\nbody line\n"})(),
+    )
     assert mod._load_template("overview_v1") == "body line"
 
 
 def test_capability_prompt_loader_keeps_body_when_frontmatter_is_unclosed(monkeypatch):
     import toas.capability_prompts as mod
 
-    class _FakePath:
-        def read_text(self, encoding: str) -> str:  # noqa: ARG002
-            return "---\nname: test\nbody line\n"
-
-    class _FakeNode:
-        def joinpath(self, *parts: str):  # noqa: ANN001
-            if parts and parts[-1] == "overview_v1.txt":
-                return _FakePath()
-            return self
-
-    class _FakeResources:
-        @staticmethod
-        def files(_pkg: str) -> _FakeNode:
-            return _FakeNode()
-
-    monkeypatch.setattr(mod, "resources", _FakeResources)
+    monkeypatch.setattr(
+        mod,
+        "load_packaged_asset",
+        lambda kind, ref, *, suffix: type("Asset", (), {"content": "---\nname: test\nbody line\n"})(),
+    )
     assert mod._load_template("overview_v1") == "---\nname: test\nbody line"
 
 

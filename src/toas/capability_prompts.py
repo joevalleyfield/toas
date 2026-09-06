@@ -1,5 +1,4 @@
-from importlib import resources
-
+from .assets.loader import load_packaged_asset
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
@@ -56,8 +55,7 @@ def _shell_limits() -> str:
 
 
 def _load_template(name: str) -> str:
-    path = resources.files("toas").joinpath("prompts").joinpath("dynamic").joinpath("capabilities").joinpath(f"{name}.txt")
-    raw = path.read_text(encoding="utf-8")
+    raw = load_packaged_asset("prompts", f"dynamic/capabilities/{name}", suffix=".txt").content
     if raw.startswith("---\n"):
         marker = "\n---\n"
         end = raw.find(marker, 4)
