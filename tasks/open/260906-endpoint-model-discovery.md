@@ -3,11 +3,12 @@ FKA:
 AKA: endpoint models probe; served model discovery; backend model status
 Legacy index:
 
-Parent: `260905-common-asset-library-migration`
-Depends on: `260906-config-show-topic-sources`
-Related: `260901-help-system-design-survey`; `260614-shell-owned-backend-lifecycle`
+Parent: `260906-endpoint-backend-separation`
+Depends on: `260906-endpoint-backend-separation`
+Blocks: `260906-model-catalog-refresh`
+Related: `260901-help-system-design-survey`; `260614-shell-owned-backend-lifecycle`; `docs/notes/2026-09-06-endpoints-models-and-targets.md`
 
-keywords: runtime, config, surface, investigation, usability, follow-on, provenance
+keywords: runtime, config, surface, implementation, active, provenance, contract
 
 # Explicit Endpoint Model Discovery
 

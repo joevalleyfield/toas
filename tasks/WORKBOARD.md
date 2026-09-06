@@ -210,6 +210,7 @@ continuation, and authority concerns without reopening completed slices.
 - `260614-architecture-follow-through-coordination`
 - `260627-release-process-and-weekly-release-lane`
 - `260628-acceptance-live-generation-bounds`
+- `260906-endpoint-backend-separation`
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->
 
 ### Active Arc Map
@@ -226,6 +227,8 @@ continuation, and authority concerns without reopening completed slices.
   - 260811-activity-health-telemetry Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... (related `260602-transport-equivalence-certification`, `260530-shell-lane-spawn-semantics`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - Warning: root `260628-acceptance-live-generation-bounds` not rendered (closed task).
+- 260906-endpoint-backend-separation Move the current endpoint-shaped `llm.backends[]` data toward explicit endpoint semantics while preserving a bounded migration path for existing confi... (blocks `260906-named-model-targets`, `260906-endpoint-model-discovery`, `260906-model-catalog-refresh`; related `docs/notes/2026-09-06-endpoints-models-and-targets.md`, `260614-shell-owned-backend-lifecycle`)
+  - 260906-endpoint-model-discovery Expose endpoint-discovered model information as an explicit runtime observation surface, using the existing model-list probe where compatible, without... (depends on `260906-endpoint-backend-separation`; blocks `260906-model-catalog-refresh`; related `260901-help-system-design-survey`, `260614-shell-owned-backend-lifecycle`, `docs/notes/2026-09-06-endpoints-models-and-targets.md`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
 - closed historical context: 400 module decomposition, 525 runtime ownership,
@@ -274,7 +277,10 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
 - **[T260903-user-lane-timeout-recovery]** Make direct user execution unbounded by default and distinguish its terminal-on-failure behavior from recovery of assistant source reached through `/r...
 - **[T260905-common-asset-library-migration]** Establish a common packaged asset layer for prompts, procedures, and runtime help, with family-specific loaders and a final layout under `assets/`.  T...
+- **[T260906-endpoint-backend-separation]** Move the current endpoint-shaped `llm.backends[]` data toward explicit endpoint semantics while preserving a bounded migration path for existing confi...
 - **[T260906-endpoint-model-discovery]** Expose endpoint-discovered model information as an explicit runtime observation surface, using the existing model-list probe where compatible, without...
+- **[T260906-model-catalog-refresh]** Add an explicit write operation that merges endpoint-reported model IDs into durable operator catalogs without conflating observations with configurat...
+- **[T260906-named-model-targets]** Represent endpoint/model/generation combinations as durable named targets so operator selection no longer requires independently juggling `/backend`, ...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
