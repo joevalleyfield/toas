@@ -379,6 +379,59 @@ def test_prompt_workspace_models_rejects_arguments():
         handle_prompt_workspace_commands("models", ["live"], step_mod=step_mod, context=_ctx())
 
 
+def test_prompt_workspace_models_refresh_merges_endpoint_catalog(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1", models=("old",)),)
+        )
+    )
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://endpoint/v1"), {}),
+    )
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"data": [{"id": "new"}, {"id": "old"}]})
+
+    out = handle_prompt_workspace_commands("models", ["refresh", "local"], step_mod=step_mod, context=_ctx(config=config))
+
+    assert "1 added, 2 known" in out[0]["content"]
+    assert out[0]["config_update"]["llm"]["backends"][0]["models"] == ["old", "new"]
+
+
+def test_prompt_workspace_models_refresh_failure_does_not_write(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+
+    config = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://endpoint/v1"), {}),
+    )
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"error": "offline"})
+
+    out = handle_prompt_workspace_commands("models", ["refresh", "local"], step_mod=step_mod, context=_ctx(config=config))
+
+    assert "model catalog refresh failed" in out[0]["content"]
+    assert "config_update" not in out[0]
+
+
+def test_prompt_workspace_models_refresh_validates_endpoint_argument():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /models refresh"):
+        handle_prompt_workspace_commands("models", ["refresh"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="unknown endpoint"):
+        handle_prompt_workspace_commands("models", ["refresh", "missing"], step_mod=step_mod, context=_ctx())
+
+
 def test_extract_replay_handler_replay_dry_run(monkeypatch):
     import toas.step as step_mod
 

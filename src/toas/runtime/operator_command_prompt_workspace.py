@@ -141,6 +141,8 @@ def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext)
 
 
 def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args and args[0] == "refresh":
+        return _handle_models_refresh(args[1:], step_mod=step_mod, context=context)
     if args:
         raise ValueError("usage: /models")
     from ..llm_harness import fetch_models
@@ -162,6 +164,73 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
     else:
         lines.append(f"  error: {observation['error']}")
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+
+
+def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) != 1 or not args[0].strip():
+        raise ValueError("usage: /models refresh <endpoint>")
+    endpoint_id = args[0].strip()
+    endpoint = next((entry for entry in context.config.llm.endpoints if entry.id == endpoint_id), None)
+    if endpoint is None:
+        raise ValueError(f"unknown endpoint: {endpoint_id}")
+
+    from ..llm_harness import fetch_models
+    from ..secrets import resolve_secret
+    from .model_observations import merge_endpoint_model_ids, observe_endpoint_models
+    from .policy_edges import settings_for_runtime
+
+    base_settings, _sources = settings_for_runtime(context.config)
+    endpoint_key = resolve_secret(
+        source=endpoint.api_key_source,
+        ref=endpoint.api_key_ref,
+        default=base_settings.llm_api_key,
+    )
+    settings = step_mod.Settings(
+        llm_base_url=endpoint.base_url or base_settings.llm_base_url,
+        llm_api_key=endpoint_key,
+        llm_model=endpoint.default_model or base_settings.llm_model,
+        llm_trace=base_settings.llm_trace,
+        llm_transport_mode=base_settings.llm_transport_mode,
+        llm_stream_mode=base_settings.llm_stream_mode,
+        llm_provider=endpoint.provider or base_settings.llm_provider,
+        llm_ca_file=base_settings.llm_ca_file,
+    )
+    observation = observe_endpoint_models(settings, fetcher=fetch_models)
+    if observation["status"] != "ok":
+        return [
+            _result_node(
+                f"model catalog refresh failed for {endpoint_id}: {observation['status']}\n"
+                f"error: {observation['error']}",
+                step_mod=step_mod,
+                context=context,
+            )
+        ]
+
+    updated_endpoint = merge_endpoint_model_ids(endpoint, observation.get("models", ()))
+    backends = []
+    for entry in context.config.llm.backends:
+        if entry.id == endpoint_id:
+            entry = updated_endpoint
+        backends.append(
+            {
+                "id": entry.id,
+                "base_url": entry.base_url,
+                "default_model": entry.default_model,
+                "models": list(entry.models),
+                "api_key_source": entry.api_key_source,
+                "api_key_ref": entry.api_key_ref,
+                "provider": entry.provider,
+                "tags": list(entry.tags),
+                "notes": entry.notes,
+            }
+        )
+    observed = observation.get("models", ())
+    added = [model_id for model_id in observed if model_id not in endpoint.models]
+    content = (
+        f"model catalog refreshed for {endpoint_id}: {len(added)} added, "
+        f"{len(updated_endpoint.models)} known"
+    )
+    return [_result_node(content, step_mod=step_mod, context=context, config_update={"llm": {"backends": backends}})]
 
 
 def _validate_env_key(key: str, *, step_mod) -> None:

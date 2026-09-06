@@ -72,3 +72,11 @@ because one response omitted them.
    stable.
 2. Choose the smallest durable provenance representation.
 3. Add focused merge and non-destructive failure tests.
+
+## Progress Evidence
+
+An explicit `/models refresh <endpoint>` action now probes one configured
+endpoint and merges reported model IDs into its durable endpoint-associated
+catalog. Existing IDs and endpoint metadata are preserved, absent IDs are not
+deleted, and failed observations return no config update. Active target
+selection is untouched.

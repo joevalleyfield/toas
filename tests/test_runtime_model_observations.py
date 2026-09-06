@@ -1,5 +1,6 @@
+from toas.config import EndpointCatalogEntry
 from toas.llm import Settings
-from toas.runtime.model_observations import observe_endpoint_models
+from toas.runtime.model_observations import merge_endpoint_model_ids, observe_endpoint_models
 
 
 def test_observe_endpoint_models_normalizes_openai_and_gemini_shapes():
@@ -49,3 +50,21 @@ def test_observe_endpoint_models_rejects_malformed_response():
         fetcher=lambda _settings: {"data": ["skip", {"id": 42}, {"id": "kept"}]},
     )
     assert skipped["models"] == ("kept",)
+
+
+def test_merge_endpoint_model_ids_preserves_metadata_and_existing_order():
+    endpoint = EndpointCatalogEntry(
+        id="local",
+        base_url="http://endpoint/v1",
+        default_model="default",
+        models=("old",),
+        tags=("local",),
+        notes="curated",
+    )
+
+    merged = merge_endpoint_model_ids(endpoint, ("new", "old", "", " new "))
+
+    assert merged.models == ("old", "new")
+    assert merged.default_model == "default"
+    assert merged.tags == ("local",)
+    assert merged.notes == "curated"
