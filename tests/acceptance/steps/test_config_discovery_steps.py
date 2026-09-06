@@ -66,6 +66,15 @@ def when_follow_generation_discovery(acceptance_state: dict, capsys) -> None:
     acceptance_state["generation_outputs"] = outputs
 
 
+@when("the operator follows the config extraction discovery path")
+def when_follow_extraction_discovery(acceptance_state: dict, capsys) -> None:
+    outputs = []
+    for command in ("/help extraction", "/help config extraction", "/config show extraction"):
+        _run_control(acceptance_state["repo"], command)
+        outputs.append((command, capsys.readouterr().out))
+    acceptance_state["extraction_outputs"] = outputs
+
+
 def _output(outputs: list[tuple[str, str]], command: str) -> str:
     return next(text for name, text in outputs if name == command)
 
@@ -115,6 +124,24 @@ def then_generation_discovery_contract(acceptance_state: dict) -> None:
     assert "/help config generation" in plain
     assert "config help: generation" in config_help
     for key in ("generation.thinking_mode =", "generation.max_tokens =", "generation.max_retries ="):
+        assert key in live
+    assert "precedence stack" not in live
+    assert "config_update" not in live
+
+
+@then("extraction discovery should expose the non-executing boundary")
+def then_extraction_discovery_contract(acceptance_state: dict) -> None:
+    outputs = acceptance_state["extraction_outputs"]
+    plain = _output(outputs, "/help extraction")
+    config_help = _output(outputs, "/help config extraction")
+    live = _output(outputs, "/config show extraction")
+
+    assert "help: extraction" in plain
+    assert "source order" in plain
+    assert "does not execute" in plain
+    assert "/help config extraction" in plain
+    assert "config help: extraction" in config_help
+    for key in ("extraction.yaml_position =", "extraction.intent_arbitration =", "extraction.projection_shape ="):
         assert key in live
     assert "precedence stack" not in live
     assert "config_update" not in live

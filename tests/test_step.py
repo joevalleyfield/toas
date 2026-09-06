@@ -4089,6 +4089,16 @@ def test_slash_help_generation_renders_plain_facet_and_config_cross_link():
     assert "/help config generation" in content
 
 
+def test_slash_help_extraction_renders_plain_facet_and_config_cross_link():
+    transcript = "## TOAS:USER\n/help extraction\n"
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "help: extraction" in content
+    assert "source order" in content
+    assert "does not execute" in content
+    assert "/help config extraction" in content
+
+
 def test_config_help_alias_is_equivalent_and_read_only():
     help_transcript = "## TOAS:USER\n/help config\n"
     config_help_transcript = "## TOAS:USER\n/config --help\n"

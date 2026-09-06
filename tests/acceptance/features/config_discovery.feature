@@ -12,3 +12,8 @@ Feature: Config discovery from help to effective state
     Given a scratch TOAS workspace for config discovery
     When the operator follows the config generation discovery path
     Then generation discovery should expose paired help and live state
+
+  Scenario: "Extraction topic explains the pre-execution boundary"
+    Given a scratch TOAS workspace for config discovery
+    When the operator follows the config extraction discovery path
+    Then extraction discovery should expose the non-executing boundary

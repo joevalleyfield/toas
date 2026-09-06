@@ -109,6 +109,15 @@ def test_plain_help_renders_behavioral_facet_and_config_cross_link():
     assert render_plain_help("unknown") is None
 
 
+def test_plain_help_renders_extraction_invariant_and_execution_boundary():
+    rendered = render_plain_help("intent")
+    assert rendered is not None
+    assert rendered.startswith("help: extraction")
+    assert "source order" in rendered
+    assert "does not execute" in rendered
+    assert "configuration: /help config extraction" in rendered
+
+
 def test_plain_help_renders_facet_next_actions(monkeypatch):
     catalog = ConfigHelpCatalog(
         summary="summary",
