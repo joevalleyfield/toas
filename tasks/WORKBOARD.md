@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-05
+> **Last Sync:** 2026-09-06
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -274,6 +274,8 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
 - **[T260903-user-lane-timeout-recovery]** Make direct user execution unbounded by default and distinguish its terminal-on-failure behavior from recovery of assistant source reached through `/r...
 - **[T260905-common-asset-library-migration]** Establish a common packaged asset layer for prompts, procedures, and runtime help, with family-specific loaders and a final layout under `assets/`.  T...
+- **[T260906-config-precedence-help-topic]** Make configuration precedence and winning-source semantics discoverable as a focused, searchable config-help topic.
+- **[T260906-config-show-topic-sources]** Complete the progressive-disclosure path from config help to live state by making curated config topics valid filters for `/config show`, including th...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
