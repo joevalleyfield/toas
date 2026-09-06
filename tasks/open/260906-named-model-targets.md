@@ -89,6 +89,11 @@ The invocation seam now resolves a selected target into endpoint, requested
 model, API-key, and sparse generation settings without probing. Unknown
 endpoint references fail closed at this seam; public selection remains open.
 
+Target configuration is now canonical as keyed TOML tables under
+`[llm.targets.<name>]`; the runtime still normalizes these into immutable
+entries with an internal `id` for resolution. Legacy array-shaped target
+configuration is no longer the authored form.
+
 ## Next Actions
 
 1. Define the smallest target schema against the endpoint seam.

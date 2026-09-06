@@ -13,31 +13,35 @@ def deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
-def _merge_named_target_lists(base: object, override: object) -> object:
-    if not isinstance(base, (list, tuple)) or not isinstance(override, list):
+def _target_map(value: object) -> dict[str, dict]:
+    if isinstance(value, dict):
+        return {
+            str(target_id).strip(): dict(item)
+            for target_id, item in value.items()
+            if str(target_id).strip() and isinstance(item, dict)
+        }
+    if isinstance(value, (list, tuple)):
+        return {
+            str(item.get("id", "")).strip(): dict(item)
+            for item in value
+            if isinstance(item, dict) and str(item.get("id", "")).strip()
+        }
+    return {}
+
+
+def _merge_named_target_maps(base: object, override: object) -> object:
+    if not isinstance(override, dict):
         return override
-    merged: dict[str, dict] = {}
-    order: list[str] = []
-    for item in base:
-        if not isinstance(item, dict):
+    merged = _target_map(base)
+    for target_id, item in override.items():
+        normalized_id = str(target_id).strip()
+        if not normalized_id or not isinstance(item, dict):
             continue
-        target_id = str(item.get("id", "")).strip()
-        if not target_id:
-            continue
-        merged[target_id] = dict(item)
-        order.append(target_id)
-    for item in override:
-        if not isinstance(item, dict):
-            continue
-        target_id = str(item.get("id", "")).strip()
-        if not target_id:
-            continue
-        if target_id in merged:
-            merged[target_id] = deep_merge(merged[target_id], item)
+        if normalized_id in merged:
+            merged[normalized_id] = deep_merge(merged[normalized_id], item)
         else:
-            order.append(target_id)
-            merged[target_id] = dict(item)
-    return [merged[target_id] for target_id in order]
+            merged[normalized_id] = dict(item)
+    return merged
 
 
 def apply_overrides(config, nested: dict, *, classes) -> object:
@@ -47,7 +51,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     nested_llm = nested.get("llm")
     if isinstance(nested_llm, dict) and "targets" in nested_llm:
         nested_llm = dict(nested_llm)
-        nested_llm["targets"] = _merge_named_target_lists(base.get("llm", {}).get("targets", []), nested_llm["targets"])
+        nested_llm["targets"] = _merge_named_target_maps(base.get("llm", {}).get("targets", []), nested_llm["targets"])
         nested["llm"] = nested_llm
     merged = deep_merge(base, nested)
     extraction = classes["ExtractionPolicy"](**merged.get("extraction", {}))
@@ -130,40 +134,29 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     llm_values["backends"] = tuple(backend_entries)
 
     target_entries: list[object] = []
-    raw_targets = llm_values.get("targets", [])
-    if isinstance(raw_targets, tuple):
-        raw_targets = list(raw_targets)
-    if isinstance(raw_targets, list):
-        for item in raw_targets:
-            if isinstance(item, classes["TargetCatalogEntry"]):
-                target_entries.append(item)
-                continue
-            if not isinstance(item, dict):
-                continue
-            target_id = str(item.get("id", "")).strip()
-            if not target_id:
-                continue
-            generation_values = item.get("generation", {})
-            if not isinstance(generation_values, dict):
-                generation_values = {}
-            if isinstance(generation_values.get("avoid_terms"), list):
-                generation_values = dict(generation_values)
-                generation_values["avoid_terms"] = tuple(
-                    str(term).strip() for term in generation_values["avoid_terms"] if str(term).strip()
-                )
-            generation = classes["TargetGenerationOverrides"](**generation_values)
-            tags_raw = item.get("tags", ())
-            tags = tuple(str(tag).strip() for tag in tags_raw if str(tag).strip()) if isinstance(tags_raw, (list, tuple)) else ()
-            target_entries.append(
-                classes["TargetCatalogEntry"](
-                    id=target_id,
-                    endpoint=str(item.get("endpoint", "")).strip(),
-                    model=str(item.get("model", "")).strip(),
-                    generation=generation,
-                    tags=tags,
-                    notes=str(item.get("notes", "")).strip(),
-                )
+    raw_targets = llm_values.get("targets", {})
+    for target_id, item in _target_map(raw_targets).items():
+        generation_values = item.get("generation", {})
+        if not isinstance(generation_values, dict):
+            generation_values = {}
+        if isinstance(generation_values.get("avoid_terms"), list):
+            generation_values = dict(generation_values)
+            generation_values["avoid_terms"] = tuple(
+                str(term).strip() for term in generation_values["avoid_terms"] if str(term).strip()
             )
+        generation = classes["TargetGenerationOverrides"](**generation_values)
+        tags_raw = item.get("tags", ())
+        tags = tuple(str(tag).strip() for tag in tags_raw if str(tag).strip()) if isinstance(tags_raw, (list, tuple)) else ()
+        target_entries.append(
+            classes["TargetCatalogEntry"](
+                id=target_id,
+                endpoint=str(item.get("endpoint", "")).strip(),
+                model=str(item.get("model", "")).strip(),
+                generation=generation,
+                tags=tags,
+                notes=str(item.get("notes", "")).strip(),
+            )
+        )
     llm_values["targets"] = tuple(target_entries)
     llm = classes["LLMPolicy"](**llm_values)
     runtime = classes["RuntimePolicy"](**merged.get("runtime", {}))

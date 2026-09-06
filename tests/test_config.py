@@ -24,7 +24,7 @@ from toas.config import (
     parse_config_value,
     valid_config_keys,
 )
-from toas.config_overrides import _merge_named_target_lists
+from toas.config_overrides import _merge_named_target_maps, _target_map
 from toas.config_parsing import _field_default_for_key
 from toas.runtime.environment_policy import EnvironmentProfile, RuntimeEnvironmentBinding
 
@@ -654,8 +654,7 @@ def test_config_from_file_loads_named_target_with_sparse_generation_overrides(tm
     p = tmp_path / "toas.toml"
     p.write_text(
         '[llm]\n'
-        '[[llm.targets]]\n'
-        'id = "local-qwen-high"\n'
+        '[llm.targets.local-qwen-high]\n'
         'endpoint = "local"\n'
         'model = "qwen3.6-26B"\n'
         'tags = ["local", "high"]\n'
@@ -675,7 +674,7 @@ def test_config_from_file_loads_named_target_with_sparse_generation_overrides(tm
     )
 
 
-def test_target_lists_shadow_by_id_across_config_layers():
+def test_target_maps_shadow_by_id_across_config_layers():
     base = OperatorConfig(
         llm=LLMPolicy(
             targets=(
@@ -687,7 +686,7 @@ def test_target_lists_shadow_by_id_across_config_layers():
 
     result = apply_overrides(
         base,
-        {"llm": {"targets": [{"id": "shared", "model": "project-model"}, {"id": "project-only", "endpoint": "project", "model": "p"}]}},
+        {"llm": {"targets": {"shared": {"model": "project-model"}, "project-only": {"endpoint": "project", "model": "p"}}}},
     )
 
     assert result.llm.targets == (
@@ -697,21 +696,25 @@ def test_target_lists_shadow_by_id_across_config_layers():
     )
 
 
-def test_target_normalization_handles_legacy_and_malformed_shapes():
-    assert _merge_named_target_lists(("not-a-list",), [{"id": "new"}]) == [{"id": "new"}]
-    assert _merge_named_target_lists([{"id": ""}, "skip"], [{"id": ""}, "skip", {"id": "new"}]) == [{"id": "new"}]
+def test_target_normalization_handles_malformed_maps_and_internal_lists():
+    assert _target_map("not-a-map") == {}
+    assert _merge_named_target_maps(("not-a-list",), {"new": {}}) == {"new": {}}
+    assert _merge_named_target_maps({}, "not-a-map") == "not-a-map"
+    assert _merge_named_target_maps({"base": {"model": "m"}}, {"base": {"generation": {"max_tokens": 10}}}) == {
+        "base": {"model": "m", "generation": {"max_tokens": 10}}
+    }
 
     result = apply_overrides(
         OperatorConfig(),
         {
             "llm": {
-                "targets": (
-                    TargetCatalogEntry(id="existing"),
-                    "skip",
-                    {"id": ""},
-                    {"id": "mapped", "generation": {"avoid_terms": ["x", "", "y"]}},
-                    {"id": "bad-generation", "generation": "skip"},
-                )
+                "targets": {
+                    "existing": {},
+                    "mapped": {"generation": {"avoid_terms": ["x", "", "y"]}},
+                    "bad-generation": {"generation": "skip"},
+                    "": "skip",
+                    "malformed": "skip",
+                }
             }
         },
     )

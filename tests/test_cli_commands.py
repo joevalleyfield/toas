@@ -283,6 +283,38 @@ def test_serialize_operator_config_toml_skips_non_dict_sections():
     assert "[session]" not in result
 
 
+def test_serialize_operator_config_toml_writes_keyed_target_tables():
+    from toas.config import LLMPolicy, OperatorConfig, TargetCatalogEntry, TargetGenerationOverrides
+
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            targets=(
+                TargetCatalogEntry(
+                    id="local.qwen",
+                    endpoint="local",
+                    model="qwen",
+                    generation=TargetGenerationOverrides(thinking_mode="enabled"),
+                ),
+            )
+        )
+    )
+
+    result = _serialize_operator_config_toml(config)
+
+    assert '[llm.targets."local.qwen"]' in result
+    assert 'endpoint = "local"' in result
+    assert '[llm.targets."local.qwen".generation]' in result
+    assert 'thinking_mode = "enabled"' in result
+    assert "targets = [" not in result
+
+
+def test_target_toml_serializer_skips_malformed_entries():
+    from toas.runtime.policy_edges import _target_toml_lines
+
+    assert _target_toml_lines("not-a-list") == []
+    assert _target_toml_lines(["skip", {}, {"id": ""}]) == []
+
+
 # --- adapter wrapper smoke tests ---
 
 def test_run_step_delegates(monkeypatch):

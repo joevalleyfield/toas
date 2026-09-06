@@ -144,10 +144,13 @@ The first target representation should keep generation fields embedded rather
 than introducing an independent generation-profile registry prematurely:
 
 ```toml
-[targets.local-qwen-high]
+[llm.targets.local-qwen-high]
 endpoint = "local"
 model = "qwen3.6-26B"
-effort = "high"
+
+[llm.targets.local-qwen-high.generation]
+thinking_mode = "enabled"
+thinking_budget_tokens = 1024
 ```
 
 If later reuse or provider-specific translation justifies named generation

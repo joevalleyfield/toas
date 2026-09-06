@@ -1,4 +1,6 @@
+import json
 import os
+import re
 from dataclasses import asdict
 from pathlib import Path
 
@@ -69,6 +71,38 @@ def _toml_literal(value: object) -> str:
     return _toml_literal(str(value))
 
 
+def _toml_table_key(value: str) -> str:
+    return value if re.fullmatch(r"[A-Za-z0-9_-]+", value) else json.dumps(value)
+
+
+def _target_toml_lines(targets: object) -> list[str]:
+    if not isinstance(targets, (list, tuple)):
+        return []
+    lines: list[str] = []
+    for target in targets:
+        if not isinstance(target, dict):
+            continue
+        target_id = str(target.get("id", "")).strip()
+        if not target_id:
+            continue
+        table = f"llm.targets.{_toml_table_key(target_id)}"
+        lines.append(f"[{table}]")
+        for key in ("endpoint", "model", "tags", "notes"):
+            value = target.get(key)
+            if value not in (None, "", (), []):
+                lines.append(f"{key} = {_toml_literal(value)}")
+        generation = target.get("generation")
+        if isinstance(generation, dict):
+            values = {key: value for key, value in generation.items() if value is not None}
+            if values:
+                lines.append("")
+                lines.append(f"[{table}.generation]")
+                for key, value in values.items():
+                    lines.append(f"{key} = {_toml_literal(value)}")
+        lines.append("")
+    return lines
+
+
 def serialize_operator_config_toml(config: OperatorConfig) -> str:
     nested = asdict(config)
     lines: list[str] = []
@@ -76,8 +110,12 @@ def serialize_operator_config_toml(config: OperatorConfig) -> str:
         values = nested[section]
         lines.append(f"[{section}]")
         for key, value in values.items():
+            if section == "llm" and key == "targets":
+                continue
             lines.append(f"{key} = {_toml_literal(value)}")
         lines.append("")
+        if section == "llm":
+            lines.extend(_target_toml_lines(values.get("targets")))
     return "\n".join(lines).rstrip() + "\n"
 
 
