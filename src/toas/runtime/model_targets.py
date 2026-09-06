@@ -19,6 +19,26 @@ class ResolvedTargetInvocation:
     api_key_source: str
 
 
+def infer_endpoint_default_model(
+    config: OperatorConfig,
+    endpoint,
+    *,
+    global_model: str = "",
+    fallback_model: str = "",
+) -> tuple[str, str]:
+    """Infer an endpoint default only when the available evidence is unambiguous."""
+    if endpoint.default_model.strip():
+        return endpoint.default_model.strip(), f"endpoint:{endpoint.id}:default_model"
+    known_models = tuple(dict.fromkeys(model_id.strip() for model_id in endpoint.models if model_id.strip()))
+    if len(known_models) == 1:
+        return known_models[0], f"endpoint:{endpoint.id}:single_known_model"
+    if len(config.llm.endpoints) == 1 and global_model.strip():
+        return global_model.strip(), "config:llm.model:single_endpoint"
+    if fallback_model.strip():
+        return fallback_model.strip(), "env_or_default"
+    return "", "unresolved"
+
+
 def resolve_model_target(config: OperatorConfig, target_id: str) -> TargetCatalogEntry | None:
     """Return the effective named target without probing or mutating state."""
     normalized = target_id.strip()
@@ -70,10 +90,16 @@ def resolve_target_invocation(
             ref=endpoint.api_key_ref,
             default=base_settings.llm_api_key,
         )
+        endpoint_model, _endpoint_model_source = infer_endpoint_default_model(
+            config,
+            endpoint,
+            global_model=config.llm.model,
+            fallback_model=base_settings.llm_model,
+        )
         settings = Settings(
             llm_base_url=endpoint.base_url or base_settings.llm_base_url,
             llm_api_key=api_key,
-            llm_model=endpoint.default_model or base_settings.llm_model,
+            llm_model=endpoint_model,
             llm_trace=base_settings.llm_trace,
             llm_transport_mode=base_settings.llm_transport_mode,
             llm_stream_mode=base_settings.llm_stream_mode,
@@ -82,7 +108,7 @@ def resolve_target_invocation(
         )
         endpoint_source = f"target:{target.id}/endpoint:{endpoint.id}"
         api_key_source = f"endpoint:{endpoint.id}:{endpoint.api_key_source}:{endpoint.api_key_ref}"
-        model_source = f"target:{target.id}/endpoint:{endpoint.id}"
+        model_source = f"target:{target.id}/endpoint:{endpoint.id}:{_endpoint_model_source}"
 
     if target.model:
         settings = replace(settings, llm_model=target.model)

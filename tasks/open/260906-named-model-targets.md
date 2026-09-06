@@ -99,6 +99,12 @@ schema, keeping them distinct from a target's requested `model`. The reader
 accepts legacy backend `model` fields during migration, but runtime resolution
 uses `default_model`.
 
+Effective resolution now applies conservative non-persisting inference: an
+explicit endpoint default wins, a single known endpoint model may supply the
+default, and a configured global model may supply it when exactly one endpoint
+exists. Ambiguous catalogs remain unresolved rather than choosing arbitrarily;
+the selected source is retained in the invocation result.
+
 ## Next Actions
 
 1. Define the smallest target schema against the endpoint seam.

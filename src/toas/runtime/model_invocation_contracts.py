@@ -19,6 +19,7 @@ from ..llm import (
 from ..secrets import resolve_secret
 from ..step import resolve_selected_backend, resolve_selected_model
 from .context_assembly import build_context_packet, shape_messages_for_packet
+from .model_targets import infer_endpoint_default_model
 
 
 @dataclass(frozen=True)
@@ -106,10 +107,16 @@ def resolve_model_invocation(
                 ref=backend_entry.api_key_ref,
                 default=base_settings.llm_api_key,
             )
+            endpoint_model, endpoint_model_source = infer_endpoint_default_model(
+                operator_config,
+                backend_entry,
+                global_model=operator_config.llm.model,
+                fallback_model=base_settings.llm_model,
+            )
             selected_settings = Settings(
                 llm_base_url=backend_entry.base_url or base_settings.llm_base_url,
                 llm_api_key=backend_api_key,
-                llm_model=backend_entry.default_model or base_settings.llm_model,
+                llm_model=endpoint_model,
                 llm_trace=base_settings.llm_trace,
                 llm_transport_mode=base_settings.llm_transport_mode,
                 llm_stream_mode=base_settings.llm_stream_mode,
@@ -118,7 +125,7 @@ def resolve_model_invocation(
             )
             selected_endpoint_source = f"backend:{backend_id}"
             selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
-            selected_model_source = f"backend:{backend_id}"
+            selected_model_source = f"backend:{backend_id}:{endpoint_model_source}"
     transcript_model = selected_model(working)
     if transcript_model:
         selected_settings = Settings(
