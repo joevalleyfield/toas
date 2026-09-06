@@ -22,6 +22,7 @@ from ..graph import (
     write_llm_call_record,
     write_message_events,
     write_shell_scope_grant_record,
+    write_target_selection_record,
     write_tool_request_record,
     write_tool_result_record,
     write_workspace_scope_record,
@@ -256,6 +257,7 @@ def apply_result_side_effects(
     _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
     _apply_config_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_target_selection_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_shell_scope_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_visible_prompt_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_compaction_updates(events_path=events_path, result_nodes=result_nodes)
@@ -541,6 +543,24 @@ def _apply_config_updates(*, events_path: Path, result_nodes: list[dict]) -> Non
         if not isinstance(config_update, dict) or not config_update:
             continue
         write_config_override_record(str(events_path), config_update)
+
+
+def _apply_target_selection_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+    for node in result_nodes:
+        update = node.get("target_selection_update")
+        if not isinstance(update, dict):
+            continue
+        action = update.get("action")
+        target_id = update.get("target_id")
+        if action not in {"set", "unset"}:
+            continue
+        if action == "set" and (not isinstance(target_id, str) or not target_id.strip()):
+            continue
+        write_target_selection_record(
+            str(events_path),
+            action=action,
+            target_id=target_id.strip() if isinstance(target_id, str) else None,
+        )
 
 
 def _apply_shell_scope_updates(*, events_path: Path, result_nodes: list[dict]) -> None:

@@ -7,7 +7,7 @@ from pathlib import Path
 from ..backend_policy import BackendGenerationPolicy
 from ..cli_streaming import StreamPresenter
 from ..config import OperatorConfig
-from ..graph import read_log, write_llm_call_record
+from ..graph import active_target_selection, read_log, write_llm_call_record
 from ..llm import (
     PermanentGenerationError,
     Settings,
@@ -19,7 +19,11 @@ from ..llm import (
 from ..secrets import resolve_secret
 from ..step import resolve_selected_backend, resolve_selected_model
 from .context_assembly import build_context_packet, shape_messages_for_packet
-from .model_targets import infer_endpoint_default_model
+from .model_targets import (
+    infer_endpoint_default_model,
+    resolve_model_target,
+    resolve_target_invocation,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +36,7 @@ class ResolvedModelInvocation:
     transport_source: str
     attempts: int
     retry_delay_s: float
+    generation: BackendGenerationPolicy
 
 
 @dataclass(frozen=True)
@@ -88,18 +93,39 @@ def resolve_model_invocation(
     secret_resolver: Callable[..., str] = resolve_secret,
     llm_stream_mode: str | None = None,
 ) -> ResolvedModelInvocation:
+    events = read_log(str(events_path))
     packet = build_context_packet(
         working=working,
         project_messages_fn=project_messages,
-        events=read_log(str(events_path)),
+        events=events,
     )
     messages = shape_messages_for_packet(packet)
-    backend_id = selected_backend(working)
+    active_target_id = active_target_selection(events)
+    active_target = resolve_model_target(operator_config, active_target_id) if active_target_id else None
+    target_invocation = (
+        resolve_target_invocation(
+            operator_config,
+            active_target,
+            base_settings,
+            secret_resolver=secret_resolver,
+        )
+        if active_target is not None
+        else None
+    )
     selected_settings = base_settings
     selected_model_source = settings_sources["model"]
     selected_endpoint_source = settings_sources["endpoint"]
     selected_api_key_source = settings_sources["api_key"]
-    if backend_id:
+    selected_generation = policy
+    if target_invocation is not None:
+        selected_settings = target_invocation.settings
+        selected_model_source = target_invocation.model_source
+        selected_endpoint_source = target_invocation.endpoint_source
+        selected_api_key_source = target_invocation.api_key_source
+        selected_generation = target_invocation.generation
+    else:
+        backend_id = selected_backend(working)
+    if target_invocation is None and backend_id:
         backend_entry = next((b for b in operator_config.llm.endpoints if b.id == backend_id), None)
         if backend_entry is not None:
             backend_api_key = secret_resolver(
@@ -126,7 +152,7 @@ def resolve_model_invocation(
             selected_endpoint_source = f"backend:{backend_id}"
             selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
             selected_model_source = f"backend:{backend_id}:{endpoint_model_source}"
-    transcript_model = selected_model(working)
+    transcript_model = selected_model(working) if target_invocation is None else None
     if transcript_model:
         selected_settings = Settings(
             llm_base_url=selected_settings.llm_base_url,
@@ -157,6 +183,7 @@ def resolve_model_invocation(
         selected_endpoint_source=selected_endpoint_source,
         selected_api_key_source=selected_api_key_source,
         transport_source=settings_sources["transport"],
-        attempts=operator_config.generation.max_retries + 1,
-        retry_delay_s=operator_config.generation.retry_delay_s,
+        attempts=getattr(selected_generation, "max_retries", operator_config.generation.max_retries) + 1,
+        retry_delay_s=getattr(selected_generation, "retry_delay_s", operator_config.generation.retry_delay_s),
+        generation=selected_generation,
     )

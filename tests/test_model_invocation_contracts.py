@@ -81,6 +81,29 @@ def test_selected_endpoint_provider_overrides_global_provider(tmp_path):
     assert invocation.selected_settings.llm_provider == "gemini-rest"
 
 
+def test_active_target_overrides_legacy_fragments_and_generation(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text('{"kind":"target_selection","payload":{"action":"set","target_id":"local"}}\n', encoding="utf-8")
+    config = OperatorConfig(
+        llm=LLMPolicy(targets=(
+            __import__("toas.config", fromlist=["TargetCatalogEntry"]).TargetCatalogEntry(
+                id="local", model="target-model"
+            ),
+        )),
+    )
+    invocation = resolve_model_invocation(
+        working=[{"role": "user", "content": "/backend legacy\n/model old"}],
+        operator_config=config,
+        base_settings=Settings(llm_base_url="http://default", llm_model="base"),
+        settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
+        policy=type("Policy", (), {"extra_body": {}, "max_tokens": None, "max_retries": 0, "retry_delay_s": 1.0})(),
+        events_path=events_path,
+        project_messages=lambda _working: [{"role": "user", "content": "projected"}],
+    )
+    assert invocation.selected_settings.llm_model == "target-model"
+    assert invocation.selected_model_source == "target:local"
+
+
 def test_default_model_invocation_port_wires_default_runtime_dependencies():
     port = default_model_invocation_port()
 

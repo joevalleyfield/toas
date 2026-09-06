@@ -10,6 +10,8 @@ class BackendGenerationPolicy:
     extra_body: dict | None
     avoid_terms: tuple[str, ...]
     max_tokens: int | None = None
+    max_retries: int = 0
+    retry_delay_s: float = 1.0
 
 
 def default_backend_policy() -> BackendGenerationPolicy:
@@ -40,4 +42,6 @@ def generation_policy_from_config(config: OperatorConfig) -> BackendGenerationPo
         extra_body=extra_body,
         max_tokens=max_tokens,
         avoid_terms=tuple(config.generation.avoid_terms),
+        max_retries=config.generation.max_retries,
+        retry_delay_s=config.generation.retry_delay_s,
     )

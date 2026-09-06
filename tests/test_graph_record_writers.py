@@ -5,7 +5,20 @@ from toas.graph_record_writers import (
     write_surface_guardrail_record,
     write_surface_rebind_record,
     write_surface_select_record,
+    write_target_selection_record,
 )
+
+
+def test_write_target_selection_record():
+    record = write_target_selection_record(
+        "events.jsonl", action="set", target_id="local", append_nodes_fn=_capturing_append
+    )
+    assert record == {"kind": "target_selection", "payload": {"action": "set", "target_id": "local"}}
+
+
+def test_write_target_selection_record_unset_omits_target_id():
+    record = write_target_selection_record("events.jsonl", action="unset", target_id=None, append_nodes_fn=_capturing_append)
+    assert record == {"kind": "target_selection", "payload": {"action": "unset"}}
 
 
 def _capturing_append(path, records):

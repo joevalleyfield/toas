@@ -131,7 +131,7 @@ def test_resolve_target_invocation_uses_base_settings_without_endpoint():
     resolved = resolve_target_invocation(OperatorConfig(), TargetCatalogEntry(id="default"), base)
 
     assert resolved is not None
-    assert resolved.settings is base
+    assert resolved.settings == base
     assert resolved.endpoint_source == "target:default"
     assert resolved.model_source == "target:default"
     assert resolved.api_key_source == "target:default"

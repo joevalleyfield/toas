@@ -95,7 +95,7 @@ SLASH_COMMANDS = [
     ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (fragments and templates; leaf renders, non-leaf lists children)"),
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
-    ("model",     "/model [name]",                              "select model intent in transcript state or list available models"),
+    ("model",     "/model [name] | targets | select <target>",     "select model intent or inspect/select named targets"),
     ("models",    "/models [refresh <endpoint>]",                 "observe or explicitly refresh an endpoint's known model IDs"),
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
     ("shell",     SHELL_USAGE,                               "inspect or modify shell grants across transcript/config lanes"),

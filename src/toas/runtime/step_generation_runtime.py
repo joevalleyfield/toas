@@ -284,11 +284,13 @@ class GenerationRunner:
         return self.build_artifacts(plan, result)
 
     def _call_model_once(self, plan) -> dict:
+        generation = getattr(plan, "generation", self.policy)
+
         def _call_generate(*, messages, settings, extra_body, on_delta, on_reasoning_delta, on_prompt_progress):
             kwargs = {
                 "settings": settings,
                 "extra_body": extra_body,
-                "max_tokens": getattr(self.policy, "max_tokens", None),
+                "max_tokens": getattr(generation, "max_tokens", None),
                 "on_delta": on_delta,
                 "on_reasoning_delta": on_reasoning_delta,
                 "on_prompt_progress": on_prompt_progress,
@@ -344,7 +346,7 @@ class GenerationRunner:
             return _call_generate(
                 messages=plan.messages,
                 settings=plan.selected_settings,
-                extra_body=self.policy.extra_body,
+                extra_body=getattr(generation, "extra_body", {}),
                 on_delta=self.on_llm_answer_delta,
                 on_reasoning_delta=self.on_llm_reasoning_delta,
                 on_prompt_progress=self.on_llm_prompt_progress,
@@ -359,7 +361,7 @@ class GenerationRunner:
         node = _call_generate(
             messages=plan.messages,
             settings=plan.selected_settings,
-            extra_body=self.policy.extra_body,
+            extra_body=getattr(generation, "extra_body", {}),
             on_delta=(self.on_llm_answer_delta or presenter.on_delta),
             on_reasoning_delta=(self.on_llm_reasoning_delta or (presenter.on_reasoning_delta if stream_thinking else None)),
             on_prompt_progress=(self.on_llm_prompt_progress or (presenter.on_prompt_progress if stream_prompt_progress else None)),

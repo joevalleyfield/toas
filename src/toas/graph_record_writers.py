@@ -31,6 +31,15 @@ def write_config_override_record(path: str, nested: dict, *, append_nodes_fn) ->
     return record
 
 
+def write_target_selection_record(path: str, *, action: str, target_id: str | None, append_nodes_fn) -> dict:
+    payload: dict[str, str] = {"action": action}
+    if target_id is not None:
+        payload["target_id"] = target_id
+    record = {"kind": "target_selection", "payload": payload}
+    append_nodes_fn(path, [record])
+    return record
+
+
 def write_shell_scope_grant_record(
     path: str,
     *,

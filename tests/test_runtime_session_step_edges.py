@@ -247,7 +247,7 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     events_path = tmp_path / "events.jsonl"
     session_path = tmp_path / "session.md"
     runtime_secrets: dict[str, str] = {}
-    writes = {"queue": 0, "lens": 0, "intent": 0, "coordination": 0, "context": 0, "workspace": 0, "config": 0}
+    writes = {"queue": 0, "lens": 0, "intent": 0, "coordination": 0, "context": 0, "workspace": 0, "config": 0, "target": 0}
 
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_execution_queue_record",
@@ -278,6 +278,10 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
         "toas.runtime.session_step_edges.write_config_override_record",
         lambda *_args, **_kwargs: writes.__setitem__("config", writes["config"] + 1),
     )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_target_selection_record",
+        lambda *_args, **_kwargs: writes.__setitem__("target", writes["target"] + 1),
+    )
 
     result_nodes = [
         {"role": "result", "content": "x", "queue_update": {"id": "q1", "status": "blocked", "next_index": 1}},
@@ -302,6 +306,9 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
         {"role": "result", "content": "x", "workspace_update": {"mode": "strict", "roots": [str(tmp_path)]}},
         {"role": "result", "content": "x", "secret_update": {"key": "llm_api_key", "action": "set", "value": "k1"}},
         {"role": "result", "content": "x", "config_update": {"runtime": {"streaming_mode": "enabled"}}},
+        {"role": "result", "content": "x", "target_selection_update": {"action": "set", "target_id": "local"}},
+        {"role": "result", "content": "x", "target_selection_update": {"action": "ignore", "target_id": "local"}},
+        {"role": "result", "content": "x", "target_selection_update": {"action": "set", "target_id": " "}},
         {"role": "result", "content": "x", "session_update": {"transcript": "## TOAS:USER\n\nhi\n"}},
     ]
 
@@ -320,7 +327,7 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     )
 
     assert runtime_secrets["llm_api_key"] == "k1"
-    assert writes == {"queue": 1, "lens": 1, "intent": 1, "coordination": 1, "context": 1, "workspace": 1, "config": 1}
+    assert writes == {"queue": 1, "lens": 1, "intent": 1, "coordination": 1, "context": 1, "workspace": 1, "config": 1, "target": 1}
     assert session_path.read_text(encoding="utf-8") == "## TOAS:USER\n\nhi\n"
 
 

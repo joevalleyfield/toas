@@ -114,6 +114,7 @@ def resolve_target_invocation(
         settings = replace(settings, llm_model=target.model)
         model_source = f"target:{target.id}"
     target_generation = resolve_target_generation(config, target)
+    settings = replace(settings, llm_transport_mode=target_generation.transport_mode)
     generation_config = replace(config, generation=target_generation)
     return ResolvedTargetInvocation(
         target_id=target.id,

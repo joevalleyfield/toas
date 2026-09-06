@@ -432,6 +432,41 @@ def test_prompt_workspace_models_refresh_validates_endpoint_argument():
         handle_prompt_workspace_commands("models", ["refresh", "missing"], step_mod=step_mod, context=_ctx())
 
 
+def test_prompt_workspace_model_targets_lists_resolution_and_active_selection():
+    import toas.step as step_mod
+    from toas.config import LLMPolicy, OperatorConfig, TargetCatalogEntry
+
+    config = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="local", model="qwen"),)))
+    context = _ctx(config=config, events=[{"kind": "target_selection", "payload": {"action": "set", "target_id": "local"}}])
+
+    out = handle_prompt_workspace_commands("model", ["targets"], step_mod=step_mod, context=context)
+
+    assert "configured model targets:" in out[0]["content"]
+    assert "- local *: endpoint=(default), model=qwen, status=ready" in out[0]["content"]
+    assert "active target: local" in out[0]["content"]
+
+    with pytest.raises(ValueError, match="usage: /model targets"):
+        handle_prompt_workspace_commands("model", ["targets", "extra"], step_mod=step_mod, context=context)
+
+    empty = handle_prompt_workspace_commands("model", ["targets"], step_mod=step_mod, context=_ctx())
+    assert empty[0]["content"] == "no configured model targets"
+
+
+def test_prompt_workspace_model_select_records_session_target():
+    import toas.step as step_mod
+    from toas.config import LLMPolicy, OperatorConfig, TargetCatalogEntry
+
+    config = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="local", model="qwen"),)))
+    out = handle_prompt_workspace_commands("model", ["select", "local"], step_mod=step_mod, context=_ctx(config=config))
+    assert out[0]["target_selection_update"] == {"action": "set", "target_id": "local"}
+    assert "selected model target: local" in out[0]["content"]
+
+    with pytest.raises(ValueError, match="unknown model target"):
+        handle_prompt_workspace_commands("model", ["select", "missing"], step_mod=step_mod, context=_ctx(config=config))
+    with pytest.raises(ValueError, match="usage: /model select"):
+        handle_prompt_workspace_commands("model", ["select"], step_mod=step_mod, context=_ctx(config=config))
+
+
 def test_extract_replay_handler_replay_dry_run(monkeypatch):
     import toas.step as step_mod
 

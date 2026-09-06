@@ -2,10 +2,31 @@ from toas.graph_control_state_edges import (
     active_config_overrides,
     active_shell_scope_grants,
     active_surface_id,
+    active_target_selection,
     active_workspace_scope,
     deep_delete,
     surface_bindings,
 )
+
+
+def test_active_target_selection_tracks_set_and_unset_events():
+    events = [
+        {"kind": "target_selection", "payload": {"action": "set", "target_id": "one"}},
+        {"kind": "target_selection", "payload": {"action": "set", "target_id": " two "}},
+        {"kind": "target_selection", "payload": {"action": "unset"}},
+    ]
+    assert active_target_selection(events) is None
+    assert active_target_selection(events[:2]) == "two"
+
+
+def test_active_target_selection_ignores_invalid_events():
+    assert active_target_selection(
+        [
+            {"kind": "target_selection", "payload": "bad"},
+            {"kind": "target_selection", "payload": {"action": "set", "target_id": ""}},
+            {"kind": "other", "payload": {"action": "set", "target_id": "x"}},
+        ]
+    ) is None
 
 
 def test_active_workspace_scope_ignores_empty_normalized_roots():

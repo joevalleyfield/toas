@@ -105,8 +105,20 @@ default, and a configured global model may supply it when exactly one endpoint
 exists. Ambiguous catalogs remain unresolved rather than choosing arbitrarily;
 the selected source is retained in the invocation result.
 
+The first operator-facing selection slice is now present. `/model targets`
+lists configured target names with their endpoint, requested model, readiness,
+and active-session marker. `/model select NAME` validates a named target and
+emits a session-level `target_selection` update; the update is persisted as a
+durable event after the current command completes. Invocation resolution reads
+that event and gives the selected target precedence over legacy backend/model
+fragments, including the target's generation settings. The public spelling is
+deliberately provisional while the broader `/model` and `/models` taxonomy is
+being designed.
+
 ## Next Actions
 
-1. Define the smallest target schema against the endpoint seam.
-2. Add config parsing, hierarchy merging, and effective-target resolution.
-3. Add resolver tests before choosing final operator command names.
+1. Define the smallest target schema against the endpoint seam. (complete)
+2. Add config parsing, hierarchy merging, and effective-target resolution. (complete)
+3. Add resolver tests before choosing final operator command names. (complete)
+4. Decide the final public target inspection/selection grammar and validation
+   behavior, including whether unresolved endpoints are selectable.

@@ -14,6 +14,7 @@ from toas.graph import (
     active_intent,
     active_shell_scope_grants,
     active_surface_id,
+    active_target_selection,
     active_workspace_scope,
     alignment_anchor_index,
     append_nodes,
@@ -63,6 +64,7 @@ from toas.graph import (
     write_shell_scope_grant_record,
     write_surface_bind_record,
     write_surface_select_record,
+    write_target_selection_record,
     write_toas_provenance_record,
     write_tool_request_record,
     write_tool_result_record,
@@ -1788,6 +1790,12 @@ def test_write_surface_bind_record_appends_non_message_record(tmp_path):
             },
         },
     ]
+
+
+def test_write_target_selection_record_uses_graph_facade(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_target_selection_record(str(path), action="set", target_id="local")
+    assert active_target_selection(read_log(str(path))) == "local"
 
 
 def test_surface_bindings_latest_wins_and_ignores_invalid(tmp_path):

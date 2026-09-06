@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ..graph import (
     active_intent,
+    active_target_selection,
     coordination_state_records,
     intent_records,
     latest_coordination_states,
@@ -122,6 +123,10 @@ def _handle_backend(args: list[str], *, step_mod, context: OperatorCommandContex
 
 
 def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args and args[0] == "targets":
+        return _handle_model_targets(args[1:], step_mod=step_mod, context=context)
+    if args and args[0] == "select":
+        return _handle_model_select(args[1:], step_mod=step_mod, context=context)
     if len(args) > 1:
         raise ValueError("usage: /model [name]")
     selected_backend = step_mod.resolve_selected_backend(context.working)
@@ -138,6 +143,46 @@ def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext)
         lines.extend(["", "chosen model unavailable in current capability space", "choose one of:"])
         lines.extend(f"/model {name}" for name in available)
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+
+
+def _handle_model_targets(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args:
+        raise ValueError("usage: /model targets")
+    from .model_targets import resolve_target_invocation
+
+    if not context.config.llm.targets:
+        return [_result_node("no configured model targets", step_mod=step_mod, context=context)]
+    active = active_target_selection(context.events)
+    lines = ["configured model targets:"]
+    for target in context.config.llm.targets:
+        resolved = resolve_target_invocation(context.config, target, step_mod.Settings.from_env())
+        endpoint = target.endpoint or "(default)"
+        model = target.model or (resolved.settings.llm_model if resolved is not None else "(unresolved)")
+        status = "ready" if resolved is not None else "unresolved endpoint"
+        marker = " *" if target.id == active else ""
+        lines.append(f"- {target.id}{marker}: endpoint={endpoint}, model={model}, status={status}")
+    lines.append(f"active target: {active or '(none)'}")
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+
+
+def _handle_model_select(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) != 1 or not args[0].strip():
+        raise ValueError("usage: /model select <target>")
+    target_id = args[0].strip()
+    from .model_targets import resolve_model_target
+
+    target = resolve_model_target(context.config, target_id)
+    if target is None:
+        choices = ", ".join(item.id for item in context.config.llm.targets) or "(none)"
+        raise ValueError(f"unknown model target: {target_id}\navailable targets: {choices}")
+    return [
+        _result_node(
+            f"selected model target: {target.id}",
+            step_mod=step_mod,
+            context=context,
+            target_selection_update={"action": "set", "target_id": target.id},
+        )
+    ]
 
 
 def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:

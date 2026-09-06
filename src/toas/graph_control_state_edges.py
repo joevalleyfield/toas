@@ -90,6 +90,23 @@ def active_config_overrides(events: list[dict]) -> dict:
     return result
 
 
+def active_target_selection(events: list[dict]) -> str | None:
+    selected: str | None = None
+    for event in events:
+        if event.get("kind") != "target_selection":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        action = payload.get("action")
+        target_id = payload.get("target_id")
+        if action == "unset":
+            selected = None
+        elif action == "set" and isinstance(target_id, str) and target_id.strip():
+            selected = target_id.strip()
+    return selected
+
+
 def surface_bindings(events: list[dict]) -> dict[str, str]:
     bindings: dict[str, str] = {}
     for event in events:

@@ -21,6 +21,9 @@ from .graph_control_state_edges import (
     active_surface_id as _active_surface_id_core,
 )
 from .graph_control_state_edges import (
+    active_target_selection as _active_target_selection_core,
+)
+from .graph_control_state_edges import (
     active_workspace_scope as _active_workspace_scope_core,
 )
 from .graph_control_state_edges import (
@@ -114,6 +117,9 @@ from .graph_record_writers import (
 )
 from .graph_record_writers import (
     write_surface_select_record as _write_surface_select_record_core,
+)
+from .graph_record_writers import (
+    write_target_selection_record as _write_target_selection_record_core,
 )
 from .graph_record_writers import (
     write_workspace_scope_record as _write_workspace_scope_record_core,
@@ -633,6 +639,10 @@ def active_config_overrides(events: list[dict]) -> dict:
     return _active_config_overrides_core(events)
 
 
+def active_target_selection(events: list[dict]) -> str | None:
+    return _active_target_selection_core(events)
+
+
 def surface_bindings(events: list[dict]) -> dict[str, str]:
     return _surface_bindings_core(events)
 
@@ -647,6 +657,15 @@ def write_surface_bind_record(path: str, *, surface_id: str, transcript_path: st
         surface_id=surface_id,
         transcript_path=transcript_path,
         reason=reason,
+        append_nodes_fn=append_nodes,
+    )
+
+
+def write_target_selection_record(path: str, *, action: str, target_id: str | None = None) -> dict:
+    return _write_target_selection_record_core(
+        path,
+        action=action,
+        target_id=target_id,
         append_nodes_fn=append_nodes,
     )
 
