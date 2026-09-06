@@ -60,6 +60,9 @@ def test_config_backend_set_models_and_api_key_source_validation():
     out = config_backend_result(["backend", "set", "b1.api_key_source", "keyring"], step_mod=object(), context=_ctx(cfg))
     assert out[0]["config_update"]["llm"]["backends"][0]["api_key_source"] == "keyring"
 
+    out = config_backend_result(["backend", "set", "b1.provider", "gemini-rest"], step_mod=object(), context=_ctx(cfg))
+    assert out[0]["config_update"]["llm"]["backends"][0]["provider"] == "gemini-rest"
+
     with pytest.raises(ValueError, match="backend api_key_source must be env\\|keyring"):
         config_backend_result(["backend", "set", "b1.api_key_source", "bad"], step_mod=object(), context=_ctx(cfg))
 
@@ -68,6 +71,7 @@ def test_config_backend_capture_uses_runtime_settings():
     class _Settings:
         llm_base_url = "http://captured/v1"
         llm_model = "captured-model"
+        llm_provider = "gemini-rest"
 
         @classmethod
         def from_env(cls):
@@ -82,3 +86,4 @@ def test_config_backend_capture_uses_runtime_settings():
     assert backend["id"] == "local"
     assert backend["base_url"] == "http://captured/v1"
     assert backend["model"] == "captured-model"
+    assert backend["provider"] == "gemini-rest"

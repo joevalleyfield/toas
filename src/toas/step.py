@@ -427,7 +427,7 @@ def _render_workspace_commands(workspace_mode: str, workspace_roots: list[str]) 
 
 def _available_backends(config: OperatorConfig) -> list[str]:
     backends: list[str] = []
-    for entry in config.llm.backends:
+    for entry in config.llm.endpoints:
         candidate = entry.id.strip()
         if candidate and candidate not in backends:
             backends.append(candidate)
@@ -435,7 +435,7 @@ def _available_backends(config: OperatorConfig) -> list[str]:
 
 
 def _find_backend(config: OperatorConfig, backend_id: str):
-    for entry in config.llm.backends:
+    for entry in config.llm.endpoints:
         if entry.id == backend_id:
             return entry
     return None

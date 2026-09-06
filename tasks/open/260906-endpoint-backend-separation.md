@@ -76,6 +76,22 @@ execution modes.
 - Which provider fields are shared endpoint fields versus driver-specific
   options.
 
+## Progress Evidence
+
+The first migration slice now provides a canonical `EndpointCatalogEntry`
+type, retains `BackendCatalogEntry` as a compatibility alias, and exposes
+`OperatorConfig.llm.endpoints` as the canonical view over legacy
+`llm.backends`. Endpoint entries may carry a provider override; selected
+endpoint invocation uses it while falling back to the global provider.
+
+The legacy TOML shape and `/config backend` mutation path remain supported,
+including provider preservation through set/capture operations.
+
+Focused result: `477 passed`; Ruff passed. The full offline run reached
+`3127 passed, 20 failed, 12 deselected`, with 100% coverage. The 20 failures
+are the known sandbox restrictions on socket/HTTP binding and Vim integration;
+none involve this endpoint/provider slice.
+
 ## Next Actions
 
 1. Trace all reads/writes of `llm.backends[]`, `backend.*`, and provider fields.

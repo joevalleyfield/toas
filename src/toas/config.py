@@ -46,15 +46,21 @@ class ModelCatalogEntry:
 
 
 @dataclass(frozen=True)
-class BackendCatalogEntry:
+class EndpointCatalogEntry:
     id: str
     base_url: str
     model: str = ""
     models: tuple[str, ...] = ()
     api_key_source: str = "env"
     api_key_ref: str = "TOAS_LLM_API_KEY"
+    provider: str = ""
     tags: tuple[str, ...] = ()
     notes: str = ""
+
+
+# Compatibility name while the public configuration field migrates from
+# ``llm.backends`` to endpoint terminology.
+BackendCatalogEntry = EndpointCatalogEntry
 
 
 @dataclass(frozen=True)
@@ -66,6 +72,11 @@ class LLMPolicy:
     provider: str = ""
     models: tuple[ModelCatalogEntry, ...] = ()
     backends: tuple[BackendCatalogEntry, ...] = ()
+
+    @property
+    def endpoints(self) -> tuple[EndpointCatalogEntry, ...]:
+        """Canonical endpoint view over the legacy ``llm.backends`` field."""
+        return self.backends
 
 
 @dataclass(frozen=True)
@@ -251,6 +262,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "ExtractionPolicy": ExtractionPolicy,
                 "GenerationPolicy": GenerationPolicy,
                 "ModelCatalogEntry": ModelCatalogEntry,
+                "EndpointCatalogEntry": EndpointCatalogEntry,
                 "BackendCatalogEntry": BackendCatalogEntry,
                 "LLMPolicy": LLMPolicy,
                 "RuntimePolicy": RuntimePolicy,

@@ -5,7 +5,7 @@ from .result_nodes import make_result_node
 
 _BACKEND_USAGE = "usage: /config backend [list|add|set|remove|capture] ..."
 _BACKEND_SET_USAGE = "usage: /config backend set <id>.<field> <value>"
-_BACKEND_SETTABLE_FIELDS = {"base_url", "model", "api_key_source", "api_key_ref", "models", "notes"}
+_BACKEND_SETTABLE_FIELDS = {"base_url", "model", "api_key_source", "api_key_ref", "provider", "models", "notes"}
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
@@ -26,6 +26,7 @@ def backend_list_dicts(*, context: OperatorCommandContext) -> list[dict]:
             "models": list(b.models),
             "api_key_source": b.api_key_source,
             "api_key_ref": b.api_key_ref,
+            "provider": b.provider,
             "tags": list(b.tags),
             "notes": b.notes,
         }
@@ -60,6 +61,7 @@ def _backend_add_result(args: list[str], *, step_mod=None, context: OperatorComm
             "models": [],
             "api_key_source": "env",
             "api_key_ref": "TOAS_LLM_API_KEY",
+            "provider": "",
             "tags": [],
             "notes": "",
         }
@@ -100,7 +102,7 @@ def _backend_set_result(args: list[str], *, step_mod=None, context: OperatorComm
         if item["id"] != backend_id:
             continue
         if field not in _BACKEND_SETTABLE_FIELDS:
-            raise ValueError("backend field must be one of base_url|model|api_key_source|api_key_ref|models|notes")
+            raise ValueError("backend field must be one of base_url|model|api_key_source|api_key_ref|provider|models|notes")
         item[field] = _normalize_backend_set_value(field, raw_value)
         matched = True
         break
@@ -123,6 +125,7 @@ def _backend_capture_result(args: list[str], *, step_mod, context: OperatorComma
             "models": [settings.llm_model] if settings.llm_model else [],
             "api_key_source": "env",
             "api_key_ref": "TOAS_LLM_API_KEY",
+            "provider": getattr(settings, "llm_provider", ""),
             "tags": [],
             "notes": "captured from current TOAS_LLM_* runtime",
         }

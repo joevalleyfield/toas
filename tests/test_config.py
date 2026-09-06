@@ -5,6 +5,7 @@ from toas.config import (
     BackendManagedLocalPolicy,
     BackendPolicy,
     BackendStartupPolicy,
+    EndpointCatalogEntry,
     GenerationPolicy,
     HealthTimingPolicy,
     ModelCatalogEntry,
@@ -610,6 +611,31 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
             notes="",
         ),
     )
+
+
+def test_config_from_file_preserves_endpoint_provider_on_legacy_backend_catalog(tmp_path):
+    import sys
+    if sys.version_info < (3, 11):
+        pytest.skip("tomllib requires Python 3.11+")
+    p = tmp_path / "toas.toml"
+    p.write_text(
+        '[llm]\n'
+        '[[llm.backends]]\n'
+        'id = "gemini"\n'
+        'base_url = "https://generativelanguage.googleapis.com"\n'
+        'provider = "gemini-rest"\n'
+    )
+
+    result = config_from_file(p)
+
+    assert result.llm.backends == (
+        EndpointCatalogEntry(
+            id="gemini",
+            base_url="https://generativelanguage.googleapis.com",
+            provider="gemini-rest",
+        ),
+    )
+    assert result.llm.endpoints == result.llm.backends
 
 
 def test_apply_overrides_normalizes_catalog_and_managed_local_values():

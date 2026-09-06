@@ -1,4 +1,4 @@
-from toas.config import OperatorConfig
+from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
 from toas.llm import Settings
 from toas.runtime.model_invocation_contracts import (
     ModelInvocationPort,
@@ -44,6 +44,41 @@ def test_model_invocation_port_is_an_explicit_provider_boundary():
     )
 
     assert port.generate([], settings=Settings("", "", "m", False, "chat_messages", True), extra_body={})["content"] == "answer"
+
+
+def test_selected_endpoint_provider_overrides_global_provider(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            provider="openai",
+            backends=(
+                BackendCatalogEntry(
+                    id="gemini",
+                    base_url="https://generativelanguage.googleapis.com",
+                    provider="gemini-rest",
+                    model="gemini-2.5-flash",
+                ),
+            ),
+        )
+    )
+    base_settings = Settings(
+        llm_base_url="http://default/v1",
+        llm_model="default-model",
+        llm_provider="openai",
+    )
+
+    invocation = resolve_model_invocation(
+        working=[{"role": "user", "content": "/backend gemini"}],
+        operator_config=config,
+        base_settings=base_settings,
+        settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
+        policy=type("Policy", (), {"extra_body": {}})(),
+        events_path=events_path,
+        project_messages=lambda _working: [{"role": "user", "content": "projected"}],
+    )
+
+    assert invocation.selected_settings.llm_provider == "gemini-rest"
 
 
 def test_default_model_invocation_port_wires_default_runtime_dependencies():

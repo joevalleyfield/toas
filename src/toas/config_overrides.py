@@ -73,6 +73,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
             if api_key_source not in {"env", "keyring"}:
                 api_key_source = "env"
             api_key_ref = str(item.get("api_key_ref", "TOAS_LLM_API_KEY")).strip() or "TOAS_LLM_API_KEY"
+            provider = str(item.get("provider", "")).strip().lower()
             tags_raw = item.get("tags", ())
             if isinstance(tags_raw, (list, tuple)):
                 tags = tuple(str(tag).strip() for tag in tags_raw if str(tag).strip())
@@ -80,13 +81,14 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                 tags = ()
             notes = str(item.get("notes", "")).strip()
             backend_entries.append(
-                classes["BackendCatalogEntry"](
+                classes["EndpointCatalogEntry"](
                     id=backend_id,
                     base_url=base_url,
                     model=model,
                     models=models,
                     api_key_source=api_key_source,
                     api_key_ref=api_key_ref,
+                    provider=provider,
                     tags=tags,
                     notes=notes,
                 )

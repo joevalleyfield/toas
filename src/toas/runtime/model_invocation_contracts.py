@@ -99,7 +99,7 @@ def resolve_model_invocation(
     selected_endpoint_source = settings_sources["endpoint"]
     selected_api_key_source = settings_sources["api_key"]
     if backend_id:
-        backend_entry = next((b for b in operator_config.llm.backends if b.id == backend_id), None)
+        backend_entry = next((b for b in operator_config.llm.endpoints if b.id == backend_id), None)
         if backend_entry is not None:
             backend_api_key = secret_resolver(
                 source=backend_entry.api_key_source,
@@ -113,7 +113,7 @@ def resolve_model_invocation(
                 llm_trace=base_settings.llm_trace,
                 llm_transport_mode=base_settings.llm_transport_mode,
                 llm_stream_mode=base_settings.llm_stream_mode,
-                llm_provider=base_settings.llm_provider,
+                llm_provider=backend_entry.provider or base_settings.llm_provider,
                 llm_ca_file=base_settings.llm_ca_file,
             )
             selected_endpoint_source = f"backend:{backend_id}"
