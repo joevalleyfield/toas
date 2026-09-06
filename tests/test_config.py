@@ -8,9 +8,12 @@ from toas.config import (
     EndpointCatalogEntry,
     GenerationPolicy,
     HealthTimingPolicy,
+    LLMPolicy,
     ModelCatalogEntry,
     OperatorConfig,
     RuntimePolicy,
+    TargetCatalogEntry,
+    TargetGenerationOverrides,
     apply_dotted_override,
     apply_overrides,
     config_from_discovered_paths,
@@ -21,6 +24,7 @@ from toas.config import (
     parse_config_value,
     valid_config_keys,
 )
+from toas.config_overrides import _merge_named_target_lists
 from toas.config_parsing import _field_default_for_key
 from toas.runtime.environment_policy import EnvironmentProfile, RuntimeEnvironmentBinding
 
@@ -445,6 +449,11 @@ def test_parse_config_value_llm_backends_unsupported_for_set():
         parse_config_value("llm.backends", "x")
 
 
+def test_parse_config_value_llm_targets_unsupported_for_set():
+    with pytest.raises(ValueError, match="cannot be set via /config set"):
+        parse_config_value("llm.targets", "x")
+
+
 def test_apply_overrides_nested():
     config = OperatorConfig()
     updated = apply_overrides(config, {"extraction": {"yaml_position": "any"}})
@@ -636,6 +645,80 @@ def test_config_from_file_preserves_endpoint_provider_on_legacy_backend_catalog(
         ),
     )
     assert result.llm.endpoints == result.llm.backends
+
+
+def test_config_from_file_loads_named_target_with_sparse_generation_overrides(tmp_path):
+    import sys
+    if sys.version_info < (3, 11):
+        pytest.skip("tomllib requires Python 3.11+")
+    p = tmp_path / "toas.toml"
+    p.write_text(
+        '[llm]\n'
+        '[[llm.targets]]\n'
+        'id = "local-qwen-high"\n'
+        'endpoint = "local"\n'
+        'model = "qwen3.6-26B"\n'
+        'tags = ["local", "high"]\n'
+        'generation = { thinking_mode = "enabled", thinking_budget_tokens = 1024 }\n'
+    )
+
+    result = config_from_file(p)
+
+    assert result.llm.targets == (
+        TargetCatalogEntry(
+            id="local-qwen-high",
+            endpoint="local",
+            model="qwen3.6-26B",
+            generation=TargetGenerationOverrides(thinking_mode="enabled", thinking_budget_tokens=1024),
+            tags=("local", "high"),
+        ),
+    )
+
+
+def test_target_lists_shadow_by_id_across_config_layers():
+    base = OperatorConfig(
+        llm=LLMPolicy(
+            targets=(
+                TargetCatalogEntry(id="shared", endpoint="global", model="global-model"),
+                TargetCatalogEntry(id="global-only", endpoint="global", model="g"),
+            )
+        )
+    )
+
+    result = apply_overrides(
+        base,
+        {"llm": {"targets": [{"id": "shared", "model": "project-model"}, {"id": "project-only", "endpoint": "project", "model": "p"}]}},
+    )
+
+    assert result.llm.targets == (
+        TargetCatalogEntry(id="shared", endpoint="global", model="project-model"),
+        TargetCatalogEntry(id="global-only", endpoint="global", model="g"),
+        TargetCatalogEntry(id="project-only", endpoint="project", model="p"),
+    )
+
+
+def test_target_normalization_handles_legacy_and_malformed_shapes():
+    assert _merge_named_target_lists(("not-a-list",), [{"id": "new"}]) == [{"id": "new"}]
+    assert _merge_named_target_lists([{"id": ""}, "skip"], [{"id": ""}, "skip", {"id": "new"}]) == [{"id": "new"}]
+
+    result = apply_overrides(
+        OperatorConfig(),
+        {
+            "llm": {
+                "targets": (
+                    TargetCatalogEntry(id="existing"),
+                    "skip",
+                    {"id": ""},
+                    {"id": "mapped", "generation": {"avoid_terms": ["x", "", "y"]}},
+                    {"id": "bad-generation", "generation": "skip"},
+                )
+            }
+        },
+    )
+
+    assert [target.id for target in result.llm.targets] == ["existing", "mapped", "bad-generation"]
+    assert result.llm.targets[1].generation.avoid_terms == ("x", "y")
+    assert result.llm.targets[2].generation == TargetGenerationOverrides()
 
 
 def test_apply_overrides_normalizes_catalog_and_managed_local_values():

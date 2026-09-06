@@ -146,6 +146,8 @@ def parse_config_value(
         raise ValueError("llm.models cannot be set via /config set; edit toas.toml")
     if dotted_key == "llm.backends":
         raise ValueError("llm.backends cannot be set via /config set; use /config backend ...")
+    if dotted_key == "llm.targets":
+        raise ValueError("llm.targets cannot be set via /config set; edit toas.toml")
     if dotted_key == "shell.allowed_commands":
         commands_value = normalize_shell_grants(tuple(part.strip() for part in raw.split(",") if part.strip()))
         if not commands_value:

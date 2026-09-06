@@ -71,6 +71,20 @@ target is a session-level reference to an effective named target.
 - Whether selection validation is purely static or may optionally inspect
   endpoint availability later.
 
+## Progress Evidence
+
+The first target foundation now provides durable `TargetCatalogEntry` values
+with endpoint and requested-model references plus sparse overrides of the
+existing generation policy. Effective configuration layers merge targets by
+name, preserving inherited fields while allowing project values to shadow
+global values. Target resolution is read-only and performs no endpoint probe.
+
+Focused result: `359 passed`; Ruff passed. The full escalated run reached
+`3150 passed, 3 failed, 12 deselected`, with 100% coverage. The three failures
+are unrelated Vim plugin timeouts after writing `session.md`.
+
+Selection commands, target inspection, and shorthand declaration remain open.
+
 ## Next Actions
 
 1. Define the smallest target schema against the endpoint seam.

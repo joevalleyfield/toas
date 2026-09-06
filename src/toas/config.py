@@ -38,6 +38,29 @@ class GenerationPolicy:
 
 
 @dataclass(frozen=True)
+class TargetGenerationOverrides:
+    """Sparse generation settings carried by a named model target."""
+
+    thinking_mode: str | None = None
+    thinking_budget_tokens: int | None = None
+    max_tokens: int | None = None
+    avoid_terms: tuple[str, ...] | None = None
+    max_retries: int | None = None
+    retry_delay_s: float | None = None
+    transport_mode: str | None = None
+
+
+@dataclass(frozen=True)
+class TargetCatalogEntry:
+    id: str
+    endpoint: str = ""
+    model: str = ""
+    generation: TargetGenerationOverrides = field(default_factory=TargetGenerationOverrides)
+    tags: tuple[str, ...] = ()
+    notes: str = ""
+
+
+@dataclass(frozen=True)
 class ModelCatalogEntry:
     id: str
     label: str = ""
@@ -72,6 +95,7 @@ class LLMPolicy:
     provider: str = ""
     models: tuple[ModelCatalogEntry, ...] = ()
     backends: tuple[BackendCatalogEntry, ...] = ()
+    targets: tuple[TargetCatalogEntry, ...] = ()
 
     @property
     def endpoints(self) -> tuple[EndpointCatalogEntry, ...]:
@@ -261,6 +285,8 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "OperatorConfig": OperatorConfig,
                 "ExtractionPolicy": ExtractionPolicy,
                 "GenerationPolicy": GenerationPolicy,
+                "TargetGenerationOverrides": TargetGenerationOverrides,
+                "TargetCatalogEntry": TargetCatalogEntry,
                 "ModelCatalogEntry": ModelCatalogEntry,
                 "EndpointCatalogEntry": EndpointCatalogEntry,
                 "BackendCatalogEntry": BackendCatalogEntry,
