@@ -3379,6 +3379,16 @@ def test_config_show_filter_returns_matching_keys_only():
     assert "llm.model =" not in content
 
 
+def test_config_show_filtered_projection_omits_full_guidance():
+    transcript = "## TOAS:USER\n/config show timeout\n"
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "shell.assistant_timeout_s =" in content
+    assert "precedence stack" not in content
+    assert "Quick edits:" not in content
+    assert "/config show timeout --sources" in content
+
+
 def test_config_show_filter_no_match_is_actionable():
     transcript = "## TOAS:USER\n/config show not-a-key\n"
     _, out = step(transcript, [])

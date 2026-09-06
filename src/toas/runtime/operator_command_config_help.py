@@ -83,10 +83,26 @@ def _config_key_matches(keys: list[str], filter_text: str | None) -> list[str]:
     return sorted(token_matches)
 
 
+def _effective_config_values(flat: dict[str, object], *, step_mod) -> dict[str, object]:
+    values = dict(flat)
+    runtime_settings = None
+    for key in ("llm.base_url", "llm.model"):
+        if values.get(key) != "":
+            continue
+        if runtime_settings is None:
+            runtime_settings = step_mod.Settings.from_env()
+        fallback = {
+            "llm.base_url": runtime_settings.llm_base_url,
+            "llm.model": runtime_settings.llm_model,
+        }
+        values[key] = fallback[key]
+    return values
+
+
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     filter_text, show_sources = _config_show_filter(args[1:] if args and args[0] == "show" else args)
 
-    flat = step_mod.flatten_config(context.config)
+    flat = _effective_config_values(step_mod.flatten_config(context.config), step_mod=step_mod)
     keys = _config_key_matches(list(flat), filter_text)
     if filter_text is not None and not keys:
         return [
@@ -103,6 +119,17 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
         lines = [f"{k} = {flat[k]}    [source={sources.get(k, 'default')}]" for k in keys]
     else:
         lines = [f"{k} = {flat[k]}" for k in keys]
+
+    if filter_text is not None:
+        lines.extend(
+            [
+                "",
+                "next:",
+                f"  /config show {filter_text} --sources",
+                f"  /help config {filter_text}",
+            ]
+        )
+        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
     lines.extend(
         [

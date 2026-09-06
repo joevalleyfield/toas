@@ -586,12 +586,32 @@ def test_config_show_filter_sources_and_no_match_are_read_only():
     content = out[0]["content"]
     assert "llm.model =" in content
     assert "[source=env]" in content
-    assert "precedence stack" in content
+    assert "precedence stack" not in content
+    assert "/config show llm.model --sources" in content
     assert "config_update" not in out[0]
 
     no_match = handle_config_help_commands("config", ["show", "not-a-key"], step_mod=step_mod, context=context)[0]["content"]
     assert "no matching keys" in no_match
     assert "/help config" in no_match
+
+
+def test_config_show_filtered_projection_is_compact_and_uses_effective_llm_defaults(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.delenv("TOAS_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("TOAS_LLM_MODEL", raising=False)
+    context = _ctx(config_sources={"llm.model": "default", "llm.base_url": "default"})
+    out = handle_config_help_commands("config", ["show", "models"], step_mod=step_mod, context=context)[0]
+    content = out["content"]
+
+    assert "llm.model = qwen3.5-35b-a3b" in content
+    assert "llm.base_url = http://localhost:8080/v1" in content
+    assert "llm.models = ()" in content
+    assert "llm.backends = ()" in content
+    assert "precedence stack" not in content
+    assert "Quick edits:" not in content
+    assert "/config show models --sources" in content
+    assert "config_update" not in out
 
 
 def test_config_show_rejects_multiple_filters():
