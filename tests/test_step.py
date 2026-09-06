@@ -4050,6 +4050,16 @@ def test_slash_help_config_supports_curated_topics_and_search():
     assert "shell.assistant_timeout_s" in searched_out[0]["content"]
 
 
+def test_slash_help_config_precedence_is_searchable_and_read_only():
+    transcript = "## TOAS:USER\n/help config sources\n"
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "config help: precedence" in content
+    assert "winning source only" in content
+    assert "/config show <topic> --sources" in content
+    assert "config_update" not in out[0]
+
+
 def test_slash_help_models_renders_plain_facet_and_config_cross_link():
     transcript = "## TOAS:USER\n/help models\n"
     _, out = step(transcript, [])

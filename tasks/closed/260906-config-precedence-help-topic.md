@@ -9,6 +9,32 @@ Related: `260905-plain-help-facet-route`; `260901-help-system-design-survey`
 
 keywords: surface, config, help, search, provenance, usability, follow-on
 
+Claimed for implementation on 2026-09-06.
+
+## Completion evidence
+
+Added the curated `precedence` topic to the packaged configuration-help asset
+with `sources` and `provenance` aliases. All forms render the same focused
+guidance and link to `/config show <topic> --sources`.
+
+Representative output:
+
+```text
+/help config sources
+config help: precedence
+The effective value comes from the highest-precedence source that provides it; source output identifies that winning source only.
+
+next:
+  /config show <topic> --sources
+```
+
+The compact `/help config` overview and existing key search remain unchanged.
+Focused result: `400 passed` (with `--no-cov`); Ruff passed. Full result:
+`3131 passed, 9 deselected`, with 100% coverage.
+
+Source terminology intentionally exposes the winning source only; no
+full-provenance view was added.
+
 # Config Precedence Help Topic
 
 ## Objective

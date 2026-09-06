@@ -274,7 +274,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
 - **[T260903-user-lane-timeout-recovery]** Make direct user execution unbounded by default and distinguish its terminal-on-failure behavior from recovery of assistant source reached through `/r...
 - **[T260905-common-asset-library-migration]** Establish a common packaged asset layer for prompts, procedures, and runtime help, with family-specific loaders and a final layout under `assets/`.  T...
-- **[T260906-config-precedence-help-topic]** Make configuration precedence and winning-source semantics discoverable as a focused, searchable config-help topic.
 - **[T260906-config-show-topic-sources]** Complete the progressive-disclosure path from config help to live state by making curated config topics valid filters for `/config show`, including th...
 <!-- WORKBOARD:NOW:END -->
 
@@ -358,11 +357,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260906-config-precedence-help-topic]** Make configuration precedence and winning-source semantics discoverable as a focused, searchable config-help topic.
 - **[T260905-plain-help-facet-route]** Expose the existing plain facet of the runtime `models` help asset through `/help models`, establishing the paired relationship between behavioral hel...
 - **[T260905-help-assets-runtime-foundation]** Implement the first vertical slice of runtime-loadable help assets so configuration help can move out of hardcoded source prose without requiring a gr...
 - **[T260905-config-show-filters]** Extend `/config show` with compact, read-only filters so help can lead an operator from a conceptual topic to the relevant live configuration state.
 - **[T260904-config-help-state-feedback]** Make config discovery and feedback follow the operator priority vote: `/help config` and `/config --help` explain usage, bare `/config` inspects curre...
-- **[T260901-source-reference-recovery-integration]** Integrate Source References With Frontier Recovery
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

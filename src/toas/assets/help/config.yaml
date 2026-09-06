@@ -49,6 +49,13 @@ topics:
         summary: "Adjust generation behavior without changing transcript or tool semantics."
         related_keys: [generation.thinking_mode, generation.thinking_budget_tokens, generation.max_tokens, generation.max_retries, generation.retry_delay_s, generation.transport_mode]
         next_actions: [/config show generation, /config values generation.thinking_mode]
+  - id: precedence
+    aliases: [sources, provenance]
+    summary: "Configuration precedence determines which source supplies each effective value."
+    facets:
+      config:
+        summary: "The effective value comes from the highest-precedence source that provides it; source output identifies that winning source only."
+        next_actions: [/config show <topic> --sources]
 key_descriptions:
   llm.model: "Selects the active model for generation."
   llm.models: "Defines available model catalog entries."

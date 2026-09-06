@@ -70,6 +70,20 @@ def test_config_help_renders_overview_curated_and_search_results():
     assert "no matches" in no_match
 
 
+def test_config_help_precedence_topic_exposes_winning_source_guidance():
+    rendered = render_config_help("precedence", valid_keys=[])
+    assert "config help: precedence" in rendered
+    assert "highest-precedence source" in rendered
+    assert "winning source only" in rendered
+    assert "/config show <topic> --sources" in rendered
+
+    catalog = load_config_help_catalog()
+    topic = resolve_config_help_topic(catalog, "sources")
+    assert topic is not None
+    assert topic.topic_id == "precedence"
+    assert resolve_config_help_topic(catalog, "provenance") == topic
+
+
 def test_plain_help_renders_behavioral_facet_and_config_cross_link():
     rendered = render_plain_help("backend")
     assert rendered is not None
