@@ -111,6 +111,24 @@ def test_list_prompt_assets_can_filter_by_prefix():
     assert all(asset.metadata["category"] == "role-framing" for asset in assets)
 
 
+def test_migrated_session_start_prompts_load_and_list_once():
+    refs = [
+        "session-start/role-framing/editorial-partner_v1",
+        "session-start/role-framing/pragmatic-engineer_v1",
+        "session-start/role-framing/requirements-interrogator_v1",
+        "session-start/start-here/blank-page_v1",
+        "session-start/start-here/collaborative-builder_v1",
+        "session-start/start-here/spec-first_v1",
+    ]
+    for ref in refs:
+        asset = load_prompt_asset(ref)
+        assert asset.metadata["category"] in {"role-framing", "start-here"}
+        assert asset.content
+
+    listed = [asset.ref for asset in list_prompt_assets("session-start")]
+    assert [ref for ref in refs if listed.count(ref) == 1] == refs
+
+
 def test_migrated_prompt_uses_common_asset_path_and_lists_once():
     asset = load_prompt_asset("shared/schemas/action-lane_v1")
     assert "operation: <operation_name>" in asset.content

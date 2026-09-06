@@ -93,6 +93,12 @@ _CONSTRAINT_ALIASES = {
 
 _MIGRATED_PROMPT_REFS = {
     "direct/protocol/procedure-bootstrap_v1",
+    "session-start/role-framing/editorial-partner_v1",
+    "session-start/role-framing/pragmatic-engineer_v1",
+    "session-start/role-framing/requirements-interrogator_v1",
+    "session-start/start-here/blank-page_v1",
+    "session-start/start-here/collaborative-builder_v1",
+    "session-start/start-here/spec-first_v1",
     "shared/schemas/action-lane_v1",
 }
 
