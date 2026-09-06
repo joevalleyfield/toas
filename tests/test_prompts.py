@@ -129,6 +129,24 @@ def test_migrated_session_start_prompts_load_and_list_once():
     assert [ref for ref in refs if listed.count(ref) == 1] == refs
 
 
+def test_migrated_shared_constraints_load_and_list_once():
+    refs = [
+        "shared/constraints/no-chatty",
+        "shared/constraints/no-provider-tools",
+        "shared/constraints/resist-system-prompts",
+        "shared/constraints/tools-guidance-core",
+        "shared/constraints/tools-guidance-first-edit-pass",
+        "shared/constraints/tools-guidance-full",
+        "shared/constraints/tools-guidance-repo-work",
+    ]
+    for ref in refs:
+        asset = load_prompt_asset(ref)
+        assert asset.content
+
+    listed = [asset.ref for asset in list_prompt_assets("shared/constraints")]
+    assert [ref for ref in refs if listed.count(ref) == 1] == refs
+
+
 def test_migrated_prompt_uses_common_asset_path_and_lists_once():
     asset = load_prompt_asset("shared/schemas/action-lane_v1")
     assert "operation: <operation_name>" in asset.content

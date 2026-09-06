@@ -99,6 +99,13 @@ _MIGRATED_PROMPT_REFS = {
     "session-start/start-here/blank-page_v1",
     "session-start/start-here/collaborative-builder_v1",
     "session-start/start-here/spec-first_v1",
+    "shared/constraints/no-chatty",
+    "shared/constraints/no-provider-tools",
+    "shared/constraints/resist-system-prompts",
+    "shared/constraints/tools-guidance-core",
+    "shared/constraints/tools-guidance-first-edit-pass",
+    "shared/constraints/tools-guidance-full",
+    "shared/constraints/tools-guidance-repo-work",
     "shared/schemas/action-lane_v1",
 }
 
