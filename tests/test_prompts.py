@@ -11,6 +11,7 @@ from toas.capability_prompts import (
 )
 from toas.prompts import (
     PromptComposer,
+    _load_static_prompt_content,
     _resolve_constraint_ref,
     _split_frontmatter,
     _validate_mode,
@@ -108,6 +109,14 @@ def test_list_prompt_assets_can_filter_by_prefix():
         "session-start/role-framing/requirements-interrogator_v1",
     ]
     assert all(asset.metadata["category"] == "role-framing" for asset in assets)
+
+
+def test_migrated_prompt_uses_common_asset_path_and_lists_once():
+    asset = load_prompt_asset("shared/schemas/action-lane_v1")
+    assert "operation: <operation_name>" in asset.content
+    assert _load_static_prompt_content("shared/schemas/action-lane_v1") == asset.content
+    listed = [item.ref for item in list_prompt_assets("shared/schemas")]
+    assert listed.count("shared/schemas/action-lane_v1") == 1
 
 
 def test_list_prompt_assets_can_filter_session_start_templates():

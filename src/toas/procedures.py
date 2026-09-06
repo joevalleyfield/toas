@@ -7,6 +7,8 @@ from typing import Any
 
 import yaml
 
+from .assets.loader import list_packaged_assets, load_packaged_asset
+
 
 @dataclass(frozen=True)
 class ProcedureAsset:
@@ -15,13 +17,17 @@ class ProcedureAsset:
     plan: list[dict]
 
 
+_MIGRATED_PROCEDURES = {"search_scope_v1"}
+
+
 def list_procedures() -> list[str]:
     base = resources.files("toas").joinpath("procedures")
     names: list[str] = []
     for item in base.iterdir():
         if item.is_file() and item.name.endswith(".yaml"):
             names.append(item.name.removesuffix(".yaml"))
-    return sorted(names)
+    names.extend(list_packaged_assets("procedures", suffix=".yaml"))
+    return sorted(set(names))
 
 
 def _interpolate_procedure_yaml(raw_text: str, *, name: str, params: dict[str, Any]) -> str:
@@ -53,11 +59,14 @@ def load_procedure(name: str, params: dict[str, Any] | None = None) -> Procedure
     actual_params = params or {}
     if not normalized or ".." in normalized.split("/"):
         raise RuntimeError(f"invalid procedure name: {name}")
-    path = resources.files("toas").joinpath("procedures").joinpath(f"{normalized}.yaml")
-    try:
-        raw_text = path.read_text(encoding="utf-8")
-    except FileNotFoundError as exc:
-        raise RuntimeError(f"missing procedure: {normalized}") from exc
+    if normalized in _MIGRATED_PROCEDURES:
+        raw_text = load_packaged_asset("procedures", normalized, suffix=".yaml").content
+    else:
+        path = resources.files("toas").joinpath("procedures").joinpath(f"{normalized}.yaml")
+        try:
+            raw_text = path.read_text(encoding="utf-8")
+        except FileNotFoundError as exc:
+            raise RuntimeError(f"missing procedure: {normalized}") from exc
     raw = _interpolate_procedure_yaml(raw_text, name=normalized, params=actual_params)
 
     try:

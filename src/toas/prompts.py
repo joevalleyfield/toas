@@ -7,6 +7,7 @@ from typing import Any, TypedDict, cast
 
 import yaml
 
+from .assets.loader import load_packaged_asset
 from .backend_policy import BackendGenerationPolicy
 from .capability_prompts import (
     render_capability_overview,
@@ -90,6 +91,8 @@ _CONSTRAINT_ALIASES = {
     "tools-guidance-full": "shared/constraints/tools-guidance-full",
 }
 
+_MIGRATED_PROMPT_REFS = {"shared/schemas/action-lane_v1"}
+
 
 def parse_prompt_ref(ref: str) -> str:
     normalized = ref.strip().strip("/")
@@ -145,11 +148,14 @@ def _load_asset_or_none(
 def _load_static_prompt_content(
     ref: str,
 ) -> str:
-    package = _prompt_file(ref)
-    try:
-        raw = package.read_text(encoding="utf-8")
-    except FileNotFoundError as exc:
-        raise RuntimeError(f"missing prompt: {ref}") from exc
+    if ref in _MIGRATED_PROMPT_REFS:
+        raw = load_packaged_asset("prompts", ref, suffix=".txt").content
+    else:
+        package = _prompt_file(ref)
+        try:
+            raw = package.read_text(encoding="utf-8")
+        except FileNotFoundError as exc:
+            raise RuntimeError(f"missing prompt: {ref}") from exc
     _metadata, content = _split_frontmatter(raw)
     return content
 
@@ -601,11 +607,14 @@ def load_prompt_asset(
             content=f"{prefix}\n\n{render_tools_guidance_compact()}",
             metadata={"category": "constraint"},
         )
-    package = _prompt_file(normalized)
-    try:
-        raw = package.read_text(encoding="utf-8")
-    except FileNotFoundError as exc:
-        raise RuntimeError(f"missing prompt: {normalized}") from exc
+    if normalized in _MIGRATED_PROMPT_REFS:
+        raw = load_packaged_asset("prompts", normalized, suffix=".txt").content
+    else:
+        package = _prompt_file(normalized)
+        try:
+            raw = package.read_text(encoding="utf-8")
+        except FileNotFoundError as exc:
+            raise RuntimeError(f"missing prompt: {normalized}") from exc
 
     metadata, content = _split_frontmatter(raw)
     rendered_template = _render_template_asset(
@@ -693,6 +702,14 @@ def list_prompt_assets(prefix: str | None = None) -> list[PromptAsset]:
     for ref in candidate_dynamic:
         assets.append(load_prompt_asset(ref))
 
+    migrated_refs = sorted(
+        ref
+        for ref in _MIGRATED_PROMPT_REFS
+        if prefix is None or ref == normalized_prefix or ref.startswith(f"{normalized_prefix}/")
+    )
+    for ref in migrated_refs:
+        assets.append(load_prompt_asset(ref))
+
     root_path = Path(str(root))
     base_path = Path(str(base))
 
@@ -704,7 +721,7 @@ def list_prompt_assets(prefix: str | None = None) -> list[PromptAsset]:
     for path in sorted(base_path.rglob("*.txt"), key=lambda p: str(p)):
         rel = Path(str(path.relative_to(root_path))).with_suffix("")
         ref = rel.as_posix()
-        if ref in _DYNAMIC_PROMPTS:
+        if ref in _DYNAMIC_PROMPTS or ref in _MIGRATED_PROMPT_REFS:
             continue
         asset = load_prompt_asset(ref)
         assets.append(asset)

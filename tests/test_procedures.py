@@ -20,6 +20,12 @@ def test_list_procedures_includes_default_assets():
     assert "task_pick_first_action_v1" in names
 
 
+def test_migrated_procedure_uses_common_asset_path_and_preserves_interpolation():
+    asset = load_procedure("search_scope_v1", params={"query": "TODO", "path": "src"})
+    assert asset.plan == [{"tool_name": "search", "args": {"query": "TODO", "path": "src", "limit": 10}}]
+    assert list_procedures().count("search_scope_v1") == 1
+
+
 def test_list_procedures_filters_non_yaml_and_sorts(monkeypatch, tmp_path):
     procedures_dir = tmp_path / "procedures"
     procedures_dir.mkdir()
