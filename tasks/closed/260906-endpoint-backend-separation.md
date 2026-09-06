@@ -69,12 +69,13 @@ execution modes.
 - Existing managed-local and external behavior remains parity-safe.
 - No public `/model` or `/models` taxonomy is finalized by this task.
 
-## Open Fronts
+## Deferred Follow-ons
 
 - Whether the internal type is renamed immediately or introduced through an
-  adapter.
+  adapter. The canonical type/view and legacy alias now provide the adapter;
+  removal belongs to a later cleanup slice.
 - Which provider fields are shared endpoint fields versus driver-specific
-  options.
+  options. The current provider override is intentionally minimal.
 
 ## Progress Evidence
 
@@ -87,10 +88,16 @@ endpoint invocation uses it while falling back to the global provider.
 The legacy TOML shape and `/config backend` mutation path remain supported,
 including provider preservation through set/capture operations.
 
-Focused result: `477 passed`; Ruff passed. The full offline run reached
+Focused result: `477 passed`; Ruff passed. The full escalated run reached
 `3127 passed, 20 failed, 12 deselected`, with 100% coverage. The 20 failures
-are the known sandbox restrictions on socket/HTTP binding and Vim integration;
-none involve this endpoint/provider slice.
+in the non-escalated run were sandbox restrictions; the escalated run passed
+all endpoint, RPC, and HTTP coverage and left three unrelated Vim plugin
+timeouts. None involve this endpoint/provider slice.
+
+## Completion
+
+This bounded migration slice is complete. The remaining endpoint storage
+rename, target schema, and public command taxonomy are separate follow-on work.
 
 ## Next Actions
 

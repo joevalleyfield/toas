@@ -8,7 +8,7 @@ keywords: config, implementation, follow-on, usability, contract, naming, runtim
 Parent:
 Depends on: `260906-endpoint-backend-separation`
 Blocks:
-Blocked by: `260906-endpoint-backend-separation`
+Blocked by:
 Related: `docs/notes/2026-09-06-endpoints-models-and-targets.md`
 
 # Add Durable Named Model Targets

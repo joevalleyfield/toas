@@ -8,7 +8,7 @@ keywords: config, runtime, implementation, follow-on, provenance, defaults, cont
 Parent:
 Depends on: `260906-endpoint-model-discovery`; `260906-endpoint-backend-separation`
 Blocks:
-Blocked by: `260906-endpoint-model-discovery`; `260906-endpoint-backend-separation`
+Blocked by: `260906-endpoint-model-discovery`
 Related: `docs/notes/2026-09-06-endpoints-models-and-targets.md`
 
 # Refresh Durable Model Catalogs from Live Observations
