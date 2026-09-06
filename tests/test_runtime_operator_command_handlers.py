@@ -452,6 +452,29 @@ def test_prompt_workspace_model_targets_lists_resolution_and_active_selection():
     assert empty[0]["content"] == "no configured model targets"
 
 
+def test_prompt_workspace_model_overview_is_compact_and_navigable():
+    import toas.step as step_mod
+    from toas.config import LLMPolicy, OperatorConfig, TargetCatalogEntry
+
+    config = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="local", model="qwen"),)))
+    context = _ctx(config=config, events=[{"kind": "target_selection", "payload": {"action": "set", "target_id": "local"}}])
+    out = handle_prompt_workspace_commands("model", [], step_mod=step_mod, context=context)
+
+    assert out[0]["content"] == (
+        "active model target: local\n"
+        "  endpoint: (default)\n"
+        "  requested model: qwen\n"
+        "\n"
+        "next:\n"
+        "  /model targets\n"
+        "  /model select <target>\n"
+        "  /models"
+    )
+
+    no_selection = handle_prompt_workspace_commands("model", [], step_mod=step_mod, context=_ctx(config=config))
+    assert "active model target: (none)" in no_selection[0]["content"]
+
+
 def test_prompt_workspace_model_select_records_session_target():
     import toas.step as step_mod
     from toas.config import LLMPolicy, OperatorConfig, TargetCatalogEntry

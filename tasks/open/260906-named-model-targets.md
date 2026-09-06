@@ -115,6 +115,11 @@ fragments, including the target's generation settings. The public spelling is
 deliberately provisional while the broader `/model` and `/models` taxonomy is
 being designed.
 
+Bare `/model` now provides a compact active-target/navigation view whenever
+named targets are configured. Configurations without named targets retain the
+legacy available-model listing, keeping the migration surface compatible while
+making the target affordance discoverable.
+
 ## Next Actions
 
 1. Define the smallest target schema against the endpoint seam. (complete)
