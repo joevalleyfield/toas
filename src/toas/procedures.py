@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from importlib import resources
 from typing import Any
 
 import yaml
@@ -17,17 +16,8 @@ class ProcedureAsset:
     plan: list[dict]
 
 
-_MIGRATED_PROCEDURES = {"repo_discovery_triage_v1", "search_scope_v1"}
-
-
 def list_procedures() -> list[str]:
-    base = resources.files("toas").joinpath("procedures")
-    names: list[str] = []
-    for item in base.iterdir():
-        if item.is_file() and item.name.endswith(".yaml"):
-            names.append(item.name.removesuffix(".yaml"))
-    names.extend(list_packaged_assets("procedures", suffix=".yaml"))
-    return sorted(set(names))
+    return list_packaged_assets("procedures", suffix=".yaml")
 
 
 def _interpolate_procedure_yaml(raw_text: str, *, name: str, params: dict[str, Any]) -> str:
@@ -59,14 +49,12 @@ def load_procedure(name: str, params: dict[str, Any] | None = None) -> Procedure
     actual_params = params or {}
     if not normalized or ".." in normalized.split("/"):
         raise RuntimeError(f"invalid procedure name: {name}")
-    if normalized in _MIGRATED_PROCEDURES:
+    try:
         raw_text = load_packaged_asset("procedures", normalized, suffix=".yaml").content
-    else:
-        path = resources.files("toas").joinpath("procedures").joinpath(f"{normalized}.yaml")
-        try:
-            raw_text = path.read_text(encoding="utf-8")
-        except FileNotFoundError as exc:
+    except RuntimeError as exc:
+        if str(exc) == f"missing procedures asset: {normalized}":
             raise RuntimeError(f"missing procedure: {normalized}") from exc
+        raise
     raw = _interpolate_procedure_yaml(raw_text, name=normalized, params=actual_params)
 
     try:

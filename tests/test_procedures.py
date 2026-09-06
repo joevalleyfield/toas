@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 
 from toas.procedures import list_procedures, load_procedure
@@ -10,7 +12,15 @@ def _write_procedure(tmp_path, name: str, content: str):
 
 
 def _patch_procedure_root(monkeypatch, root):
-    monkeypatch.setattr("toas.procedures.resources.files", lambda _package: root)
+    def load_packaged_asset(kind, ref, *, suffix):
+        path = root / kind / f"{ref}{suffix}"
+        try:
+            content = path.read_text(encoding="utf-8")
+        except FileNotFoundError as exc:
+            raise RuntimeError(f"missing {kind} asset: {ref}") from exc
+        return SimpleNamespace(kind=kind, ref=ref, suffix=suffix, content=content)
+
+    monkeypatch.setattr("toas.procedures.load_packaged_asset", load_packaged_asset)
 
 
 def test_list_procedures_includes_default_assets():
@@ -47,7 +57,14 @@ def test_list_procedures_filters_non_yaml_and_sorts(monkeypatch, tmp_path):
     (procedures_dir / "zeta.yaml").write_text("description: x\nsteps:\n- operation: echo\n", encoding="utf-8")
     (procedures_dir / "alpha.yaml").write_text("description: x\nsteps:\n- operation: echo\n", encoding="utf-8")
     (procedures_dir / "notes.txt").write_text("ignore", encoding="utf-8")
-    _patch_procedure_root(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        "toas.procedures.list_packaged_assets",
+        lambda _kind, suffix: sorted(
+            path.name.removesuffix(suffix)
+            for path in procedures_dir.iterdir()
+            if path.is_file() and path.name.endswith(suffix)
+        ),
+    )
 
     assert list_procedures() == ["alpha", "zeta"]
 
@@ -64,6 +81,16 @@ def test_load_procedure_returns_normalized_callable_plan():
 def test_load_procedure_rejects_missing_asset():
     with pytest.raises(RuntimeError, match="missing procedure"):
         load_procedure("missing_procedure")
+
+
+def test_load_procedure_preserves_unrelated_loader_errors(monkeypatch):
+    def fail(*_args, **_kwargs):
+        raise RuntimeError("asset loader unavailable")
+
+    monkeypatch.setattr("toas.procedures.load_packaged_asset", fail)
+
+    with pytest.raises(RuntimeError, match="asset loader unavailable"):
+        load_procedure("search_scope_v1")
 
 
 def test_load_procedure_interpolates_defaults_and_parameters():
