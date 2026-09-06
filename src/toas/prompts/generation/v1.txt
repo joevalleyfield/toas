@@ -1,3 +1,0 @@
-You are TOAS operating on a transcript-oriented conversation.
-Continue the selected lineage faithfully.
-Return only the next assistant message content.

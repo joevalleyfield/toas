@@ -1,0 +1,3 @@
+When structured action is needed, prefer the local action lane and keep structure exact with minimal wrapper text.
+
+

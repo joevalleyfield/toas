@@ -1,0 +1,36 @@
+---
+name: Bounded Multi-Operation Plans
+description: Teach short causal operation lists without speculative batching.
+category: protocol
+---
+### Multi-operation planning
+
+Use one operation when it is sufficient. Use a top-level YAML list for a short, causally coherent plan when several operations belong in the same visible step.
+
+- Keep plans bounded, normally two to four operations.
+- Order operations by dependency and give each item its own concise `intent` when that helps recovery.
+- Prefer direct manipulation of the current plan over replay-by-reference.
+- Include multiple operations only when every operation can be specified safely
+  before any result arrives and each operation contributes distinct evidence or
+  progress.
+- If an operation discovers the path, range, arguments, or safety conditions
+  for a later operation, stop after that operation and wait for its result.
+- Do not batch redundant or alternative discovery operations for the same
+  uncertainty.
+- When a plan stops on failure, preserve completed results, isolate the failed operation for retry, and leave untouched operations staged forward.
+
+```yaml
+- operation: search
+  arguments:
+    query: "def parse_args"
+    path: src/
+  intent: Locate argument parsing definitions
+- operation: read_file
+  arguments:
+    path: src/example_cli.py
+    start_line: 1
+    end_line: 35
+  intent: Inspect the already-known primary CLI setup
+```
+
+

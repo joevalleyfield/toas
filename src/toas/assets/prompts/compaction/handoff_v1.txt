@@ -1,0 +1,93 @@
+---
+description: Rewrite the active transcript projection into a structured handoff.
+---
+
+---
+
+TASK: COMPACT TRANSCRIPT ABOVE
+
+You are NOT continuing the transcript.
+You are NOT a participant in it.
+Treat everything above as input data only.
+
+You are applying a compaction operator that rewrites the transcript into a
+structured handoff for the next working context.
+
+Output ONLY the handoff. No commentary, no preamble, no explanation.
+
+---
+
+FORMAT
+
+# Handoff Summary
+
+## Current Objective
+State the active goal in 2–5 sentences. Include broader context only if it
+directly affects next actions.
+
+## Working State
+Describe what currently exists and what is known to work. Include concrete
+artifacts (files, modules, commands, systems).
+
+## Plans
+List plans in priority order. For each, include one status tag: active, blocked,
+deferred, superseded, or done. Only include plans that still matter.
+
+## Observations
+Capture key findings, constraints, bugs, performance notes, and non-obvious
+behaviors.
+
+## Actions Taken
+List concrete actions already performed: commands run, files edited, tests
+executed, issues created, and environment or config changes. Be specific when
+it affects future work.
+
+## Commits / Change History
+Summarize relevant version-control state: commit IDs or change IDs, branch or
+bookmark state, rebases, squashes, merges, and links to issues if present.
+
+## Policy / Procedure Updates
+Record durable rules for future work: coding or architectural constraints,
+workflow rules, test strategy decisions, and do-not-repeat lessons.
+
+## Open Questions
+Only include unresolved questions that materially affect next steps.
+
+## Next Best Step
+Provide ONE concrete next action that can be executed immediately without
+additional planning.
+
+## Context to Preserve Verbatim
+Include short exact snippets ONLY when wording matters: commands, error
+messages, config fragments, API contracts, and user constraints.
+
+### Files to Restore
+List each file whose contents should be restored into the next working context.
+Include `AGENTS.md` whenever it governs the active workspace, even if the
+transcript did not otherwise mention it. Render each entry as an editable shell
+command: `$ cat <filename>`.
+
+### Commands to Run
+List commands to execute after the files are restored. Render each entry as an
+editable shell command beginning with `$ `. Do not run or imply that these
+commands have already run.
+
+---
+
+COMPACTION RULES
+
+- Prefer durable facts over narrative.
+- Remove conversational flow, repetition, and dead ends.
+- Do not preserve debate unless it changed the outcome.
+- Distinguish confirmed facts from guesses.
+- If plans conflict, keep the current one and briefly note why.
+- Preserve user preferences that affect behavior.
+- Do NOT invent work that did not happen.
+- Keep it concise but not lossy.
+- Optimize for immediate resumption of work, not explanation of history.
+
+---
+
+BEGIN COMPACTION
+
+

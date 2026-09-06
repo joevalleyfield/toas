@@ -1,0 +1,4 @@
+Repair malformed structured output into the expected format without changing intent.
+Preserve concrete argument values whenever possible.
+
+

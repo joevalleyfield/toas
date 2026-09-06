@@ -1,13 +1,11 @@
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from importlib import resources
-from pathlib import Path
 from typing import Any, TypedDict, cast
 
 import yaml
 
-from .assets.loader import load_packaged_asset
+from .assets.loader import list_packaged_assets, load_packaged_asset
 from .backend_policy import BackendGenerationPolicy
 from .capability_prompts import (
     render_capability_overview,
@@ -91,25 +89,6 @@ _CONSTRAINT_ALIASES = {
     "tools-guidance-full": "shared/constraints/tools-guidance-full",
 }
 
-_MIGRATED_PROMPT_REFS = {
-    "direct/protocol/procedure-bootstrap_v1",
-    "session-start/role-framing/editorial-partner_v1",
-    "session-start/role-framing/pragmatic-engineer_v1",
-    "session-start/role-framing/requirements-interrogator_v1",
-    "session-start/start-here/blank-page_v1",
-    "session-start/start-here/collaborative-builder_v1",
-    "session-start/start-here/spec-first_v1",
-    "shared/constraints/no-chatty",
-    "shared/constraints/no-provider-tools",
-    "shared/constraints/resist-system-prompts",
-    "shared/constraints/tools-guidance-core",
-    "shared/constraints/tools-guidance-first-edit-pass",
-    "shared/constraints/tools-guidance-full",
-    "shared/constraints/tools-guidance-repo-work",
-    "shared/schemas/action-lane_v1",
-}
-
-
 def parse_prompt_ref(ref: str) -> str:
     normalized = ref.strip().strip("/")
     if not normalized:
@@ -117,10 +96,6 @@ def parse_prompt_ref(ref: str) -> str:
     if ".." in normalized.split("/"):
         raise RuntimeError(f"invalid prompt ref: {ref}")
     return normalized
-
-
-def _prompt_file(ref: str):
-    return resources.files("toas").joinpath("prompts").joinpath(f"{ref}.txt")
 
 
 def _split_frontmatter(text: str) -> tuple[dict, str]:
@@ -164,14 +139,10 @@ def _load_asset_or_none(
 def _load_static_prompt_content(
     ref: str,
 ) -> str:
-    if ref in _MIGRATED_PROMPT_REFS:
+    try:
         raw = load_packaged_asset("prompts", ref, suffix=".txt").content
-    else:
-        package = _prompt_file(ref)
-        try:
-            raw = package.read_text(encoding="utf-8")
-        except FileNotFoundError as exc:
-            raise RuntimeError(f"missing prompt: {ref}") from exc
+    except RuntimeError as exc:
+        raise RuntimeError(f"missing prompt: {ref}") from exc
     _metadata, content = _split_frontmatter(raw)
     return content
 
@@ -623,14 +594,10 @@ def load_prompt_asset(
             content=f"{prefix}\n\n{render_tools_guidance_compact()}",
             metadata={"category": "constraint"},
         )
-    if normalized in _MIGRATED_PROMPT_REFS:
+    try:
         raw = load_packaged_asset("prompts", normalized, suffix=".txt").content
-    else:
-        package = _prompt_file(normalized)
-        try:
-            raw = package.read_text(encoding="utf-8")
-        except FileNotFoundError as exc:
-            raise RuntimeError(f"missing prompt: {normalized}") from exc
+    except RuntimeError as exc:
+        raise RuntimeError(f"missing prompt: {normalized}") from exc
 
     metadata, content = _split_frontmatter(raw)
     rendered_template = _render_template_asset(
@@ -700,12 +667,9 @@ def prompt_messages(kind: str, messages: list[dict], version: str, *, mode: str 
 
 
 def list_prompt_assets(prefix: str | None = None) -> list[PromptAsset]:
-    root = resources.files("toas").joinpath("prompts")
-    base = root
     normalized_prefix = None
     if prefix is not None:
         normalized_prefix = parse_prompt_ref(prefix)
-        base = root.joinpath(normalized_prefix)
 
     assets = []
     if prefix is None:
@@ -718,28 +682,18 @@ def list_prompt_assets(prefix: str | None = None) -> list[PromptAsset]:
     for ref in candidate_dynamic:
         assets.append(load_prompt_asset(ref))
 
-    migrated_refs = sorted(
-        ref
-        for ref in _MIGRATED_PROMPT_REFS
-        if prefix is None or ref == normalized_prefix or ref.startswith(f"{normalized_prefix}/")
-    )
-    for ref in migrated_refs:
-        assets.append(load_prompt_asset(ref))
-
-    root_path = Path(str(root))
-    base_path = Path(str(base))
-
-    if not base_path.exists():
-        if assets:
-            return assets
-        raise RuntimeError(f"missing prompt prefix: {normalized_prefix}")
-
-    for path in sorted(base_path.rglob("*.txt"), key=lambda p: str(p)):
-        rel = Path(str(path.relative_to(root_path))).with_suffix("")
-        ref = rel.as_posix()
-        if ref in _DYNAMIC_PROMPTS or ref in _MIGRATED_PROMPT_REFS:
+    static_refs = list_packaged_assets("prompts", suffix=".txt")
+    if normalized_prefix is not None:
+        static_refs = [
+            ref
+            for ref in static_refs
+            if ref == normalized_prefix or ref.startswith(f"{normalized_prefix}/")
+        ]
+    for ref in static_refs:
+        if ref in _DYNAMIC_PROMPTS:
             continue
-        asset = load_prompt_asset(ref)
-        assets.append(asset)
+        assets.append(load_prompt_asset(ref))
+    if not assets and normalized_prefix is not None:
+        raise RuntimeError(f"missing prompt prefix: {normalized_prefix}")
     assets.sort(key=lambda asset: asset.ref)
     return assets
