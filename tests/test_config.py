@@ -602,7 +602,7 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
         '[[llm.backends]]\n'
         'id = "local"\n'
         'base_url = "http://localhost:8080/v1"\n'
-        'model = "qwen"\n'
+        'default_model = "qwen"\n'
         'models = ["qwen", "gemma"]\n'
         'api_key_source = "env"\n'
         'api_key_ref = "TOAS_LLM_API_KEY"\n'
@@ -612,7 +612,7 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
         BackendCatalogEntry(
             id="local",
             base_url="http://localhost:8080/v1",
-            model="qwen",
+            default_model="qwen",
             models=("qwen", "gemma"),
             api_key_source="env",
             api_key_ref="TOAS_LLM_API_KEY",
@@ -620,6 +620,25 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
             notes="",
         ),
     )
+
+
+def test_config_from_file_reads_legacy_backend_model_as_default_model(tmp_path):
+    import sys
+    if sys.version_info < (3, 11):
+        pytest.skip("tomllib requires Python 3.11+")
+    p = tmp_path / "toas.toml"
+    p.write_text(
+        '[llm]\n'
+        '[[llm.backends]]\n'
+        'id = "legacy"\n'
+        'base_url = "http://localhost:8080/v1"\n'
+        'model = "legacy-default"\n'
+    )
+
+    result = config_from_file(p)
+
+    assert result.llm.backends[0].default_model == "legacy-default"
+    assert result.llm.backends[0].model == "legacy-default"
 
 
 def test_config_from_file_preserves_endpoint_provider_on_legacy_backend_catalog(tmp_path):

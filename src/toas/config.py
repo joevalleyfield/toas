@@ -72,13 +72,18 @@ class ModelCatalogEntry:
 class EndpointCatalogEntry:
     id: str
     base_url: str
-    model: str = ""
+    default_model: str = ""
     models: tuple[str, ...] = ()
     api_key_source: str = "env"
     api_key_ref: str = "TOAS_LLM_API_KEY"
     provider: str = ""
     tags: tuple[str, ...] = ()
     notes: str = ""
+
+    @property
+    def model(self) -> str:
+        """Compatibility view for the legacy backend catalog vocabulary."""
+        return self.default_model
 
 
 # Compatibility name while the public configuration field migrates from

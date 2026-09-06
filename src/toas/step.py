@@ -451,8 +451,8 @@ def _available_models(config: OperatorConfig, *, selected_backend: str | None = 
                 candidate = model_id.strip()
                 if candidate and candidate not in models:
                     models.append(candidate)
-            if backend.model.strip() and backend.model.strip() not in models:
-                models.append(backend.model.strip())
+            if backend.default_model.strip() and backend.default_model.strip() not in models:
+                models.append(backend.default_model.strip())
             if models:
                 return models
     for entry in config.llm.models:

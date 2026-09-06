@@ -94,6 +94,11 @@ Target configuration is now canonical as keyed TOML tables under
 entries with an internal `id` for resolution. Legacy array-shaped target
 configuration is no longer the authored form.
 
+Endpoint-owned model defaults are now named `default_model` in the canonical
+schema, keeping them distinct from a target's requested `model`. The reader
+accepts legacy backend `model` fields during migration, but runtime resolution
+uses `default_model`.
+
 ## Next Actions
 
 1. Define the smallest target schema against the endpoint seam.

@@ -32,7 +32,7 @@ high-profile `/model`, `/models`, or target-selection behavior.
 | `llm.backends[].base_url` | Endpoint URL | Endpoint connection |
 | `llm.backends[].api_key_*` | Endpoint credential lookup | Endpoint authentication |
 | `llm.backends[].models` | Static model IDs associated with a named URL | Endpoint-associated known-model catalog |
-| `llm.backends[].model` | Default requested model for a named URL | Default target/model association |
+| `llm.backends[].default_model` | Default requested model for a named URL | Default target/model association |
 | `backend.mode` | `external` or `managed-local` execution mode | Backend execution mechanism |
 | `backend.managed_local` | Process command, cwd, env, health URL | Backend lifecycle |
 | `backend_startup.*` | Startup-only backend settings | Backend runtime |
@@ -100,7 +100,7 @@ the global field as a fallback.
 ### Catalog and selection are currently mixed
 
 `llm.models` is a global static catalog. `llm.backends[].models` is an
-endpoint-associated static catalog. `llm.backends[].model` is a default
+endpoint-associated static catalog. `llm.backends[].default_model` is a default
 requested model. `llm.model` is the scalar requested model. These should not
 be treated as interchangeable model facts.
 

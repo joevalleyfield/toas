@@ -22,7 +22,7 @@ def backend_list_dicts(*, context: OperatorCommandContext) -> list[dict]:
         {
             "id": b.id,
             "base_url": b.base_url,
-            "model": b.model,
+            "model": b.default_model,
             "models": list(b.models),
             "api_key_source": b.api_key_source,
             "api_key_ref": b.api_key_ref,

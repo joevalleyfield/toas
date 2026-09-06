@@ -109,7 +109,7 @@ def resolve_model_invocation(
             selected_settings = Settings(
                 llm_base_url=backend_entry.base_url or base_settings.llm_base_url,
                 llm_api_key=backend_api_key,
-                llm_model=backend_entry.model or base_settings.llm_model,
+                llm_model=backend_entry.default_model or base_settings.llm_model,
                 llm_trace=base_settings.llm_trace,
                 llm_transport_mode=base_settings.llm_transport_mode,
                 llm_stream_mode=base_settings.llm_stream_mode,

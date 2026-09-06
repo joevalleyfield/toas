@@ -57,7 +57,7 @@ def test_selected_endpoint_provider_overrides_global_provider(tmp_path):
                     id="gemini",
                     base_url="https://generativelanguage.googleapis.com",
                     provider="gemini-rest",
-                    model="gemini-2.5-flash",
+                    default_model="gemini-2.5-flash",
                 ),
             ),
         )

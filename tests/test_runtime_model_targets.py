@@ -47,7 +47,7 @@ def test_resolve_target_invocation_overlays_endpoint_model_and_generation():
                 EndpointCatalogEntry(
                     id="local",
                     base_url="http://local/v1",
-                    model="endpoint-model",
+                    default_model="endpoint-model",
                     provider="openai",
                     api_key_source="env",
                     api_key_ref="LOCAL_KEY",

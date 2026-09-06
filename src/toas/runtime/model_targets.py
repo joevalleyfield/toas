@@ -73,7 +73,7 @@ def resolve_target_invocation(
         settings = Settings(
             llm_base_url=endpoint.base_url or base_settings.llm_base_url,
             llm_api_key=api_key,
-            llm_model=endpoint.model or base_settings.llm_model,
+            llm_model=endpoint.default_model or base_settings.llm_model,
             llm_trace=base_settings.llm_trace,
             llm_transport_mode=base_settings.llm_transport_mode,
             llm_stream_mode=base_settings.llm_stream_mode,

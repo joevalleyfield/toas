@@ -206,7 +206,7 @@ def test_generation_guard_result_returns_none_when_selection_is_available():
                 BackendCatalogEntry(
                     id="local",
                     base_url="http://localhost:8080/v1",
-                    model="m1",
+                    default_model="m1",
                     models=("m1", "m2"),
                 ),
             )
@@ -1665,7 +1665,7 @@ def test_operator_model_list_scoped_to_selected_backend():
                 BackendCatalogEntry(
                     id="local",
                     base_url="http://localhost:8080/v1",
-                    model="qwen",
+                    default_model="qwen",
                     models=("qwen", "gemma"),
                 ),
             )
