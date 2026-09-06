@@ -126,4 +126,6 @@ making the target affordance discoverable.
 2. Add config parsing, hierarchy merging, and effective-target resolution. (complete)
 3. Add resolver tests before choosing final operator command names. (complete)
 4. Decide the final public target inspection/selection grammar and validation
-   behavior, including whether unresolved endpoints are selectable.
+   behavior. The current provisional rule is static validation: unresolved
+   endpoint references are not selectable, and no live probe occurs during
+   selection.

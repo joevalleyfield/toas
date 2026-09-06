@@ -112,6 +112,8 @@ def resolve_model_invocation(
         if active_target is not None
         else None
     )
+    if active_target_id and target_invocation is None:
+        raise ValueError(f"active model target unavailable: {active_target_id}")
     selected_settings = base_settings
     selected_model_source = settings_sources["model"]
     selected_endpoint_source = settings_sources["endpoint"]

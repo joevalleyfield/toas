@@ -1,3 +1,5 @@
+import pytest
+
 from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
 from toas.llm import Settings
 from toas.runtime.model_invocation_contracts import (
@@ -102,6 +104,22 @@ def test_active_target_overrides_legacy_fragments_and_generation(tmp_path):
     )
     assert invocation.selected_settings.llm_model == "target-model"
     assert invocation.selected_model_source == "target:local"
+
+
+def test_unavailable_active_target_fails_closed(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text('{"kind":"target_selection","payload":{"action":"set","target_id":"missing"}}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="active model target unavailable: missing"):
+        resolve_model_invocation(
+            working=[{"role": "user", "content": "/model old"}],
+            operator_config=OperatorConfig(),
+            base_settings=Settings(llm_base_url="http://default", llm_model="base"),
+            settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
+            policy=type("Policy", (), {"extra_body": {}, "max_tokens": None, "max_retries": 0, "retry_delay_s": 1.0})(),
+            events_path=events_path,
+            project_messages=lambda _working: [{"role": "user", "content": "projected"}],
+        )
 
 
 def test_default_model_invocation_port_wires_default_runtime_dependencies():

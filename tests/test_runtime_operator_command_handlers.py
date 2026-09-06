@@ -489,6 +489,10 @@ def test_prompt_workspace_model_select_records_session_target():
     with pytest.raises(ValueError, match="usage: /model select"):
         handle_prompt_workspace_commands("model", ["select"], step_mod=step_mod, context=_ctx(config=config))
 
+    broken = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="broken", endpoint="missing", model="qwen"),)))
+    with pytest.raises(ValueError, match="endpoint is not configured"):
+        handle_prompt_workspace_commands("model", ["select", "broken"], step_mod=step_mod, context=_ctx(config=broken))
+
 
 def test_extract_replay_handler_replay_dry_run(monkeypatch):
     import toas.step as step_mod

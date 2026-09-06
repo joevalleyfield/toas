@@ -198,12 +198,14 @@ def _handle_model_select(args: list[str], *, step_mod, context: OperatorCommandC
     if len(args) != 1 or not args[0].strip():
         raise ValueError("usage: /model select <target>")
     target_id = args[0].strip()
-    from .model_targets import resolve_model_target
+    from .model_targets import resolve_model_target, resolve_target_invocation
 
     target = resolve_model_target(context.config, target_id)
     if target is None:
         choices = ", ".join(item.id for item in context.config.llm.targets) or "(none)"
         raise ValueError(f"unknown model target: {target_id}\navailable targets: {choices}")
+    if resolve_target_invocation(context.config, target, step_mod.Settings.from_env()) is None:
+        raise ValueError(f"model target endpoint is not configured: {target_id}")
     return [
         _result_node(
             f"selected model target: {target.id}",
