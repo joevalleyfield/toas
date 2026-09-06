@@ -10,6 +10,7 @@ from toas.assets.help_catalog import (
     load_config_help_catalog,
     render_config_help,
     render_plain_help,
+    resolve_config_help_keys,
     resolve_config_help_topic,
 )
 from toas.assets.loader import (
@@ -82,6 +83,15 @@ def test_config_help_precedence_topic_exposes_winning_source_guidance():
     assert topic is not None
     assert topic.topic_id == "precedence"
     assert resolve_config_help_topic(catalog, "provenance") == topic
+
+
+def test_config_help_topic_keys_preserve_asset_order_and_omit_missing_keys():
+    assert resolve_config_help_keys("models", ["backend.mode", "llm.model", "other"]) == [
+        "llm.model",
+        "backend.mode",
+    ]
+    assert resolve_config_help_keys("precedence", ["llm.model"]) == []
+    assert resolve_config_help_keys("unknown", ["llm.model"]) is None
 
 
 def test_plain_help_renders_behavioral_facet_and_config_cross_link():

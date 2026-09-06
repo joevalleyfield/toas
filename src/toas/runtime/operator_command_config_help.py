@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ..assets.help_catalog import resolve_config_help_keys
 from ..config import OperatorConfig
 from .operator_command_context import OperatorCommandContext
 from .operator_config_backend_ops import config_backend_result
@@ -58,6 +59,9 @@ def _config_show_filter(args: list[str]) -> tuple[str | None, bool]:
 def _config_key_matches(keys: list[str], filter_text: str | None) -> list[str]:
     if filter_text is None:
         return list(keys)
+    topic_keys = resolve_config_help_keys(filter_text, keys)
+    if topic_keys is not None:
+        return topic_keys
     query = filter_text.strip().casefold()
     if not query:
         raise ValueError("usage: /config show [filter] [--sources]")

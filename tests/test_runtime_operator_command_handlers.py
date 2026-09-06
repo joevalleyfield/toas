@@ -554,6 +554,30 @@ def test_config_show_supports_exact_prefix_and_token_filters():
     assert "llm.model =" not in token
 
 
+def test_config_show_supports_curated_topic_filters_and_source_order():
+    import toas.step as step_mod
+
+    context = _ctx(config_sources={"llm.model": "env", "backend.mode": "config_file"})
+    topic = handle_config_help_commands("config", ["show", "models"], step_mod=step_mod, context=context)[0]
+    topic_content = topic["content"]
+    assert "llm.model =" in topic_content
+    assert "llm.models =" in topic_content
+    assert "llm.backends =" in topic_content
+    assert "llm.base_url =" in topic_content
+    assert "backend.mode =" in topic_content
+    assert "config_update" not in topic
+
+    with_sources = handle_config_help_commands(
+        "config", ["show", "models", "--sources"], step_mod=step_mod, context=context
+    )[0]["content"]
+    sources_first = handle_config_help_commands(
+        "config", ["show", "--sources", "models"], step_mod=step_mod, context=context
+    )[0]["content"]
+    assert with_sources == sources_first
+    assert "llm.model =" in with_sources and "[source=env]" in with_sources
+    assert "backend.mode =" in with_sources and "[source=config_file]" in with_sources
+
+
 def test_config_show_filter_sources_and_no_match_are_read_only():
     import toas.step as step_mod
 

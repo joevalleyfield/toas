@@ -111,6 +111,18 @@ def resolve_config_help_topic(catalog: ConfigHelpCatalog, query: str) -> HelpTop
     return None
 
 
+def resolve_config_help_keys(query: str, valid_keys: list[str]) -> list[str] | None:
+    """Resolve a curated topic to its currently available related keys."""
+    topic = resolve_config_help_topic(load_config_help_catalog(), query)
+    if topic is None:
+        return None
+    facet = topic.facets.get("config")
+    if facet is None or not facet.related_keys:
+        return []
+    available = {key.casefold(): key for key in valid_keys}
+    return [available[key.casefold()] for key in facet.related_keys if key.casefold() in available]
+
+
 def render_config_help(query: str | None = None, *, valid_keys: list[str]) -> str:
     catalog = load_config_help_catalog()
     if not query:

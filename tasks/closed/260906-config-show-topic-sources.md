@@ -9,6 +9,35 @@ Related: `260905-plain-help-facet-route`; `260906-config-precedence-help-topic`
 
 keywords: runtime, config, projection, provenance, usability, follow-on
 
+Claimed for implementation on 2026-09-06.
+
+## Completion evidence
+
+Curated config topics now resolve through the packaged help catalog when used
+as `/config show` filters. Topic selection preserves asset-declared order and
+omits related keys unavailable in the current flattened config. `--sources`
+remains an orthogonal projection modifier and works on either side of the
+topic filter.
+
+Representative output:
+
+```text
+/config show models --sources
+llm.model = ...    [source=env]
+llm.models = ...   [source=default]
+llm.backends = ... [source=config_file]
+llm.base_url = ... [source=default]
+backend.mode = ... [source=default]
+```
+
+`/config show --sources models` is equivalent. Focused result: `402 passed`
+(with `--no-cov`); Ruff passed. Full result: `3133 passed, 9 deselected`, with
+100% coverage.
+
+Only the winning source is exposed; the complete precedence chain remains a
+separate help concept rather than being repeated per value. The help-to-live
+state path is now complete for the `models` topic.
+
 # Topic-Aware Config Show With Sources
 
 ## Objective
