@@ -45,6 +45,8 @@ topics:
     aliases: [generate, thinking, tokens, retries]
     summary: "Generation settings control thinking, output budgets, retries, and request transport."
     facets:
+      plain:
+        summary: "Generation turns a request into model output through thinking posture, output budgets, retry behavior, and transport shape."
       config:
         summary: "Adjust generation behavior without changing transcript or tool semantics."
         related_keys: [generation.thinking_mode, generation.thinking_budget_tokens, generation.max_tokens, generation.max_retries, generation.retry_delay_s, generation.transport_mode]

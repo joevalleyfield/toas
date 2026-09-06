@@ -7,3 +7,8 @@ Feature: Config discovery from help to effective state
     Given a scratch TOAS workspace for config discovery
     When the operator follows the config models discovery path
     Then config discovery should expose compact effective state and sources
+
+  Scenario: "Generation topic pairs behavioral and configuration help"
+    Given a scratch TOAS workspace for config discovery
+    When the operator follows the config generation discovery path
+    Then generation discovery should expose paired help and live state

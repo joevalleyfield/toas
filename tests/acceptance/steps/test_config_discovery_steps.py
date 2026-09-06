@@ -57,6 +57,15 @@ def when_follow_config_discovery(acceptance_state: dict, capsys) -> None:
     acceptance_state["outputs"] = outputs
 
 
+@when("the operator follows the config generation discovery path")
+def when_follow_generation_discovery(acceptance_state: dict, capsys) -> None:
+    outputs = []
+    for command in ("/help generation", "/help config generation", "/config show generation"):
+        _run_control(acceptance_state["repo"], command)
+        outputs.append((command, capsys.readouterr().out))
+    acceptance_state["generation_outputs"] = outputs
+
+
 def _output(outputs: list[tuple[str, str]], command: str) -> str:
     return next(text for name, text in outputs if name == command)
 
@@ -92,3 +101,20 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
     assert _normalize_block_ids(sources_help) == _normalize_block_ids(provenance_help)
     assert "winning source only" in sources_help
     assert "/config show <topic> --sources" in sources_help
+
+
+@then("generation discovery should expose paired help and live state")
+def then_generation_discovery_contract(acceptance_state: dict) -> None:
+    outputs = acceptance_state["generation_outputs"]
+    plain = _output(outputs, "/help generation")
+    config_help = _output(outputs, "/help config generation")
+    live = _output(outputs, "/config show generation")
+
+    assert "help: generation" in plain
+    assert "thinking posture" in plain
+    assert "/help config generation" in plain
+    assert "config help: generation" in config_help
+    for key in ("generation.thinking_mode =", "generation.max_tokens =", "generation.max_retries ="):
+        assert key in live
+    assert "precedence stack" not in live
+    assert "config_update" not in live

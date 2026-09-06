@@ -101,7 +101,11 @@ def test_plain_help_renders_behavioral_facet_and_config_cross_link():
     assert "provider endpoint" in rendered
     assert "configuration: /help config models" in rendered
 
-    assert render_plain_help("generation") is None
+    generation = render_plain_help("generation")
+    assert generation is not None
+    assert "thinking posture" in generation
+    assert "configuration: /help config generation" in generation
+    assert render_plain_help("precedence") is None
     assert render_plain_help("unknown") is None
 
 

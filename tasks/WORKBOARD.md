@@ -357,11 +357,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260906-generation-help-facet]** Add the next small paired help facet so generation behavior can be explained separately from the configuration controls that mutate it.
 - **[T260906-config-show-topic-sources]** Complete the progressive-disclosure path from config help to live state by making curated config topics valid filters for `/config show`, including th...
 - **[T260906-config-show-acceptance-hardening]** Make the operator acceptance path honest and compact for filtered config inspection: topic-filtered views should show only their selected values, and ...
 - **[T260906-config-precedence-help-topic]** Make configuration precedence and winning-source semantics discoverable as a focused, searchable config-help topic.
 - **[T260906-config-discovery-acceptance-scenario]** Encode the operator's config-discovery journey as an automated acceptance scenario rather than relying on ad hoc manual verification.
-- **[T260905-plain-help-facet-route]** Expose the existing plain facet of the runtime `models` help asset through `/help models`, establishing the paired relationship between behavioral hel...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
