@@ -140,6 +140,30 @@ def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext)
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
+def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args:
+        raise ValueError("usage: /models")
+    from ..llm_harness import fetch_models
+    from .model_observations import observe_endpoint_models
+    from .policy_edges import settings_for_runtime
+
+    settings, _sources = settings_for_runtime(context.config)
+    observation = observe_endpoint_models(settings, fetcher=fetch_models)
+    lines = [
+        "endpoint model observation:",
+        f"  endpoint: {observation['endpoint'] or '(default)'}",
+        f"  provider: {observation['provider'] or '(default)'}",
+        f"  requested model: {observation['requested_model'] or '(none)'}",
+        f"  status: {observation['status']}",
+    ]
+    if observation["status"] == "ok":
+        models = observation.get("models", ())
+        lines.append("  reported models: " + (", ".join(models) if models else "(none)"))
+    else:
+        lines.append(f"  error: {observation['error']}")
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+
+
 def _validate_env_key(key: str, *, step_mod) -> None:
     if not step_mod.re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
         raise ValueError("invalid env key")
@@ -1189,6 +1213,8 @@ def handle_prompt_workspace_commands(
         return _handle_backend(args, step_mod=step_mod, context=context)
     if command == "model":
         return _handle_model(args, step_mod=step_mod, context=context)
+    if command == "models":
+        return _handle_models(args, step_mod=step_mod, context=context)
     if command == "env":
         return _handle_env(args, step_mod=step_mod, context=context)
     if command == "shell":

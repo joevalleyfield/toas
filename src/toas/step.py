@@ -96,6 +96,7 @@ SLASH_COMMANDS = [
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
     ("model",     "/model [name]",                              "select model intent in transcript state or list available models"),
+    ("models",    "/models",                                     "probe the active endpoint and show its reported model IDs"),
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
     ("shell",     SHELL_USAGE,                               "inspect or modify shell grants across transcript/config lanes"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),

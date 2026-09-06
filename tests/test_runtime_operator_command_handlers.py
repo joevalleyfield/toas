@@ -337,6 +337,48 @@ def test_prompt_workspace_backend_and_model_empty_catalog_paths(monkeypatch):
     assert "no models available" in out[0]["content"]
 
 
+def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://endpoint/v1", llm_model="requested"), {}),
+    )
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"data": [{"id": "served"}]})
+
+    out = handle_prompt_workspace_commands("models", [], step_mod=__import__("toas.step", fromlist=["step"]), context=_ctx())
+
+    assert "endpoint model observation:" in out[0]["content"]
+    assert "requested model: requested" in out[0]["content"]
+    assert "reported models: served" in out[0]["content"]
+
+
+def test_prompt_workspace_models_reports_bounded_failure(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://endpoint/v1", llm_model="requested"), {}),
+    )
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"error": "connection refused"})
+
+    out = handle_prompt_workspace_commands("models", [], step_mod=__import__("toas.step", fromlist=["step"]), context=_ctx())
+
+    assert "status: unavailable" in out[0]["content"]
+    assert "error: connection refused" in out[0]["content"]
+
+
+def test_prompt_workspace_models_rejects_arguments():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /models"):
+        handle_prompt_workspace_commands("models", ["live"], step_mod=step_mod, context=_ctx())
+
+
 def test_extract_replay_handler_replay_dry_run(monkeypatch):
     import toas.step as step_mod
 

@@ -86,3 +86,13 @@ local deterministic projection and must not perform network I/O implicitly.
 - proof that `/config show` performs no probe;
 - focused and full required test results;
 - compatibility notes for providers without `/models`.
+
+## Progress Evidence
+
+The first implementation slice adds an explicit `/models` observation action.
+It reuses `fetch_models`, reports provider/endpoint/requested-model context
+alongside endpoint-reported model IDs, and bounds unavailable or malformed
+responses without mutating config or history. The command is registered in
+full help, while `/config show` remains unchanged and network-free.
+
+Selection, catalog refresh, and provider-specific fallback policy remain open.
