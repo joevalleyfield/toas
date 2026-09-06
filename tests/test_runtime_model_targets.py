@@ -1,11 +1,17 @@
 from toas.config import (
+    EndpointCatalogEntry,
     GenerationPolicy,
     LLMPolicy,
     OperatorConfig,
     TargetCatalogEntry,
     TargetGenerationOverrides,
 )
-from toas.runtime.model_targets import resolve_model_target, resolve_target_generation
+from toas.llm import Settings
+from toas.runtime.model_targets import (
+    resolve_model_target,
+    resolve_target_generation,
+    resolve_target_invocation,
+)
 
 
 def test_resolve_model_target_is_read_only_and_exact():
@@ -32,3 +38,63 @@ def test_resolve_target_generation_overlays_only_explicit_fields():
     assert resolved.max_tokens == 4096
     assert resolved.retry_delay_s == 0.5
     assert resolved.transport_mode == "chat_messages"
+
+
+def test_resolve_target_invocation_overlays_endpoint_model_and_generation():
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(
+                EndpointCatalogEntry(
+                    id="local",
+                    base_url="http://local/v1",
+                    model="endpoint-model",
+                    provider="openai",
+                    api_key_source="env",
+                    api_key_ref="LOCAL_KEY",
+                ),
+            )
+        ),
+        generation=GenerationPolicy(max_tokens=1024),
+    )
+    target = TargetCatalogEntry(
+        id="local-high",
+        endpoint="local",
+        model="target-model",
+        generation=TargetGenerationOverrides(thinking_mode="enabled", max_tokens=4096),
+    )
+
+    resolved = resolve_target_invocation(
+        config,
+        target,
+        Settings(llm_base_url="http://default/v1", llm_api_key="default", llm_model="default-model"),
+        secret_resolver=lambda **kwargs: f"secret:{kwargs['ref']}",
+    )
+
+    assert resolved is not None
+    assert resolved.settings.llm_base_url == "http://local/v1"
+    assert resolved.settings.llm_api_key == "secret:LOCAL_KEY"
+    assert resolved.settings.llm_model == "target-model"
+    assert resolved.generation.max_tokens == 4096
+    assert resolved.generation.extra_body is None
+    assert resolved.model_source == "target:local-high"
+
+
+def test_resolve_target_invocation_rejects_unknown_endpoint_without_probe():
+    result = resolve_target_invocation(
+        OperatorConfig(),
+        TargetCatalogEntry(id="broken", endpoint="missing", model="model"),
+        Settings(),
+    )
+    assert result is None
+
+
+def test_resolve_target_invocation_uses_base_settings_without_endpoint():
+    base = Settings(llm_base_url="http://default/v1", llm_model="default-model")
+
+    resolved = resolve_target_invocation(OperatorConfig(), TargetCatalogEntry(id="default"), base)
+
+    assert resolved is not None
+    assert resolved.settings is base
+    assert resolved.endpoint_source == "target:default"
+    assert resolved.model_source == "target:default"
+    assert resolved.api_key_source == "target:default"

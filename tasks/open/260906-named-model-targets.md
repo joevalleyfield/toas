@@ -85,6 +85,10 @@ are unrelated Vim plugin timeouts after writing `session.md`.
 
 Selection commands, target inspection, and shorthand declaration remain open.
 
+The invocation seam now resolves a selected target into endpoint, requested
+model, API-key, and sparse generation settings without probing. Unknown
+endpoint references fail closed at this seam; public selection remains open.
+
 ## Next Actions
 
 1. Define the smallest target schema against the endpoint seam.
