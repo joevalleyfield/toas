@@ -17,7 +17,7 @@ class ProcedureAsset:
     plan: list[dict]
 
 
-_MIGRATED_PROCEDURES = {"search_scope_v1"}
+_MIGRATED_PROCEDURES = {"repo_discovery_triage_v1", "search_scope_v1"}
 
 
 def list_procedures() -> list[str]:

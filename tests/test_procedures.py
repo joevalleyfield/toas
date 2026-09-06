@@ -26,6 +26,21 @@ def test_migrated_procedure_uses_common_asset_path_and_preserves_interpolation()
     assert list_procedures().count("search_scope_v1") == 1
 
 
+def test_migrated_repo_discovery_procedure_preserves_plan_and_listing():
+    asset = load_procedure("repo_discovery_triage_v1")
+    assert asset.description == "Repo-local discovery and quick triage for a new working session."
+    assert asset.plan == [
+        {"tool_name": "shell", "args": {"argv": ["pwd"]}},
+        {"tool_name": "shell", "args": {"argv": ["ls", "-la"]}},
+        {"tool_name": "shell", "args": {"argv": ["ls", "-1", "tasks/open"]}},
+        {
+            "tool_name": "search",
+            "args": {"query": "TODO|FIXME", "path": "src", "regex": True, "limit": 30},
+        },
+    ]
+    assert list_procedures().count("repo_discovery_triage_v1") == 1
+
+
 def test_list_procedures_filters_non_yaml_and_sorts(monkeypatch, tmp_path):
     procedures_dir = tmp_path / "procedures"
     procedures_dir.mkdir()

@@ -119,6 +119,18 @@ def test_migrated_prompt_uses_common_asset_path_and_lists_once():
     assert listed.count("shared/schemas/action-lane_v1") == 1
 
 
+def test_migrated_procedure_bootstrap_prompt_preserves_metadata_and_listing():
+    asset = load_prompt_asset("direct/protocol/procedure-bootstrap_v1")
+    assert asset.metadata == {
+        "name": "Procedure Bootstrap",
+        "description": "Bootstrap a session with a reusable procedure call before manual edits.",
+        "category": "protocol",
+    }
+    assert "repo_discovery_triage_v1" in asset.content
+    listed = [item.ref for item in list_prompt_assets("direct/protocol")]
+    assert listed.count("direct/protocol/procedure-bootstrap_v1") == 1
+
+
 def test_list_prompt_assets_can_filter_session_start_templates():
     assets = list_prompt_assets("session-start/templates")
 

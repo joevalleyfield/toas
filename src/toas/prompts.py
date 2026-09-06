@@ -91,7 +91,10 @@ _CONSTRAINT_ALIASES = {
     "tools-guidance-full": "shared/constraints/tools-guidance-full",
 }
 
-_MIGRATED_PROMPT_REFS = {"shared/schemas/action-lane_v1"}
+_MIGRATED_PROMPT_REFS = {
+    "direct/protocol/procedure-bootstrap_v1",
+    "shared/schemas/action-lane_v1",
+}
 
 
 def parse_prompt_ref(ref: str) -> str:
