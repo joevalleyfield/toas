@@ -6,7 +6,7 @@ from pathlib import Path
 from ..assets.help_catalog import resolve_config_help_keys
 from ..config import OperatorConfig
 from .operator_command_context import OperatorCommandContext
-from .operator_config_backend_ops import config_backend_result
+from .operator_config_backend_ops import config_backend_result, config_endpoint_result
 from .result_nodes import make_result_node
 
 _PROJECT_CONFIG_DEFAULT_PATH = ".toas/config.toml"
@@ -511,6 +511,8 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
         return _config_paths_result(step_mod=step_mod, context=context)
     if args[0] == "backend":
         return _config_backend_result(args, step_mod=step_mod, context=context)
+    if args[0] == "endpoint":
+        return config_endpoint_result(args, step_mod=step_mod, context=context)
     if args[0] == "target":
         return _config_target_result(args, step_mod=step_mod, context=context)
     if args[0] == "unset":

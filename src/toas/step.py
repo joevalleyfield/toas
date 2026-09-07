@@ -114,7 +114,7 @@ SLASH_COMMANDS = [
         "re-execute callable intent from historical messages (with queued mixed-authorization controls)",
     ),
     ("queue",     "/queue [<queue_id>] [resume|approve|skip|cancel]", "continue the active replay queue (default action: approve)"),
-    ("config",    "/config [show] [--sources] | values|set|unset|restore|load|save | /config target ... | /config secret ...", "inspect or manage config lanes"),
+    ("config",    "/config [show] [--sources] | values|set|unset|restore|load|save | /config endpoint ... | /config target ... | /config secret ...", "inspect or manage config lanes"),
     ("help",      "/help",                                      "show available CLI commands, slash commands, tools, and config keys"),
 ]
 INERT_REGION_START = "[[inert]]"

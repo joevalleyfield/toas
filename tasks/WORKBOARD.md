@@ -361,8 +361,8 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260907-target-authoring-surface]** Provide a durable configuration surface for named endpoint/model/generation targets without making `/model select` mutate configuration.
 - **[T260907-model-observation-provenance]** Add minimal durable provenance for successful endpoint catalog refreshes without changing target selection or treating observations as availability tr...
 - **[T260907-endpoint-inspection-surface]** Expose configured endpoint identities and catalog metadata without conflating them with backend lifecycle policy or live model observations.
+- **[T260907-endpoint-authoring-surface]** Expose endpoint configuration through endpoint vocabulary while retaining the legacy backend command only as a compatibility path.
 - **[T260906-shared-constraint-prompt-migration]** Migrate the seven shared constraint and tool-guidance prompts into the common prompt asset layout without changing constraint aliases, guidance compos...
-- **[T260906-session-start-prompt-migration]** Migrate the six frontmatter-backed session-start role and start-here prompts into the common prompt asset layout without changing composition, metadat...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

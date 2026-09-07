@@ -158,3 +158,22 @@ def config_backend_result(args: list[str], *, step_mod, context: OperatorCommand
         return _backend_capture_result(args, step_mod=step_mod, context=context)
 
     raise ValueError(_BACKEND_USAGE)
+
+
+def config_endpoint_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    """Expose endpoint vocabulary while storage remains backend-compatible."""
+    translated = ["backend", *args[1:]]
+    try:
+        result = config_backend_result(translated, step_mod=step_mod, context=context)
+    except ValueError as exc:
+        message = (
+            str(exc)
+            .replace("/config backend", "/config endpoint")
+            .replace("<id> <base_url>", "NAME BASE_URL")
+            .replace("backend", "endpoint")
+        )
+        raise ValueError(message) from exc
+    for node in result:
+        if isinstance(node.get("content"), str):
+            node["content"] = node["content"].replace("backends", "endpoints").replace("backend", "endpoint")
+    return result

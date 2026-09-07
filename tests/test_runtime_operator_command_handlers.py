@@ -1932,6 +1932,41 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
     assert removed["config_update"] == {"llm": {"targets": {"local": {"__op__": "unset"}}}}
 
 
+def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage():
+    import toas.step as step_mod
+
+    added = handle_config_help_commands(
+        "config", ["endpoint", "add", "local", "http://localhost:8080/v1"], step_mod=step_mod, context=_ctx()
+    )[0]
+    assert added["content"] == "added endpoint local"
+    assert added["config_update"]["llm"]["backends"][0]["id"] == "local"
+
+    cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://localhost:8080/v1"),)))
+    listed = handle_config_help_commands("config", ["endpoint", "list"], step_mod=step_mod, context=_ctx(config=cfg))[0]
+    assert "configured endpoints:" in listed["content"]
+    assert "local: http://localhost:8080/v1" in listed["content"]
+
+    updated = handle_config_help_commands(
+        "config", ["endpoint", "set", "local.model", "qwen3.6"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert updated["content"] == "updated endpoint local.model"
+    assert updated["config_update"]["llm"]["backends"][0]["model"] == "qwen3.6"
+
+    captured = handle_config_help_commands(
+        "config", ["endpoint", "capture", "local"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert captured["content"] == "captured endpoint local from current runtime"
+    removed = handle_config_help_commands(
+        "config", ["endpoint", "remove", "local"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert removed["content"] == "removed endpoint local"
+
+    with pytest.raises(ValueError, match="usage: /config endpoint add NAME BASE_URL"):
+        handle_config_help_commands("config", ["endpoint", "add"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /config endpoint"):
+        handle_config_help_commands("config", ["endpoint", "bogus"], step_mod=step_mod, context=_ctx())
+
+
 @pytest.mark.parametrize(
     ("args", "message"),
     [
