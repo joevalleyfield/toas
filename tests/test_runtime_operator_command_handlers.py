@@ -452,6 +452,45 @@ def test_prompt_workspace_model_targets_lists_resolution_and_active_selection():
     assert empty[0]["content"] == "no configured model targets"
 
 
+def test_prompt_workspace_endpoints_lists_non_secret_configuration():
+    import toas.step as step_mod
+    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(
+                BackendCatalogEntry(
+                    id="local",
+                    base_url="http://localhost:8080/v1",
+                    provider="openai-compatible",
+                    default_model="qwen",
+                    models=("qwen", "llama"),
+                    api_key_source="env",
+                    api_key_ref="TOAS_LLM_API_KEY",
+                ),
+            )
+        )
+    )
+    out = handle_prompt_workspace_commands("endpoints", [], step_mod=step_mod, context=_ctx(config=config))
+
+    assert out[0]["content"] == (
+        "configured endpoints:\n"
+        "- local: provider=openai-compatible, base_url=http://localhost:8080/v1, "
+        "default_model=qwen, known_models=qwen, llama"
+    )
+    assert "TOAS_LLM_API_KEY" not in out[0]["content"]
+
+    with pytest.raises(ValueError, match="usage: /endpoints"):
+        handle_prompt_workspace_commands("endpoints", ["models"], step_mod=step_mod, context=_ctx(config=config))
+
+
+def test_prompt_workspace_endpoints_reports_empty_configuration():
+    import toas.step as step_mod
+
+    out = handle_prompt_workspace_commands("endpoints", [], step_mod=step_mod, context=_ctx())
+    assert out[0]["content"] == "no configured endpoints"
+
+
 def test_prompt_workspace_model_overview_is_compact_and_navigable():
     import toas.step as step_mod
     from toas.config import LLMPolicy, OperatorConfig, TargetCatalogEntry

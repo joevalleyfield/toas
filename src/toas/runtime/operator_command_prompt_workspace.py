@@ -122,6 +122,25 @@ def _handle_backend(args: list[str], *, step_mod, context: OperatorCommandContex
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
+def _handle_endpoints(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args:
+        raise ValueError("usage: /endpoints")
+    endpoints = context.config.llm.endpoints
+    if not endpoints:
+        return [_result_node("no configured endpoints", step_mod=step_mod, context=context)]
+
+    lines = ["configured endpoints:"]
+    for endpoint in endpoints:
+        provider = endpoint.provider or "(default)"
+        default_model = endpoint.default_model or "(none)"
+        models = ", ".join(endpoint.models) if endpoint.models else "(none)"
+        lines.append(
+            f"- {endpoint.id}: provider={provider}, base_url={endpoint.base_url}, "
+            f"default_model={default_model}, known_models={models}"
+        )
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+
+
 def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if args and args[0] == "targets":
         return _handle_model_targets(args[1:], step_mod=step_mod, context=context)
@@ -1356,6 +1375,8 @@ def handle_prompt_workspace_commands(
         return _handle_prompt(args, step_mod=step_mod, context=context)
     if command == "backend":
         return _handle_backend(args, step_mod=step_mod, context=context)
+    if command == "endpoints":
+        return _handle_endpoints(args, step_mod=step_mod, context=context)
     if command == "model":
         return _handle_model(args, step_mod=step_mod, context=context)
     if command == "models":
