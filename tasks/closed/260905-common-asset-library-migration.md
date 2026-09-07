@@ -119,3 +119,23 @@ slice; it deliberately does not move prompt or procedure assets yet.
 - tests demonstrating old-path retirement and final-path behavior;
 - explicit confirmation that no compatibility adapter remains;
 - recorded parity or intentional-difference notes for dynamic assets.
+
+## Completion Evidence
+
+Closed: the common asset boundary is established at `src/toas/assets/` with
+shared safe lookup/listing in `assets/loader.py` and family-owned loaders for
+prompts, procedures, and help. The runtime prompt corpus contains 48 asset
+files, the procedure family contains 3 assets, and the configuration-help
+catalog is packaged under `assets/help/config.yaml`.
+
+Prompt and procedure callers use the common packaged loader; dynamic prompt
+renderers remain code-registered while their static templates use the asset
+identity/provenance boundary. Help topics, facets, aliases, related keys, and
+search metadata load at runtime. The old prompt and procedure trees contain no
+runtime assets or compatibility loader; the sole remaining old-path file is a
+golden comparison fixture for an existing prompt test.
+
+Verification: prompt, procedure, and help parity tests are covered by the full
+strict suite, most recently 3,208 passed, 14 deselected, and 100% coverage;
+Ruff passed. Dynamic/static differences are intentional and recorded in the
+family-specific migration tasks.
