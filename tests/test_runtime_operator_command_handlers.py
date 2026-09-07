@@ -388,9 +388,14 @@ def test_prompt_workspace_models_rejects_arguments():
     import toas.step as step_mod
 
     out = handle_prompt_workspace_commands("models", [], step_mod=step_mod, context=_ctx())
-    assert out[0]["content"] == "/models live <endpoint>\n/models known <endpoint>\n/models refresh <endpoint>"
+    assert out[0]["content"] == (
+        "/models live ENDPOINT    query a configured endpoint (network, no write)\n"
+        "/models known ENDPOINT   read its durable model catalog (no network)\n"
+        "/models refresh ENDPOINT query and merge its catalog (network + config write)\n"
+        "\nENDPOINT is a configured endpoint name, not a URL."
+    )
 
-    with pytest.raises(ValueError, match=r"usage: /models live\|known\|refresh"):
+    with pytest.raises(ValueError, match=r"usage: /models live\|known\|refresh ENDPOINT"):
         handle_prompt_workspace_commands("models", ["live"], step_mod=step_mod, context=_ctx())
 
 
@@ -458,7 +463,7 @@ def test_prompt_workspace_models_refresh_failure_does_not_write(monkeypatch):
 def test_prompt_workspace_models_refresh_validates_endpoint_argument():
     import toas.step as step_mod
 
-    with pytest.raises(ValueError, match="usage: /models refresh"):
+    with pytest.raises(ValueError, match="usage: /models refresh ENDPOINT"):
         handle_prompt_workspace_commands("models", ["refresh"], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="unknown endpoint"):
         handle_prompt_workspace_commands("models", ["refresh", "missing"], step_mod=step_mod, context=_ctx())

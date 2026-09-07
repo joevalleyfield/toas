@@ -275,7 +275,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260903-user-lane-timeout-recovery]** Make direct user execution unbounded by default and distinguish its terminal-on-failure behavior from recovery of assistant source reached through `/r...
 - **[T260905-common-asset-library-migration]** Establish a common packaged asset layer for prompts, procedures, and runtime help, with family-specific loaders and a final layout under `assets/`.  T...
 - **[T260906-named-model-targets]** Represent endpoint/model/generation combinations as durable named targets so operator selection no longer requires independently juggling `/backend`, ...
-- **[T260907-model-observation-grammar]** Separate live endpoint observation, durable catalog inspection, and catalog refresh in the operator grammar.
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -360,9 +359,9 @@ continuation, and authority concerns without reopening completed slices.
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260907-target-authoring-surface]** Provide a durable configuration surface for named endpoint/model/generation targets without making `/model select` mutate configuration.
 - **[T260907-model-observation-provenance]** Add minimal durable provenance for successful endpoint catalog refreshes without changing target selection or treating observations as availability tr...
+- **[T260907-model-observation-grammar]** Separate live endpoint observation, durable catalog inspection, and catalog refresh in the operator grammar.
 - **[T260907-known-to-target-promotion]** Make the transition from endpoint-associated known model IDs to durable named targets convenient without implying live availability or changing select...
 - **[T260907-endpoint-target-acceptance]** Exercise the operator path from endpoint authoring through named target selection, including compact inspection aliases and the no-probe boundary.
-- **[T260907-endpoint-inspection-surface]** Expose configured endpoint identities and catalog metadata without conflating them with backend lifecycle policy or live model observations.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

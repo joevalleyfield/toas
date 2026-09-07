@@ -25,7 +25,12 @@ refresh in the operator grammar.
 
 ## Progress Evidence
 
-Implemented the explicit `live`, `known`, and `refresh` modes. Bare `/models`
-now returns usage guidance; `known` is network-free and `live` is endpoint
-scoped. Focused verification passed with 419 tests; the full suite passed with
-3,184 tests, 12 deselected, and strict 100% coverage.
+Closed: implemented and clarified the explicit `live`, `known`, and `refresh`
+modes. Bare `/models` now reports each mode's network/write semantics and
+states that `ENDPOINT` is a configured endpoint name, not a URL. `known` is
+network-free, `live` is endpoint-scoped and read-only, and `refresh` merges a
+successful observation into the durable catalog.
+
+Verification: focused operator and acceptance coverage passed; full suite
+passed (3,208 passed, 14 deselected, 100% coverage); Ruff reported no
+findings.

@@ -248,14 +248,17 @@ def _handle_model_select(args: list[str], *, step_mod, context: OperatorCommandC
 def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args:
         return [_result_node(
-            "/models live <endpoint>\n/models known <endpoint>\n/models refresh <endpoint>",
+            "/models live ENDPOINT    query a configured endpoint (network, no write)\n"
+            "/models known ENDPOINT   read its durable model catalog (no network)\n"
+            "/models refresh ENDPOINT query and merge its catalog (network + config write)\n"
+            "\nENDPOINT is a configured endpoint name, not a URL.",
             step_mod=step_mod,
             context=context,
         )]
     if args[0] == "refresh":
         return _handle_models_refresh(args[1:], step_mod=step_mod, context=context)
     if len(args) != 2 or args[0] not in {"live", "known"} or not args[1].strip():
-        raise ValueError("usage: /models live|known|refresh <endpoint>")
+        raise ValueError("usage: /models live|known|refresh ENDPOINT (configured endpoint name)")
     mode = args[0]
     endpoint_id = args[1].strip()
     endpoint = next((entry for entry in context.config.llm.endpoints if entry.id == endpoint_id), None)
@@ -315,7 +318,7 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
 
 def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) != 1 or not args[0].strip():
-        raise ValueError("usage: /models refresh <endpoint>")
+        raise ValueError("usage: /models refresh ENDPOINT (configured endpoint name)")
     endpoint_id = args[0].strip()
     endpoint = next((entry for entry in context.config.llm.endpoints if entry.id == endpoint_id), None)
     if endpoint is None:
