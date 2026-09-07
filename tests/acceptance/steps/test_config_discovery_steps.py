@@ -145,6 +145,10 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
     assert "refresh" in help_models
     assert "/config target add --all-known ENDPOINT" in help_models
     assert "/model select TARGET" in help_models
+    plain_models = _output(outputs, "/help models")
+    assert "/endpoints" in plain_models
+    assert "/models refresh local" in plain_models
+    assert "/config target add --all-known local" in plain_models
 
     show_models = _output(outputs, "/config show models")
     for key in ("llm.model =", "llm.models =", "llm.endpoints =", "llm.base_url =", "backend.mode ="):

@@ -358,8 +358,8 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260907-target-authoring-surface]** Provide a durable configuration surface for named endpoint/model/generation targets without making `/model select` mutate configuration.
 - **[T260907-model-observation-provenance]** Add minimal durable provenance for successful endpoint catalog refreshes without changing target selection or treating observations as availability tr...
 - **[T260907-model-observation-grammar]** Separate live endpoint observation, durable catalog inspection, and catalog refresh in the operator grammar.
+- **[T260907-model-help-finishing-pass]** Complete the small follow-up to the model configuration help topic before zooming out to global help organization.
 - **[T260907-model-config-help-discoverability]** Make the completed endpoint/model/target configuration workflow discoverable through the help system. The topic should teach the semantic distinctions...
-- **[T260907-known-to-target-promotion]** Make the transition from endpoint-associated known model IDs to durable named targets convenient without implying live availability or changing select...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

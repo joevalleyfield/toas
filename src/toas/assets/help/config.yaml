@@ -40,6 +40,7 @@ topics:
     facets:
       plain:
         summary: "An endpoint provides access; a catalog records known or observed model IDs; a target combines an endpoint, requested model, and generation choices; selection is a separate session decision. Catalog presence is not proof of live availability."
+        next_actions: ["/endpoints", "/models", "/model targets", "/config endpoint add local BASE_URL", "/models refresh local", "/config target add --all-known local", "/model select local-MODEL"]
       config:
         summary: "Follow the explicit path: define an endpoint, observe or refresh its catalog, promote known models into durable targets, then select a target for this session. `live` reads the endpoint without writing; `known` reads local catalog state; `refresh` probes and writes the catalog; target creation is local and non-probing."
         related_keys: [llm.model, llm.models, llm.endpoints, llm.targets, llm.base_url, backend.mode]
@@ -75,6 +76,7 @@ key_descriptions:
   llm.model: "Selects the active model for generation."
   llm.models: "Defines available model catalog entries."
   llm.endpoints: "Defines configured endpoint entries and their known models."
+  llm.targets: "Defines durable named endpoint/model/generation selections."
   llm.base_url: "Sets the provider-compatible base URL."
   generation.thinking_mode: "Enables or disables backend thinking behavior."
   generation.thinking_budget_tokens: "Limits the token budget available for thinking."

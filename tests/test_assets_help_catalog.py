@@ -63,6 +63,8 @@ def test_config_help_renders_overview_curated_and_search_results():
     assert "live" in curated
     assert "refresh" in curated
     assert "/model select TARGET" in curated
+    target_search = render_config_help("llm.targets", valid_keys=["llm.targets"])
+    assert "durable named endpoint/model/generation selections" in target_search
 
     exact = render_config_help("llm.model", valid_keys=["llm.model", "llm.models"])
     assert "matched by exact key" in exact
@@ -105,6 +107,13 @@ def test_plain_help_renders_behavioral_facet_and_config_cross_link():
     assert rendered.startswith("help: models")
     assert "endpoint provides access" in rendered
     assert "configuration: /help config models" in rendered
+    assert "/models refresh local" in rendered
+    assert "/model select local-MODEL" in rendered
+
+    for alias in ("model", "endpoint", "models"):
+        aliased = render_plain_help(alias)
+        assert aliased is not None
+        assert aliased.splitlines()[0] == "help: models"
 
     generation = render_plain_help("generation")
     assert generation is not None
