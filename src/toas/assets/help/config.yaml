@@ -33,14 +33,14 @@ overview:
 topics:
   - id: models
     aliases: [model, backend, backends]
-    summary: "Models and backends determine which provider and model handle generation."
+    summary: "Endpoints provide access, catalogs record model observations, and targets describe what to run."
     facets:
       plain:
-        summary: "A backend supplies a provider endpoint; a model identifies the generation model used there."
+        summary: "A provider endpoint provides access, a catalog records known or observed models, and a target combines endpoint, model, and generation choices."
       config:
-        summary: "Choose a direct model or configure backend/model catalogs."
+        summary: "Inspect endpoint access, model catalogs, and durable target definitions without conflating configuration with live observations."
         related_keys: [llm.model, llm.models, llm.backends, llm.base_url, backend.mode]
-        next_actions: [/config show models, /config values llm.model, /config set llm.model <value>]
+        next_actions: [/config show models, /endpoints, /models live <endpoint>, /models known <endpoint>, /models refresh <endpoint>, /model targets, /model select <target>]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
     summary: "Generation settings control thinking, output budgets, retries, and request transport."

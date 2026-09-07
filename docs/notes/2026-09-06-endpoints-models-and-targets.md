@@ -119,24 +119,26 @@ metadata such as labels, tags, and notes. Absence from one response should not
 implicitly delete a catalog entry. Probe failure should produce no catalog
 write, and refreshing a catalog should never change the active target.
 
-## Emerging operator model
+## Operator model
 
-Names remain subject to design, but the semantic roles are expected to be
-roughly:
+The semantic roles are now exposed through this provisional but explicit
+operator grammar:
 
 ```text
-/models              inspect live models from an endpoint
-/models known        inspect the durable model catalog
-/models refresh      explicitly merge live observations into the catalog
-/model targets       inspect durable named targets
-/model               show the active target and navigation hints
-/model select NAME   select a named target for the session
-/endpoints           inspect configured endpoint definitions
+/endpoints                         inspect configured endpoint definitions
+/models live ENDPOINT              query one endpoint without writing
+/models known ENDPOINT             inspect one durable catalog without probing
+/models refresh ENDPOINT           query and merge one endpoint catalog
+/model targets                     inspect durable named targets
+/model                             show the active target and navigation hints
+/model select TARGET               select a named target for the session
 ```
 
-These are semantic placeholders, not an implementation commitment. In
-particular, `/model` and `/models` are high-profile names and should not be
-locked to behavior until the target and endpoint vocabulary is stable.
+Bare `/models` prints this usage rather than choosing live or known behavior.
+The surfaces are network-free except for explicit `live` and `refresh` actions.
+Refresh records endpoint and per-model freshness, while retained models absent
+from the latest successful response remain in the catalog and are marked as
+not seen in the latest refresh.
 
 ## Target shape
 
@@ -205,8 +207,8 @@ The likely sequence is:
 - What exact shorthand grammar is worth supporting for alias declaration?
 - What is the default write scope for creating a target or endpoint: project,
   global, or an explicit scope argument?
-- How should a refresh record last-seen metadata without making observations
-  look like configuration truth?
+- Whether stale catalog entries should ever be pruned or treated as unavailable
+  remains open; freshness is observation provenance, not availability truth.
 
 ## Deliberate deferrals
 

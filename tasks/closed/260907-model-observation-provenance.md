@@ -35,3 +35,5 @@ refresh updates observed IDs, preserves retained IDs that were absent from the
 response, and marks those retained IDs as not seen in the latest refresh. Full
 verification now passes with 3,185 tests, 12 deselected, and strict 100%
 coverage. Pruning and availability semantics remain deferred.
+
+The implementation slice is complete; this task is ready to close.
