@@ -36,14 +36,14 @@ overview:
 topics:
   - id: models
     aliases: [model, endpoint, endpoints]
-    summary: "Endpoints provide access, catalogs record model observations, and targets describe what to run."
+    summary: "Endpoints provide access, catalogs record model knowledge, targets describe what to run, and selection chooses one target for the session."
     facets:
       plain:
-        summary: "A provider endpoint provides access, a catalog records known or observed models, and a target combines endpoint, model, and generation choices."
+        summary: "An endpoint provides access; a catalog records known or observed model IDs; a target combines an endpoint, requested model, and generation choices; selection is a separate session decision. Catalog presence is not proof of live availability."
       config:
-        summary: "Inspect endpoint access, model catalogs, and durable target definitions without conflating configuration with live observations."
-        related_keys: [llm.model, llm.models, llm.endpoints, llm.base_url, backend.mode]
-        next_actions: ["/config show models", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint bootstrap NAME BASE_URL --refresh --targets", "/config target list", "/config target add ENDPOINT MODEL", "/config target add NAME ENDPOINT MODEL", "/config target add --all-known ENDPOINT", "/endpoints", "/models live ENDPOINT", "/models known ENDPOINT", "/models refresh ENDPOINT", "/model targets", "/model select <target>"]
+        summary: "Follow the explicit path: define an endpoint, observe or refresh its catalog, promote known models into durable targets, then select a target for this session. `live` reads the endpoint without writing; `known` reads local catalog state; `refresh` probes and writes the catalog; target creation is local and non-probing."
+        related_keys: [llm.model, llm.models, llm.endpoints, llm.targets, llm.base_url, backend.mode]
+        next_actions: ["/config show models", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint set NAME.default_model MODEL", "/models live ENDPOINT", "/models known ENDPOINT", "/models refresh ENDPOINT", "/config target add --all-known ENDPOINT", "/config target add ENDPOINT MODEL", "/config target list", "/model targets", "/model select TARGET"]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
     summary: "Generation settings control thinking, output budgets, retries, and request transport."

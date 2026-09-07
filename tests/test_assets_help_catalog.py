@@ -46,6 +46,8 @@ def test_config_help_catalog_parses_topics_facets_and_aliases():
     assert topic.topic_id == "models"
     assert topic.facets["plain"].summary
     assert "llm.model" in topic.facets["config"].related_keys
+    assert "llm.targets" in topic.facets["config"].related_keys
+    assert "not proof of live availability" in topic.facets["plain"].summary
     assert resolve_config_help_topic(catalog, "missing") is None
 
 
@@ -58,6 +60,9 @@ def test_config_help_renders_overview_curated_and_search_results():
     assert curated.startswith("config help: models")
     assert "related keys:" in curated
     assert "/config show models" in curated
+    assert "live" in curated
+    assert "refresh" in curated
+    assert "/model select TARGET" in curated
 
     exact = render_config_help("llm.model", valid_keys=["llm.model", "llm.models"])
     assert "matched by exact key" in exact
@@ -98,7 +103,7 @@ def test_plain_help_renders_behavioral_facet_and_config_cross_link():
     rendered = render_plain_help("endpoint")
     assert rendered is not None
     assert rendered.startswith("help: models")
-    assert "provider endpoint" in rendered
+    assert "endpoint provides access" in rendered
     assert "configuration: /help config models" in rendered
 
     generation = render_plain_help("generation")
