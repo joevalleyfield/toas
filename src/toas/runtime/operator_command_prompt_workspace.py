@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..graph import (
@@ -134,9 +136,10 @@ def _handle_endpoints(args: list[str], *, step_mod, context: OperatorCommandCont
         provider = endpoint.provider or "(default)"
         default_model = endpoint.default_model or "(none)"
         models = ", ".join(endpoint.models) if endpoint.models else "(none)"
+        refreshed = endpoint.models_last_refreshed_at or "(never)"
         lines.append(
             f"- {endpoint.id}: provider={provider}, base_url={endpoint.base_url}, "
-            f"default_model={default_model}, known_models={models}"
+            f"default_model={default_model}, known_models={models}, last_refresh={refreshed}"
         )
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
@@ -254,7 +257,9 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
     if mode == "known":
         models = ", ".join(endpoint.models) if endpoint.models else "(none)"
         return [_result_node(
-            f"known endpoint model catalog:\n  endpoint: {endpoint.id}\n  models: {models}",
+            f"known endpoint model catalog:\n  endpoint: {endpoint.id}\n"
+            f"  models: {models}\n"
+            f"  last refresh: {endpoint.models_last_refreshed_at or '(never)'}",
             step_mod=step_mod,
             context=context,
         )]
@@ -336,6 +341,8 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
         ]
 
     updated_endpoint = merge_endpoint_model_ids(endpoint, observation.get("models", ()))
+    refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    updated_endpoint = replace(updated_endpoint, models_last_refreshed_at=refreshed_at)
     backends = []
     for entry in context.config.llm.backends:
         if entry.id == endpoint_id:
@@ -351,6 +358,7 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
                 "provider": entry.provider,
                 "tags": list(entry.tags),
                 "notes": entry.notes,
+                "models_last_refreshed_at": entry.models_last_refreshed_at,
             }
         )
     observed = observation.get("models", ())

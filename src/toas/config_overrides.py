@@ -118,6 +118,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
             else:
                 tags = ()
             notes = str(item.get("notes", "")).strip()
+            models_last_refreshed_at = str(item.get("models_last_refreshed_at", "")).strip()
             backend_entries.append(
                 classes["EndpointCatalogEntry"](
                     id=backend_id,
@@ -129,6 +130,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                     provider=provider,
                     tags=tags,
                     notes=notes,
+                    models_last_refreshed_at=models_last_refreshed_at,
                 )
             )
     llm_values["backends"] = tuple(backend_entries)

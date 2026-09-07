@@ -29,6 +29,7 @@ def backend_list_dicts(*, context: OperatorCommandContext) -> list[dict]:
             "provider": b.provider,
             "tags": list(b.tags),
             "notes": b.notes,
+            "models_last_refreshed_at": b.models_last_refreshed_at,
         }
         for b in context.config.llm.backends
     ]
@@ -64,6 +65,7 @@ def _backend_add_result(args: list[str], *, step_mod=None, context: OperatorComm
             "provider": "",
             "tags": [],
             "notes": "",
+            "models_last_refreshed_at": "",
         }
     )
     return [_result_node(f"added backend {backend_id}", step_mod=step_mod, context=context, config_update={"llm": {"backends": backends_updated}})]
@@ -128,6 +130,7 @@ def _backend_capture_result(args: list[str], *, step_mod, context: OperatorComma
             "provider": getattr(settings, "llm_provider", ""),
             "tags": [],
             "notes": "captured from current TOAS_LLM_* runtime",
+            "models_last_refreshed_at": "",
         }
     )
     return [_result_node(f"captured backend {backend_id} from current runtime", step_mod=step_mod, context=context, config_update={"llm": {"backends": backends_updated}})]

@@ -79,6 +79,7 @@ class EndpointCatalogEntry:
     provider: str = ""
     tags: tuple[str, ...] = ()
     notes: str = ""
+    models_last_refreshed_at: str = ""
 
     @property
     def model(self) -> str:
