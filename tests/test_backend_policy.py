@@ -62,3 +62,21 @@ def test_generation_policy_from_config_ignores_thinking_budget_when_thinking_dis
     policy = generation_policy_from_config(config)
 
     assert policy.extra_body == NO_THINKING
+
+
+def test_generation_policy_from_config_recovers_null_numeric_overrides():
+    config = OperatorConfig(
+        generation=GenerationPolicy(
+            thinking_budget_tokens=None,  # type: ignore[arg-type]
+            max_tokens=None,  # type: ignore[arg-type]
+            max_retries=None,  # type: ignore[arg-type]
+            retry_delay_s=None,  # type: ignore[arg-type]
+        )
+    )
+
+    policy = generation_policy_from_config(config)
+
+    assert policy.max_tokens is None
+    assert policy.max_retries == 0
+    assert policy.retry_delay_s == 1.0
+    assert policy.extra_body == NO_THINKING
