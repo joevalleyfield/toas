@@ -17,8 +17,23 @@ _YAML_POSITION_COMPAT_NOTE = (
 
 _CONFIG_USAGE = (
     "usage: /config [show] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
-    "| /config restore | /config load [path] | /config save [path] | /config secret ..."
+    "| /config target [list|add|set|remove] ... | /config restore | /config load [path] | /config save [path] | /config secret ..."
 )
+
+_TARGET_USAGE = "usage: /config target [list|add|set|remove] ..."
+_TARGET_FIELDS = {
+    "endpoint",
+    "model",
+    "generation.thinking_mode",
+    "generation.thinking_budget_tokens",
+    "generation.max_tokens",
+    "generation.max_retries",
+    "generation.retry_delay_s",
+    "generation.transport_mode",
+    "generation.avoid_terms",
+    "tags",
+    "notes",
+}
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
@@ -407,6 +422,80 @@ def _config_save_result(args: list[str], *, step_mod, context: OperatorCommandCo
     ]
 
 
+def _target_config_update(target_id: str, values: dict) -> dict:
+    return {"llm": {"targets": {target_id: values}}}
+
+
+def _render_target_list(context: OperatorCommandContext, *, step_mod) -> list[dict]:
+    if not context.config.llm.targets:
+        return [_result_node("no configured model targets", step_mod=step_mod, context=context)]
+    lines = ["configured model targets:"]
+    for target in context.config.llm.targets:
+        endpoint = target.endpoint or "(default)"
+        model = target.model or "(inferred)"
+        lines.append(f"- {target.id}: endpoint={endpoint}, model={model}")
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+
+
+def _parse_target_field(field: str, raw_value: str) -> tuple[str, object]:
+    if field not in _TARGET_FIELDS:
+        raise ValueError(f"target field must be one of {', '.join(sorted(_TARGET_FIELDS))}")
+    if field in {"generation.thinking_budget_tokens", "generation.max_tokens", "generation.max_retries"}:
+        try:
+            value = int(raw_value)
+        except ValueError as exc:
+            raise ValueError(f"{field}: expected int") from exc
+        if value < 0:
+            raise ValueError(f"{field}: expected >= 0")
+        return field, value
+    if field == "generation.retry_delay_s":
+        try:
+            value = float(raw_value)
+        except ValueError as exc:
+            raise ValueError(f"{field}: expected float") from exc
+        if value < 0:
+            raise ValueError(f"{field}: expected >= 0")
+        return field, value
+    if field in {"tags", "generation.avoid_terms"}:
+        return field, [part.strip() for part in raw_value.split(",") if part.strip()]
+    return field, raw_value
+
+
+def _config_target_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) < 2:
+        raise ValueError(_TARGET_USAGE)
+    action = args[1]
+    if action == "list":
+        if len(args) != 2:
+            raise ValueError(_TARGET_USAGE)
+        return _render_target_list(context, step_mod=step_mod)
+    if action == "add":
+        if len(args) not in {3, 4, 5} or not args[2].strip():
+            raise ValueError("usage: /config target add NAME [ENDPOINT] [MODEL]")
+        target_id = args[2].strip()
+        if any(target.id == target_id for target in context.config.llm.targets):
+            raise ValueError(f"model target already exists: {target_id}")
+        values = {"endpoint": args[3].strip() if len(args) >= 4 else "", "model": args[4].strip() if len(args) == 5 else ""}
+        return [_result_node(f"added model target {target_id}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, values))]
+    if action == "set":
+        if len(args) != 5 or not args[2].strip():
+            raise ValueError("usage: /config target set NAME FIELD VALUE")
+        target_id = args[2].strip()
+        if not any(target.id == target_id for target in context.config.llm.targets):
+            raise ValueError(f"unknown model target: {target_id}")
+        field, value = _parse_target_field(args[3], args[4])
+        values = {field: value} if "." not in field else {field.split(".", 1)[0]: {field.split(".", 1)[1]: value}}
+        return [_result_node(f"updated model target {target_id}.{field}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, values))]
+    if action == "remove":
+        if len(args) != 3 or not args[2].strip():
+            raise ValueError("usage: /config target remove NAME")
+        target_id = args[2].strip()
+        if not any(target.id == target_id for target in context.config.llm.targets):
+            raise ValueError(f"unknown model target: {target_id}")
+        return [_result_node(f"removed model target {target_id}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, {"__op__": "unset"}))]
+    raise ValueError(_TARGET_USAGE)
+
+
 def _handle_config_command(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if args == ["--help"]:
         return [_result_node(step_mod.render_help_config(), step_mod=step_mod, context=context)]
@@ -422,6 +511,8 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
         return _config_paths_result(step_mod=step_mod, context=context)
     if args[0] == "backend":
         return _config_backend_result(args, step_mod=step_mod, context=context)
+    if args[0] == "target":
+        return _config_target_result(args, step_mod=step_mod, context=context)
     if args[0] == "unset":
         return _config_unset_result(args, step_mod=step_mod, context=context)
     if args[0] == "restore":

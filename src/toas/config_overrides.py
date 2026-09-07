@@ -37,6 +37,9 @@ def _merge_named_target_maps(base: object, override: object) -> object:
         normalized_id = str(target_id).strip()
         if not normalized_id or not isinstance(item, dict):
             continue
+        if item.get("__op__") == "unset":
+            merged.pop(normalized_id, None)
+            continue
         if normalized_id in merged:
             merged[normalized_id] = deep_merge(merged[normalized_id], item)
         else:

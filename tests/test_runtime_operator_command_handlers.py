@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig, PromptPolicy
+from toas.config import (
+    BackendCatalogEntry,
+    LLMPolicy,
+    OperatorConfig,
+    PromptPolicy,
+    TargetCatalogEntry,
+)
 from toas.runtime.operator_command_config_help import (
     _config_secret_result,
     _resolve_config_path,
@@ -1876,6 +1882,82 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
     assert "updated backend" in out[0]["content"]
     out = handle_config_help_commands("config", ["backend", "capture", "b2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
     assert "captured backend b2" in out[0]["content"]
+
+
+def test_config_target_authoring_lists_and_emits_structured_updates():
+    import toas.step as step_mod
+
+    empty = handle_config_help_commands("config", ["target", "list"], step_mod=step_mod, context=_ctx())
+    assert empty[0]["content"] == "no configured model targets"
+
+    cfg = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="local"),)))
+    listed = handle_config_help_commands("config", ["target", "list"], step_mod=step_mod, context=_ctx(config=cfg))
+    assert "local: endpoint=(default), model=(inferred)" in listed[0]["content"]
+
+    added = handle_config_help_commands(
+        "config", ["target", "add", "remote", "openai", "gpt-5.6-sol"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert added["config_update"] == {
+        "llm": {"targets": {"remote": {"endpoint": "openai", "model": "gpt-5.6-sol"}}}
+    }
+
+    updated = handle_config_help_commands(
+        "config", ["target", "set", "local", "generation.max_retries", "2"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert updated["config_update"] == {"llm": {"targets": {"local": {"generation": {"max_retries": 2}}}}}
+
+    tagged = handle_config_help_commands(
+        "config", ["target", "set", "local", "tags", "local, high"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert tagged["config_update"] == {"llm": {"targets": {"local": {"tags": ["local", "high"]}}}}
+
+    endpoint = handle_config_help_commands(
+        "config", ["target", "set", "local", "endpoint", "local"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert endpoint["config_update"] == {"llm": {"targets": {"local": {"endpoint": "local"}}}}
+    delay = handle_config_help_commands(
+        "config", ["target", "set", "local", "generation.retry_delay_s", "0.25"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert delay["config_update"] == {"llm": {"targets": {"local": {"generation": {"retry_delay_s": 0.25}}}}}
+    avoid = handle_config_help_commands(
+        "config", ["target", "set", "local", "generation.avoid_terms", "foo, bar"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert avoid["config_update"] == {
+        "llm": {"targets": {"local": {"generation": {"avoid_terms": ["foo", "bar"]}}}}
+    }
+
+    removed = handle_config_help_commands(
+        "config", ["target", "remove", "local"], step_mod=step_mod, context=_ctx(config=cfg)
+    )[0]
+    assert removed["config_update"] == {"llm": {"targets": {"local": {"__op__": "unset"}}}}
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (("target",), "usage: /config target"),
+        (("target", "list", "extra"), "usage: /config target"),
+        (("target", "add"), "usage: /config target add"),
+        (("target", "add", "local"), "already exists"),
+        (("target", "add", " "), "usage: /config target add"),
+        (("target", "set", "local", "model"), "usage: /config target set"),
+        (("target", "set", "missing", "model", "m"), "unknown model target"),
+        (("target", "set", "local", "unknown", "x"), "target field must be one of"),
+        (("target", "set", "local", "generation.max_retries", "many"), "expected int"),
+        (("target", "set", "local", "generation.max_retries", "-1"), "expected >= 0"),
+        (("target", "set", "local", "generation.retry_delay_s", "many"), "expected float"),
+        (("target", "set", "local", "generation.retry_delay_s", "-0.1"), "expected >= 0"),
+        (("target", "remove"), "usage: /config target remove"),
+        (("target", "remove", "missing"), "unknown model target"),
+        (("target", "bogus"), "usage: /config target"),
+    ],
+)
+def test_config_target_authoring_rejects_invalid_requests(args, message):
+    import toas.step as step_mod
+
+    cfg = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="local"),)))
+    with pytest.raises(ValueError, match=message):
+        handle_config_help_commands("config", list(args), step_mod=step_mod, context=_ctx(config=cfg))
 
 
 def test_config_help_alias_matches_help_topic_without_mutation():

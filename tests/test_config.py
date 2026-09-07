@@ -718,6 +718,21 @@ def test_target_maps_shadow_by_id_across_config_layers():
     )
 
 
+def test_target_map_unset_removes_named_target():
+    base = OperatorConfig(
+        llm=LLMPolicy(
+            targets=(
+                TargetCatalogEntry(id="keep", model="k"),
+                TargetCatalogEntry(id="remove", model="r"),
+            )
+        )
+    )
+
+    result = apply_overrides(base, {"llm": {"targets": {"remove": {"__op__": "unset"}}}})
+
+    assert result.llm.targets == (TargetCatalogEntry(id="keep", model="k"),)
+
+
 def test_target_normalization_handles_malformed_maps_and_internal_lists():
     assert _target_map("not-a-map") == {}
     assert _merge_named_target_maps(("not-a-list",), {"new": {}}) == {"new": {}}

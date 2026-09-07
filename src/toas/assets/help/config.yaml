@@ -7,6 +7,7 @@ overview:
   - "  /config show --sources   inspect values with their provenance"
   - "  /config values <key>     inspect allowed categorical values"
   - "  /config set <key> <value> set a durable session override"
+  - "  /config target list|add|set|remove ... manage named model targets"
   - ""
   - "discover configuration concepts with:"
   - "  /help config <topic-or-query>"
@@ -40,7 +41,7 @@ topics:
       config:
         summary: "Inspect endpoint access, model catalogs, and durable target definitions without conflating configuration with live observations."
         related_keys: [llm.model, llm.models, llm.backends, llm.base_url, backend.mode]
-        next_actions: [/config show models, /endpoints, /models live <endpoint>, /models known <endpoint>, /models refresh <endpoint>, /model targets, /model select <target>]
+        next_actions: ["/config show models", "/config target list", "/config target add NAME [ENDPOINT] [MODEL]", "/endpoints", "/models live <endpoint>", "/models known <endpoint>", "/models refresh <endpoint>", "/model targets", "/model select <target>"]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
     summary: "Generation settings control thinking, output budgets, retries, and request transport."
