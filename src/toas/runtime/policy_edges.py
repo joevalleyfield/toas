@@ -125,6 +125,7 @@ def build_config_sources(
     session_overrides: dict,
     operator_config: OperatorConfig,
     file_key_sources: dict[str, str] | None = None,
+    legacy_config_paths: tuple[str, ...] | None = None,
 ) -> dict[str, str]:
     sources: dict[str, str] = {}
     for key in valid_config_keys():
@@ -140,4 +141,6 @@ def build_config_sources(
             sources[key] = "env"
         else:
             sources[key] = "default"
+    if legacy_config_paths:
+        sources["__migration__"] = "legacy llm.backends: " + ", ".join(legacy_config_paths)
     return sources

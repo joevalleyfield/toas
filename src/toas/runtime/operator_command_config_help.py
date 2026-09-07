@@ -220,6 +220,17 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             _YAML_POSITION_COMPAT_NOTE,
         ]
     )
+    migration_notice = (context.config_sources or {}).get("__migration__")
+    if migration_notice:
+        lines.extend(
+            [
+                "",
+                "migration notice:",
+                f"  {migration_notice}",
+                "  loaded values were normalized into llm.endpoints.",
+                "  /config save writes canonical endpoint configuration.",
+            ]
+        )
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 

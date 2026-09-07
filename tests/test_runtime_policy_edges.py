@@ -103,6 +103,18 @@ def test_build_config_sources_config_file_for_key_in_file_nested():
     assert sources["llm.base_url"] == "config_file"
 
 
+def test_build_config_sources_reports_legacy_config_transition():
+    from toas.config import OperatorConfig
+
+    sources = build_config_sources(
+        file_nested={"llm": {"backends": []}},
+        session_overrides={},
+        operator_config=OperatorConfig(),
+        legacy_config_paths=("/tmp/toas.toml",),
+    )
+    assert sources["__migration__"] == "legacy llm.backends: /tmp/toas.toml"
+
+
 def test_settings_for_runtime_gemini_rest_base_url_default():
     from dataclasses import replace
 
@@ -116,4 +128,3 @@ def test_settings_for_runtime_gemini_rest_base_url_default():
     assert settings.llm_base_url == "https://generativelanguage.googleapis.com"
     assert settings.llm_provider == "gemini-rest"
     assert sources["endpoint"] == "env_or_default"
-

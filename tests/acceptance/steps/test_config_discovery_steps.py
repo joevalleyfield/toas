@@ -95,7 +95,7 @@ def when_follow_endpoint_target_authoring(acceptance_state: dict, capsys) -> Non
     outputs = []
     for command in (
         "/config endpoint add local http://localhost:8080/v1",
-        "/config endpoint set local.model qwen3.6",
+        "/config endpoint set local.default_model qwen3.6",
         "/config target add local-qwen local qwen3.6",
         "/config endpoint set local.models qwen3.6,llama/3",
         "/config target add --all-known local --preview",

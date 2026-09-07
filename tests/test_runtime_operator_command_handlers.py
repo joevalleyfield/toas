@@ -760,6 +760,14 @@ def test_config_help_handler_config_show_sources(monkeypatch):
     assert sources["llm.model"] == "file.toml"
     assert sources["generation.thinking_mode"] == "default"
 
+    legacy_sources = _build_config_sources(
+        file_nested={"llm": {"backends": [{"id": "local", "base_url": "http://localhost/v1"}]}},
+        session_overrides={},
+        operator_config=cfg,
+        legacy_config_paths=("legacy.toml",),
+    )
+    assert legacy_sources["__migration__"] == "legacy llm.backends: legacy.toml"
+
     # Now verify the command view includes sources and precedence legend
     context = _ctx(config=cfg, config_sources=sources)
     out = handle_config_help_commands("config", ["show", "--sources"], step_mod=step_mod, context=context)
@@ -770,6 +778,11 @@ def test_config_help_handler_config_show_sources(monkeypatch):
     assert "precedence stack (highest to lowest):" in content
     assert "1. ephemeral_secrets" in content
     assert "timing semantics:" in content
+
+    migration_context = _ctx(config=cfg, config_sources=legacy_sources)
+    migration = handle_config_help_commands("config", ["show"], step_mod=step_mod, context=migration_context)[0]["content"]
+    assert "migration notice:" in migration
+    assert "normalized into llm.endpoints" in migration
 
 
 def test_config_show_supports_exact_prefix_and_token_filters():
@@ -2011,7 +2024,11 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
     added = handle_config_help_commands(
         "config", ["endpoint", "add", "local", "http://localhost:8080/v1"], step_mod=step_mod, context=_ctx()
     )[0]
-    assert added["content"] == "added endpoint local"
+    assert added["content"] == (
+        "added endpoint local\n"
+        "next: /config endpoint set local.default_model MODEL\n"
+        "then: /models refresh local"
+    )
     assert added["config_update"]["llm"]["endpoints"][0]["id"] == "local"
 
     cfg = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://localhost:8080/v1"),)))

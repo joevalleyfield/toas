@@ -2529,6 +2529,7 @@ def test_run_step_config_save_writes_toml(monkeypatch, tmp_path):
     rendered = Path("out.toml").read_text(encoding="utf-8")
     assert "[generation]" in rendered
     assert "[llm]" in rendered
+    assert "backends" not in rendered
 
 
 def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkeypatch, tmp_path, capsys):

@@ -173,6 +173,15 @@ def resolve_runtime_generation_context(*, deps: StepCliDeps, events_path: Path, 
         session_overrides=session_overrides,
         operator_config=operator_config,
         file_key_sources=file_key_sources,
+        legacy_config_paths=tuple(
+            sorted(
+                {
+                    source
+                    for dotted, source in file_key_sources.items()
+                    if dotted == "llm.backends" or dotted.startswith("llm.backends.")
+                }
+            )
+        ),
     )
     settings, settings_sources = deps.settings_for_runtime(operator_config, session_overrides=session_overrides)
     policy = deps.generation_policy_from_config(operator_config)

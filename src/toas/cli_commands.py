@@ -97,12 +97,14 @@ def _build_config_sources(
     session_overrides: dict,
     operator_config: OperatorConfig,
     file_key_sources: dict[str, str] | None = None,
+    legacy_config_paths: tuple[str, ...] | None = None,
 ) -> dict[str, str]:
     return _policy_build_config_sources(
         file_nested=file_nested,
         session_overrides=session_overrides,
         operator_config=operator_config,
         file_key_sources=file_key_sources,
+        legacy_config_paths=legacy_config_paths,
     )
 
 

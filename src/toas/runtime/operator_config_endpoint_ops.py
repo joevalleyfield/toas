@@ -3,7 +3,15 @@ from __future__ import annotations
 from .operator_command_context import OperatorCommandContext
 from .result_nodes import make_result_node
 
-_ENDPOINT_USAGE = "usage: /config endpoint [list|add|set|remove|capture] ..."
+_ENDPOINT_USAGE = (
+    "usage: /config endpoint [list|add|set|remove|capture] ...\n"
+    "  add NAME BASE_URL\n"
+    "  set NAME.FIELD VALUE\n"
+    "  remove NAME\n"
+    "  capture NAME\n"
+    "fields: base_url, default_model, models, provider, api_key_source, api_key_ref, notes\n"
+    "next: /models refresh NAME, then /config target add --all-known NAME"
+)
 _ENDPOINT_SET_USAGE = "usage: /config endpoint set NAME.FIELD VALUE"
 _ENDPOINT_SETTABLE_FIELDS = {
     "base_url",
@@ -70,7 +78,14 @@ def _endpoint_add_result(args: list[str], *, step_mod=None, context: OperatorCom
         "notes": "",
         "models_last_refreshed_at": "",
     })
-    return [_result_node(f"added endpoint {endpoint_id}", step_mod=step_mod, context=context, config_update={"llm": {"endpoints": endpoints_updated}})]
+    return [_result_node(
+        f"added endpoint {endpoint_id}\n"
+        f"next: /config endpoint set {endpoint_id}.default_model MODEL\n"
+        f"then: /models refresh {endpoint_id}",
+        step_mod=step_mod,
+        context=context,
+        config_update={"llm": {"endpoints": endpoints_updated}},
+    )]
 
 
 def _endpoint_remove_result(args: list[str], *, step_mod=None, context: OperatorCommandContext) -> list[dict]:
