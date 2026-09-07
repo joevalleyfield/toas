@@ -97,7 +97,7 @@ SLASH_COMMANDS = [
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
     ("endpoints", "/endpoints",                                 "inspect configured endpoint definitions"),
     ("model",     "/model [name] | targets | select <target>",     "select model intent or inspect/select named targets"),
-    ("models",    "/models [refresh <endpoint>]",                 "observe or explicitly refresh an endpoint's known model IDs"),
+    ("models",    "/models [live|known|refresh] <endpoint>",        "observe, inspect, or refresh endpoint model catalogs"),
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
     ("shell",     SHELL_USAGE,                               "inspect or modify shell grants across transcript/config lanes"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),

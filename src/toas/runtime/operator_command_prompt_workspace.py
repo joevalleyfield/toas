@@ -236,15 +236,49 @@ def _handle_model_select(args: list[str], *, step_mod, context: OperatorCommandC
 
 
 def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    if args and args[0] == "refresh":
+    if not args:
+        return [_result_node(
+            "/models live <endpoint>\n/models known <endpoint>\n/models refresh <endpoint>",
+            step_mod=step_mod,
+            context=context,
+        )]
+    if args[0] == "refresh":
         return _handle_models_refresh(args[1:], step_mod=step_mod, context=context)
-    if args:
-        raise ValueError("usage: /models")
+    if len(args) != 2 or args[0] not in {"live", "known"} or not args[1].strip():
+        raise ValueError("usage: /models live|known|refresh <endpoint>")
+    mode = args[0]
+    endpoint_id = args[1].strip()
+    endpoint = next((entry for entry in context.config.llm.endpoints if entry.id == endpoint_id), None)
+    if endpoint is None:
+        raise ValueError(f"unknown endpoint: {endpoint_id}")
+    if mode == "known":
+        models = ", ".join(endpoint.models) if endpoint.models else "(none)"
+        return [_result_node(
+            f"known endpoint model catalog:\n  endpoint: {endpoint.id}\n  models: {models}",
+            step_mod=step_mod,
+            context=context,
+        )]
     from ..llm_harness import fetch_models
+    from ..secrets import resolve_secret
     from .model_observations import observe_endpoint_models
     from .policy_edges import settings_for_runtime
 
-    settings, _sources = settings_for_runtime(context.config)
+    base_settings, _sources = settings_for_runtime(context.config)
+    endpoint_key = resolve_secret(
+        source=endpoint.api_key_source,
+        ref=endpoint.api_key_ref,
+        default=base_settings.llm_api_key,
+    )
+    settings = step_mod.Settings(
+        llm_base_url=endpoint.base_url or base_settings.llm_base_url,
+        llm_api_key=endpoint_key,
+        llm_model=endpoint.default_model or base_settings.llm_model,
+        llm_trace=base_settings.llm_trace,
+        llm_transport_mode=base_settings.llm_transport_mode,
+        llm_stream_mode=base_settings.llm_stream_mode,
+        llm_provider=endpoint.provider or base_settings.llm_provider,
+        llm_ca_file=base_settings.llm_ca_file,
+    )
     observation = observe_endpoint_models(settings, fetcher=fetch_models)
     lines = [
         "endpoint model observation:",

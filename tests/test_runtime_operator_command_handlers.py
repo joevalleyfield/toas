@@ -340,6 +340,8 @@ def test_prompt_workspace_backend_and_model_empty_catalog_paths(monkeypatch):
 def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
     import toas.llm_harness as harness
     import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
 
     monkeypatch.setattr(
         policy_edges,
@@ -348,7 +350,8 @@ def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
     )
     monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"data": [{"id": "served"}]})
 
-    out = handle_prompt_workspace_commands("models", [], step_mod=__import__("toas.step", fromlist=["step"]), context=_ctx())
+    config = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
+    out = handle_prompt_workspace_commands("models", ["live", "local"], step_mod=step_mod, context=_ctx(config=config))
 
     assert "endpoint model observation:" in out[0]["content"]
     assert "requested model: requested" in out[0]["content"]
@@ -358,6 +361,8 @@ def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
 def test_prompt_workspace_models_reports_bounded_failure(monkeypatch):
     import toas.llm_harness as harness
     import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
 
     monkeypatch.setattr(
         policy_edges,
@@ -366,7 +371,8 @@ def test_prompt_workspace_models_reports_bounded_failure(monkeypatch):
     )
     monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"error": "connection refused"})
 
-    out = handle_prompt_workspace_commands("models", [], step_mod=__import__("toas.step", fromlist=["step"]), context=_ctx())
+    config = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
+    out = handle_prompt_workspace_commands("models", ["live", "local"], step_mod=step_mod, context=_ctx(config=config))
 
     assert "status: unavailable" in out[0]["content"]
     assert "error: connection refused" in out[0]["content"]
@@ -375,8 +381,26 @@ def test_prompt_workspace_models_reports_bounded_failure(monkeypatch):
 def test_prompt_workspace_models_rejects_arguments():
     import toas.step as step_mod
 
-    with pytest.raises(ValueError, match="usage: /models"):
+    out = handle_prompt_workspace_commands("models", [], step_mod=step_mod, context=_ctx())
+    assert out[0]["content"] == "/models live <endpoint>\n/models known <endpoint>\n/models refresh <endpoint>"
+
+    with pytest.raises(ValueError, match=r"usage: /models live\|known\|refresh"):
         handle_prompt_workspace_commands("models", ["live"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_models_known_reads_catalog_without_probe():
+    import toas.step as step_mod
+    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+
+    config = OperatorConfig(
+        llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1", models=("qwen",)),))
+    )
+    out = handle_prompt_workspace_commands("models", ["known", "local"], step_mod=step_mod, context=_ctx(config=config))
+
+    assert out[0]["content"] == "known endpoint model catalog:\n  endpoint: local\n  models: qwen"
+
+    with pytest.raises(ValueError, match="unknown endpoint"):
+        handle_prompt_workspace_commands("models", ["known", "missing"], step_mod=step_mod, context=_ctx(config=config))
 
 
 def test_prompt_workspace_models_refresh_merges_endpoint_catalog(monkeypatch):
