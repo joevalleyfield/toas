@@ -119,6 +119,20 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                 tags = ()
             notes = str(item.get("notes", "")).strip()
             models_last_refreshed_at = str(item.get("models_last_refreshed_at", "")).strip()
+            observations_raw = item.get("model_observations", ())
+            observations = []
+            if isinstance(observations_raw, (list, tuple)):
+                for observation in observations_raw:
+                    if not isinstance(observation, dict):
+                        continue
+                    observation_id = str(observation.get("id", "")).strip()
+                    if observation_id:
+                        observations.append(
+                            classes["EndpointModelObservation"](
+                                id=observation_id,
+                                last_seen=str(observation.get("last_seen", "")).strip(),
+                            )
+                        )
             backend_entries.append(
                 classes["EndpointCatalogEntry"](
                     id=backend_id,
@@ -131,6 +145,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                     tags=tags,
                     notes=notes,
                     models_last_refreshed_at=models_last_refreshed_at,
+                    model_observations=tuple(observations),
                 )
             )
     llm_values["backends"] = tuple(backend_entries)

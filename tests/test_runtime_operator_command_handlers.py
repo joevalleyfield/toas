@@ -397,7 +397,7 @@ def test_prompt_workspace_models_known_reads_catalog_without_probe():
     )
     out = handle_prompt_workspace_commands("models", ["known", "local"], step_mod=step_mod, context=_ctx(config=config))
 
-    assert out[0]["content"] == "known endpoint model catalog:\n  endpoint: local\n  models: qwen\n  last refresh: (never)"
+    assert out[0]["content"] == "known endpoint model catalog:\n  endpoint: local\n  models: qwen\n  last refresh: (never)\n  not seen in latest: (none)"
 
     with pytest.raises(ValueError, match="unknown endpoint"):
         handle_prompt_workspace_commands("models", ["known", "missing"], step_mod=step_mod, context=_ctx(config=config))
@@ -426,6 +426,7 @@ def test_prompt_workspace_models_refresh_merges_endpoint_catalog(monkeypatch):
     assert "1 added, 2 known" in out[0]["content"]
     assert out[0]["config_update"]["llm"]["backends"][0]["models"] == ["old", "new"]
     assert out[0]["config_update"]["llm"]["backends"][0]["models_last_refreshed_at"]
+    assert out[0]["config_update"]["llm"]["backends"][0]["model_observations"]
 
 
 def test_prompt_workspace_models_refresh_failure_does_not_write(monkeypatch):
@@ -501,7 +502,8 @@ def test_prompt_workspace_endpoints_lists_non_secret_configuration():
     assert out[0]["content"] == (
         "configured endpoints:\n"
         "- local: provider=openai-compatible, base_url=http://localhost:8080/v1, "
-        "default_model=qwen, known_models=qwen, llama, last_refresh=(never)"
+        "default_model=qwen, known_models=qwen, llama, last_refresh=(never), "
+        "not_seen_latest=(none)"
     )
     assert "TOAS_LLM_API_KEY" not in out[0]["content"]
 

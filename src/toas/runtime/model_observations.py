@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
-from ..config import EndpointCatalogEntry
+from ..config import EndpointCatalogEntry, EndpointModelObservation
 from ..llm import Settings
 
 
@@ -49,11 +49,21 @@ def observe_endpoint_models(
 def merge_endpoint_model_ids(
     endpoint: EndpointCatalogEntry,
     observed_models: tuple[str, ...],
+    *,
+    observed_at: str = "",
 ) -> EndpointCatalogEntry:
     """Merge observed IDs without deleting or rewriting endpoint metadata."""
     models = list(endpoint.models)
+    observations = {observation.id: observation.last_seen for observation in endpoint.model_observations}
     for model_id in observed_models:
         normalized = model_id.strip()
         if normalized and normalized not in models:
             models.append(normalized)
-    return replace(endpoint, models=tuple(models))
+        if normalized:
+            observations[normalized] = observed_at or observations.get(normalized, "")
+    model_observations = tuple(
+        EndpointModelObservation(id=model_id, last_seen=observations.get(model_id, ""))
+        for model_id in models
+        if model_id in observations
+    )
+    return replace(endpoint, models=tuple(models), model_observations=model_observations)

@@ -6,6 +6,7 @@ from toas.config import (
     BackendPolicy,
     BackendStartupPolicy,
     EndpointCatalogEntry,
+    EndpointModelObservation,
     GenerationPolicy,
     HealthTimingPolicy,
     LLMPolicy,
@@ -604,6 +605,7 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
         'base_url = "http://localhost:8080/v1"\n'
         'default_model = "qwen"\n'
         'models = ["qwen", "gemma"]\n'
+        'model_observations = [{ id = "qwen", last_seen = "2026-09-07T11:00:00+00:00" }, "skip"]\n'
         'api_key_source = "env"\n'
         'api_key_ref = "TOAS_LLM_API_KEY"\n'
     )
@@ -616,6 +618,7 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
             models=("qwen", "gemma"),
             api_key_source="env",
             api_key_ref="TOAS_LLM_API_KEY",
+            model_observations=(EndpointModelObservation(id="qwen", last_seen="2026-09-07T11:00:00+00:00"),),
             tags=(),
             notes="",
         ),

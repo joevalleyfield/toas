@@ -1,4 +1,4 @@
-from toas.config import EndpointCatalogEntry
+from toas.config import EndpointCatalogEntry, EndpointModelObservation
 from toas.llm import Settings
 from toas.runtime.model_observations import merge_endpoint_model_ids, observe_endpoint_models
 
@@ -68,3 +68,20 @@ def test_merge_endpoint_model_ids_preserves_metadata_and_existing_order():
     assert merged.default_model == "default"
     assert merged.tags == ("local",)
     assert merged.notes == "curated"
+
+
+def test_merge_endpoint_model_ids_records_observation_freshness():
+    endpoint = EndpointCatalogEntry(
+        id="local",
+        base_url="http://endpoint/v1",
+        models=("old", "stale"),
+        model_observations=(EndpointModelObservation(id="old", last_seen="2026-09-07T10:00:00+00:00"),),
+    )
+
+    merged = merge_endpoint_model_ids(endpoint, ("old", "new"), observed_at="2026-09-07T11:00:00+00:00")
+
+    assert merged.models == ("old", "stale", "new")
+    assert [(item.id, item.last_seen) for item in merged.model_observations] == [
+        ("old", "2026-09-07T11:00:00+00:00"),
+        ("new", "2026-09-07T11:00:00+00:00"),
+    ]

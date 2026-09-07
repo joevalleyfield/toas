@@ -29,3 +29,9 @@ Implemented `models_last_refreshed_at` on endpoint catalog entries. Refresh
 writes it only after a successful observation; known and endpoint inspection
 surfaces expose it. Full verification passed with 3,184 tests, 12 deselected,
 and strict 100% coverage.
+
+The catalog now also retains per-model `last_seen` timestamps. A successful
+refresh updates observed IDs, preserves retained IDs that were absent from the
+response, and marks those retained IDs as not seen in the latest refresh. Full
+verification now passes with 3,185 tests, 12 deselected, and strict 100%
+coverage. Pruning and availability semantics remain deferred.

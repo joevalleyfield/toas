@@ -30,6 +30,7 @@ def backend_list_dicts(*, context: OperatorCommandContext) -> list[dict]:
             "tags": list(b.tags),
             "notes": b.notes,
             "models_last_refreshed_at": b.models_last_refreshed_at,
+            "model_observations": [{"id": item.id, "last_seen": item.last_seen} for item in b.model_observations],
         }
         for b in context.config.llm.backends
     ]

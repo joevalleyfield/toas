@@ -137,9 +137,16 @@ def _handle_endpoints(args: list[str], *, step_mod, context: OperatorCommandCont
         default_model = endpoint.default_model or "(none)"
         models = ", ".join(endpoint.models) if endpoint.models else "(none)"
         refreshed = endpoint.models_last_refreshed_at or "(never)"
+        unseen = [
+            observation.id
+            for observation in endpoint.model_observations
+            if endpoint.models_last_refreshed_at and observation.last_seen != endpoint.models_last_refreshed_at
+        ]
+        unseen_text = ", ".join(unseen) if unseen else "(none)"
         lines.append(
             f"- {endpoint.id}: provider={provider}, base_url={endpoint.base_url}, "
-            f"default_model={default_model}, known_models={models}, last_refresh={refreshed}"
+            f"default_model={default_model}, known_models={models}, last_refresh={refreshed}, "
+            f"not_seen_latest={unseen_text}"
         )
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
@@ -256,10 +263,16 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
         raise ValueError(f"unknown endpoint: {endpoint_id}")
     if mode == "known":
         models = ", ".join(endpoint.models) if endpoint.models else "(none)"
+        unseen = ", ".join(
+            observation.id
+            for observation in endpoint.model_observations
+            if endpoint.models_last_refreshed_at and observation.last_seen != endpoint.models_last_refreshed_at
+        ) or "(none)"
         return [_result_node(
             f"known endpoint model catalog:\n  endpoint: {endpoint.id}\n"
             f"  models: {models}\n"
-            f"  last refresh: {endpoint.models_last_refreshed_at or '(never)'}",
+            f"  last refresh: {endpoint.models_last_refreshed_at or '(never)'}\n"
+            f"  not seen in latest: {unseen}",
             step_mod=step_mod,
             context=context,
         )]
@@ -340,8 +353,12 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
             )
         ]
 
-    updated_endpoint = merge_endpoint_model_ids(endpoint, observation.get("models", ()))
     refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    updated_endpoint = merge_endpoint_model_ids(
+        endpoint,
+        observation.get("models", ()),
+        observed_at=refreshed_at,
+    )
     updated_endpoint = replace(updated_endpoint, models_last_refreshed_at=refreshed_at)
     backends = []
     for entry in context.config.llm.backends:
@@ -359,6 +376,7 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
                 "tags": list(entry.tags),
                 "notes": entry.notes,
                 "models_last_refreshed_at": entry.models_last_refreshed_at,
+                "model_observations": [{"id": item.id, "last_seen": item.last_seen} for item in entry.model_observations],
             }
         )
     observed = observation.get("models", ())

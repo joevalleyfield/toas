@@ -69,6 +69,12 @@ class ModelCatalogEntry:
 
 
 @dataclass(frozen=True)
+class EndpointModelObservation:
+    id: str
+    last_seen: str = ""
+
+
+@dataclass(frozen=True)
 class EndpointCatalogEntry:
     id: str
     base_url: str
@@ -80,6 +86,7 @@ class EndpointCatalogEntry:
     tags: tuple[str, ...] = ()
     notes: str = ""
     models_last_refreshed_at: str = ""
+    model_observations: tuple[EndpointModelObservation, ...] = ()
 
     @property
     def model(self) -> str:
@@ -295,6 +302,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "TargetCatalogEntry": TargetCatalogEntry,
                 "ModelCatalogEntry": ModelCatalogEntry,
                 "EndpointCatalogEntry": EndpointCatalogEntry,
+                "EndpointModelObservation": EndpointModelObservation,
                 "BackendCatalogEntry": BackendCatalogEntry,
                 "LLMPolicy": LLMPolicy,
                 "RuntimePolicy": RuntimePolicy,
