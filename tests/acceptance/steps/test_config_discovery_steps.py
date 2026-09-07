@@ -30,6 +30,21 @@ def given_config_workspace(tmp_path: Path, monkeypatch) -> dict:
     return {"repo": repo, "outputs": [], "probe_calls": probe_calls}
 
 
+@given("a scratch TOAS workspace for endpoint bootstrap", target_fixture="acceptance_state")
+def given_endpoint_bootstrap_workspace(tmp_path: Path, monkeypatch) -> dict:
+    repo = tmp_path / "repo"
+    materialize_workspace(target_dir=repo, cfg=load_workspace_config())
+    (repo / ".toas").mkdir(exist_ok=True)
+    (repo / ".toas" / "session.md").write_text("", encoding="utf-8")
+    monkeypatch.delenv("TOAS_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("TOAS_LLM_MODEL", raising=False)
+    monkeypatch.setattr(
+        "toas.llm_harness.fetch_models",
+        lambda _settings: {"data": [{"id": "qwen3.6"}, {"id": "llama/3"}]},
+    )
+    return {"repo": repo, "outputs": []}
+
+
 def _run_control(repo: Path, command: str) -> str:
     cwd = Path.cwd()
     try:
@@ -94,6 +109,19 @@ def when_follow_endpoint_target_authoring(acceptance_state: dict, capsys) -> Non
         _run_control(acceptance_state["repo"], command)
         outputs.append((command, capsys.readouterr().out))
     acceptance_state["endpoint_target_outputs"] = outputs
+
+
+@when("the operator follows the endpoint bootstrap path")
+def when_follow_endpoint_bootstrap(acceptance_state: dict, capsys) -> None:
+    outputs = []
+    for command in (
+        "/config endpoint bootstrap local http://localhost:8080/v1 --refresh --targets",
+        "/config endpoint bootstrap remote http://remote/v1 --refresh --target qwen3.6 --select",
+        "/model targets",
+    ):
+        _run_control(acceptance_state["repo"], command)
+        outputs.append((command, capsys.readouterr().out))
+    acceptance_state["endpoint_bootstrap_outputs"] = outputs
 
 
 def _output(outputs: list[tuple[str, str]], command: str) -> str:
@@ -195,3 +223,21 @@ def then_endpoint_target_authoring_contract(acceptance_state: dict) -> None:
     target_status = _output(outputs, "/model targets")
     assert "- local-qwen *: endpoint=local, model=qwen3.6, status=ready" in target_status
     assert "active target: local-qwen" in target_status
+
+
+@then("endpoint bootstrap should report its completed phases")
+def then_endpoint_bootstrap_contract(acceptance_state: dict) -> None:
+    outputs = acceptance_state["endpoint_bootstrap_outputs"]
+    local = _output(outputs, "/config endpoint bootstrap local http://localhost:8080/v1 --refresh --targets")
+    assert "endpoint bootstrap complete" in local
+    assert "model refresh: 2 known" in local
+    assert "target promotion: 2 created" in local
+    assert "active selection: unchanged" in local
+
+    remote = _output(outputs, "/config endpoint bootstrap remote http://remote/v1 --refresh --target qwen3.6 --select")
+    assert "target promotion: created remote-qwen3.6" in remote
+    assert "active selection: remote-qwen3.6" in remote
+
+    targets = _output(outputs, "/model targets")
+    assert "- remote-qwen3.6 *: endpoint=remote, model=qwen3.6, status=ready" in targets
+    assert "active target: remote-qwen3.6" in targets

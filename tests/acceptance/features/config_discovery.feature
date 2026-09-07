@@ -22,3 +22,8 @@ Feature: Config discovery from help to effective state
     Given a scratch TOAS workspace for config discovery
     When the operator follows the endpoint and target authoring path
     Then endpoint and target selection should be discoverable and network-free
+
+  Scenario: "Endpoint bootstrap composes refresh and target setup"
+    Given a scratch TOAS workspace for endpoint bootstrap
+    When the operator follows the endpoint bootstrap path
+    Then endpoint bootstrap should report its completed phases

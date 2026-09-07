@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..assets.help_catalog import resolve_config_help_keys
@@ -21,6 +23,10 @@ _CONFIG_USAGE = (
 )
 
 _TARGET_USAGE = "usage: /config target [list|add|set|remove] ..."
+_ENDPOINT_BOOTSTRAP_USAGE = (
+    "usage: /config endpoint bootstrap NAME BASE_URL "
+    "[--refresh] [--targets | --target MODEL [--select]]"
+)
 _TARGET_FIELDS = {
     "endpoint",
     "model",
@@ -439,6 +445,153 @@ def _known_endpoint(context: OperatorCommandContext, endpoint_id: str):
     return next((endpoint for endpoint in context.config.llm.endpoints if endpoint.id == endpoint_id), None)
 
 
+def _endpoint_config_dict(endpoint) -> dict:
+    return {
+        "id": endpoint.id,
+        "base_url": endpoint.base_url,
+        "default_model": endpoint.default_model,
+        "models": list(endpoint.models),
+        "api_key_source": endpoint.api_key_source,
+        "api_key_ref": endpoint.api_key_ref,
+        "provider": endpoint.provider,
+        "tags": list(endpoint.tags),
+        "notes": endpoint.notes,
+        "models_last_refreshed_at": endpoint.models_last_refreshed_at,
+        "model_observations": [
+            {"id": item.id, "last_seen": item.last_seen} for item in endpoint.model_observations
+        ],
+    }
+
+
+def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) < 4 or args[1] != "bootstrap":
+        raise ValueError(_ENDPOINT_BOOTSTRAP_USAGE)
+    endpoint_id = args[2].strip()
+    base_url = args[3].strip()
+    if not endpoint_id or not base_url:
+        raise ValueError(_ENDPOINT_BOOTSTRAP_USAGE)
+    if _known_endpoint(context, endpoint_id) is not None:
+        raise ValueError(f"endpoint already exists: {endpoint_id}\nhint: use /config endpoint set {endpoint_id}.<field> VALUE")
+
+    refresh = False
+    all_targets = False
+    target_model = None
+    select = False
+    i = 4
+    while i < len(args):
+        token = args[i]
+        if token == "--refresh":
+            if refresh:
+                raise ValueError(_ENDPOINT_BOOTSTRAP_USAGE)
+            refresh = True
+            i += 1
+            continue
+        if token == "--targets":
+            if all_targets or target_model is not None:
+                raise ValueError(_ENDPOINT_BOOTSTRAP_USAGE)
+            all_targets = True
+            i += 1
+            continue
+        if token == "--target":
+            if target_model is not None or all_targets or i + 1 >= len(args) or not args[i + 1].strip():
+                raise ValueError(_ENDPOINT_BOOTSTRAP_USAGE)
+            target_model = args[i + 1].strip()
+            i += 2
+            continue
+        if token == "--select":
+            if select:
+                raise ValueError(_ENDPOINT_BOOTSTRAP_USAGE)
+            select = True
+            i += 1
+            continue
+        raise ValueError(_ENDPOINT_BOOTSTRAP_USAGE)
+
+    if select and target_model is None:
+        raise ValueError("/config endpoint bootstrap --select requires --target MODEL")
+    if (all_targets or target_model is not None) and not refresh:
+        raise ValueError("/config endpoint bootstrap target promotion requires --refresh")
+
+    from ..config import EndpointCatalogEntry
+
+    endpoint = EndpointCatalogEntry(id=endpoint_id, base_url=base_url)
+    phase_lines = [f"endpoint definition: {endpoint_id} = {base_url}"]
+    if refresh:
+        from ..llm_harness import fetch_models
+        from ..secrets import resolve_secret
+        from .model_observations import merge_endpoint_model_ids, observe_endpoint_models
+        from .policy_edges import settings_for_runtime
+
+        base_settings, _sources = settings_for_runtime(context.config)
+        settings = step_mod.Settings(
+            llm_base_url=base_url,
+            llm_api_key=resolve_secret(
+                source=endpoint.api_key_source,
+                ref=endpoint.api_key_ref,
+                default=base_settings.llm_api_key,
+            ),
+            llm_model=base_settings.llm_model,
+            llm_trace=base_settings.llm_trace,
+            llm_transport_mode=base_settings.llm_transport_mode,
+            llm_stream_mode=base_settings.llm_stream_mode,
+            llm_provider=base_settings.llm_provider,
+            llm_ca_file=base_settings.llm_ca_file,
+        )
+        observation = observe_endpoint_models(settings, fetcher=fetch_models)
+        if observation["status"] != "ok":
+            return [
+                _result_node(
+                    f"endpoint bootstrap failed during model refresh: {observation['status']}\n"
+                    f"error: {observation['error']}\n"
+                    "no endpoint or target changes were written",
+                    step_mod=step_mod,
+                    context=context,
+                )
+            ]
+        refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        endpoint = replace(
+            merge_endpoint_model_ids(endpoint, observation.get("models", ()), observed_at=refreshed_at),
+            models_last_refreshed_at=refreshed_at,
+        )
+        phase_lines.append(f"model refresh: {len(endpoint.models)} known")
+
+    additions: dict[str, dict[str, str]] = {}
+    if all_targets:
+        for model_id in endpoint.models:
+            target_id = _target_id_for_model(endpoint_id, model_id)
+            if target_id and not any(target.id == target_id for target in context.config.llm.targets):
+                additions[target_id] = {"endpoint": endpoint_id, "model": model_id}
+        phase_lines.append(f"target promotion: {len(additions)} created")
+    elif target_model is not None:
+        if target_model not in endpoint.models:
+            return [
+                _result_node(
+                    f"endpoint bootstrap could not find requested model: {target_model}\n"
+                    f"known models: {', '.join(endpoint.models) or '(none)'}\n"
+                    "no endpoint or target changes were written",
+                    step_mod=step_mod,
+                    context=context,
+                )
+            ]
+        target_id = _target_id_for_model(endpoint_id, target_model)
+        if any(target.id == target_id for target in context.config.llm.targets):
+            raise ValueError(f"model target already exists: {target_id}")
+        additions[target_id] = {"endpoint": endpoint_id, "model": target_model}
+        phase_lines.append(f"target promotion: created {target_id}")
+
+    config_endpoints = [_endpoint_config_dict(item) for item in context.config.llm.endpoints]
+    config_endpoints.append(_endpoint_config_dict(endpoint))
+    update = {"llm": {"backends": config_endpoints}}
+    if additions:
+        update["llm"]["targets"] = additions
+    fields = {"config_update": update}
+    if select and target_model is not None:
+        fields["target_selection_update"] = {"action": "set", "target_id": _target_id_for_model(endpoint_id, target_model)}
+        phase_lines.append(f"active selection: {_target_id_for_model(endpoint_id, target_model)}")
+    else:
+        phase_lines.append("active selection: unchanged")
+    return [_result_node("endpoint bootstrap complete\n" + "\n".join(phase_lines), step_mod=step_mod, context=context, **fields)]
+
+
 def _config_target_bulk_add_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) not in {4, 5} or args[2] != "--all-known" or (len(args) == 5 and args[4] != "--preview"):
         raise ValueError("usage: /config target add --all-known ENDPOINT [--preview]")
@@ -576,6 +729,8 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
     if args[0] == "backend":
         return _config_backend_result(args, step_mod=step_mod, context=context)
     if args[0] == "endpoint":
+        if len(args) > 1 and args[1] == "bootstrap":
+            return _config_endpoint_bootstrap_result(args, step_mod=step_mod, context=context)
         return config_endpoint_result(args, step_mod=step_mod, context=context)
     if args[0] == "target":
         return _config_target_result(args, step_mod=step_mod, context=context)

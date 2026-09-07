@@ -36,4 +36,13 @@ optional session selection behind an intentionally named operation.
 
 ## Progress Evidence
 
-Open: ordered follow-on; wait for known-to-target promotion.
+Closed: added the explicit endpoint bootstrap workflow. It can define an
+endpoint, refresh its live model catalog, promote all observed models or one
+requested model into named targets, and opt into active selection. Refresh
+failure and unavailable requested models produce actionable results without
+writing endpoint or target changes; ordinary bootstrap leaves selection
+unchanged.
+
+Verification: focused operator/config tests passed; endpoint bootstrap
+acceptance coverage passed (5); full suite passed (3,208 passed, 14
+deselected, 100% coverage); Ruff reported no findings.

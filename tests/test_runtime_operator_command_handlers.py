@@ -2035,6 +2035,139 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
         handle_config_help_commands("config", ["endpoint", "bogus"], step_mod=step_mod, context=_ctx())
 
 
+def test_config_endpoint_bootstrap_refreshes_promotes_and_selects(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://default/v1", llm_model="default"), {}),
+    )
+    monkeypatch.setattr(
+        harness,
+        "fetch_models",
+        lambda settings: {"data": [{"id": "qwen3.6"}, {"id": "llama/3"}]},
+    )
+
+    promoted = handle_config_help_commands(
+        "config",
+        ["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--refresh", "--targets"],
+        step_mod=step_mod,
+        context=_ctx(),
+    )[0]
+    assert "endpoint bootstrap complete" in promoted["content"]
+    assert promoted["config_update"]["llm"]["backends"][0]["id"] == "local"
+    assert promoted["config_update"]["llm"]["backends"][0]["models"] == ["qwen3.6", "llama/3"]
+    assert promoted["config_update"]["llm"]["targets"] == {
+        "local-qwen3.6": {"endpoint": "local", "model": "qwen3.6"},
+        "local-llama-3": {"endpoint": "local", "model": "llama/3"},
+    }
+    assert "target_selection_update" not in promoted
+
+    selected = handle_config_help_commands(
+        "config",
+        ["endpoint", "bootstrap", "remote", "http://remote/v1", "--refresh", "--target", "qwen3.6", "--select"],
+        step_mod=step_mod,
+        context=_ctx(),
+    )[0]
+    assert selected["config_update"]["llm"]["targets"] == {
+        "remote-qwen3.6": {"endpoint": "remote", "model": "qwen3.6"}
+    }
+    assert selected["target_selection_update"] == {"action": "set", "target_id": "remote-qwen3.6"}
+
+
+def test_config_endpoint_bootstrap_failure_is_atomic_and_requires_explicit_phases(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://default/v1"), {}),
+    )
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"error": "offline"})
+
+    failed = handle_config_help_commands(
+        "config",
+        ["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--refresh", "--targets"],
+        step_mod=step_mod,
+        context=_ctx(),
+    )[0]
+    assert "no endpoint or target changes were written" in failed["content"]
+    assert "config_update" not in failed
+
+    with pytest.raises(ValueError, match="target promotion requires --refresh"):
+        handle_config_help_commands(
+            "config",
+            ["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--targets"],
+            step_mod=step_mod,
+            context=_ctx(),
+        )
+    with pytest.raises(ValueError, match="requires --target MODEL"):
+        handle_config_help_commands(
+            "config",
+            ["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--refresh", "--select"],
+            step_mod=step_mod,
+            context=_ctx(),
+        )
+
+    invalid_requests = [
+        (["endpoint", "bootstrap"], "usage: /config endpoint bootstrap"),
+        (["endpoint", "bootstrap", "", "http://localhost:8080/v1"], "usage: /config endpoint bootstrap"),
+        (["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--refresh", "--refresh"], "usage: /config endpoint bootstrap"),
+        (["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--targets", "--targets"], "usage: /config endpoint bootstrap"),
+        (["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--target"], "usage: /config endpoint bootstrap"),
+        (["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--select", "--select"], "usage: /config endpoint bootstrap"),
+        (["endpoint", "bootstrap", "local", "http://localhost:8080/v1", "--unknown"], "usage: /config endpoint bootstrap"),
+    ]
+    for args, message in invalid_requests:
+        with pytest.raises(ValueError, match=message):
+            handle_config_help_commands("config", args, step_mod=step_mod, context=_ctx())
+
+
+def test_config_endpoint_bootstrap_rejects_existing_endpoint_and_target(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+
+    endpoint = BackendCatalogEntry(id="local", base_url="http://existing/v1")
+    with pytest.raises(ValueError, match="endpoint already exists: local"):
+        handle_config_help_commands(
+            "config",
+            ["endpoint", "bootstrap", "local", "http://new/v1"],
+            step_mod=step_mod,
+            context=_ctx(config=OperatorConfig(llm=LLMPolicy(backends=(endpoint,)))),
+        )
+
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://default/v1"), {}),
+    )
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"data": [{"id": "qwen3.6"}]})
+    config = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="remote-qwen3.6"),)))
+    with pytest.raises(ValueError, match="model target already exists: remote-qwen3.6"):
+        handle_config_help_commands(
+            "config",
+            ["endpoint", "bootstrap", "remote", "http://remote/v1", "--refresh", "--target", "qwen3.6"],
+            step_mod=step_mod,
+            context=_ctx(config=config),
+        )
+
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"data": [{"id": "other"}]})
+    missing = handle_config_help_commands(
+        "config",
+        ["endpoint", "bootstrap", "another", "http://another/v1", "--refresh", "--target", "qwen3.6"],
+        step_mod=step_mod,
+        context=_ctx(),
+    )[0]
+    assert "could not find requested model" in missing["content"]
+    assert "config_update" not in missing
+
+
 @pytest.mark.parametrize(
     ("args", "message"),
     [
