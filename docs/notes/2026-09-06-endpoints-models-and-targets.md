@@ -28,16 +28,16 @@ high-profile `/model`, `/models`, or target-selection behavior.
 | `llm.provider` | Global transport/provider selection | Endpoint protocol, currently over-global |
 | `llm.model` | Scalar requested model | Implicit target |
 | `llm.models` | Global static model catalog | Known-model catalog |
-| `llm.backends[].id` | Named selection key | Endpoint identity today |
-| `llm.backends[].base_url` | Endpoint URL | Endpoint connection |
-| `llm.backends[].api_key_*` | Endpoint credential lookup | Endpoint authentication |
-| `llm.backends[].models` | Static model IDs associated with a named URL | Endpoint-associated known-model catalog |
-| `llm.backends[].default_model` | Default requested model for a named URL | Default target/model association |
+| `llm.endpoints[].id` | Named selection key | Endpoint identity |
+| `llm.endpoints[].base_url` | Endpoint URL | Endpoint connection |
+| `llm.endpoints[].api_key_*` | Endpoint credential lookup | Endpoint authentication |
+| `llm.endpoints[].models` | Static model IDs associated with a named URL | Endpoint-associated known-model catalog |
+| `llm.endpoints[].default_model` | Default requested model for a named URL | Default target/model association |
 | `backend.mode` | `external` or `managed-local` execution mode | Backend execution mechanism |
 | `backend.managed_local` | Process command, cwd, env, health URL | Backend lifecycle |
 | `backend_startup.*` | Startup-only backend settings | Backend runtime |
 | `generation.*` | Global generation behavior | Default target generation settings |
-| `/backend NAME` | Selects a named `llm.backends[]` entry | Endpoint selection under the wrong name |
+| `/endpoint NAME` | Selects a named `llm.endpoints[]` entry | Canonical endpoint selection |
 | `/model NAME` | Selects a requested model ID | Target fragment, not a complete target |
 
 ## Semantic model
@@ -65,8 +65,8 @@ model observation
   Ephemeral runtime data returned by an explicit live endpoint probe.
 
 target
-  A named durable selection recipe combining an endpoint/backend choice, a
-  requested model, and embedded generation settings.
+  A named durable selection recipe combining an endpoint choice, a requested
+  model, and embedded generation settings.
 
 active selection
   A session-level reference to a named target.
@@ -80,10 +80,9 @@ implementation is implied by reserving that space.
 ### Backend and endpoint are already separate in practice
 
 `backend.mode`, managed-local startup, and backend-startup settings describe
-how TOAS provides or manages inference. In contrast, `llm.backends[]` mostly
-describes named URLs, credentials, and model hints. The current code therefore
-has both concepts, but one of them is named “backend” in the catalog and the
-other is named “backend” in runtime policy.
+how TOAS provides or manages inference. In contrast, `llm.endpoints[]`
+describes named URLs, credentials, and model hints. Legacy `llm.backends[]`
+configuration remains a read-time migration input only.
 
 The migration should adapt the current catalog toward endpoint definitions and
 retain backend policy for execution/lifecycle semantics. A compatibility reader
@@ -92,15 +91,15 @@ design constraint.
 
 ### Provider is currently too global
 
-Selecting a named catalog backend changes its URL and model, but the model
+Selecting a named catalog endpoint changes its URL and model, but the model
 invocation path inherits the global provider. A future endpoint definition
 should be able to own its provider/protocol, even if the first migration keeps
 the global field as a fallback.
 
 ### Catalog and selection are currently mixed
 
-`llm.models` is a global static catalog. `llm.backends[].models` is an
-endpoint-associated static catalog. `llm.backends[].default_model` is a default
+`llm.models` is a global static catalog. `llm.endpoints[].models` is an
+endpoint-associated static catalog. `llm.endpoints[].default_model` is a default
 requested model. `llm.model` is the scalar requested model. These should not
 be treated as interchangeable model facts.
 
@@ -194,12 +193,17 @@ The likely sequence is:
 5. Add effective endpoint and target inspection.
 6. Add explicit live model observation and explicit catalog refresh.
 7. Add `/model select NAME` as a session selection override.
-8. Retire compatibility adapters once the new semantic surfaces are proven.
+8. Retire command-level compatibility adapters once the new semantic surfaces
+   are proven; retain only the short-lived legacy config-file reader.
+
+The endpoint command cutover is now complete: `/config endpoint` authors
+catalog entries and `/endpoint NAME` selects an endpoint. The remaining
+compatibility boundary is limited to reading legacy `llm.backends` config and
+normalizing it into `llm.endpoints`; canonical writes and runtime storage are
+endpoint-shaped.
 
 ## Open questions
 
-- What is the final public name for endpoint configuration while “backend” is
-  retained for execution/lifecycle?
 - Which endpoint properties are provider-specific versus shared protocol
   fields?
 - Should endpoint-associated known models be stored inside endpoint entries or

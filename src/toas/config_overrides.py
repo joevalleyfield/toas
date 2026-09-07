@@ -104,9 +104,9 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                 continue
             if not isinstance(item, dict):
                 continue
-            backend_id = str(item.get("id", "")).strip()
+            endpoint_id = str(item.get("id", "")).strip()
             base_url = str(item.get("base_url", "")).strip()
-            if not backend_id or not base_url:
+            if not endpoint_id or not base_url:
                 continue
             default_model = str(item.get("default_model", item.get("model", ""))).strip()
             models_raw = item.get("models", ())
@@ -142,7 +142,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                         )
             endpoint_entries.append(
                 classes["EndpointCatalogEntry"](
-                    id=backend_id,
+                    id=endpoint_id,
                     base_url=base_url,
                     default_model=default_model,
                     models=models,
