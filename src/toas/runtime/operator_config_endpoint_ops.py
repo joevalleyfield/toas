@@ -8,7 +8,6 @@ _ENDPOINT_SET_USAGE = "usage: /config endpoint set NAME.FIELD VALUE"
 _ENDPOINT_SETTABLE_FIELDS = {
     "base_url",
     "default_model",
-    "model",  # temporary input alias; normalized to default_model
     "api_key_source",
     "api_key_ref",
     "provider",
@@ -83,7 +82,7 @@ def _endpoint_remove_result(args: list[str], *, step_mod=None, context: Operator
 
 
 def _normalize_endpoint_set_value(field: str, raw_value: str) -> tuple[str, str | list[str]]:
-    canonical_field = "default_model" if field == "model" else field
+    canonical_field = field
     if field == "models":
         return canonical_field, [part.strip() for part in raw_value.split(",") if part.strip()]
     if field == "api_key_source":

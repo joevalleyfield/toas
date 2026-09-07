@@ -94,7 +94,7 @@ SLASH_COMMANDS = [
     ("lens",      "/lens [list|packet [--folded] [--mode <manual|auto_frontier|auto_signals|auto>] [--expand <ids_csv>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]|set --title <title> --source <ids_csv> [--distillation <text>] [--use-when <text>]|remove <title>|reset]", "inspect or modify durable context lens artifacts"),
     ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (fragments and templates; leaf renders, non-leaf lists children)"),
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
-    ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
+    ("endpoint",  "/endpoint [id]",                             "select endpoint intent in transcript state or list endpoints"),
     ("endpoints", "/endpoints",                                 "inspect configured endpoint definitions"),
     ("model",     "/model [name] | targets | select <target>",     "select model intent or inspect/select named targets"),
     ("models",    "/models [live|known|refresh] <endpoint>",        "observe, inspect, or refresh endpoint model catalogs"),
@@ -495,7 +495,7 @@ def resolve_selected_model(working: list[dict]) -> str | None:
 
 
 def resolve_selected_endpoint(working: list[dict]) -> str | None:
-    """Resolve the endpoint selected by the legacy transcript command."""
+    """Resolve the endpoint selected by the transcript command."""
     for message in reversed(working):
         if message.get("role") != "user":
             continue
@@ -503,13 +503,13 @@ def resolve_selected_endpoint(working: list[dict]) -> str | None:
         if not lines:
             continue
         last = lines[-1].strip()
-        if not last.startswith("/backend"):
+        if not last.startswith("/endpoint"):
             continue
         try:
             argv = shlex.split(last[1:])
         except ValueError:
             continue
-        if len(argv) == 2 and argv[0] == "backend":
+        if len(argv) == 2 and argv[0] == "endpoint":
             return argv[1]
     return None
 
@@ -900,7 +900,7 @@ def _generation_guard_result(
         lines = [
             f"chosen endpoint unavailable: {selected_endpoint}",
             "pick one of:",
-            *[f"/backend {name}" for name in available_endpoints],
+            *[f"/endpoint {name}" for name in available_endpoints],
         ]
         return make_result_node(
             "\n".join(lines),

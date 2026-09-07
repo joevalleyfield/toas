@@ -71,7 +71,7 @@ def test_selected_endpoint_provider_overrides_global_provider(tmp_path):
     )
 
     invocation = resolve_model_invocation(
-        working=[{"role": "user", "content": "/backend gemini"}],
+        working=[{"role": "user", "content": "/endpoint gemini"}],
         operator_config=config,
         base_settings=base_settings,
         settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
@@ -94,7 +94,7 @@ def test_active_target_overrides_legacy_fragments_and_generation(tmp_path):
         )),
     )
     invocation = resolve_model_invocation(
-        working=[{"role": "user", "content": "/backend legacy\n/model old"}],
+        working=[{"role": "user", "content": "/endpoint legacy\n/model old"}],
         operator_config=config,
         base_settings=Settings(llm_base_url="http://default", llm_model="base"),
         settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},

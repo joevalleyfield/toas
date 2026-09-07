@@ -106,21 +106,21 @@ def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext
     return [_result_node(content, step_mod=step_mod, context=context, transcript_inert=False)]
 
 
-def _handle_backend(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _handle_endpoint(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) > 1:
-        raise ValueError("usage: /backend [id]")
+        raise ValueError("usage: /endpoint [id]")
     available = step_mod._available_endpoints(context.config)
     if not args:
         if not available:
-            return [_result_node("no backends available in current capability space", step_mod=step_mod, context=context)]
-        lines = ["available backends:"]
-        lines.extend(f"/backend {name}" for name in available)
+            return [_result_node("no endpoints available in current capability space", step_mod=step_mod, context=context)]
+        lines = ["available endpoints:"]
+        lines.extend(f"/endpoint {name}" for name in available)
         return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
     selected = args[0]
-    lines = [f"selected backend intent: {selected}", "validation: deferred until inference frontier"]
+    lines = [f"selected endpoint intent: {selected}", "validation: deferred until inference frontier"]
     if available and selected not in available:
-        lines.extend(["", "chosen backend unavailable in current capability space", "choose one of:"])
-        lines.extend(f"/backend {name}" for name in available)
+        lines.extend(["", "chosen endpoint unavailable in current capability space", "choose one of:"])
+        lines.extend(f"/endpoint {name}" for name in available)
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
@@ -1436,8 +1436,8 @@ def handle_prompt_workspace_commands(
         return _handle_graph(args, step_mod=step_mod, context=context)
     if command == "prompt":
         return _handle_prompt(args, step_mod=step_mod, context=context)
-    if command == "backend":
-        return _handle_backend(args, step_mod=step_mod, context=context)
+    if command == "endpoint":
+        return _handle_endpoint(args, step_mod=step_mod, context=context)
     if command == "endpoints":
         return _handle_endpoints(args, step_mod=step_mod, context=context)
     if command == "model":

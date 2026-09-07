@@ -175,7 +175,7 @@ def test_assistant_loose_command_projection_warns_when_recovered():
 
 def test_generation_guard_result_returns_backend_unavailable_hint():
     working = [
-        {"role": "user", "content": "/backend missing"},
+        {"role": "user", "content": "/endpoint missing"},
         {"role": "user", "content": "run"},
     ]
     config = OperatorConfig(
@@ -190,13 +190,13 @@ def test_generation_guard_result_returns_backend_unavailable_hint():
     assert guarded is not None
     assert guarded["role"] == "result"
     assert "chosen endpoint unavailable: missing" in guarded["content"]
-    assert "/backend local" in guarded["content"]
-    assert "/backend openrouter" in guarded["content"]
+    assert "/endpoint local" in guarded["content"]
+    assert "/endpoint openrouter" in guarded["content"]
 
 
 def test_generation_guard_result_returns_none_when_selection_is_available():
     working = [
-        {"role": "user", "content": "/backend local"},
+        {"role": "user", "content": "/endpoint local"},
         {"role": "user", "content": "/model m1"},
         {"role": "user", "content": "run"},
     ]
@@ -1652,10 +1652,10 @@ def test_operator_backend_lists_available_backends():
     )
     transcript = """\
 ## TOAS:USER
-/backend
+/endpoint
 """
     _, out = step(transcript, [], config=config)
-    assert out == [_slash_result("available backends:\n/backend local\n/backend openrouter")]
+    assert out == [_slash_result("available endpoints:\n/endpoint local\n/endpoint openrouter")]
 
 
 def test_operator_model_list_scoped_to_selected_backend():
@@ -1673,7 +1673,7 @@ def test_operator_model_list_scoped_to_selected_backend():
     )
     transcript = """\
 ## TOAS:USER
-/backend local
+/endpoint local
 
 ## TOAS:USER
 /model
@@ -1798,7 +1798,7 @@ def test_generation_frontier_returns_backend_unavailable_continuation():
     )
     transcript = """\
 ## TOAS:USER
-/backend missing
+/endpoint missing
 
 ## TOAS:USER
 please answer
@@ -1808,7 +1808,7 @@ please answer
         raise AssertionError("should not be called")
 
     _, out = step(transcript, [], config=config, generate=fake_generate)
-    assert out == [_tool_result("chosen endpoint unavailable: missing\npick one of:\n/backend local\n/backend openrouter")]
+    assert out == [_tool_result("chosen endpoint unavailable: missing\npick one of:\n/endpoint local\n/endpoint openrouter")]
 
 
 def test_operator_pwd_uses_command_cwd():
@@ -3338,15 +3338,15 @@ def test_config_set_backend_mode():
     assert out[0]["config_update"] == {"backend": {"mode": "managed-local"}}
 
 
-def test_config_backend_add_and_set():
+def test_config_endpoint_add_and_set():
     transcript = """\
 ## TOAS:USER
-/config backend add local http://localhost:8080/v1
+/config endpoint add local http://localhost:8080/v1
 """
     _, out = step(transcript, [])
-    backends = out[0]["config_update"]["llm"]["endpoints"]
-    assert backends[0]["id"] == "local"
-    assert backends[0]["base_url"] == "http://localhost:8080/v1"
+    endpoints = out[0]["config_update"]["llm"]["endpoints"]
+    assert endpoints[0]["id"] == "local"
+    assert endpoints[0]["base_url"] == "http://localhost:8080/v1"
 
 
 def test_config_show_labels_runtime_vs_startup_only():
@@ -4443,7 +4443,7 @@ def test_resolve_selected_endpoint_empty_content():
 def test_resolve_selected_endpoint_shlex_error():
     from toas.step import resolve_selected_endpoint
 
-    working = [{"role": "user", "content": "/backend 'unclosed"}]
+    working = [{"role": "user", "content": "/endpoint 'unclosed"}]
     assert resolve_selected_endpoint(working) is None
 
 

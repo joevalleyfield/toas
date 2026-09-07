@@ -41,7 +41,7 @@ def test_packaged_asset_loader_rejects_empty_and_traversal_refs():
 def test_config_help_catalog_parses_topics_facets_and_aliases():
     catalog = load_config_help_catalog()
     assert isinstance(catalog, ConfigHelpCatalog)
-    topic = resolve_config_help_topic(catalog, "backend")
+    topic = resolve_config_help_topic(catalog, "endpoint")
     assert topic is not None
     assert topic.topic_id == "models"
     assert topic.facets["plain"].summary
@@ -95,7 +95,7 @@ def test_config_help_topic_keys_preserve_asset_order_and_omit_missing_keys():
 
 
 def test_plain_help_renders_behavioral_facet_and_config_cross_link():
-    rendered = render_plain_help("backend")
+    rendered = render_plain_help("endpoint")
     assert rendered is not None
     assert rendered.startswith("help: models")
     assert "provider endpoint" in rendered

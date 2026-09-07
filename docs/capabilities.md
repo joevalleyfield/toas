@@ -111,7 +111,7 @@ Session command surfaces include:
 - `/prompts` (compat alias)
 - `/concept-graph` (append a TOAS-owned concept-graph projection)
 - `/compact [--verbose]` (append an executable handoff, optionally showing its prompt)
-- `/model`, `/backend`
+- `/model`, `/endpoint`
 - `/env set|unset`
 - `/config` (`show`, `set`, `unset`, `restore`, `load`, `save`, backend subcommands)
 - `/intent` (`list`, `current`, `set`, `status`, `note`)

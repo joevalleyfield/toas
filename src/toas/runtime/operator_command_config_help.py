@@ -8,7 +8,6 @@ from pathlib import Path
 from ..assets.help_catalog import resolve_config_help_keys
 from ..config import OperatorConfig
 from .operator_command_context import OperatorCommandContext
-from .operator_config_backend_ops import config_backend_result
 from .operator_config_endpoint_ops import config_endpoint_result
 from .result_nodes import make_result_node
 
@@ -20,7 +19,7 @@ _YAML_POSITION_COMPAT_NOTE = (
 
 _CONFIG_USAGE = (
     "usage: /config [show|list] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
-    "| /config target [list|add|set|remove] ... | /config restore | /config load [path] | /config save [path] | /config secret ..."
+    "| /config endpoint [list|add|set|remove|capture] ... | /config target [list|add|set|remove] ... | /config restore | /config load [path] | /config save [path] | /config secret ..."
 )
 
 _TARGET_USAGE = "usage: /config target [list|add|set|remove] ..."
@@ -351,10 +350,6 @@ def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandCon
     if dotted_key == "extraction.yaml_position":
         lines.extend(["", _YAML_POSITION_COMPAT_NOTE])
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context, config_update=nested)]
-
-
-def _config_backend_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    return config_backend_result(args, step_mod=step_mod, context=context)
 
 
 def _config_unset_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -727,8 +722,6 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
         return _config_values_result(args, step_mod=step_mod, context=context)
     if args[0] == "paths":
         return _config_paths_result(step_mod=step_mod, context=context)
-    if args[0] == "backend":
-        return _config_backend_result(args, step_mod=step_mod, context=context)
     if args[0] == "endpoint":
         if len(args) > 1 and args[1] == "bootstrap":
             return _config_endpoint_bootstrap_result(args, step_mod=step_mod, context=context)

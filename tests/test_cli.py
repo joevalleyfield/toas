@@ -1468,7 +1468,7 @@ def test_run_step_uses_selected_backend_settings(monkeypatch, tmp_path):
         'api_key_ref = "TOAS_LLM_API_KEY"\n',
         encoding="utf-8",
     )
-    Path(".toas/session.md").write_text("## TOAS:USER\n\n/backend local\n\n## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/endpoint local\n\n## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
     def fake_generate(messages, **kwargs):

@@ -57,7 +57,6 @@ from toas.runtime.operator_command_prompt_workspace import (
     _validate_lens_source_ids,
     handle_prompt_workspace_commands,
 )
-from toas.runtime.operator_config_backend_ops import config_backend_result
 from toas.runtime.operator_config_endpoint_ops import (
     _endpoint_add_result,
     _endpoint_capture_result,
@@ -65,6 +64,7 @@ from toas.runtime.operator_config_endpoint_ops import (
     _endpoint_remove_result,
     _endpoint_set_result,
     _normalize_endpoint_set_value,
+    config_endpoint_result,
     endpoint_list_dicts,
 )
 from toas.runtime.replay_queue_edges import (
@@ -313,14 +313,14 @@ def test_prompt_workspace_prompt_prefix_fallback_and_unknown(monkeypatch):
         handle_prompt_workspace_commands("prompt", ["missing"], step_mod=step_mod, context=_ctx())
 
 
-def test_prompt_workspace_backend_and_model_usage_and_unavailable_paths(monkeypatch):
+def test_prompt_workspace_endpoint_and_model_usage_and_unavailable_paths(monkeypatch):
     import toas.step as step_mod
 
     monkeypatch.setattr(step_mod, "_available_endpoints", lambda _cfg: ["b1"])
-    with pytest.raises(ValueError, match="usage: /backend"):
-        handle_prompt_workspace_commands("backend", ["a", "b"], step_mod=step_mod, context=_ctx())
-    out = handle_prompt_workspace_commands("backend", ["missing"], step_mod=step_mod, context=_ctx())
-    assert "chosen backend unavailable" in out[0]["content"]
+    with pytest.raises(ValueError, match="usage: /endpoint"):
+        handle_prompt_workspace_commands("endpoint", ["a", "b"], step_mod=step_mod, context=_ctx())
+    out = handle_prompt_workspace_commands("endpoint", ["missing"], step_mod=step_mod, context=_ctx())
+    assert "chosen endpoint unavailable" in out[0]["content"]
 
     monkeypatch.setattr(step_mod, "resolve_selected_endpoint", lambda _w: "b1")
     monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_endpoint=None: ["m1"])
@@ -330,12 +330,12 @@ def test_prompt_workspace_backend_and_model_usage_and_unavailable_paths(monkeypa
     assert "chosen model unavailable" in out[0]["content"]
 
 
-def test_prompt_workspace_backend_and_model_empty_catalog_paths(monkeypatch):
+def test_prompt_workspace_endpoint_and_model_empty_catalog_paths(monkeypatch):
     import toas.step as step_mod
 
     monkeypatch.setattr(step_mod, "_available_endpoints", lambda _cfg: [])
-    out = handle_prompt_workspace_commands("backend", [], step_mod=step_mod, context=_ctx())
-    assert "no backends available" in out[0]["content"]
+    out = handle_prompt_workspace_commands("endpoint", [], step_mod=step_mod, context=_ctx())
+    assert "no endpoints available" in out[0]["content"]
 
     monkeypatch.setattr(step_mod, "resolve_selected_endpoint", lambda _w: None)
     monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_endpoint=None: [])
@@ -1880,13 +1880,13 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
     out = handle_config_help_commands("config", ["save", "out.toml"], step_mod=step_mod, context=_ctx(config=cfg))
     assert out[0]["config_save"]["path"] == "out.toml"
 
-    out = handle_config_help_commands("config", ["backend", "add", "b1", "http://x"], step_mod=step_mod, context=_ctx(config=cfg))
+    out = handle_config_help_commands("config", ["endpoint", "add", "b1", "http://x"], step_mod=step_mod, context=_ctx(config=cfg))
     assert out[0]["config_update"]["llm"]["endpoints"][0]["id"] == "b1"
     cfg_with_backend = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="b1", base_url="http://x"),)))
-    out = handle_config_help_commands("config", ["backend", "set", "b1.model", "m2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
-    assert "updated backend" in out[0]["content"]
-    out = handle_config_help_commands("config", ["backend", "capture", "b2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
-    assert "captured backend b2" in out[0]["content"]
+    out = handle_config_help_commands("config", ["endpoint", "set", "b1.default_model", "m2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+    assert "updated endpoint" in out[0]["content"]
+    out = handle_config_help_commands("config", ["endpoint", "capture", "b2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+    assert "captured endpoint b2" in out[0]["content"]
 
 
 def test_config_target_authoring_lists_and_emits_structured_updates():
@@ -2020,7 +2020,7 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
     assert "local: http://localhost:8080/v1" in listed["content"]
 
     updated = handle_config_help_commands(
-        "config", ["endpoint", "set", "local.model", "qwen3.6"], step_mod=step_mod, context=_ctx(config=cfg)
+        "config", ["endpoint", "set", "local.default_model", "qwen3.6"], step_mod=step_mod, context=_ctx(config=cfg)
     )[0]
     assert updated["content"] == "updated endpoint local.default_model"
     assert updated["config_update"]["llm"]["endpoints"][0]["default_model"] == "qwen3.6"
@@ -2281,12 +2281,15 @@ def test_config_backend_validation_error_branches():
     import toas.step as step_mod
 
     cfg_with_backend = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="b1", base_url="http://x"),)))
-    with pytest.raises(ValueError, match="backend field must be one of"):
-        handle_config_help_commands("config", ["backend", "set", "b1.nope", "x"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
-    with pytest.raises(ValueError, match="unknown backend id: missing"):
-        handle_config_help_commands("config", ["backend", "set", "missing.model", "x"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
-    with pytest.raises(ValueError, match="backend api_key_source must be env\\|keyring"):
-        handle_config_help_commands("config", ["backend", "set", "b1.api_key_source", "bad"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+    with pytest.raises(ValueError, match="endpoint field must be one of"):
+        handle_config_help_commands("config", ["endpoint", "set", "b1.nope", "x"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+    with pytest.raises(ValueError, match="unknown endpoint id: missing"):
+        handle_config_help_commands("config", ["endpoint", "set", "missing.model", "x"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+    with pytest.raises(ValueError, match="endpoint api_key_source must be env\\|keyring"):
+        handle_config_help_commands("config", ["endpoint", "set", "b1.api_key_source", "bad"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+
+    with pytest.raises(ValueError, match="usage: /config"):
+        handle_config_help_commands("config", ["backend", "list"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
 
 
 def test_operator_config_endpoint_ops_helper_branches(monkeypatch):
@@ -2325,8 +2328,8 @@ def test_operator_config_endpoint_ops_helper_branches(monkeypatch):
     with pytest.raises(ValueError, match="usage: /config endpoint set"):
         _endpoint_set_result(["endpoint", "set", "only3"], context=ctx)
 
-    with pytest.raises(ValueError, match="usage: /config backend"):
-        config_backend_result(["backend", "nope"], step_mod=step_mod, context=ctx)
+    with pytest.raises(ValueError, match="usage: /config endpoint"):
+        config_endpoint_result(["endpoint", "nope"], step_mod=step_mod, context=ctx)
 
 
 def test_config_key_validator_branch():

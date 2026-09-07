@@ -35,7 +35,7 @@ overview:
   - "tip: use /config show to see all valid keys in the current build"
 topics:
   - id: models
-    aliases: [model, endpoint, endpoints, backend, backends]
+    aliases: [model, endpoint, endpoints]
     summary: "Endpoints provide access, catalogs record model observations, and targets describe what to run."
     facets:
       plain:
