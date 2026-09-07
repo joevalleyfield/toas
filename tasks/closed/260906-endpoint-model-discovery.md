@@ -5,7 +5,7 @@ Legacy index:
 
 Parent: `260906-endpoint-backend-separation`
 Depends on: `260906-endpoint-backend-separation`
-Blocks: `260906-model-catalog-refresh`
+Blocks:
 Related: `260901-help-system-design-survey`; `260614-shell-owned-backend-lifecycle`; `docs/notes/2026-09-06-endpoints-models-and-targets.md`
 
 keywords: runtime, config, surface, implementation, active, provenance, contract
@@ -95,4 +95,8 @@ alongside endpoint-reported model IDs, and bounds unavailable or malformed
 responses without mutating config or history. The command is registered in
 full help, while `/config show` remains unchanged and network-free.
 
-Selection, catalog refresh, and provider-specific fallback policy remain open.
+Focused and full verification completed: the repository suite passes with
+strict 100% coverage. `/models` remains explicit and read-only by default;
+provider-specific unsupported-endpoint behavior is bounded without mutating
+configuration or history. Catalog refresh is implemented as the separate
+follow-on task.

@@ -32,3 +32,6 @@ Implemented `/endpoints` as a deterministic read-only projection. It lists
 endpoint identity, provider, base URL, default model, and known model IDs while
 never rendering credential references or values. Empty configuration and
 invalid arguments are covered.
+
+Focused and full verification completed with strict 100% coverage. The task is
+ready to close with the implementation commit.

@@ -8,7 +8,7 @@ keywords: config, runtime, implementation, follow-on, provenance, defaults, cont
 Parent:
 Depends on: `260906-endpoint-model-discovery`; `260906-endpoint-backend-separation`
 Blocks:
-Blocked by: `260906-endpoint-model-discovery`
+Blocked by:
 Related: `docs/notes/2026-09-06-endpoints-models-and-targets.md`
 
 # Refresh Durable Model Catalogs from Live Observations
@@ -66,17 +66,12 @@ because one response omitted them.
 - Whether refresh is endpoint-scoped, global, or both.
 - Final public command spelling.
 
-## Next Actions
-
-1. Define the catalog merge contract after the live observation projection is
-   stable.
-2. Choose the smallest durable provenance representation.
-3. Add focused merge and non-destructive failure tests.
-
 ## Progress Evidence
 
 An explicit `/models refresh <endpoint>` action now probes one configured
 endpoint and merges reported model IDs into its durable endpoint-associated
 catalog. Existing IDs and endpoint metadata are preserved, absent IDs are not
 deleted, and failed observations return no config update. Active target
-selection is untouched.
+selection is untouched. Focused and full verification completed with strict
+100% coverage. The initial provenance boundary is endpoint-associated catalog
+membership; last-seen metadata and prune semantics remain deferred.
