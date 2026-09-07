@@ -113,7 +113,7 @@ Session command surfaces include:
 - `/compact [--verbose]` (append an executable handoff, optionally showing its prompt)
 - `/model`, `/endpoint`
 - `/env set|unset`
-- `/config` (`show`, `set`, `unset`, `restore`, `load`, `save`, backend subcommands)
+- `/config` (`show`, `set`, `unset`, `restore`, `load`, `save`, `endpoint`, `target`, and `secret` subcommands)
 - `/intent` (`list`, `current`, `set`, `status`, `note`)
 - `/coordination declare <procedure> <step> <surface> <status> <summary>` and
   `/coordination show [procedure]` for explicit, append-only coordinator-state
