@@ -17,3 +17,8 @@ Feature: Config discovery from help to effective state
     Given a scratch TOAS workspace for config discovery
     When the operator follows the config extraction discovery path
     Then extraction discovery should expose the non-executing boundary
+
+  Scenario: "Endpoint and target authoring reaches selection"
+    Given a scratch TOAS workspace for config discovery
+    When the operator follows the endpoint and target authoring path
+    Then endpoint and target selection should be discoverable and network-free

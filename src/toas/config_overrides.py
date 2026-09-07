@@ -156,15 +156,15 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     target_entries: list[object] = []
     raw_targets = llm_values.get("targets", {})
     for target_id, item in _target_map(raw_targets).items():
-        generation_values = item.get("generation", {})
-        if not isinstance(generation_values, dict):
-            generation_values = {}
-        if isinstance(generation_values.get("avoid_terms"), list):
-            generation_values = dict(generation_values)
-            generation_values["avoid_terms"] = tuple(
-                str(term).strip() for term in generation_values["avoid_terms"] if str(term).strip()
+        target_generation_values = item.get("generation", {})
+        if not isinstance(target_generation_values, dict):
+            target_generation_values = {}
+        if isinstance(target_generation_values.get("avoid_terms"), list):
+            target_generation_values = dict(target_generation_values)
+            target_generation_values["avoid_terms"] = tuple(
+                str(term).strip() for term in target_generation_values["avoid_terms"] if str(term).strip()
             )
-        generation = classes["TargetGenerationOverrides"](**generation_values)
+        target_generation = classes["TargetGenerationOverrides"](**target_generation_values)
         tags_raw = item.get("tags", ())
         tags = tuple(str(tag).strip() for tag in tags_raw if str(tag).strip()) if isinstance(tags_raw, (list, tuple)) else ()
         target_entries.append(
@@ -172,7 +172,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                 id=target_id,
                 endpoint=str(item.get("endpoint", "")).strip(),
                 model=str(item.get("model", "")).strip(),
-                generation=generation,
+                generation=target_generation,
                 tags=tags,
                 notes=str(item.get("notes", "")).strip(),
             )

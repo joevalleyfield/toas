@@ -757,6 +757,7 @@ def test_target_normalization_handles_malformed_maps_and_internal_lists():
     )
 
     assert [target.id for target in result.llm.targets] == ["existing", "mapped", "bad-generation"]
+    assert result.generation.thinking_budget_tokens == 0
     assert result.llm.targets[1].generation.avoid_terms == ("x", "y")
     assert result.llm.targets[2].generation == TargetGenerationOverrides()
 

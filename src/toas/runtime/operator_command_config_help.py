@@ -16,7 +16,7 @@ _YAML_POSITION_COMPAT_NOTE = (
 )
 
 _CONFIG_USAGE = (
-    "usage: /config [show] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
+    "usage: /config [show|list] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
     "| /config target [list|add|set|remove] ... | /config restore | /config load [path] | /config save [path] | /config secret ..."
 )
 
@@ -115,7 +115,7 @@ def _effective_config_values(flat: dict[str, object], *, step_mod) -> dict[str, 
 
 
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    filter_text, show_sources = _config_show_filter(args[1:] if args and args[0] == "show" else args)
+    filter_text, show_sources = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
 
     flat = _effective_config_values(step_mod.flatten_config(context.config), step_mod=step_mod)
     keys = _config_key_matches(list(flat), filter_text)
@@ -499,7 +499,7 @@ def _config_target_result(args: list[str], *, step_mod, context: OperatorCommand
 def _handle_config_command(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if args == ["--help"]:
         return [_result_node(step_mod.render_help_config(), step_mod=step_mod, context=context)]
-    if not args or args[0] == "show" or (len(args) == 1 and args[0] == "--sources"):
+    if not args or args[0] in {"show", "list"} or (len(args) == 1 and args[0] == "--sources"):
         return _config_show_result(args, step_mod=step_mod, context=context)
     if args[0] == "secret":
         return _config_secret_result(args, step_mod=step_mod, context=context)

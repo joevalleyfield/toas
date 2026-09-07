@@ -4,6 +4,7 @@ overview:
   - "  /config                  compact usage and navigation"
   - "  /config --help           exact config-interface usage"
   - "  /config show             inspect effective current values"
+  - "  /config list             alias for /config show"
   - "  /config show --sources   inspect values with their provenance"
   - "  /config values <key>     inspect allowed categorical values"
   - "  /config set <key> <value> set a durable session override"

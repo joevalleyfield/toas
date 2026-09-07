@@ -75,6 +75,24 @@ def when_follow_extraction_discovery(acceptance_state: dict, capsys) -> None:
     acceptance_state["extraction_outputs"] = outputs
 
 
+@when("the operator follows the endpoint and target authoring path")
+def when_follow_endpoint_target_authoring(acceptance_state: dict, capsys) -> None:
+    outputs = []
+    for command in (
+        "/config endpoint add local http://localhost:8080/v1",
+        "/config endpoint set local.model qwen3.6",
+        "/config target add local-qwen local qwen3.6",
+        "/config list models",
+        "/config endpoint list",
+        "/config target list",
+        "/model select local-qwen",
+        "/model targets",
+    ):
+        _run_control(acceptance_state["repo"], command)
+        outputs.append((command, capsys.readouterr().out))
+    acceptance_state["endpoint_target_outputs"] = outputs
+
+
 def _output(outputs: list[tuple[str, str]], command: str) -> str:
     return next(text for name, text in outputs if name == command)
 
@@ -145,3 +163,26 @@ def then_extraction_discovery_contract(acceptance_state: dict) -> None:
         assert key in live
     assert "precedence stack" not in live
     assert "config_update" not in live
+
+
+@then("endpoint and target selection should be discoverable and network-free")
+def then_endpoint_target_authoring_contract(acceptance_state: dict) -> None:
+    outputs = acceptance_state["endpoint_target_outputs"]
+    assert acceptance_state["probe_calls"] == []
+    listed_config = _output(outputs, "/config list models")
+    assert "llm.model =" in listed_config
+    assert "precedence stack" not in listed_config
+
+    endpoints = _output(outputs, "/config endpoint list")
+    assert "configured endpoints:" in endpoints
+    assert "local: http://localhost:8080/v1" in endpoints
+
+    targets = _output(outputs, "/config target list")
+    assert "local-qwen: endpoint=local, model=qwen3.6" in targets
+
+    selected = _output(outputs, "/model select local-qwen")
+    assert "selected model target: local-qwen" in selected
+
+    target_status = _output(outputs, "/model targets")
+    assert "- local-qwen *: endpoint=local, model=qwen3.6, status=ready" in target_status
+    assert "active target: local-qwen" in target_status
