@@ -217,3 +217,63 @@ The likely sequence is:
 - A universal help registry or a final command spelling for every inspection
   surface.
 - A standalone named generation-profile registry.
+
+## Setup workflow requirements
+
+The normal lifecycle has four distinct transitions:
+
+```text
+endpoint definition → model observation/catalog → named target → active selection
+```
+
+These transitions should remain visible because they have different durability,
+network, and session semantics. Convenience should reduce ceremony without
+silently combining them.
+
+### Promote known models into targets
+
+The explicit three-positional form remains canonical:
+
+```text
+/config target add NAME ENDPOINT MODEL
+```
+
+When the operator does not need a custom alias, the target name may be derived:
+
+```text
+/config target add ENDPOINT MODEL
+```
+
+The derived name is a deterministic slug such as `local-qwen3.6`. A collision
+must fail without overwriting and suggest the explicit-name form. This command
+does not probe the endpoint and does not select the target.
+
+Bulk promotion is also explicit and catalog-only:
+
+```text
+/config target add --all-known ENDPOINT
+/config target add --all-known ENDPOINT --preview
+```
+
+It creates missing targets for the durable known catalog, reports created and
+skipped IDs, emits one atomic config update, and suggests `/models refresh
+ENDPOINT` when the catalog is empty. It never implies that catalog presence is
+live availability.
+
+### Bootstrap the common setup path
+
+The four phases may be composed only through an explicitly named operation:
+
+```text
+/config endpoint bootstrap NAME BASE_URL --refresh --targets
+/config endpoint bootstrap NAME BASE_URL --refresh --target MODEL --select
+```
+
+`bootstrap` may define the endpoint, perform an explicit network refresh, and
+promote either all known models or one named model. Selection remains a session
+operation and occurs only with `--select`; ordinary endpoint creation,
+refresh, and target materialization never change the active target.
+
+Bootstrap failures must preserve prior durable endpoint/catalog state and must
+not partially create targets. The operation should report each phase it
+completed so recovery is actionable.
