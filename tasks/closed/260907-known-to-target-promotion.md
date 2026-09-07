@@ -35,4 +35,11 @@ targets convenient without implying live availability or changing selection.
 
 ## Progress Evidence
 
-Open: ready for implementation.
+Closed: implemented derived target naming and bulk promotion from the durable
+known-model catalog. The explicit named form remains available; derived names
+are deterministic, collisions are rejected, `--preview` is read-only, and
+bulk writes are emitted as one atomic config update without network access.
+
+Verification: focused operator/config tests passed (229); acceptance coverage
+passed (4); full suite passed (3,205 passed, 13 deselected, 100% coverage);
+Ruff reported no findings.

@@ -426,6 +426,55 @@ def _target_config_update(target_id: str, values: dict) -> dict:
     return {"llm": {"targets": {target_id: values}}}
 
 
+def _target_id_for_model(endpoint_id: str, model_id: str) -> str:
+    parts = []
+    for value in (endpoint_id, model_id):
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-._")
+        if slug:
+            parts.append(slug)
+    return "-".join(parts)
+
+
+def _known_endpoint(context: OperatorCommandContext, endpoint_id: str):
+    return next((endpoint for endpoint in context.config.llm.endpoints if endpoint.id == endpoint_id), None)
+
+
+def _config_target_bulk_add_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) not in {4, 5} or args[2] != "--all-known" or (len(args) == 5 and args[4] != "--preview"):
+        raise ValueError("usage: /config target add --all-known ENDPOINT [--preview]")
+    endpoint_id = args[3].strip()
+    endpoint = _known_endpoint(context, endpoint_id)
+    if endpoint is None:
+        raise ValueError(f"unknown endpoint: {endpoint_id}\nhint: use /config endpoint add NAME BASE_URL")
+    known_models = tuple(dict.fromkeys(model.strip() for model in endpoint.models if model.strip()))
+    if not known_models:
+        return [
+            _result_node(
+                f"no known models for endpoint {endpoint_id}\nhint: use /models refresh {endpoint_id} first",
+                step_mod=step_mod,
+                context=context,
+            )
+        ]
+    existing = {target.id for target in context.config.llm.targets}
+    additions: dict[str, dict[str, str]] = {}
+    skipped: list[str] = []
+    for model_id in known_models:
+        target_id = _target_id_for_model(endpoint_id, model_id)
+        if not target_id or target_id in existing or target_id in additions:
+            skipped.append(target_id or model_id)
+            continue
+        additions[target_id] = {"endpoint": endpoint_id, "model": model_id}
+    preview = len(args) == 5
+    lines = [f"{'planned' if preview else 'created'} model targets for endpoint {endpoint_id}:"]
+    lines.extend(f"- {target_id}: model={values['model']}" for target_id, values in additions.items())
+    if skipped:
+        lines.extend(["", "skipped existing targets:", *(f"- {target_id}" for target_id in skipped)])
+    if not additions:
+        lines.append("(no new targets)")
+    fields = {} if preview or not additions else {"config_update": {"llm": {"targets": additions}}}
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context, **fields)]
+
+
 def _render_target_list(context: OperatorCommandContext, *, step_mod) -> list[dict]:
     if not context.config.llm.targets:
         return [_result_node("no configured model targets", step_mod=step_mod, context=context)]
@@ -470,8 +519,23 @@ def _config_target_result(args: list[str], *, step_mod, context: OperatorCommand
             raise ValueError(_TARGET_USAGE)
         return _render_target_list(context, step_mod=step_mod)
     if action == "add":
-        if len(args) not in {3, 4, 5} or not args[2].strip():
-            raise ValueError("usage: /config target add NAME [ENDPOINT] [MODEL]")
+        if args[2:3] == ["--all-known"]:
+            return _config_target_bulk_add_result(args, step_mod=step_mod, context=context)
+        if len(args) == 4:
+            endpoint_id, model_id = args[2].strip(), args[3].strip()
+            if not endpoint_id or not model_id:
+                raise ValueError("usage: /config target add ENDPOINT MODEL")
+            if _known_endpoint(context, endpoint_id) is None:
+                raise ValueError(f"unknown endpoint: {endpoint_id}\nhint: use /config endpoint add NAME BASE_URL")
+            target_id = _target_id_for_model(endpoint_id, model_id)
+            if not target_id:
+                raise ValueError("usage: /config target add ENDPOINT MODEL")
+            values = {"endpoint": endpoint_id, "model": model_id}
+            if any(target.id == target_id for target in context.config.llm.targets):
+                raise ValueError(f"model target already exists: {target_id}")
+            return [_result_node(f"added model target {target_id}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, values))]
+        if len(args) != 5 or not args[2].strip() or not args[3].strip() or not args[4].strip():
+            raise ValueError("usage: /config target add NAME ENDPOINT MODEL")
         target_id = args[2].strip()
         if any(target.id == target_id for target in context.config.llm.targets):
             raise ValueError(f"model target already exists: {target_id}")

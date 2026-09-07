@@ -43,7 +43,7 @@ topics:
       config:
         summary: "Inspect endpoint access, model catalogs, and durable target definitions without conflating configuration with live observations."
         related_keys: [llm.model, llm.models, llm.backends, llm.base_url, backend.mode]
-        next_actions: ["/config show models", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config target list", "/config target add NAME ENDPOINT MODEL", "/endpoints", "/models live <endpoint>", "/models known <endpoint>", "/models refresh <endpoint>", "/model targets", "/model select <target>"]
+        next_actions: ["/config show models", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config target list", "/config target add ENDPOINT MODEL", "/config target add NAME ENDPOINT MODEL", "/config target add --all-known ENDPOINT", "/endpoints", "/models live <endpoint>", "/models known <endpoint>", "/models refresh <endpoint>", "/model targets", "/model select <target>"]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
     summary: "Generation settings control thinking, output budgets, retries, and request transport."

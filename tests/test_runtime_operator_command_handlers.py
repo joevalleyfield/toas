@@ -1901,6 +1901,74 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
         "llm": {"targets": {"remote": {"endpoint": "openai", "model": "gpt-5.6-sol"}}}
     }
 
+    endpoint_cfg = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(BackendCatalogEntry(id="local", base_url="http://localhost", models=("qwen3.6", "llama/3", "qwen3.6")),),
+            targets=(TargetCatalogEntry(id="local-qwen3.6", endpoint="local", model="qwen3.6"),),
+        )
+    )
+    derived_new = handle_config_help_commands(
+        "config",
+        ["target", "add", "local", "new/model"],
+        step_mod=step_mod,
+        context=_ctx(config=OperatorConfig(llm=LLMPolicy(backends=endpoint_cfg.llm.backends))),
+    )[0]
+    assert derived_new["config_update"] == {
+        "llm": {"targets": {"local-new-model": {"endpoint": "local", "model": "new/model"}}}
+    }
+    with pytest.raises(ValueError, match="already exists: local-qwen3.6"):
+        handle_config_help_commands(
+            "config", ["target", "add", "local", "qwen3.6"], step_mod=step_mod, context=_ctx(config=endpoint_cfg)
+        )
+    with pytest.raises(ValueError, match="already exists: local"):
+        handle_config_help_commands(
+            "config", ["target", "add", "local", "openai", "qwen3.6"], step_mod=step_mod, context=_ctx(config=cfg)
+        )
+    preview = handle_config_help_commands(
+        "config", ["target", "add", "--all-known", "local", "--preview"], step_mod=step_mod, context=_ctx(config=endpoint_cfg)
+    )[0]
+    assert "planned model targets for endpoint local" in preview["content"]
+    assert "local-llama-3" in preview["content"]
+    assert "config_update" not in preview
+
+    bulk = handle_config_help_commands(
+        "config", ["target", "add", "--all-known", "local"], step_mod=step_mod, context=_ctx(config=endpoint_cfg)
+    )[0]
+    assert bulk["config_update"] == {
+        "llm": {"targets": {"local-llama-3": {"endpoint": "local", "model": "llama/3"}}}
+    }
+    no_new = handle_config_help_commands(
+        "config",
+        ["target", "add", "--all-known", "local"],
+        step_mod=step_mod,
+        context=_ctx(
+            config=OperatorConfig(
+                llm=LLMPolicy(
+                    backends=endpoint_cfg.llm.backends,
+                    targets=endpoint_cfg.llm.targets + (TargetCatalogEntry(id="local-llama-3", endpoint="local", model="llama/3"),),
+                )
+            )
+        ),
+    )[0]
+    assert "(no new targets)" in no_new["content"]
+
+    with pytest.raises(ValueError, match="unknown endpoint: missing"):
+        handle_config_help_commands("config", ["target", "add", "missing", "model"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="unknown endpoint: missing"):
+        handle_config_help_commands("config", ["target", "add", "--all-known", "missing"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /config target add ENDPOINT MODEL"):
+        handle_config_help_commands("config", ["target", "add", " ", "model"], step_mod=step_mod, context=_ctx())
+    punctuation_cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="...", base_url="http://x"),)))
+    with pytest.raises(ValueError, match="usage: /config target add ENDPOINT MODEL"):
+        handle_config_help_commands("config", ["target", "add", "...", "..."], step_mod=step_mod, context=_ctx(config=punctuation_cfg))
+    empty_catalog = handle_config_help_commands(
+        "config",
+        ["target", "add", "--all-known", "empty"],
+        step_mod=step_mod,
+        context=_ctx(config=OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="empty", base_url="http://x"),)))),
+    )[0]
+    assert "no known models" in empty_catalog["content"]
+
     updated = handle_config_help_commands(
         "config", ["target", "set", "local", "generation.max_retries", "2"], step_mod=step_mod, context=_ctx(config=cfg)
     )[0]
@@ -1973,7 +2041,8 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
         (("target",), "usage: /config target"),
         (("target", "list", "extra"), "usage: /config target"),
         (("target", "add"), "usage: /config target add"),
-        (("target", "add", "local"), "already exists"),
+        (("target", "add", "local"), "usage: /config target add NAME ENDPOINT MODEL"),
+        (("target", "add", "--all-known", "local", "bad"), "usage: /config target add --all-known ENDPOINT"),
         (("target", "add", " "), "usage: /config target add"),
         (("target", "set", "local", "model"), "usage: /config target set"),
         (("target", "set", "missing", "model", "m"), "unknown model target"),

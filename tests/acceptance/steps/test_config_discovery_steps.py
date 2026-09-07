@@ -82,6 +82,9 @@ def when_follow_endpoint_target_authoring(acceptance_state: dict, capsys) -> Non
         "/config endpoint add local http://localhost:8080/v1",
         "/config endpoint set local.model qwen3.6",
         "/config target add local-qwen local qwen3.6",
+        "/config endpoint set local.models qwen3.6,llama/3",
+        "/config target add --all-known local --preview",
+        "/config target add --all-known local",
         "/config list models",
         "/config endpoint list",
         "/config target list",
@@ -179,6 +182,12 @@ def then_endpoint_target_authoring_contract(acceptance_state: dict) -> None:
 
     targets = _output(outputs, "/config target list")
     assert "local-qwen: endpoint=local, model=qwen3.6" in targets
+    assert "local-qwen3.6: endpoint=local, model=qwen3.6" in targets
+    assert "local-llama-3: endpoint=local, model=llama/3" in targets
+
+    preview = _output(outputs, "/config target add --all-known local --preview")
+    assert "planned model targets for endpoint local" in preview
+    assert "config_update" not in preview
 
     selected = _output(outputs, "/model select local-qwen")
     assert "selected model target: local-qwen" in selected
