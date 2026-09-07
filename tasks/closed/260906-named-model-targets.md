@@ -73,6 +73,14 @@ target is a session-level reference to an effective named target.
 
 ## Progress Evidence
 
+Closed: the durable named-target arc is complete. Target definitions now use
+keyed configuration tables with endpoint/model references and sparse generation
+overrides; effective resolution preserves endpoint defaults and conservative
+inference; selection is a session-level reference; and the operator surface
+supports inspection, static selection, derived naming, catalog promotion, and
+explicit endpoint bootstrap. The follow-on slices also separate live model
+observation from durable catalog inspection and refresh.
+
 The first target foundation now provides durable `TargetCatalogEntry` values
 with endpoint and requested-model references plus sparse overrides of the
 existing generation policy. Effective configuration layers merge targets by
@@ -126,6 +134,10 @@ making the target affordance discoverable.
 2. Add config parsing, hierarchy merging, and effective-target resolution. (complete)
 3. Add resolver tests before choosing final operator command names. (complete)
 4. Decide the final public target inspection/selection grammar and validation
-   behavior. The current provisional rule is static validation: unresolved
-   endpoint references are not selectable, and no live probe occurs during
-   selection.
+   behavior. (complete: the current static-validation rule remains in force;
+   unresolved endpoint references are not selectable, and selection performs
+   no live probe.)
+
+Final verification: the implementation slices were verified by the full
+strict suite at 100% coverage, with acceptance coverage for endpoint
+authoring, model observation, target promotion, bootstrap, and selection.
