@@ -19,7 +19,7 @@ from ..llm import (
     model_name,
 )
 from ..secrets import resolve_secret
-from ..step import resolve_selected_backend, resolve_selected_model
+from ..step import resolve_selected_endpoint, resolve_selected_model
 from ..step import step as step_fn
 from .model_invocation_contracts import (
     GenerationCompletion,
@@ -59,7 +59,7 @@ class StepCliDeps:
     settings_for_runtime: Callable[..., tuple[Settings, dict[str, str]]]
     generation_policy_from_config: Callable[[OperatorConfig], BackendGenerationPolicy]
     project_llm_input_from_messages: Callable[[list[dict]], list[dict]]
-    resolve_selected_backend: Callable[[list[dict]], str | None]
+    resolve_selected_endpoint: Callable[[list[dict]], str | None]
     resolve_selected_model: Callable[[list[dict]], str | None]
     resolve_secret: Callable[..., str]
     step_fn: Callable[..., tuple[list[dict], list[dict]]]
@@ -90,7 +90,7 @@ def build_step_cli_deps() -> StepCliDeps:
         settings_for_runtime=deps.settings_for_runtime,
         generation_policy_from_config=deps.generation_policy_from_config,
         project_llm_input_from_messages=project_llm_input_from_messages,
-        resolve_selected_backend=resolve_selected_backend,
+        resolve_selected_endpoint=resolve_selected_endpoint,
         resolve_selected_model=resolve_selected_model,
         resolve_secret=resolve_secret,
         step_fn=step_fn,
@@ -172,7 +172,7 @@ class GenerationRunner:
             policy=self.policy,
             events_path=self.events_path,
             project_messages=self.deps.project_llm_input_from_messages,
-            selected_backend=self.deps.resolve_selected_backend,
+            selected_endpoint=self.deps.resolve_selected_endpoint,
             selected_model=self.deps.resolve_selected_model,
             secret_resolver=self.deps.resolve_secret,
             llm_stream_mode=self.llm_stream_mode,

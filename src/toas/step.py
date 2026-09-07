@@ -427,33 +427,33 @@ def _render_workspace_commands(workspace_mode: str, workspace_roots: list[str]) 
     return "\n".join(lines)
 
 
-def _available_backends(config: OperatorConfig) -> list[str]:
-    backends: list[str] = []
+def _available_endpoints(config: OperatorConfig) -> list[str]:
+    endpoints: list[str] = []
     for entry in config.llm.endpoints:
         candidate = entry.id.strip()
-        if candidate and candidate not in backends:
-            backends.append(candidate)
-    return backends
+        if candidate and candidate not in endpoints:
+            endpoints.append(candidate)
+    return endpoints
 
 
-def _find_backend(config: OperatorConfig, backend_id: str):
+def _find_endpoint(config: OperatorConfig, endpoint_id: str):
     for entry in config.llm.endpoints:
-        if entry.id == backend_id:
+        if entry.id == endpoint_id:
             return entry
     return None
 
 
-def _available_models(config: OperatorConfig, *, selected_backend: str | None = None) -> list[str]:
+def _available_models(config: OperatorConfig, *, selected_endpoint: str | None = None) -> list[str]:
     models: list[str] = []
-    if selected_backend:
-        backend = _find_backend(config, selected_backend)
-        if backend is not None:
-            for model_id in backend.models:
+    if selected_endpoint:
+        endpoint = _find_endpoint(config, selected_endpoint)
+        if endpoint is not None:
+            for model_id in endpoint.models:
                 candidate = model_id.strip()
                 if candidate and candidate not in models:
                     models.append(candidate)
-            if backend.default_model.strip() and backend.default_model.strip() not in models:
-                models.append(backend.default_model.strip())
+            if endpoint.default_model.strip() and endpoint.default_model.strip() not in models:
+                models.append(endpoint.default_model.strip())
             if models:
                 return models
     for entry in config.llm.models:
@@ -494,7 +494,8 @@ def resolve_selected_model(working: list[dict]) -> str | None:
     return None
 
 
-def resolve_selected_backend(working: list[dict]) -> str | None:
+def resolve_selected_endpoint(working: list[dict]) -> str | None:
+    """Resolve the endpoint selected by the legacy transcript command."""
     for message in reversed(working):
         if message.get("role") != "user":
             continue
@@ -893,13 +894,13 @@ def _generation_guard_result(
     working: list[dict],
     config: OperatorConfig,
 ) -> dict | None:
-    selected_backend = resolve_selected_backend(working)
-    available_backends = _available_backends(config)
-    if selected_backend is not None and available_backends and selected_backend not in available_backends:
+    selected_endpoint = resolve_selected_endpoint(working)
+    available_endpoints = _available_endpoints(config)
+    if selected_endpoint is not None and available_endpoints and selected_endpoint not in available_endpoints:
         lines = [
-            f"chosen backend unavailable: {selected_backend}",
+            f"chosen endpoint unavailable: {selected_endpoint}",
             "pick one of:",
-            *[f"/backend {name}" for name in available_backends],
+            *[f"/backend {name}" for name in available_endpoints],
         ]
         return make_result_node(
             "\n".join(lines),
@@ -908,7 +909,7 @@ def _generation_guard_result(
         )
 
     selected_model = resolve_selected_model(working)
-    available_models = _available_models(config, selected_backend=selected_backend)
+    available_models = _available_models(config, selected_endpoint=selected_endpoint)
     if selected_model is not None and available_models and selected_model not in available_models:
         lines = [
             f"chosen model unavailable: {selected_model}",

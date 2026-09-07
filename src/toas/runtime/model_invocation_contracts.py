@@ -17,7 +17,7 @@ from ..llm import (
     model_name,
 )
 from ..secrets import resolve_secret
-from ..step import resolve_selected_backend, resolve_selected_model
+from ..step import resolve_selected_endpoint, resolve_selected_model
 from .context_assembly import build_context_packet, shape_messages_for_packet
 from .model_targets import (
     infer_endpoint_default_model,
@@ -88,7 +88,7 @@ def resolve_model_invocation(
     policy: BackendGenerationPolicy,
     events_path: Path,
     project_messages: Callable[[list[dict]], list[dict]],
-    selected_backend: Callable[[list[dict]], str | None] = resolve_selected_backend,
+    selected_endpoint: Callable[[list[dict]], str | None] = resolve_selected_endpoint,
     selected_model: Callable[[list[dict]], str | None] = resolve_selected_model,
     secret_resolver: Callable[..., str] = resolve_secret,
     llm_stream_mode: str | None = None,
@@ -126,34 +126,34 @@ def resolve_model_invocation(
         selected_api_key_source = target_invocation.api_key_source
         selected_generation = target_invocation.generation
     else:
-        backend_id = selected_backend(working)
-    if target_invocation is None and backend_id:
-        backend_entry = next((b for b in operator_config.llm.endpoints if b.id == backend_id), None)
-        if backend_entry is not None:
-            backend_api_key = secret_resolver(
-                source=backend_entry.api_key_source,
-                ref=backend_entry.api_key_ref,
+        endpoint_id = selected_endpoint(working)
+    if target_invocation is None and endpoint_id:
+        endpoint_entry = next((entry for entry in operator_config.llm.endpoints if entry.id == endpoint_id), None)
+        if endpoint_entry is not None:
+            endpoint_api_key = secret_resolver(
+                source=endpoint_entry.api_key_source,
+                ref=endpoint_entry.api_key_ref,
                 default=base_settings.llm_api_key,
             )
             endpoint_model, endpoint_model_source = infer_endpoint_default_model(
                 operator_config,
-                backend_entry,
+                endpoint_entry,
                 global_model=operator_config.llm.model,
                 fallback_model=base_settings.llm_model,
             )
             selected_settings = Settings(
-                llm_base_url=backend_entry.base_url or base_settings.llm_base_url,
-                llm_api_key=backend_api_key,
+                llm_base_url=endpoint_entry.base_url or base_settings.llm_base_url,
+                llm_api_key=endpoint_api_key,
                 llm_model=endpoint_model,
                 llm_trace=base_settings.llm_trace,
                 llm_transport_mode=base_settings.llm_transport_mode,
                 llm_stream_mode=base_settings.llm_stream_mode,
-                llm_provider=backend_entry.provider or base_settings.llm_provider,
+                llm_provider=endpoint_entry.provider or base_settings.llm_provider,
                 llm_ca_file=base_settings.llm_ca_file,
             )
-            selected_endpoint_source = f"backend:{backend_id}"
-            selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
-            selected_model_source = f"backend:{backend_id}:{endpoint_model_source}"
+            selected_endpoint_source = f"endpoint:{endpoint_id}"
+            selected_api_key_source = f"{endpoint_entry.api_key_source}:{endpoint_entry.api_key_ref}"
+            selected_model_source = f"endpoint:{endpoint_id}:{endpoint_model_source}"
     transcript_model = selected_model(working) if target_invocation is None else None
     if transcript_model:
         selected_settings = Settings(

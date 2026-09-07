@@ -143,7 +143,7 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
     assert "/config show models" in help_models
 
     show_models = _output(outputs, "/config show models")
-    for key in ("llm.model =", "llm.models =", "llm.backends =", "llm.base_url =", "backend.mode ="):
+    for key in ("llm.model =", "llm.models =", "llm.endpoints =", "llm.base_url =", "backend.mode ="):
         assert key in show_models
     assert "llm.model = qwen3.5-35b-a3b" in show_models
     assert "llm.base_url = http://localhost:8080/v1" in show_models

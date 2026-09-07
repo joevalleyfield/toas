@@ -1,7 +1,6 @@
 import pytest
 
 from toas.config import (
-    BackendCatalogEntry,
     BackendManagedLocalPolicy,
     BackendPolicy,
     BackendStartupPolicy,
@@ -51,7 +50,7 @@ def test_default_config_fields():
     assert config.llm.api_key_source == "env"
     assert config.llm.api_key_ref == "TOAS_LLM_API_KEY"
     assert config.llm.models == ()
-    assert config.llm.backends == ()
+    assert config.llm.endpoints == ()
     assert config.runtime == RuntimePolicy()
     assert config.storage.hot_journal_limit_mb == 4
     assert config.shell.allowed_commands
@@ -87,7 +86,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["llm.api_key_source"] == "env"
     assert flat["llm.api_key_ref"] == "TOAS_LLM_API_KEY"
     assert flat["llm.models"] == ()
-    assert flat["llm.backends"] == ()
+    assert flat["llm.endpoints"] == ()
     assert flat["runtime.context_budget_mode"] == "balanced"
     assert flat["runtime.streaming_mode"] == "enabled"
     assert flat["runtime.async_runs"] == "enabled"
@@ -150,7 +149,7 @@ def test_valid_config_keys_complete():
     assert "llm.api_key_source" in keys
     assert "llm.api_key_ref" in keys
     assert "llm.models" in keys
-    assert "llm.backends" in keys
+    assert "llm.endpoints" in keys
     assert "runtime.context_budget_mode" in keys
     assert "runtime.streaming_mode" in keys
     assert "runtime.async_runs" in keys
@@ -446,7 +445,7 @@ def test_parse_config_value_backend_managed_local_unsupported_for_set():
 
 
 def test_parse_config_value_llm_backends_unsupported_for_set():
-    with pytest.raises(ValueError, match="cannot be set via /config set"):
+    with pytest.raises(ValueError, match="legacy input"):
         parse_config_value("llm.backends", "x")
 
 
@@ -600,7 +599,7 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
     p = tmp_path / "toas.toml"
     p.write_text(
         '[llm]\n'
-        '[[llm.backends]]\n'
+        '[[llm.endpoints]]\n'
         'id = "local"\n'
         'base_url = "http://localhost:8080/v1"\n'
         'default_model = "qwen"\n'
@@ -610,8 +609,8 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
         'api_key_ref = "TOAS_LLM_API_KEY"\n'
     )
     result = config_from_file(p)
-    assert result.llm.backends == (
-        BackendCatalogEntry(
+    assert result.llm.endpoints == (
+        EndpointCatalogEntry(
             id="local",
             base_url="http://localhost:8080/v1",
             default_model="qwen",
@@ -632,7 +631,7 @@ def test_config_from_file_reads_legacy_backend_model_as_default_model(tmp_path):
     p = tmp_path / "toas.toml"
     p.write_text(
         '[llm]\n'
-        '[[llm.backends]]\n'
+        '[[llm.endpoints]]\n'
         'id = "legacy"\n'
         'base_url = "http://localhost:8080/v1"\n'
         'model = "legacy-default"\n'
@@ -640,8 +639,7 @@ def test_config_from_file_reads_legacy_backend_model_as_default_model(tmp_path):
 
     result = config_from_file(p)
 
-    assert result.llm.backends[0].default_model == "legacy-default"
-    assert result.llm.backends[0].model == "legacy-default"
+    assert result.llm.endpoints[0].default_model == "legacy-default"
 
 
 def test_config_from_file_preserves_endpoint_provider_on_legacy_backend_catalog(tmp_path):
@@ -651,7 +649,7 @@ def test_config_from_file_preserves_endpoint_provider_on_legacy_backend_catalog(
     p = tmp_path / "toas.toml"
     p.write_text(
         '[llm]\n'
-        '[[llm.backends]]\n'
+        '[[llm.endpoints]]\n'
         'id = "gemini"\n'
         'base_url = "https://generativelanguage.googleapis.com"\n'
         'provider = "gemini-rest"\n'
@@ -659,14 +657,14 @@ def test_config_from_file_preserves_endpoint_provider_on_legacy_backend_catalog(
 
     result = config_from_file(p)
 
-    assert result.llm.backends == (
+    assert result.llm.endpoints == (
         EndpointCatalogEntry(
             id="gemini",
             base_url="https://generativelanguage.googleapis.com",
             provider="gemini-rest",
         ),
     )
-    assert result.llm.endpoints == result.llm.backends
+    assert result.llm.endpoints == result.llm.endpoints
 
 
 def test_config_from_file_loads_named_target_with_sparse_generation_overrides(tmp_path):
@@ -791,11 +789,11 @@ def test_apply_overrides_normalizes_catalog_and_managed_local_values():
     assert len(result.llm.models) == 1
     assert result.llm.models[0].id == "m1"
     assert result.llm.models[0].tags == ("a", "b")
-    assert len(result.llm.backends) == 1
-    assert result.llm.backends[0].id == "b1"
-    assert result.llm.backends[0].base_url == "http://localhost"
-    assert result.llm.backends[0].api_key_source == "env"
-    assert result.llm.backends[0].api_key_ref == "TOAS_LLM_API_KEY"
+    assert len(result.llm.endpoints) == 1
+    assert result.llm.endpoints[0].id == "b1"
+    assert result.llm.endpoints[0].base_url == "http://localhost"
+    assert result.llm.endpoints[0].api_key_source == "env"
+    assert result.llm.endpoints[0].api_key_ref == "TOAS_LLM_API_KEY"
     assert result.backend.managed_local.command == ("uv", "run")
     assert result.backend.managed_local.env == (("A", "1"),)
 
@@ -803,7 +801,7 @@ def test_apply_overrides_normalizes_catalog_and_managed_local_values():
 def test_apply_overrides_handles_entry_instances_and_env_list_shape():
     base = OperatorConfig()
     model_entry = ModelCatalogEntry(id="m2", label="M2")
-    backend_entry = BackendCatalogEntry(id="b2", base_url="http://x")
+    backend_entry = EndpointCatalogEntry(id="b2", base_url="http://x")
     result = apply_overrides(
         base,
         {
@@ -817,8 +815,8 @@ def test_apply_overrides_handles_entry_instances_and_env_list_shape():
     )
     assert any(entry.id == "m2" for entry in result.llm.models)
     assert any(entry.id == "m3" and entry.tags == () for entry in result.llm.models)
-    assert any(entry.id == "b2" for entry in result.llm.backends)
-    b3 = next(entry for entry in result.llm.backends if entry.id == "b3")
+    assert any(entry.id == "b2" for entry in result.llm.endpoints)
+    b3 = next(entry for entry in result.llm.endpoints if entry.id == "b3")
     assert b3.models == ()
     assert b3.tags == ()
     assert result.shell.allowed_commands == ("echo", "rg")

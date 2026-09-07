@@ -5,7 +5,7 @@ import functools
 from ..backend_policy import generation_policy_from_config
 from ..graph import project_llm_input_from_messages
 from ..secrets import resolve_secret
-from ..step import resolve_selected_backend, resolve_selected_model
+from ..step import resolve_selected_endpoint, resolve_selected_model
 from ..step import step as step_fn
 from . import step_generation_runtime as generation_runtime
 from .policy_edges import RUNTIME_SECRETS, build_config_sources, serialize_operator_config_toml
@@ -51,7 +51,7 @@ def build_step_cli_deps() -> generation_runtime.StepCliDeps:
         ),
         generation_policy_from_config=generation_policy_from_config,
         project_llm_input_from_messages=project_llm_input_from_messages,
-        resolve_selected_backend=resolve_selected_backend,
+        resolve_selected_endpoint=resolve_selected_endpoint,
         resolve_selected_model=resolve_selected_model,
         resolve_secret=resolve_secret,
         step_fn=step_fn,

@@ -88,17 +88,6 @@ class EndpointCatalogEntry:
     models_last_refreshed_at: str = ""
     model_observations: tuple[EndpointModelObservation, ...] = ()
 
-    @property
-    def model(self) -> str:
-        """Compatibility view for the legacy backend catalog vocabulary."""
-        return self.default_model
-
-
-# Compatibility name while the public configuration field migrates from
-# ``llm.backends`` to endpoint terminology.
-BackendCatalogEntry = EndpointCatalogEntry
-
-
 @dataclass(frozen=True)
 class LLMPolicy:
     base_url: str = ""
@@ -107,13 +96,8 @@ class LLMPolicy:
     api_key_ref: str = "TOAS_LLM_API_KEY"
     provider: str = ""
     models: tuple[ModelCatalogEntry, ...] = ()
-    backends: tuple[BackendCatalogEntry, ...] = ()
+    endpoints: tuple[EndpointCatalogEntry, ...] = ()
     targets: tuple[TargetCatalogEntry, ...] = ()
-
-    @property
-    def endpoints(self) -> tuple[EndpointCatalogEntry, ...]:
-        """Canonical endpoint view over the legacy ``llm.backends`` field."""
-        return self.backends
 
 
 @dataclass(frozen=True)
@@ -303,7 +287,6 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "ModelCatalogEntry": ModelCatalogEntry,
                 "EndpointCatalogEntry": EndpointCatalogEntry,
                 "EndpointModelObservation": EndpointModelObservation,
-                "BackendCatalogEntry": BackendCatalogEntry,
                 "LLMPolicy": LLMPolicy,
                 "RuntimePolicy": RuntimePolicy,
                 "HealthTimingPolicy": HealthTimingPolicy,

@@ -26,7 +26,7 @@ def test_resolve_model_target_is_read_only_and_exact():
 
 def test_infer_endpoint_default_model_prefers_explicit_then_single_known_model():
     endpoint = EndpointCatalogEntry(id="local", base_url="http://local", default_model="explicit", models=("a",))
-    config = OperatorConfig(llm=LLMPolicy(backends=(endpoint,)))
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(endpoint,)))
 
     assert infer_endpoint_default_model(config, endpoint, global_model="global", fallback_model="env") == (
         "explicit",
@@ -34,7 +34,7 @@ def test_infer_endpoint_default_model_prefers_explicit_then_single_known_model()
     )
 
     known = EndpointCatalogEntry(id="local", base_url="http://local", models=(" a ", "a"))
-    known_config = OperatorConfig(llm=LLMPolicy(backends=(known,)))
+    known_config = OperatorConfig(llm=LLMPolicy(endpoints=(known,)))
     assert infer_endpoint_default_model(known_config, known, global_model="global", fallback_model="env") == (
         "a",
         "endpoint:local:single_known_model",
@@ -43,14 +43,14 @@ def test_infer_endpoint_default_model_prefers_explicit_then_single_known_model()
 
 def test_infer_endpoint_default_model_uses_only_unambiguous_global_or_fallback():
     endpoint = EndpointCatalogEntry(id="local", base_url="http://local")
-    config = OperatorConfig(llm=LLMPolicy(backends=(endpoint,), model="configured"))
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(endpoint,), model="configured"))
     assert infer_endpoint_default_model(config, endpoint, global_model="configured", fallback_model="env") == (
         "configured",
         "config:llm.model:single_endpoint",
     )
 
     ambiguous = EndpointCatalogEntry(id="local", base_url="http://local", models=("a", "b"))
-    ambiguous_config = OperatorConfig(llm=LLMPolicy(backends=(ambiguous,)))
+    ambiguous_config = OperatorConfig(llm=LLMPolicy(endpoints=(ambiguous,)))
     assert infer_endpoint_default_model(ambiguous_config, ambiguous, global_model="", fallback_model="env") == (
         "env",
         "env_or_default",
@@ -80,7 +80,7 @@ def test_resolve_target_generation_overlays_only_explicit_fields():
 def test_resolve_target_invocation_overlays_endpoint_model_and_generation():
     config = OperatorConfig(
         llm=LLMPolicy(
-            backends=(
+            endpoints=(
                 EndpointCatalogEntry(
                     id="local",
                     base_url="http://local/v1",

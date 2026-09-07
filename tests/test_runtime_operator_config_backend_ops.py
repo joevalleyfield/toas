@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
 from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_config_backend_ops import config_backend_result
 
@@ -27,13 +27,13 @@ def _ctx(config: OperatorConfig):
 def test_config_backend_result_add_and_list():
     cfg = OperatorConfig()
     out = config_backend_result(["backend", "add", "b1", "http://x"], step_mod=object(), context=_ctx(cfg))
-    assert out[0]["config_update"]["llm"]["backends"][0]["id"] == "b1"
+    assert out[0]["config_update"]["llm"]["endpoints"][0]["id"] == "b1"
     out = config_backend_result(["backend", "list"], step_mod=object(), context=_ctx(cfg))
     assert out[0]["content"] == "no configured backends"
 
 
 def test_config_backend_result_set_and_validation_errors():
-    cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="b1", base_url="http://x"),)))
+    cfg = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="b1", base_url="http://x"),)))
     out = config_backend_result(["backend", "set", "b1.model", "m2"], step_mod=object(), context=_ctx(cfg))
     assert "updated backend b1.model" in out[0]["content"]
 
@@ -42,9 +42,9 @@ def test_config_backend_result_set_and_validation_errors():
 
 
 def test_config_backend_remove_and_unknown_subcommand_errors():
-    cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="b1", base_url="http://x"),)))
+    cfg = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="b1", base_url="http://x"),)))
     out = config_backend_result(["backend", "remove", "b1"], step_mod=object(), context=_ctx(cfg))
-    assert out[0]["config_update"]["llm"]["backends"] == []
+    assert out[0]["config_update"]["llm"]["endpoints"] == []
 
     with pytest.raises(ValueError, match="usage: /config backend"):
         config_backend_result(["backend"], step_mod=object(), context=_ctx(cfg))
@@ -53,15 +53,15 @@ def test_config_backend_remove_and_unknown_subcommand_errors():
 
 
 def test_config_backend_set_models_and_api_key_source_validation():
-    cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="b1", base_url="http://x"),)))
+    cfg = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="b1", base_url="http://x"),)))
     out = config_backend_result(["backend", "set", "b1.models", "m1,m2"], step_mod=object(), context=_ctx(cfg))
-    assert out[0]["config_update"]["llm"]["backends"][0]["models"] == ["m1", "m2"]
+    assert out[0]["config_update"]["llm"]["endpoints"][0]["models"] == ["m1", "m2"]
 
     out = config_backend_result(["backend", "set", "b1.api_key_source", "keyring"], step_mod=object(), context=_ctx(cfg))
-    assert out[0]["config_update"]["llm"]["backends"][0]["api_key_source"] == "keyring"
+    assert out[0]["config_update"]["llm"]["endpoints"][0]["api_key_source"] == "keyring"
 
     out = config_backend_result(["backend", "set", "b1.provider", "gemini-rest"], step_mod=object(), context=_ctx(cfg))
-    assert out[0]["config_update"]["llm"]["backends"][0]["provider"] == "gemini-rest"
+    assert out[0]["config_update"]["llm"]["endpoints"][0]["provider"] == "gemini-rest"
 
     with pytest.raises(ValueError, match="backend api_key_source must be env\\|keyring"):
         config_backend_result(["backend", "set", "b1.api_key_source", "bad"], step_mod=object(), context=_ctx(cfg))
@@ -82,8 +82,8 @@ def test_config_backend_capture_uses_runtime_settings():
 
     cfg = OperatorConfig()
     out = config_backend_result(["backend", "capture", "local"], step_mod=_StepMod(), context=_ctx(cfg))
-    backend = out[0]["config_update"]["llm"]["backends"][0]
+    backend = out[0]["config_update"]["llm"]["endpoints"][0]
     assert backend["id"] == "local"
     assert backend["base_url"] == "http://captured/v1"
-    assert backend["model"] == "captured-model"
+    assert backend["default_model"] == "captured-model"
     assert backend["provider"] == "gemini-rest"

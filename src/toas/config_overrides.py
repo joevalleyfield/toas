@@ -65,6 +65,10 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     generation = classes["GenerationPolicy"](**generation_values)
 
     llm_values = dict(merged.get("llm", {}))
+    legacy_endpoints = llm_values.pop("backends", None)
+    nested_llm_input = nested.get("llm")
+    if legacy_endpoints is not None and not (isinstance(nested_llm_input, dict) and "endpoints" in nested_llm_input):
+        llm_values["endpoints"] = legacy_endpoints
     model_entries: list[object] = []
     raw_models = llm_values.get("models", [])
     if isinstance(raw_models, tuple):
@@ -89,14 +93,14 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
             model_entries.append(classes["ModelCatalogEntry"](id=model_id, label=label, tags=tags, notes=notes))
     llm_values["models"] = tuple(model_entries)
 
-    backend_entries: list[object] = []
-    raw_backends = llm_values.get("backends", [])
-    if isinstance(raw_backends, tuple):
-        raw_backends = list(raw_backends)
-    if isinstance(raw_backends, list):
-        for item in raw_backends:
-            if isinstance(item, classes["BackendCatalogEntry"]):
-                backend_entries.append(item)
+    endpoint_entries: list[object] = []
+    raw_endpoints = llm_values.get("endpoints", [])
+    if isinstance(raw_endpoints, tuple):
+        raw_endpoints = list(raw_endpoints)
+    if isinstance(raw_endpoints, list):
+        for item in raw_endpoints:
+            if isinstance(item, classes["EndpointCatalogEntry"]):
+                endpoint_entries.append(item)
                 continue
             if not isinstance(item, dict):
                 continue
@@ -136,7 +140,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                                 last_seen=str(observation.get("last_seen", "")).strip(),
                             )
                         )
-            backend_entries.append(
+            endpoint_entries.append(
                 classes["EndpointCatalogEntry"](
                     id=backend_id,
                     base_url=base_url,
@@ -151,7 +155,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                     model_observations=tuple(observations),
                 )
             )
-    llm_values["backends"] = tuple(backend_entries)
+    llm_values["endpoints"] = tuple(endpoint_entries)
 
     target_entries: list[object] = []
     raw_targets = llm_values.get("targets", {})

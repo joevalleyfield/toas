@@ -120,6 +120,8 @@ def parse_config_value(
     operator_config_cls,
 ) -> object:
     """Parse a string value to the correct type for the given key."""
+    if dotted_key == "llm.backends":
+        raise ValueError("llm.backends is legacy input; use /config endpoint ... or edit llm.endpoints")
     if dotted_key not in valid_keys:
         raise ValueError(f"unknown config key: {dotted_key}")
     current = _field_default_for_key(dotted_key, operator_config_cls=operator_config_cls)
@@ -144,8 +146,6 @@ def parse_config_value(
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
     if dotted_key == "llm.models":
         raise ValueError("llm.models cannot be set via /config set; edit toas.toml")
-    if dotted_key == "llm.backends":
-        raise ValueError("llm.backends cannot be set via /config set; use /config backend ...")
     if dotted_key == "llm.targets":
         raise ValueError("llm.targets cannot be set via /config set; edit toas.toml")
     if dotted_key == "shell.allowed_commands":

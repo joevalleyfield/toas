@@ -94,7 +94,7 @@ def test_settings_with_stream_mode_clones_settings_with_replaced_mode():
 def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
 
     monkeypatch.setattr(sgr, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
-    monkeypatch.setattr(sgr, "resolve_selected_backend", lambda working: None)
+    monkeypatch.setattr(sgr, "resolve_selected_endpoint", lambda working: None)
     monkeypatch.setattr(sgr, "resolve_selected_model", lambda working: "picked-model")
 
     runner = GenerationRunner(
@@ -124,7 +124,7 @@ def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
 def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_exist(monkeypatch, tmp_path):
 
     monkeypatch.setattr(sgr, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
-    monkeypatch.setattr(sgr, "resolve_selected_backend", lambda working: None)
+    monkeypatch.setattr(sgr, "resolve_selected_endpoint", lambda working: None)
     monkeypatch.setattr(sgr, "resolve_selected_model", lambda working: None)
 
     events_path = tmp_path / "events.jsonl"

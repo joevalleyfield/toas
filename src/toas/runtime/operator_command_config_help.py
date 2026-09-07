@@ -8,7 +8,8 @@ from pathlib import Path
 from ..assets.help_catalog import resolve_config_help_keys
 from ..config import OperatorConfig
 from .operator_command_context import OperatorCommandContext
-from .operator_config_backend_ops import config_backend_result, config_endpoint_result
+from .operator_config_backend_ops import config_backend_result
+from .operator_config_endpoint_ops import config_endpoint_result
 from .result_nodes import make_result_node
 
 _PROJECT_CONFIG_DEFAULT_PATH = ".toas/config.toml"
@@ -580,7 +581,7 @@ def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: Ope
 
     config_endpoints = [_endpoint_config_dict(item) for item in context.config.llm.endpoints]
     config_endpoints.append(_endpoint_config_dict(endpoint))
-    update = {"llm": {"backends": config_endpoints}}
+    update = {"llm": {"endpoints": config_endpoints}}
     if additions:
         update["llm"]["targets"] = additions
     fields = {"config_update": update}

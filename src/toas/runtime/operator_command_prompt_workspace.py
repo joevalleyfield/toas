@@ -109,7 +109,7 @@ def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext
 def _handle_backend(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) > 1:
         raise ValueError("usage: /backend [id]")
-    available = step_mod._available_backends(context.config)
+    available = step_mod._available_endpoints(context.config)
     if not args:
         if not available:
             return [_result_node("no backends available in current capability space", step_mod=step_mod, context=context)]
@@ -158,8 +158,8 @@ def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext)
         return _handle_model_select(args[1:], step_mod=step_mod, context=context)
     if len(args) > 1:
         raise ValueError("usage: /model [name]")
-    selected_backend = step_mod.resolve_selected_backend(context.working)
-    available = step_mod._available_models(context.config, selected_backend=selected_backend)
+    selected_endpoint = step_mod.resolve_selected_endpoint(context.working)
+    available = step_mod._available_models(context.config, selected_endpoint=selected_endpoint)
     if not args:
         if context.config.llm.targets:
             return _handle_model_overview(step_mod=step_mod, context=context)
@@ -363,11 +363,11 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
         observed_at=refreshed_at,
     )
     updated_endpoint = replace(updated_endpoint, models_last_refreshed_at=refreshed_at)
-    backends = []
-    for entry in context.config.llm.backends:
+    endpoints = []
+    for entry in context.config.llm.endpoints:
         if entry.id == endpoint_id:
             entry = updated_endpoint
-        backends.append(
+        endpoints.append(
             {
                 "id": entry.id,
                 "base_url": entry.base_url,
@@ -388,7 +388,7 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
         f"model catalog refreshed for {endpoint_id}: {len(added)} added, "
         f"{len(updated_endpoint.models)} known"
     )
-    return [_result_node(content, step_mod=step_mod, context=context, config_update={"llm": {"backends": backends}})]
+    return [_result_node(content, step_mod=step_mod, context=context, config_update={"llm": {"endpoints": endpoints}})]
 
 
 def _validate_env_key(key: str, *, step_mod) -> None:

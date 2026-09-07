@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from toas.config import (
-    BackendCatalogEntry,
+    EndpointCatalogEntry,
     LLMPolicy,
     OperatorConfig,
     PromptPolicy,
@@ -57,15 +57,15 @@ from toas.runtime.operator_command_prompt_workspace import (
     _validate_lens_source_ids,
     handle_prompt_workspace_commands,
 )
-from toas.runtime.operator_config_backend_ops import (
-    _backend_add_result,
-    _backend_capture_result,
-    _backend_list_result,
-    _backend_remove_result,
-    _backend_set_result,
-    _normalize_backend_set_value,
-    backend_list_dicts,
-    config_backend_result,
+from toas.runtime.operator_config_backend_ops import config_backend_result
+from toas.runtime.operator_config_endpoint_ops import (
+    _endpoint_add_result,
+    _endpoint_capture_result,
+    _endpoint_list_result,
+    _endpoint_remove_result,
+    _endpoint_set_result,
+    _normalize_endpoint_set_value,
+    endpoint_list_dicts,
 )
 from toas.runtime.replay_queue_edges import (
     entry_for_call,
@@ -316,14 +316,14 @@ def test_prompt_workspace_prompt_prefix_fallback_and_unknown(monkeypatch):
 def test_prompt_workspace_backend_and_model_usage_and_unavailable_paths(monkeypatch):
     import toas.step as step_mod
 
-    monkeypatch.setattr(step_mod, "_available_backends", lambda _cfg: ["b1"])
+    monkeypatch.setattr(step_mod, "_available_endpoints", lambda _cfg: ["b1"])
     with pytest.raises(ValueError, match="usage: /backend"):
         handle_prompt_workspace_commands("backend", ["a", "b"], step_mod=step_mod, context=_ctx())
     out = handle_prompt_workspace_commands("backend", ["missing"], step_mod=step_mod, context=_ctx())
     assert "chosen backend unavailable" in out[0]["content"]
 
-    monkeypatch.setattr(step_mod, "resolve_selected_backend", lambda _w: "b1")
-    monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_backend=None: ["m1"])
+    monkeypatch.setattr(step_mod, "resolve_selected_endpoint", lambda _w: "b1")
+    monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_endpoint=None: ["m1"])
     with pytest.raises(ValueError, match="usage: /model"):
         handle_prompt_workspace_commands("model", ["a", "b"], step_mod=step_mod, context=_ctx())
     out = handle_prompt_workspace_commands("model", ["missing"], step_mod=step_mod, context=_ctx())
@@ -333,12 +333,12 @@ def test_prompt_workspace_backend_and_model_usage_and_unavailable_paths(monkeypa
 def test_prompt_workspace_backend_and_model_empty_catalog_paths(monkeypatch):
     import toas.step as step_mod
 
-    monkeypatch.setattr(step_mod, "_available_backends", lambda _cfg: [])
+    monkeypatch.setattr(step_mod, "_available_endpoints", lambda _cfg: [])
     out = handle_prompt_workspace_commands("backend", [], step_mod=step_mod, context=_ctx())
     assert "no backends available" in out[0]["content"]
 
-    monkeypatch.setattr(step_mod, "resolve_selected_backend", lambda _w: None)
-    monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_backend=None: [])
+    monkeypatch.setattr(step_mod, "resolve_selected_endpoint", lambda _w: None)
+    monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_endpoint=None: [])
     out = handle_prompt_workspace_commands("model", [], step_mod=step_mod, context=_ctx())
     assert "no models available" in out[0]["content"]
 
@@ -347,7 +347,7 @@ def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
     import toas.llm_harness as harness
     import toas.runtime.policy_edges as policy_edges
     import toas.step as step_mod
-    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
 
     monkeypatch.setattr(
         policy_edges,
@@ -356,7 +356,7 @@ def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
     )
     monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"data": [{"id": "served"}]})
 
-    config = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
     out = handle_prompt_workspace_commands("models", ["live", "local"], step_mod=step_mod, context=_ctx(config=config))
 
     assert "endpoint model observation:" in out[0]["content"]
@@ -368,7 +368,7 @@ def test_prompt_workspace_models_reports_bounded_failure(monkeypatch):
     import toas.llm_harness as harness
     import toas.runtime.policy_edges as policy_edges
     import toas.step as step_mod
-    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
 
     monkeypatch.setattr(
         policy_edges,
@@ -377,7 +377,7 @@ def test_prompt_workspace_models_reports_bounded_failure(monkeypatch):
     )
     monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"error": "connection refused"})
 
-    config = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
     out = handle_prompt_workspace_commands("models", ["live", "local"], step_mod=step_mod, context=_ctx(config=config))
 
     assert "status: unavailable" in out[0]["content"]
@@ -401,10 +401,10 @@ def test_prompt_workspace_models_rejects_arguments():
 
 def test_prompt_workspace_models_known_reads_catalog_without_probe():
     import toas.step as step_mod
-    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
 
     config = OperatorConfig(
-        llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1", models=("qwen",)),))
+        llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://endpoint/v1", models=("qwen",)),))
     )
     out = handle_prompt_workspace_commands("models", ["known", "local"], step_mod=step_mod, context=_ctx(config=config))
 
@@ -418,11 +418,11 @@ def test_prompt_workspace_models_refresh_merges_endpoint_catalog(monkeypatch):
     import toas.llm_harness as harness
     import toas.runtime.policy_edges as policy_edges
     import toas.step as step_mod
-    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
 
     config = OperatorConfig(
         llm=LLMPolicy(
-            backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1", models=("old",)),)
+            endpoints=(EndpointCatalogEntry(id="local", base_url="http://endpoint/v1", models=("old",)),)
         )
     )
     monkeypatch.setattr(
@@ -435,18 +435,18 @@ def test_prompt_workspace_models_refresh_merges_endpoint_catalog(monkeypatch):
     out = handle_prompt_workspace_commands("models", ["refresh", "local"], step_mod=step_mod, context=_ctx(config=config))
 
     assert "1 added, 2 known" in out[0]["content"]
-    assert out[0]["config_update"]["llm"]["backends"][0]["models"] == ["old", "new"]
-    assert out[0]["config_update"]["llm"]["backends"][0]["models_last_refreshed_at"]
-    assert out[0]["config_update"]["llm"]["backends"][0]["model_observations"]
+    assert out[0]["config_update"]["llm"]["endpoints"][0]["models"] == ["old", "new"]
+    assert out[0]["config_update"]["llm"]["endpoints"][0]["models_last_refreshed_at"]
+    assert out[0]["config_update"]["llm"]["endpoints"][0]["model_observations"]
 
 
 def test_prompt_workspace_models_refresh_failure_does_not_write(monkeypatch):
     import toas.llm_harness as harness
     import toas.runtime.policy_edges as policy_edges
     import toas.step as step_mod
-    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
 
-    config = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
     monkeypatch.setattr(
         policy_edges,
         "settings_for_runtime",
@@ -491,12 +491,12 @@ def test_prompt_workspace_model_targets_lists_resolution_and_active_selection():
 
 def test_prompt_workspace_endpoints_lists_non_secret_configuration():
     import toas.step as step_mod
-    from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
 
     config = OperatorConfig(
         llm=LLMPolicy(
-            backends=(
-                BackendCatalogEntry(
+            endpoints=(
+                EndpointCatalogEntry(
                     id="local",
                     base_url="http://localhost:8080/v1",
                     provider="openai-compatible",
@@ -796,7 +796,7 @@ def test_config_show_supports_curated_topic_filters_and_source_order():
     topic_content = topic["content"]
     assert "llm.model =" in topic_content
     assert "llm.models =" in topic_content
-    assert "llm.backends =" in topic_content
+    assert "llm.endpoints =" in topic_content
     assert "llm.base_url =" in topic_content
     assert "backend.mode =" in topic_content
     assert "config_update" not in topic
@@ -841,7 +841,7 @@ def test_config_show_filtered_projection_is_compact_and_uses_effective_llm_defau
     assert "llm.model = qwen3.5-35b-a3b" in content
     assert "llm.base_url = http://localhost:8080/v1" in content
     assert "llm.models = ()" in content
-    assert "llm.backends = ()" in content
+    assert "llm.endpoints = ()" in content
     assert "precedence stack" not in content
     assert "Quick edits:" not in content
     assert "/config show models --sources" in content
@@ -1881,8 +1881,8 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
     assert out[0]["config_save"]["path"] == "out.toml"
 
     out = handle_config_help_commands("config", ["backend", "add", "b1", "http://x"], step_mod=step_mod, context=_ctx(config=cfg))
-    assert out[0]["config_update"]["llm"]["backends"][0]["id"] == "b1"
-    cfg_with_backend = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="b1", base_url="http://x"),)))
+    assert out[0]["config_update"]["llm"]["endpoints"][0]["id"] == "b1"
+    cfg_with_backend = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="b1", base_url="http://x"),)))
     out = handle_config_help_commands("config", ["backend", "set", "b1.model", "m2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
     assert "updated backend" in out[0]["content"]
     out = handle_config_help_commands("config", ["backend", "capture", "b2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
@@ -1908,7 +1908,7 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
 
     endpoint_cfg = OperatorConfig(
         llm=LLMPolicy(
-            backends=(BackendCatalogEntry(id="local", base_url="http://localhost", models=("qwen3.6", "llama/3", "qwen3.6")),),
+            endpoints=(EndpointCatalogEntry(id="local", base_url="http://localhost", models=("qwen3.6", "llama/3", "qwen3.6")),),
             targets=(TargetCatalogEntry(id="local-qwen3.6", endpoint="local", model="qwen3.6"),),
         )
     )
@@ -1916,7 +1916,7 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
         "config",
         ["target", "add", "local", "new/model"],
         step_mod=step_mod,
-        context=_ctx(config=OperatorConfig(llm=LLMPolicy(backends=endpoint_cfg.llm.backends))),
+        context=_ctx(config=OperatorConfig(llm=LLMPolicy(endpoints=endpoint_cfg.llm.endpoints))),
     )[0]
     assert derived_new["config_update"] == {
         "llm": {"targets": {"local-new-model": {"endpoint": "local", "model": "new/model"}}}
@@ -1949,7 +1949,7 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
         context=_ctx(
             config=OperatorConfig(
                 llm=LLMPolicy(
-                    backends=endpoint_cfg.llm.backends,
+                    endpoints=endpoint_cfg.llm.endpoints,
                     targets=endpoint_cfg.llm.targets + (TargetCatalogEntry(id="local-llama-3", endpoint="local", model="llama/3"),),
                 )
             )
@@ -1963,14 +1963,14 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
         handle_config_help_commands("config", ["target", "add", "--all-known", "missing"], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="usage: /config target add ENDPOINT MODEL"):
         handle_config_help_commands("config", ["target", "add", " ", "model"], step_mod=step_mod, context=_ctx())
-    punctuation_cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="...", base_url="http://x"),)))
+    punctuation_cfg = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="...", base_url="http://x"),)))
     with pytest.raises(ValueError, match="usage: /config target add ENDPOINT MODEL"):
         handle_config_help_commands("config", ["target", "add", "...", "..."], step_mod=step_mod, context=_ctx(config=punctuation_cfg))
     empty_catalog = handle_config_help_commands(
         "config",
         ["target", "add", "--all-known", "empty"],
         step_mod=step_mod,
-        context=_ctx(config=OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="empty", base_url="http://x"),)))),
+        context=_ctx(config=OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="empty", base_url="http://x"),)))),
     )[0]
     assert "no known models" in empty_catalog["content"]
 
@@ -2012,9 +2012,9 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
         "config", ["endpoint", "add", "local", "http://localhost:8080/v1"], step_mod=step_mod, context=_ctx()
     )[0]
     assert added["content"] == "added endpoint local"
-    assert added["config_update"]["llm"]["backends"][0]["id"] == "local"
+    assert added["config_update"]["llm"]["endpoints"][0]["id"] == "local"
 
-    cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="local", base_url="http://localhost:8080/v1"),)))
+    cfg = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://localhost:8080/v1"),)))
     listed = handle_config_help_commands("config", ["endpoint", "list"], step_mod=step_mod, context=_ctx(config=cfg))[0]
     assert "configured endpoints:" in listed["content"]
     assert "local: http://localhost:8080/v1" in listed["content"]
@@ -2022,8 +2022,8 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
     updated = handle_config_help_commands(
         "config", ["endpoint", "set", "local.model", "qwen3.6"], step_mod=step_mod, context=_ctx(config=cfg)
     )[0]
-    assert updated["content"] == "updated endpoint local.model"
-    assert updated["config_update"]["llm"]["backends"][0]["model"] == "qwen3.6"
+    assert updated["content"] == "updated endpoint local.default_model"
+    assert updated["config_update"]["llm"]["endpoints"][0]["default_model"] == "qwen3.6"
 
     captured = handle_config_help_commands(
         "config", ["endpoint", "capture", "local"], step_mod=step_mod, context=_ctx(config=cfg)
@@ -2063,8 +2063,8 @@ def test_config_endpoint_bootstrap_refreshes_promotes_and_selects(monkeypatch):
         context=_ctx(),
     )[0]
     assert "endpoint bootstrap complete" in promoted["content"]
-    assert promoted["config_update"]["llm"]["backends"][0]["id"] == "local"
-    assert promoted["config_update"]["llm"]["backends"][0]["models"] == ["qwen3.6", "llama/3"]
+    assert promoted["config_update"]["llm"]["endpoints"][0]["id"] == "local"
+    assert promoted["config_update"]["llm"]["endpoints"][0]["models"] == ["qwen3.6", "llama/3"]
     assert promoted["config_update"]["llm"]["targets"] == {
         "local-qwen3.6": {"endpoint": "local", "model": "qwen3.6"},
         "local-llama-3": {"endpoint": "local", "model": "llama/3"},
@@ -2138,13 +2138,13 @@ def test_config_endpoint_bootstrap_rejects_existing_endpoint_and_target(monkeypa
     import toas.runtime.policy_edges as policy_edges
     import toas.step as step_mod
 
-    endpoint = BackendCatalogEntry(id="local", base_url="http://existing/v1")
+    endpoint = EndpointCatalogEntry(id="local", base_url="http://existing/v1")
     with pytest.raises(ValueError, match="endpoint already exists: local"):
         handle_config_help_commands(
             "config",
             ["endpoint", "bootstrap", "local", "http://new/v1"],
             step_mod=step_mod,
-            context=_ctx(config=OperatorConfig(llm=LLMPolicy(backends=(endpoint,)))),
+            context=_ctx(config=OperatorConfig(llm=LLMPolicy(endpoints=(endpoint,)))),
         )
 
     monkeypatch.setattr(
@@ -2280,7 +2280,7 @@ def test_config_helper_secret_and_path_and_usage(monkeypatch, tmp_path):
 def test_config_backend_validation_error_branches():
     import toas.step as step_mod
 
-    cfg_with_backend = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="b1", base_url="http://x"),)))
+    cfg_with_backend = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="b1", base_url="http://x"),)))
     with pytest.raises(ValueError, match="backend field must be one of"):
         handle_config_help_commands("config", ["backend", "set", "b1.nope", "x"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
     with pytest.raises(ValueError, match="unknown backend id: missing"):
@@ -2289,41 +2289,41 @@ def test_config_backend_validation_error_branches():
         handle_config_help_commands("config", ["backend", "set", "b1.api_key_source", "bad"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
 
 
-def test_operator_config_backend_ops_helper_branches(monkeypatch):
+def test_operator_config_endpoint_ops_helper_branches(monkeypatch):
     import toas.step as step_mod
 
     empty_ctx = _ctx(config=OperatorConfig())
-    assert backend_list_dicts(context=empty_ctx) == []
-    assert _backend_list_result(["backend", "list"], context=empty_ctx)[0]["content"] == "no configured backends"
-    with pytest.raises(ValueError, match="usage: /config backend list"):
-        _backend_list_result(["backend", "list", "extra"], context=empty_ctx)
+    assert endpoint_list_dicts(context=empty_ctx) == []
+    assert _endpoint_list_result(["endpoint", "list"], context=empty_ctx)[0]["content"] == "no configured endpoints"
+    with pytest.raises(ValueError, match="usage: /config endpoint list"):
+        _endpoint_list_result(["endpoint", "list", "extra"], context=empty_ctx)
 
-    cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="b1", base_url="http://x"),)))
+    cfg = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="b1", base_url="http://x"),)))
     ctx = _ctx(config=cfg)
-    with pytest.raises(ValueError, match="backend id/base_url must be non-empty"):
-        _backend_add_result(["backend", "add", "  ", "http://x"], context=ctx)
-    with pytest.raises(ValueError, match="usage: /config backend add"):
-        _backend_add_result(["backend", "add", "b2"], context=ctx)
-    with pytest.raises(ValueError, match="usage: /config backend remove"):
-        _backend_remove_result(["backend", "remove"], context=ctx)
-    with pytest.raises(ValueError, match="usage: /config backend set"):
-        _backend_set_result(["backend", "set", "b1model", "x"], context=ctx)
-    with pytest.raises(ValueError, match="usage: /config backend capture"):
-        _backend_capture_result(["backend", "capture"], step_mod=step_mod, context=ctx)
+    with pytest.raises(ValueError, match="endpoint NAME/BASE_URL must be non-empty"):
+        _endpoint_add_result(["endpoint", "add", "  ", "http://x"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config endpoint add"):
+        _endpoint_add_result(["endpoint", "add", "b2"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config endpoint remove"):
+        _endpoint_remove_result(["endpoint", "remove"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config endpoint set"):
+        _endpoint_set_result(["endpoint", "set", "b1model", "x"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config endpoint capture"):
+        _endpoint_capture_result(["endpoint", "capture"], step_mod=step_mod, context=ctx)
 
-    assert _normalize_backend_set_value("models", "a, b , ,c") == ["a", "b", "c"]
-    assert _normalize_backend_set_value("api_key_source", "ENV") == "env"
-    assert _normalize_backend_set_value("notes", "x") == "x"
+    assert _normalize_endpoint_set_value("models", "a, b , ,c") == ("models", ["a", "b", "c"])
+    assert _normalize_endpoint_set_value("api_key_source", "ENV") == ("api_key_source", "env")
+    assert _normalize_endpoint_set_value("notes", "x") == ("notes", "x")
 
     monkeypatch.setattr(step_mod, "Settings", type("S", (), {"from_env": staticmethod(lambda: type("SS", (), {"llm_base_url": "u", "llm_model": "m"})())}))
-    out = _backend_capture_result(["backend", "capture", "capt"], step_mod=step_mod, context=ctx)
-    assert "captured backend capt" in out[0]["content"]
-    listed = _backend_list_result(["backend", "list"], context=ctx)
-    assert "configured backends:" in listed[0]["content"]
+    out = _endpoint_capture_result(["endpoint", "capture", "capt"], step_mod=step_mod, context=ctx)
+    assert "captured endpoint capt" in out[0]["content"]
+    listed = _endpoint_list_result(["endpoint", "list"], context=ctx)
+    assert "configured endpoints:" in listed[0]["content"]
     assert "- b1: http://x (model=-)" in listed[0]["content"]
 
-    with pytest.raises(ValueError, match="usage: /config backend set"):
-        _backend_set_result(["backend", "set", "only3"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config endpoint set"):
+        _endpoint_set_result(["endpoint", "set", "only3"], context=ctx)
 
     with pytest.raises(ValueError, match="usage: /config backend"):
         config_backend_result(["backend", "nope"], step_mod=step_mod, context=ctx)

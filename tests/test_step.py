@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from toas.config import (
-    BackendCatalogEntry,
+    EndpointCatalogEntry,
     ExtractionPolicy,
     LLMPolicy,
     ModelCatalogEntry,
@@ -180,16 +180,16 @@ def test_generation_guard_result_returns_backend_unavailable_hint():
     ]
     config = OperatorConfig(
         llm=LLMPolicy(
-            backends=(
-                BackendCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
-                BackendCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
+            endpoints=(
+                EndpointCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
+                EndpointCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
             )
         )
     )
     guarded = _generation_guard_result(working=working, config=config)
     assert guarded is not None
     assert guarded["role"] == "result"
-    assert "chosen backend unavailable: missing" in guarded["content"]
+    assert "chosen endpoint unavailable: missing" in guarded["content"]
     assert "/backend local" in guarded["content"]
     assert "/backend openrouter" in guarded["content"]
 
@@ -202,8 +202,8 @@ def test_generation_guard_result_returns_none_when_selection_is_available():
     ]
     config = OperatorConfig(
         llm=LLMPolicy(
-            backends=(
-                BackendCatalogEntry(
+            endpoints=(
+                EndpointCatalogEntry(
                     id="local",
                     base_url="http://localhost:8080/v1",
                     default_model="m1",
@@ -1644,9 +1644,9 @@ def test_operator_model_lists_catalog_models_in_order():
 def test_operator_backend_lists_available_backends():
     config = OperatorConfig(
         llm=LLMPolicy(
-            backends=(
-                BackendCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
-                BackendCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
+            endpoints=(
+                EndpointCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
+                EndpointCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
             )
         )
     )
@@ -1661,8 +1661,8 @@ def test_operator_backend_lists_available_backends():
 def test_operator_model_list_scoped_to_selected_backend():
     config = OperatorConfig(
         llm=LLMPolicy(
-            backends=(
-                BackendCatalogEntry(
+            endpoints=(
+                EndpointCatalogEntry(
                     id="local",
                     base_url="http://localhost:8080/v1",
                     default_model="qwen",
@@ -1790,9 +1790,9 @@ please answer
 def test_generation_frontier_returns_backend_unavailable_continuation():
     config = OperatorConfig(
         llm=LLMPolicy(
-            backends=(
-                BackendCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
-                BackendCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
+            endpoints=(
+                EndpointCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
+                EndpointCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
             )
         )
     )
@@ -1808,7 +1808,7 @@ please answer
         raise AssertionError("should not be called")
 
     _, out = step(transcript, [], config=config, generate=fake_generate)
-    assert out == [_tool_result("chosen backend unavailable: missing\npick one of:\n/backend local\n/backend openrouter")]
+    assert out == [_tool_result("chosen endpoint unavailable: missing\npick one of:\n/backend local\n/backend openrouter")]
 
 
 def test_operator_pwd_uses_command_cwd():
@@ -3344,7 +3344,7 @@ def test_config_backend_add_and_set():
 /config backend add local http://localhost:8080/v1
 """
     _, out = step(transcript, [])
-    backends = out[0]["config_update"]["llm"]["backends"]
+    backends = out[0]["config_update"]["llm"]["endpoints"]
     assert backends[0]["id"] == "local"
     assert backends[0]["base_url"] == "http://localhost:8080/v1"
 
@@ -4403,13 +4403,13 @@ def test_render_prompt_browse_commands_nested_suffix(monkeypatch):
     assert "/prompt foo/bar" in result
 
 
-# --- _find_backend (line 493) ---
+# --- _find_endpoint ---
 
-def test_find_backend_not_found():
-    from toas.step import _find_backend
+def test_find_endpoint_not_found():
+    from toas.step import _find_endpoint
 
     config = OperatorConfig()
-    result = _find_backend(config, "nonexistent")
+    result = _find_endpoint(config, "nonexistent")
     assert result is None
 
 
@@ -4431,20 +4431,20 @@ def test_resolve_selected_model_shlex_error():
     assert resolve_selected_model(working) is None
 
 
-# --- resolve_selected_backend (lines 553, 559-560) ---
+# --- resolve_selected_endpoint ---
 
-def test_resolve_selected_backend_empty_content():
-    from toas.step import resolve_selected_backend
+def test_resolve_selected_endpoint_empty_content():
+    from toas.step import resolve_selected_endpoint
 
     working = [{"role": "user", "content": "   \n  "}]
-    assert resolve_selected_backend(working) is None
+    assert resolve_selected_endpoint(working) is None
 
 
-def test_resolve_selected_backend_shlex_error():
-    from toas.step import resolve_selected_backend
+def test_resolve_selected_endpoint_shlex_error():
+    from toas.step import resolve_selected_endpoint
 
     working = [{"role": "user", "content": "/backend 'unclosed"}]
-    assert resolve_selected_backend(working) is None
+    assert resolve_selected_endpoint(working) is None
 
 
 # --- resolve_effective_env_modifiers (lines 578-579) ---

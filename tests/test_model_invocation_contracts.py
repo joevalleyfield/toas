@@ -1,6 +1,6 @@
 import pytest
 
-from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
 from toas.llm import Settings
 from toas.runtime.model_invocation_contracts import (
     ModelInvocationPort,
@@ -23,7 +23,7 @@ def test_resolve_model_invocation_is_independent_of_step_cli_deps(tmp_path):
         policy=type("Policy", (), {"extra_body": {}})(),
         events_path=events_path,
         project_messages=lambda _working: [{"role": "user", "content": "projected"}],
-        selected_backend=lambda _working: None,
+        selected_endpoint=lambda _working: None,
         selected_model=lambda _working: "transcript-model",
         secret_resolver=lambda **_kwargs: "resolved",
     )
@@ -54,8 +54,8 @@ def test_selected_endpoint_provider_overrides_global_provider(tmp_path):
     config = OperatorConfig(
         llm=LLMPolicy(
             provider="openai",
-            backends=(
-                BackendCatalogEntry(
+            endpoints=(
+                EndpointCatalogEntry(
                     id="gemini",
                     base_url="https://generativelanguage.googleapis.com",
                     provider="gemini-rest",

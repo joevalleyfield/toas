@@ -35,14 +35,14 @@ overview:
   - "tip: use /config show to see all valid keys in the current build"
 topics:
   - id: models
-    aliases: [model, backend, backends]
+    aliases: [model, endpoint, endpoints, backend, backends]
     summary: "Endpoints provide access, catalogs record model observations, and targets describe what to run."
     facets:
       plain:
         summary: "A provider endpoint provides access, a catalog records known or observed models, and a target combines endpoint, model, and generation choices."
       config:
         summary: "Inspect endpoint access, model catalogs, and durable target definitions without conflating configuration with live observations."
-        related_keys: [llm.model, llm.models, llm.backends, llm.base_url, backend.mode]
+        related_keys: [llm.model, llm.models, llm.endpoints, llm.base_url, backend.mode]
         next_actions: ["/config show models", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint bootstrap NAME BASE_URL --refresh --targets", "/config target list", "/config target add ENDPOINT MODEL", "/config target add NAME ENDPOINT MODEL", "/config target add --all-known ENDPOINT", "/endpoints", "/models live ENDPOINT", "/models known ENDPOINT", "/models refresh ENDPOINT", "/model targets", "/model select <target>"]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
@@ -74,7 +74,7 @@ topics:
 key_descriptions:
   llm.model: "Selects the active model for generation."
   llm.models: "Defines available model catalog entries."
-  llm.backends: "Defines configured backend catalog entries and their models."
+  llm.endpoints: "Defines configured endpoint entries and their known models."
   llm.base_url: "Sets the provider-compatible base URL."
   generation.thinking_mode: "Enables or disables backend thinking behavior."
   generation.thinking_budget_tokens: "Limits the token budget available for thinking."
