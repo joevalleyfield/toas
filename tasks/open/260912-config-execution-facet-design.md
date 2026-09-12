@@ -80,13 +80,13 @@ existing topic ownership.
 
 ## Filter suitability finding
 
-The useful relationship is not “every help topic becomes a config filter.” It
-is:
+The useful relationship is not “every help topic becomes a config filter,” nor
+“every config filter must follow one key prefix.” It is:
 
 ```text
 /help config TOPIC
         |
-        +-- config facet with related_keys --> /config show TOPIC
+        +-- config facet with related keys --> /config show TOPIC
         |
         +-- plain-only facet ----------------> explanation, no config view
 ```
@@ -100,12 +100,18 @@ different kinds of discovery:
 - curated topics answer “what belongs together for this operator question?”;
 - key search answers “where is this configurable behavior described?”
 
-On that basis, `execution` can be a plain-help topic without automatically
-being a `/config show execution` filter. A future composed filter would need
-an explicit config facet whose related keys are deliberately selected from
-other owners, with the output labeling those ownership boundaries. The
-existence of the word `execution` in the overview is not sufficient evidence
-for that facet.
+The `related_keys` for a curated config facet may cross key prefixes when the
+settings form a tightly coupled control surface. Prefix alignment is useful
+for simple families, but it is not the design rule. A cross-prefix facet must
+still explain the shared operator question, identify its included settings,
+and preserve ownership/source labels in the resulting view.
+
+On that basis, `execution` should not be rejected as a filter merely because
+its candidates live under `runtime`, `shell`, `tool_writes`, or
+`capability_advertisement`. It should be rejected or deferred only if those
+settings do not form a coherent execution-control question. The existence of
+the word `execution` in the overview is not sufficient evidence by itself;
+the coupling and operator use case are the evidence we need.
 
 ## Design questions
 
