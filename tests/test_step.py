@@ -3223,7 +3223,7 @@ def test_operator_replay_rejects_already_executed_without_force():
     assert "target already has tool_request records" in out[0]["content"]
 
 
-def test_config_show_returns_flat_keys():
+def test_config_show_returns_grouped_effective_overview():
     transcript = """\
 ## TOAS:USER
 /config show
@@ -3233,12 +3233,16 @@ def test_config_show_returns_flat_keys():
 
     assert len(out) == 1
     content = out[0]["content"]
-    assert "extraction.yaml_position = tail" in content
-    assert "extraction.user_shell = True" in content
-    assert "generation.thinking_mode = disabled" in content
-    assert "generation.avoid_terms = ('tool', 'tool-call', 'function', 'function-call')" in content
-    assert "generation.transport_mode = chat_messages" in content
-    assert "llm.base_url = " in content
+    assert "effective configuration" in content
+    assert "models:" in content
+    assert "active endpoint:" in content
+    assert "active model:" in content
+    assert "generation:" in content
+    assert "thinking: disabled" in content
+    assert "avoid terms: 4 configured" in content
+    assert "extraction:" in content
+    assert "execution:" in content
+    assert "llm.base_url =" not in content
 
 
 def test_config_no_args_is_compact_navigation():
@@ -3361,8 +3365,9 @@ def test_config_show_labels_runtime_vs_startup_only():
 """
     _, out = step(transcript, [])
     content = out[0]["content"]
-    assert "runtime-adjustable by TOAS:" in content
-    assert "backend startup-only constraints:" in content
+    assert "runtime-adjustable by TOAS:" not in content
+    assert "backend startup-only constraints:" not in content
+    assert "next:" in content
 
 
 def test_config_show_sources():
@@ -4281,8 +4286,8 @@ def test_config_show_includes_quick_edit_examples():
 """
     _, out = step(transcript, [])
     content = out[0]["content"]
-    assert "Quick edits:" in content
-    assert "/config set generation.retry_delay_s 0.25" in content
+    assert "Quick edits:" not in content
+    assert "/config show models|generation|extraction|execution" in content
 
 
 def test_config_set_generation_thinking_mode_error_includes_example():

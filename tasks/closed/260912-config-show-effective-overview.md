@@ -75,9 +75,26 @@ never reveal secret values; and avoid dumping complete catalogs or every key.
 - filtered and `--sources` regression coverage;
 - focused and full verification results.
 
+## Completion evidence
+
+Unfiltered `/config show` now renders a grouped effective-configuration
+overview with models, generation, extraction, execution, and navigation
+sections. The models section resolves the active target without rendering
+secret material; it reports effective endpoint/model state and compact
+inventory counts. Structured endpoint and target records remain behind their
+dedicated commands, while filtered and `--sources` views retain their
+key-oriented behavior and migration compatibility.
+
+Focused result: `426 passed` across config/operator/step tests.
+Full result: `3233 passed, 17 deselected`; coverage `100%`; acceptance and
+integration `17 passed`; Ruff and mypy passed.
+
+The overview intentionally leaves exhaustive catalogs, every configuration
+key, and machine-readable output to follow-on work.
+
 ## Status
 
-Elaborated; ready for implementation.
+Closed 2026-09-12.
 
 ## Elaboration
 
@@ -254,4 +271,3 @@ structure. The primary structure is the active target resolution above.
    `_config_show_result` for the unfiltered case only.
 3. Refactor: map topic filters onto sections, keep `--sources` annotation,
    run targeted coverage then the full suite.
-intent: Write the grounded elaboration into the task, preserving all prior sections and the status

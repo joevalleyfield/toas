@@ -934,6 +934,10 @@ def test_config_help_handler_config_show_sources(monkeypatch):
     migration = handle_config_help_commands("config", ["show"], step_mod=step_mod, context=migration_context)[0]["content"]
     assert "migration notice:" in migration
     assert "normalized into llm.endpoints" in migration
+    migration_sources = handle_config_help_commands(
+        "config", ["show", "--sources"], step_mod=step_mod, context=migration_context
+    )[0]["content"]
+    assert "migration notice:" in migration_sources
 
 
 def test_config_show_supports_exact_prefix_and_token_filters():
@@ -950,6 +954,65 @@ def test_config_show_supports_exact_prefix_and_token_filters():
     assert "llm.model =" in prefix
     assert "shell.assistant_timeout_s =" in token
     assert "llm.model =" not in token
+
+
+def test_config_show_unfiltered_is_grouped_effective_overview():
+    import toas.step as step_mod
+
+    content = handle_config_help_commands("config", ["show"], step_mod=step_mod, context=_ctx())[0]["content"]
+
+    assert "effective configuration" in content
+    assert "models:" in content
+    assert "active target: (none)" in content
+    assert "generation:" in content
+    assert "extraction:" in content
+    assert "execution:" in content
+    assert "llm.model =" not in content
+    assert "precedence stack" not in content
+    assert "(" in content
+
+    migration_context = _ctx(config_sources={"__migration__": "legacy llm.backends: old.toml"})
+    migration = handle_config_help_commands("config", ["show"], step_mod=step_mod, context=migration_context)[0]["content"]
+    assert "migration notice:" in migration
+    assert "normalized into llm.endpoints" in migration
+
+
+def test_config_show_unfiltered_resolves_active_target_without_rendering_secret():
+    import toas.step as step_mod
+    from toas.config import (
+        EndpointCatalogEntry,
+        GenerationPolicy,
+        LLMPolicy,
+        OperatorConfig,
+        TargetCatalogEntry,
+        TargetGenerationOverrides,
+    )
+
+    config = OperatorConfig(
+        generation=GenerationPolicy(thinking_mode="enabled", max_tokens=2048),
+        llm=LLMPolicy(
+            endpoints=(EndpointCatalogEntry(
+                id="local",
+                base_url="http://localhost/v1",
+                api_key_source="env",
+                api_key_ref="SECRET_REF",
+            ),),
+            targets=(TargetCatalogEntry(
+                id="local-fast",
+                endpoint="local",
+                model="qwen3.6",
+                generation=TargetGenerationOverrides(thinking_mode="disabled"),
+            ),),
+        ),
+    )
+    context = _ctx(config=config, events=[{"kind": "target_selection", "payload": {"action": "set", "target_id": "local-fast"}}])
+    content = handle_config_help_commands("config", ["show"], step_mod=step_mod, context=context)[0]["content"]
+
+    assert "active target: local-fast" in content
+    assert "active endpoint: http://localhost/v1" in content
+    assert "active model: qwen3.6" in content
+    assert "thinking: disabled" in content
+    assert "SECRET_REF" not in content
 
 
 def test_config_show_supports_curated_topic_filters_and_source_order():

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..assets.help_catalog import resolve_config_help_keys
 from ..config import OperatorConfig
+from ..graph import active_target_selection
 from .operator_command_context import OperatorCommandContext
 from .operator_config_endpoint_ops import config_endpoint_result
 from .result_nodes import make_result_node
@@ -141,6 +142,91 @@ def _effective_config_values(flat: dict[str, object], *, step_mod) -> dict[str, 
     return values
 
 
+def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
+    """Render the operator-facing effective configuration summary."""
+    from .model_targets import (
+        resolve_model_target,
+        resolve_target_generation,
+        resolve_target_invocation,
+    )
+    from .policy_edges import settings_for_runtime
+
+    settings, _sources = settings_for_runtime(context.config, runtime_secrets={})
+    active_id = active_target_selection(context.events)
+    active_target = resolve_model_target(context.config, active_id) if active_id else None
+    invocation = (
+        resolve_target_invocation(
+            context.config,
+            active_target,
+            settings,
+            secret_resolver=lambda **_kwargs: "",
+        )
+        if active_target is not None
+        else None
+    )
+    effective_settings = invocation.settings if invocation is not None else settings
+    generation = (
+        resolve_target_generation(context.config, active_target)
+        if active_target is not None
+        else context.config.generation
+    )
+    known_models = {
+        model_id
+        for endpoint in context.config.llm.endpoints
+        for model_id in endpoint.models
+        if model_id
+    }
+    known_models.update(entry.id for entry in context.config.llm.models if entry.id)
+    avoid_terms = len(generation.avoid_terms)
+    lines = [
+        "effective configuration",
+        "",
+        "models:",
+        f"  active target: {active_id or '(none)'}",
+        f"  active endpoint: {effective_settings.llm_base_url or '(unset)' }",
+        f"  active model: {effective_settings.llm_model or '(unresolved)' }",
+        f"  transport: {effective_settings.llm_transport_mode or '(default)' }",
+        f"  inventory: {len(context.config.llm.endpoints)} endpoints · "
+        f"{len(context.config.llm.targets)} targets · {len(known_models)} models",
+        "",
+        "generation:",
+        f"  thinking: {generation.thinking_mode}",
+        f"  thinking budget: {generation.thinking_budget_tokens or '(unset)' }",
+        f"  max tokens: {generation.max_tokens or '(auto/unset)' }",
+        f"  retries: {generation.max_retries}",
+        f"  retry delay: {generation.retry_delay_s}s",
+        f"  avoid terms: {avoid_terms} configured",
+        "",
+        "extraction:",
+        f"  arbitration: {context.config.extraction.intent_arbitration}",
+        f"  shell staging: {context.config.extraction.shell_staging}",
+        f"  projection: {context.config.extraction.projection_shape}",
+        "",
+        "execution:",
+        f"  backend mode: {context.config.backend.mode}",
+        f"  shell timeout: {context.config.shell.assistant_timeout_s}s",
+        f"  tool-write newlines: {context.config.tool_writes.newline_style}",
+        "",
+        "next:",
+        "  /config show models|generation|extraction|execution",
+        "  /config show <topic> --sources",
+        "  /config endpoint list",
+        "  /config target list",
+    ]
+    migration_notice = (context.config_sources or {}).get("__migration__")
+    if migration_notice:
+        lines.extend(
+            [
+                "",
+                "migration notice:",
+                f"  {migration_notice}",
+                "  loaded values were normalized into llm.endpoints.",
+                "  /config save writes canonical endpoint configuration.",
+            ]
+        )
+    return "\n".join(lines)
+
+
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     filter_text, show_sources = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
 
@@ -156,6 +242,8 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
                 context=context,
             )
         ]
+    if filter_text is None and not show_sources:
+        return [_result_node(_config_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
     if show_sources:
         sources = context.config_sources or {}
         lines = [f"{k} = {flat[k]}    [source={sources.get(k, 'default')}]" for k in keys]
