@@ -4287,7 +4287,8 @@ def test_config_show_includes_quick_edit_examples():
     _, out = step(transcript, [])
     content = out[0]["content"]
     assert "Quick edits:" not in content
-    assert "/config show models|generation|extraction|execution" in content
+    assert "/config show models" in content
+    assert "/config show generation" in content
 
 
 def test_config_set_generation_thinking_mode_error_includes_example():

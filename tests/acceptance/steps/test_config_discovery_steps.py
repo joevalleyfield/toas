@@ -62,7 +62,13 @@ def when_follow_config_discovery(acceptance_state: dict, capsys) -> None:
     for command in (
         "/help config models",
         "/help models",
+        "/config show",
         "/config show models",
+        "/config show generation",
+        "/config show extraction",
+        "/config show backend",
+        "/config show shell",
+        "/config show tool_writes",
         "/config show models --sources",
         "/config show --sources models",
         "/help config sources",
@@ -175,6 +181,12 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
     assert "precedence stack" not in show_models
     assert "Quick edits:" not in show_models
     assert "config_update" not in show_models
+
+    overview = _output(outputs, "/config show")
+    for section in ("models:", "generation:", "extraction:", "execution:", "next:"):
+        assert section in overview
+    for command in ("generation", "extraction", "backend", "shell", "tool_writes"):
+        assert "no matching keys" not in _output(outputs, f"/config show {command}")
 
     with_sources = _output(outputs, "/config show models --sources")
     sources_first = _output(outputs, "/config show --sources models")

@@ -40,6 +40,21 @@ real, useful, and covered by an executable discovery path.
 - focused unit/acceptance tests;
 - this task and generated workboard.
 
+## Completion evidence
+
+Audited the overview navigation against dispatch and filtered-key behavior.
+The combined `models|generation|extraction|execution` hint was vapor because
+the filter parser treats it as one literal query. It now advertises individually
+executable `/config show` topic commands for models, generation, extraction,
+backend, shell, and tool_writes. Acceptance follows each command and verifies
+that it produces a real view rather than a no-match diagnostic.
+
+Focused result: `444` selected tests, including `17` acceptance tests.
+Full result: `3234 passed, 17 deselected`; coverage `100%`; Ruff and mypy passed.
+
+The structured `/config show models` redesign remains in the sibling child
+task `260912-config-model-structured-view`.
+
 ## Status
 
-Ready for implementation.
+Closed 2026-09-12.
