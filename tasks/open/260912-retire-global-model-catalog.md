@@ -18,8 +18,9 @@ the legacy `/model` availability/listing path and the config display.
 
 ## Current uses to replace or remove
 
-- legacy `/model` model listing and requested-model validation when no endpoint
-  is selected;
+- legacy `/model` model listing and fragmentary requested-model validation when
+  no named target is configured; this is compatibility behavior, not a
+  requirement of `/model`, `/model targets`, or `/model select TARGET`;
 - global catalog rendering in `/config show models`;
 - TOML load/save and config-key discovery;
 - static configuration examples and tests.
@@ -28,8 +29,9 @@ the legacy `/model` availability/listing path and the config display.
 
 1. Should global model knowledge disappear completely, or should a read-only
    aggregate be derived from endpoint catalogs and observations?
-2. If `/model` remains a compatibility surface, should it list named targets,
-   endpoint-qualified models, or only the active endpoint's catalog?
+2. Retire the no-target `/model` fragment path in favor of the existing named
+   target surfaces: `/model` reports the active target, `/model targets` lists
+   durable choices, and `/model select TARGET` changes the active selection.
 3. Does any workflow need curated model metadata independent of an endpoint?
    If so, should that become target metadata rather than a global catalog?
 4. What should happen to files containing `llm.models`: explicit migration,
