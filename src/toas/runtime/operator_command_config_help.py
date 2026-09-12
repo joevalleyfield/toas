@@ -85,6 +85,8 @@ def _config_entrypoint_result(*, step_mod, context: OperatorCommandContext) -> l
             "",
             "usage:",
             "  /config show [FILTER] [--sources]  inspect effective values",
+            "  /config show --sources             inspect all keys with winning sources",
+            "  /config show <topic-or-key>       inspect a focused key/topic view",
             "  /config values KEY                 inspect allowed choices",
             "  /config set KEY VALUE              record a session override",
             "  /config endpoint ...               define or inspect endpoints",
@@ -94,6 +96,7 @@ def _config_entrypoint_result(*, step_mod, context: OperatorCommandContext) -> l
             "  /help config                       concepts and discovery",
             "  /config --help                    complete config syntax",
             "  /config show                       all effective values",
+            "  /config show --sources            exhaustive key/provenance escape hatch",
         ]
     )
     return [_result_node(content, step_mod=step_mod, context=context)]

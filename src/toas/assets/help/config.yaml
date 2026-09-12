@@ -6,6 +6,7 @@ overview:
   - "  /config show             inspect effective current values"
   - "  /config list             alias for /config show"
   - "  /config show --sources   inspect values with their provenance"
+  - "  /config show <topic>     inspect a focused key/topic view"
   - "  /config values <key>     inspect allowed categorical values"
   - "  /config set <key> <value> set a durable session override"
   - "  /config endpoint list|add|set|remove ... manage configured endpoint definitions"
@@ -33,6 +34,7 @@ overview:
   - "  tools-guidance-full"
   - ""
   - "tip: use /config show to see all valid keys in the current build"
+  - "tip: the overview is curated; use /config show --sources for every effective key and its winning source"
 topics:
   - id: models
     aliases: [model, endpoint, endpoints]

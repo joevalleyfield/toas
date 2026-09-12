@@ -1047,6 +1047,8 @@ def test_bare_config_is_compact_navigation_not_state_dump():
 
     assert "config: inspect or change configuration" in content
     assert "/config show [FILTER] [--sources]" in content
+    assert "/config show --sources" in content
+    assert "/config show <topic-or-key>" in content
     assert "/config values KEY" in content
     assert "/config endpoint ..." in content
     assert "/config target ..." in content
@@ -1069,11 +1071,19 @@ def test_config_show_filter_sources_and_no_match_are_read_only():
     assert "precedence stack" not in content
     assert "/config show llm.model --sources" in content
     assert "config_update" not in out[0]
-
     no_match = handle_config_help_commands("config", ["show", "not-a-key"], step_mod=step_mod, context=context)[0]["content"]
     assert "no matching keys" in no_match
     assert "/help config" in no_match
 
+
+def test_config_show_sources_preserves_the_complete_key_discovery_surface():
+    import toas.step as step_mod
+
+    content = handle_config_help_commands("config", ["show", "--sources"], step_mod=step_mod, context=_ctx())[0]["content"]
+    for key in step_mod.valid_config_keys():
+        assert key in content
+    assert "extraction.yaml_position" in content
+    assert "llm.api_key_ref" in content
 
 def test_config_show_filtered_projection_is_compact_and_uses_effective_llm_defaults(monkeypatch):
     import toas.step as step_mod
