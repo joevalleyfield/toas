@@ -25,29 +25,29 @@ the legacy `/model` availability/listing path and the config display.
 - TOML load/save and config-key discovery;
 - static configuration examples and tests.
 
-## Design questions
+## Resolved direction
 
-1. Should global model knowledge disappear completely, or should a read-only
-   aggregate be derived from endpoint catalogs and observations?
-2. Retire the no-target `/model` fragment path in favor of the existing named
-   target surfaces: `/model` reports the active target, `/model targets` lists
-   durable choices, and `/model select TARGET` changes the active selection.
-3. Does any workflow need curated model metadata independent of an endpoint?
-   If so, should that become target metadata rather than a global catalog?
-4. What should happen to files containing `llm.models`: explicit migration,
-   warning, or silent discard after a bounded compatibility period?
+`llm.models` has no coherent legacy behavior worth retaining. It is not a
+fallback catalog, a meaningful validation space, or a substitute for named
+targets. Remove it rather than deriving a replacement aggregate.
+
+The sole compatibility behavior is the explicit scalar `llm.model` selection
+when no target-oriented configuration is available. That scalar remains a
+valid config/file/environment input and must not be confused with endpoint-
+reported availability or a named target.
 
 ## Proposed migration order
 
 1. Inventory and test all remaining behavioral consumers of `llm.models`.
 2. Make endpoint catalogs/targets sufficient for model discovery and selection
    without changing the user-facing target contract.
-3. Migrate or retire the legacy `/model` fallback behavior explicitly.
+3. Remove the no-target `/model` catalog listing and fragment validation path;
+   retain only explicit scalar `llm.model` fallback resolution.
 4. Remove `llm.models` from the valid-key, parser, serializer, help, and
-   config structures; retain only a time-bounded read-time transition if
-   required for existing files.
-5. Cross-check save/load, `/models known|refresh`, `/model targets`, and
-   `/config show models` after removal.
+   config structures. Existing files containing it should not silently create
+   global model knowledge.
+5. Cross-check save/load, `/models known|refresh`, `/model`, `/model targets`,
+   `/model select TARGET`, and `/config show models` after removal.
 
 ## Non-goals
 
@@ -58,5 +58,4 @@ the legacy `/model` availability/listing path and the config display.
 
 ## Status
 
-Inception: confirm the replacement for legacy global model listing and the
-compatibility window before implementation.
+Ready for implementation.
