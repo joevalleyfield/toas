@@ -6,7 +6,7 @@ Legacy index:
 Parent: `260912-config-show-navigation-and-model-view`
 Related: `260912-config-navigation-hint-correction`; `260912-config-discovery-preservation`
 
-keywords: config, exploration, inception, contract, usability, execution, policy
+keywords: config, exploration, parked, contract, usability, execution, policy
 
 # Deliberate the execution config/help facet
 
@@ -187,5 +187,6 @@ Before implementation, produce:
 
 ## Status
 
-Design matrix recorded; the semantic boundary and whether a composed config
-view is worthwhile remain open before an implementation follow-on.
+Parked for deliberate reconsideration. The matrix and open alternatives are
+preserved, but this topic is not in the active implementation path until a
+concrete operator workflow makes one execution grouping worth pursuing.
