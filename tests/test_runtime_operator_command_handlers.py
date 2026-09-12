@@ -323,11 +323,10 @@ def test_prompt_workspace_endpoint_and_model_usage_and_unavailable_paths(monkeyp
     assert "chosen endpoint unavailable" in out[0]["content"]
 
     monkeypatch.setattr(step_mod, "resolve_selected_endpoint", lambda _w: "b1")
-    monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_endpoint=None: ["m1"])
     with pytest.raises(ValueError, match="usage: /model"):
         handle_prompt_workspace_commands("model", ["a", "b"], step_mod=step_mod, context=_ctx())
-    out = handle_prompt_workspace_commands("model", ["missing"], step_mod=step_mod, context=_ctx())
-    assert "chosen model unavailable" in out[0]["content"]
+    with pytest.raises(ValueError, match="usage: /model"):
+        handle_prompt_workspace_commands("model", ["missing"], step_mod=step_mod, context=_ctx())
 
 
 def test_prompt_workspace_endpoint_and_model_empty_catalog_paths(monkeypatch):
@@ -338,9 +337,9 @@ def test_prompt_workspace_endpoint_and_model_empty_catalog_paths(monkeypatch):
     assert "no endpoints available" in out[0]["content"]
 
     monkeypatch.setattr(step_mod, "resolve_selected_endpoint", lambda _w: None)
-    monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_endpoint=None: [])
     out = handle_prompt_workspace_commands("model", [], step_mod=step_mod, context=_ctx())
-    assert "no models available" in out[0]["content"]
+    assert "active model target: (none)" in out[0]["content"]
+    assert "/model select <target>" in out[0]["content"]
 
 
 def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
@@ -1020,14 +1019,12 @@ def test_config_show_models_structured_lists_catalog_endpoints_and_targets():
     from toas.config import (
         EndpointCatalogEntry,
         LLMPolicy,
-        ModelCatalogEntry,
         OperatorConfig,
         TargetCatalogEntry,
     )
 
     config = OperatorConfig(
         llm=LLMPolicy(
-            models=(ModelCatalogEntry(id="known-a", label="Known A"), ModelCatalogEntry(id="known-b")),
             endpoints=(
                 EndpointCatalogEntry(
                     id="local",
@@ -1050,8 +1047,7 @@ def test_config_show_models_structured_lists_catalog_endpoints_and_targets():
     assert "local:\n    base URL: http://localhost/v1" in content
     assert "known models: served" in content
     assert "last refresh: 2026-09-12T12:00:00+00:00" in content
-    assert "known-a (Known A)" in content
-    assert "known-b" in content
+    assert "global catalog:" not in content
     assert "local-served: endpoint=local, model=served" in content
     assert "fallback: endpoint=(default), model=(inferred)" in content
     assert "SECRET" not in content
@@ -1076,7 +1072,7 @@ def test_config_show_supports_curated_topic_filters_and_source_order():
     assert "model configuration" in topic_content
     assert "global fallback:" in topic_content
     assert "endpoints:" in topic_content
-    assert "global catalog:" in topic_content
+    assert "global catalog:" not in topic_content
     assert "targets:" in topic_content
     assert "config_update" not in topic
 
@@ -1084,7 +1080,6 @@ def test_config_show_supports_curated_topic_filters_and_source_order():
         "config", ["show", "models", "--flat"], step_mod=step_mod, context=context
     )[0]["content"]
     assert "llm.model =" in flat
-    assert "llm.models =" in flat
     assert "llm.endpoints =" in flat
     assert "llm.base_url =" in flat
     assert "backend.mode =" in flat
@@ -1158,7 +1153,7 @@ def test_config_show_filtered_projection_is_compact_and_uses_effective_llm_defau
     assert "requested model: qwen3.5-35b-a3b" in content
     assert "endpoint: http://localhost:8080/v1" in content
     assert "endpoints:\n  (none)" in content
-    assert "global catalog:\n  (none)" in content
+    assert "global catalog:" not in content
     assert "precedence stack" not in content
     assert "Quick edits:" not in content
     assert "/config show models --flat" in content
@@ -1169,7 +1164,6 @@ def test_config_show_filtered_projection_is_compact_and_uses_effective_llm_defau
     )[0]["content"]
     assert "llm.model = qwen3.5-35b-a3b" in flat
     assert "llm.base_url = http://localhost:8080/v1" in flat
-    assert "llm.models = ()" in flat
     assert "llm.endpoints = ()" in flat
 
 

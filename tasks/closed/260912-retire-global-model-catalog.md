@@ -73,4 +73,20 @@ path for names such as `luna`, `qwen`, and `gemini`.
 
 ## Status
 
-Ready for implementation.
+Closed: 2026-09-12.
+
+## Completion evidence
+
+- Removed `ModelCatalogEntry` and `llm.models` from the config model,
+  normalization, valid-key/parser, help, and flat serialization surfaces.
+- Existing TOML `[llm] models` input is ignored during normalization rather
+  than becoming global model knowledge; scalar `llm.model` remains available
+  as the explicit fallback.
+- Made `/model` target-oriented: bare `/model` reports the active target or
+  scalar fallback, while selection is `/model select TARGET`; removed the
+  legacy fragmentary `/model NAME` listing/validation path.
+- Kept endpoint-owned known catalogs and named targets visible in structured
+  `/config show models`; the exhaustive view remains available through
+  `--flat` and `--sources`.
+- Verification: `./scripts/check.sh` passed — 3231 tests, 17 deselected,
+  acceptance checks, Ruff, and mypy; total coverage 100%.

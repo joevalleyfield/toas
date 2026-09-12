@@ -69,29 +69,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     nested_llm_input = nested.get("llm")
     if legacy_endpoints is not None and not (isinstance(nested_llm_input, dict) and "endpoints" in nested_llm_input):
         llm_values["endpoints"] = legacy_endpoints
-    model_entries: list[object] = []
-    raw_models = llm_values.get("models", [])
-    if isinstance(raw_models, tuple):
-        raw_models = list(raw_models)
-    if isinstance(raw_models, list):
-        for item in raw_models:
-            if isinstance(item, classes["ModelCatalogEntry"]):
-                model_entries.append(item)
-                continue
-            if not isinstance(item, dict):
-                continue
-            model_id = str(item.get("id", "")).strip()
-            if not model_id:
-                continue
-            label = str(item.get("label", "")).strip()
-            notes = str(item.get("notes", "")).strip()
-            tags_raw = item.get("tags", ())
-            if isinstance(tags_raw, (list, tuple)):
-                tags = tuple(str(tag).strip() for tag in tags_raw if str(tag).strip())
-            else:
-                tags = ()
-            model_entries.append(classes["ModelCatalogEntry"](id=model_id, label=label, tags=tags, notes=notes))
-    llm_values["models"] = tuple(model_entries)
+    llm_values.pop("models", None)
 
     endpoint_entries: list[object] = []
     raw_endpoints = llm_values.get("endpoints", [])

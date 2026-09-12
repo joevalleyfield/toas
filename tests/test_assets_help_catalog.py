@@ -66,9 +66,9 @@ def test_config_help_renders_overview_curated_and_search_results():
     target_search = render_config_help("llm.targets", valid_keys=["llm.targets"])
     assert "durable named endpoint/model/generation selections" in target_search
 
-    exact = render_config_help("llm.model", valid_keys=["llm.model", "llm.models"])
+    exact = render_config_help("llm.model", valid_keys=["llm.model", "llm.endpoints"])
     assert "matched by exact key" in exact
-    prefix = render_config_help("llm", valid_keys=["llm.model", "llm.models"])
+    prefix = render_config_help("llm", valid_keys=["llm.model", "llm.endpoints"])
     assert "matched by key prefix" in prefix
     token = render_config_help("timeout", valid_keys=["shell.assistant_timeout_s"])
     assert "matched by key token" in token

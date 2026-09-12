@@ -144,8 +144,6 @@ def parse_config_value(
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
     if dotted_key.startswith("health_timing.") and dotted_key.endswith("_ms"):
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
-    if dotted_key == "llm.models":
-        raise ValueError("llm.models cannot be set via /config set; edit toas.toml")
     if dotted_key == "llm.targets":
         raise ValueError("llm.targets cannot be set via /config set; edit toas.toml")
     if dotted_key == "shell.allowed_commands":

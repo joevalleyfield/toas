@@ -96,7 +96,7 @@ SLASH_COMMANDS = [
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
     ("endpoint",  "/endpoint [id]",                             "select endpoint intent in transcript state or list endpoints"),
     ("endpoints", "/endpoints",                                 "inspect configured endpoint definitions"),
-    ("model",     "/model [name] | targets | select <target>",     "select model intent or inspect/select named targets"),
+    ("model",     "/model | targets | select <target>",             "inspect or select a named model target"),
     ("models",    "/models [live|known|refresh] <endpoint>",        "observe, inspect, or refresh endpoint model catalogs"),
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
     ("shell",     SHELL_USAGE,                               "inspect or modify shell grants across transcript/config lanes"),
@@ -436,45 +436,6 @@ def _available_endpoints(config: OperatorConfig) -> list[str]:
         if candidate and candidate not in endpoints:
             endpoints.append(candidate)
     return endpoints
-
-
-def _find_endpoint(config: OperatorConfig, endpoint_id: str):
-    for entry in config.llm.endpoints:
-        if entry.id == endpoint_id:
-            return entry
-    return None
-
-
-def _available_models(config: OperatorConfig, *, selected_endpoint: str | None = None) -> list[str]:
-    models: list[str] = []
-    if selected_endpoint:
-        endpoint = _find_endpoint(config, selected_endpoint)
-        if endpoint is not None:
-            for model_id in endpoint.models:
-                candidate = model_id.strip()
-                if candidate and candidate not in models:
-                    models.append(candidate)
-            if endpoint.default_model.strip() and endpoint.default_model.strip() not in models:
-                models.append(endpoint.default_model.strip())
-            if models:
-                return models
-    for entry in config.llm.models:
-        candidate = entry.id.strip()
-        if candidate and candidate not in models:
-            models.append(candidate)
-    configured = config.llm.model.strip()
-    if configured:
-        if configured not in models:
-            models.append(configured)
-    env_models = os.environ.get("TOAS_AVAILABLE_MODELS", "")
-    for item in env_models.split(","):
-        candidate = item.strip()
-        if candidate and candidate not in models:
-            models.append(candidate)
-    env_default = os.environ.get("TOAS_LLM_MODEL", "").strip()
-    if env_default and env_default not in models:
-        models.append(env_default)
-    return models
 
 
 def resolve_selected_model(working: list[dict]) -> str | None:
@@ -903,20 +864,6 @@ def _generation_guard_result(
             f"chosen endpoint unavailable: {selected_endpoint}",
             "pick one of:",
             *[f"/endpoint {name}" for name in available_endpoints],
-        ]
-        return make_result_node(
-            "\n".join(lines),
-            origin_role="user",
-            origin_kind="tool_call",
-        )
-
-    selected_model = resolve_selected_model(working)
-    available_models = _available_models(config, selected_endpoint=selected_endpoint)
-    if selected_model is not None and available_models and selected_model not in available_models:
-        lines = [
-            f"chosen model unavailable: {selected_model}",
-            "pick one of:",
-            *[f"/model {name}" for name in available_models],
         ]
         return make_result_node(
             "\n".join(lines),

@@ -61,14 +61,6 @@ class TargetCatalogEntry:
 
 
 @dataclass(frozen=True)
-class ModelCatalogEntry:
-    id: str
-    label: str = ""
-    tags: tuple[str, ...] = ()
-    notes: str = ""
-
-
-@dataclass(frozen=True)
 class EndpointModelObservation:
     id: str
     last_seen: str = ""
@@ -95,7 +87,6 @@ class LLMPolicy:
     api_key_source: str = "env"
     api_key_ref: str = "TOAS_LLM_API_KEY"
     provider: str = ""
-    models: tuple[ModelCatalogEntry, ...] = ()
     endpoints: tuple[EndpointCatalogEntry, ...] = ()
     targets: tuple[TargetCatalogEntry, ...] = ()
 
@@ -284,7 +275,6 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "GenerationPolicy": GenerationPolicy,
                 "TargetGenerationOverrides": TargetGenerationOverrides,
                 "TargetCatalogEntry": TargetCatalogEntry,
-                "ModelCatalogEntry": ModelCatalogEntry,
                 "EndpointCatalogEntry": EndpointCatalogEntry,
                 "EndpointModelObservation": EndpointModelObservation,
                 "LLMPolicy": LLMPolicy,

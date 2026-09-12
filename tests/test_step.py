@@ -6,7 +6,6 @@ from toas.config import (
     EndpointCatalogEntry,
     ExtractionPolicy,
     LLMPolicy,
-    ModelCatalogEntry,
     OperatorConfig,
     PromptPolicy,
     ShellPolicy,
@@ -1602,45 +1601,6 @@ def test_operator_prompt_without_args_browses_top_level():
     assert "/prompt protocol" in out[0]["content"]
 
 
-def test_operator_model_lists_available_models(monkeypatch):
-    monkeypatch.setenv("TOAS_AVAILABLE_MODELS", "alpha,beta")
-    transcript = """\
-## TOAS:USER
-/model
-"""
-    _, out = step(transcript, [])
-    assert out == [_slash_result("available models:\n/model alpha\n/model beta")]
-
-
-def test_operator_model_unavailable_guidance(monkeypatch):
-    monkeypatch.setenv("TOAS_AVAILABLE_MODELS", "alpha,beta")
-    transcript = """\
-## TOAS:USER
-/model missing
-"""
-    _, out = step(transcript, [])
-    assert "chosen model unavailable" in out[0]["content"]
-    assert "/model alpha" in out[0]["content"]
-
-
-def test_operator_model_lists_catalog_models_in_order():
-    config = OperatorConfig(
-        llm=LLMPolicy(
-            model="fallback",
-            models=(
-                ModelCatalogEntry(id="beta", label="Beta"),
-                ModelCatalogEntry(id="alpha", label="Alpha"),
-            ),
-        )
-    )
-    transcript = """\
-## TOAS:USER
-/model
-"""
-    _, out = step(transcript, [], config=config)
-    assert out == [_slash_result("available models:\n/model beta\n/model alpha\n/model fallback")]
-
-
 def test_operator_backend_lists_available_backends():
     config = OperatorConfig(
         llm=LLMPolicy(
@@ -1656,30 +1616,6 @@ def test_operator_backend_lists_available_backends():
 """
     _, out = step(transcript, [], config=config)
     assert out == [_slash_result("available endpoints:\n/endpoint local\n/endpoint openrouter")]
-
-
-def test_operator_model_list_scoped_to_selected_backend():
-    config = OperatorConfig(
-        llm=LLMPolicy(
-            endpoints=(
-                EndpointCatalogEntry(
-                    id="local",
-                    base_url="http://localhost:8080/v1",
-                    default_model="qwen",
-                    models=("qwen", "gemma"),
-                ),
-            )
-        )
-    )
-    transcript = """\
-## TOAS:USER
-/endpoint local
-
-## TOAS:USER
-/model
-"""
-    _, out = step(transcript, [], config=config)
-    assert out == [_slash_result("available models:\n/model qwen\n/model gemma")]
 
 
 def test_user_tail_with_multiline_shell_block_executes_as_one_shell_command(monkeypatch, tmp_path):
@@ -1744,47 +1680,6 @@ $ sh -lc 'printf %s \"$TOAS_ENV_TEST\"'
     # Validate env modifier was passed through to subprocess
     call_env = fake_shell_subprocess.call_args.kwargs.get("env", {})
     assert call_env.get("TOAS_ENV_TEST") == "from-transcript"
-
-
-def test_generation_frontier_returns_model_unavailable_continuation(monkeypatch):
-    monkeypatch.setenv("TOAS_AVAILABLE_MODELS", "alpha,beta")
-    transcript = """\
-## TOAS:USER
-/model missing
-
-## TOAS:USER
-please answer
-"""
-
-    def fake_generate(_):
-        raise AssertionError("should not be called")
-
-    _, out = step(transcript, [], generate=fake_generate)
-    assert out == [_tool_result("chosen model unavailable: missing\npick one of:\n/model alpha\n/model beta")]
-
-
-def test_generation_frontier_returns_catalog_model_continuation():
-    config = OperatorConfig(
-        llm=LLMPolicy(
-            models=(
-                ModelCatalogEntry(id="catalog-a"),
-                ModelCatalogEntry(id="catalog-b"),
-            )
-        )
-    )
-    transcript = """\
-## TOAS:USER
-/model missing
-
-## TOAS:USER
-please answer
-"""
-
-    def fake_generate(_):
-        raise AssertionError("should not be called")
-
-    _, out = step(transcript, [], config=config, generate=fake_generate)
-    assert out == [_tool_result("chosen model unavailable: missing\npick one of:\n/model catalog-a\n/model catalog-b")]
 
 
 def test_generation_frontier_returns_backend_unavailable_continuation():
@@ -4417,16 +4312,6 @@ def test_render_prompt_browse_commands_nested_suffix(monkeypatch):
     assert "/prompt foo/bar" in result
 
 
-# --- _find_endpoint ---
-
-def test_find_endpoint_not_found():
-    from toas.step import _find_endpoint
-
-    config = OperatorConfig()
-    result = _find_endpoint(config, "nonexistent")
-    assert result is None
-
-
 # --- resolve_selected_model (lines 534, 540-541) ---
 
 def test_resolve_selected_model_empty_content():
@@ -4443,6 +4328,13 @@ def test_resolve_selected_model_shlex_error():
     # Unclosed quote -> shlex.split raises ValueError -> continue
     working = [{"role": "user", "content": "/model 'unclosed"}]
     assert resolve_selected_model(working) is None
+
+
+def test_resolve_selected_model_reads_legacy_scalar_selection_for_invocation_fallback():
+    from toas.step import resolve_selected_model
+
+    working = [{"role": "user", "content": "/model qwen3.6"}]
+    assert resolve_selected_model(working) == "qwen3.6"
 
 
 # --- resolve_selected_endpoint ---

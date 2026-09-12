@@ -157,24 +157,9 @@ def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext)
         return _handle_model_targets(args[1:], step_mod=step_mod, context=context)
     if args and args[0] == "select":
         return _handle_model_select(args[1:], step_mod=step_mod, context=context)
-    if len(args) > 1:
-        raise ValueError("usage: /model [name]")
-    selected_endpoint = step_mod.resolve_selected_endpoint(context.working)
-    available = step_mod._available_models(context.config, selected_endpoint=selected_endpoint)
-    if not args:
-        if context.config.llm.targets:
-            return _handle_model_overview(step_mod=step_mod, context=context)
-        if not available:
-            return [_result_node("no models available in current capability space", step_mod=step_mod, context=context)]
-        lines = ["available models:"]
-        lines.extend(f"/model {name}" for name in available)
-        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
-    selected = args[0]
-    lines = [f"selected model intent: {selected}", "validation: deferred until inference frontier"]
-    if available and selected not in available:
-        lines.extend(["", "chosen model unavailable in current capability space", "choose one of:"])
-        lines.extend(f"/model {name}" for name in available)
-    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+    if args:
+        raise ValueError("usage: /model | /model targets | /model select <target>")
+    return _handle_model_overview(step_mod=step_mod, context=context)
 
 
 def _handle_model_overview(*, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -183,7 +168,8 @@ def _handle_model_overview(*, step_mod, context: OperatorCommandContext) -> list
     active_id = active_target_selection(context.events)
     active = resolve_model_target(context.config, active_id) if active_id else None
     if active is None:
-        lines = ["active model target: (none)"]
+        fallback = context.config.llm.model.strip() or "(none)"
+        lines = ["active model target: (none)", f"  requested model fallback: {fallback}"]
     else:
         endpoint = active.endpoint or "(default)"
         model = active.model or "(inferred)"

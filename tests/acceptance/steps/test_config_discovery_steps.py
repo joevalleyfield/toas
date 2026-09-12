@@ -176,7 +176,7 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
     assert "/config target add --all-known local" in plain_models
 
     show_models = _output(outputs, "/config show models")
-    for section in ("model configuration", "global fallback:", "endpoints:", "global catalog:", "targets:"):
+    for section in ("model configuration", "global fallback:", "endpoints:", "targets:"):
         assert section in show_models
     assert "requested model: qwen3.5-35b-a3b" in show_models
     assert "endpoint: http://localhost:8080/v1" in show_models
@@ -185,7 +185,7 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
     assert "config_update" not in show_models
 
     flat_models = _output(outputs, "/config show models --flat")
-    for key in ("llm.model =", "llm.models =", "llm.endpoints =", "llm.base_url =", "backend.mode ="):
+    for key in ("llm.model =", "llm.endpoints =", "llm.base_url =", "backend.mode ="):
         assert key in flat_models
 
     overview = _output(outputs, "/config show")

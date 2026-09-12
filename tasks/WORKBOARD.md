@@ -275,7 +275,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
 - **[T260912-config-execution-facet-design]** Deliberate the execution config/help facet
 - **[T260912-config-show-navigation-and-model-view]** Turn the new `/config show` overview into a trustworthy navigation surface and make detailed model configuration human-readable by default without los...
-- **[T260912-retire-global-model-catalog]** Retire the global `llm.models` catalog
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -359,10 +358,10 @@ continuation, and authority concerns without reopening completed slices.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260912-target-basename-from-observed-model]** Make automatic target promotion use the agreed basename display identity for path-like model IDs, while keeping the raw model ID in the target's `mode...
+- **[T260912-retire-global-model-catalog]** Replace the global model catalog with named targets
 - **[T260912-repair-full-check]** Restore a passing `scripts/check.sh` after the elevated full verification pass exposed an acceptance discovery mismatch, Vim host-surface hangs, and m...
 - **[T260912-models-single-endpoint-default]** Make `/models live`, `/models refresh`, and `/models known` convenient when exactly one endpoint is configured, while retaining explicit endpoint sele...
 - **[T260912-model-observation-raw-details]** Make live endpoint observations inspectable enough to discover and implement model-detail extractors without conflating endpoint protocol, configured ...
-- **[T260912-config-show-next-command-audit]** Ensure commands advertised by unfiltered `/config show` and config help are real, useful, and covered by an executable discovery path.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

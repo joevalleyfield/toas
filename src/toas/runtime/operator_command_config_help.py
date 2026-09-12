@@ -187,7 +187,6 @@ def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
         for model_id in endpoint.models
         if model_id
     }
-    known_models.update(entry.id for entry in context.config.llm.models if entry.id)
     avoid_terms = len(generation.avoid_terms)
     lines = [
         "effective configuration",
@@ -198,7 +197,7 @@ def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
         f"  active model: {effective_settings.llm_model or '(unresolved)' }",
         f"  transport: {effective_settings.llm_transport_mode or '(default)' }",
         f"  inventory: {len(context.config.llm.endpoints)} endpoints · "
-        f"{len(context.config.llm.targets)} targets · {len(known_models)} models",
+        f"{len(context.config.llm.targets)} targets · {len(known_models)} endpoint models",
         "",
         "generation:",
         f"  thinking: {generation.thinking_mode}",
@@ -305,14 +304,6 @@ def _config_models_overview(*, step_mod, context: OperatorCommandContext) -> str
                     f"    credentials: {endpoint.api_key_source} (ref {endpoint.api_key_ref})",
                 ]
             )
-    else:
-        lines.append("  (none)")
-
-    lines.extend(["", "global catalog:"])
-    if context.config.llm.models:
-        for model in context.config.llm.models:
-            label = f" ({model.label})" if model.label else ""
-            lines.append(f"  {model.id}{label}")
     else:
         lines.append("  (none)")
 

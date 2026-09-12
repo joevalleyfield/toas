@@ -9,7 +9,6 @@ from toas.config import (
     GenerationPolicy,
     HealthTimingPolicy,
     LLMPolicy,
-    ModelCatalogEntry,
     OperatorConfig,
     RuntimePolicy,
     TargetCatalogEntry,
@@ -49,7 +48,6 @@ def test_default_config_fields():
     assert config.llm.model == ""
     assert config.llm.api_key_source == "env"
     assert config.llm.api_key_ref == "TOAS_LLM_API_KEY"
-    assert config.llm.models == ()
     assert config.llm.endpoints == ()
     assert config.runtime == RuntimePolicy()
     assert config.storage.hot_journal_limit_mb == 4
@@ -85,7 +83,6 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["llm.model"] == ""
     assert flat["llm.api_key_source"] == "env"
     assert flat["llm.api_key_ref"] == "TOAS_LLM_API_KEY"
-    assert flat["llm.models"] == ()
     assert flat["llm.endpoints"] == ()
     assert flat["runtime.context_budget_mode"] == "balanced"
     assert flat["runtime.streaming_mode"] == "enabled"
@@ -148,7 +145,6 @@ def test_valid_config_keys_complete():
     assert "llm.model" in keys
     assert "llm.api_key_source" in keys
     assert "llm.api_key_ref" in keys
-    assert "llm.models" in keys
     assert "llm.endpoints" in keys
     assert "runtime.context_budget_mode" in keys
     assert "runtime.streaming_mode" in keys
@@ -434,8 +430,8 @@ def test_parse_config_value_unknown_key():
         parse_config_value("extraction.nonexistent", "x")
 
 
-def test_parse_config_value_llm_models_unsupported_for_set():
-    with pytest.raises(ValueError, match="cannot be set via /config set"):
+def test_parse_config_value_llm_models_is_removed():
+    with pytest.raises(ValueError, match="unknown config key"):
         parse_config_value("llm.models", "alpha")
 
 
@@ -566,7 +562,7 @@ def test_config_from_file_with_overrides(tmp_path):
     )
 
 
-def test_config_from_file_with_llm_models_catalog(tmp_path):
+def test_config_from_file_ignores_removed_llm_models_catalog(tmp_path):
     import sys
     if sys.version_info < (3, 11):
         pytest.skip("tomllib requires Python 3.11+")
@@ -586,10 +582,8 @@ def test_config_from_file_with_llm_models_catalog(tmp_path):
     result = config_from_file(p)
 
     assert result.llm.model == "fallback-model"
-    assert result.llm.models == (
-        ModelCatalogEntry(id="alpha", label="Alpha", tags=("fast", "local"), notes="good for quick loops"),
-        ModelCatalogEntry(id="beta", label="", tags=(), notes=""),
-    )
+    assert result.llm.model == "fallback-model"
+    assert not hasattr(result.llm, "models")
 
 
 def test_config_from_file_with_llm_backends_catalog(tmp_path):
@@ -786,9 +780,6 @@ def test_apply_overrides_normalizes_catalog_and_managed_local_values():
         },
     )
     assert result.generation.avoid_terms == ("x", "y")
-    assert len(result.llm.models) == 1
-    assert result.llm.models[0].id == "m1"
-    assert result.llm.models[0].tags == ("a", "b")
     assert len(result.llm.endpoints) == 1
     assert result.llm.endpoints[0].id == "b1"
     assert result.llm.endpoints[0].base_url == "http://localhost"
@@ -800,21 +791,17 @@ def test_apply_overrides_normalizes_catalog_and_managed_local_values():
 
 def test_apply_overrides_handles_entry_instances_and_env_list_shape():
     base = OperatorConfig()
-    model_entry = ModelCatalogEntry(id="m2", label="M2")
     backend_entry = EndpointCatalogEntry(id="b2", base_url="http://x")
     result = apply_overrides(
         base,
         {
             "llm": {
-                "models": [model_entry, {"id": "m3", "tags": "not-a-list"}],
                 "backends": [backend_entry, {"id": "b3", "base_url": "http://y", "models": "not-a-list", "tags": "nope"}],
             },
             "shell": {"allowed_commands": ["echo", "rg"]},
             "backend": {"managed_local": {"env": [("A", 1), ["B", 2], ("C",), "skip"]}},
         },
     )
-    assert any(entry.id == "m2" for entry in result.llm.models)
-    assert any(entry.id == "m3" and entry.tags == () for entry in result.llm.models)
     assert any(entry.id == "b2" for entry in result.llm.endpoints)
     b3 = next(entry for entry in result.llm.endpoints if entry.id == "b3")
     assert b3.models == ()
