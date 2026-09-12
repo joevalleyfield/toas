@@ -113,6 +113,44 @@ settings do not form a coherent execution-control question. The existence of
 the word `execution` in the overview is not sufficient evidence by itself;
 the coupling and operator use case are the evidence we need.
 
+## Worked example: candidate execution groups
+
+Applying that rule to the current registry produces several plausible groups,
+but they answer different questions:
+
+| Candidate facet question | Cross-prefix members | Why the coupling is plausible | Why it should not be merged casually |
+| --- | --- | --- | --- |
+| Which assistant actions are admitted and bounded? | `capability_advertisement.profile`; `capability_advertisement.hidden_tools`; `shell.allowed_commands`; `shell.assistant_timeout_s` | All affect whether an assistant-addressable action is visible, authorized, or bounded by default. | Visibility, authorization, workspace scope, and lifetime are separate invariants; the view must label those distinctions. |
+| How does a run progress and terminate? | `runtime.async_runs`; `runtime.async_backend_mode`; `runtime.streaming_mode`; `runtime.cancellation_mode`; `runtime.thinking_stream_mode`; `runtime.prompt_progress_mode`; selected `health_timing.*` | All shape run lifecycle, progress reporting, or observation of terminality. | Health is observational, and transport deadlines must not be presented as action or process termination policy. |
+| How is an action materialized in its process/filesystem environment? | `shell.environment`; `runtime.python_runtime`; `runtime.powershell_runtime`; `tool_writes.newline_style` | All affect the environment or representation in which a concrete action takes effect. | They span process setup and file rendering; one “execution” heading could conceal important ownership differences. |
+| Which candidate becomes the next action? | `extraction.*` | Extraction controls candidate lanes, arbitration, staging, and projection immediately before execution. | It is intentionally upstream of execution and already has a coherent plain/config topic. |
+
+The first two rows are the strongest cross-prefix candidates, but they are
+not one tight group: “may this assistant action run?” and “how does the run
+progress?” have different users, failure modes, and invariants. The third is a
+possible operational-materialization topic. The fourth should remain
+extraction.
+
+This gives a reusable test for other topics: begin with the operator question,
+collect keys by behavioral coupling, record the prefixes crossed, and split
+the facet when the rows have different authority, lifecycle, or failure
+semantics. A cross-prefix facet is justified when its members are changed or
+inspected together in a real workflow—not merely because they appear in the
+same implementation path.
+
+### Interim implication for `execution`
+
+The bare label `execution` currently names too many of these questions to be a
+safe single key set. The next design choice is therefore among:
+
+1. make `execution` a plain-help umbrella and expose narrower config facets;
+2. make it a composed config view with explicit subsections such as action
+   bounds and run lifecycle;
+3. replace the overview hint with the narrower questions until a composed
+   view has a demonstrated operator use case.
+
+None of these choices requires an `execution.*` namespace.
+
 ## Design questions
 
 1. Is `execution` primarily a plain-help concept, a config facet, or both?
