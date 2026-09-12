@@ -185,6 +185,7 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
     overview = _output(outputs, "/config show")
     for section in ("models:", "generation:", "extraction:", "execution:", "next:"):
         assert section in overview
+    assert "/config show models|generation|extraction|execution" in overview
     for command in ("generation", "extraction", "backend", "shell", "tool_writes"):
         assert "no matching keys" not in _output(outputs, f"/config show {command}")
 
