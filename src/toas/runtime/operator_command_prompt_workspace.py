@@ -252,16 +252,20 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
             "/models live ENDPOINT    query a configured endpoint (network, no write)\n"
             "/models known ENDPOINT   read its durable model catalog (no network)\n"
             "/models refresh ENDPOINT query and merge its catalog (network + config write)\n"
+            "  add --details for normalized metadata (initially limited)\n"
+            "  add --raw to live or refresh for the exact endpoint response\n"
             "\nENDPOINT is a configured endpoint name, not a URL.",
             step_mod=step_mod,
             context=context,
         )]
-    if args[0] == "refresh":
-        return _handle_models_refresh(args[1:], step_mod=step_mod, context=context)
-    if len(args) != 2 or args[0] not in {"live", "known"} or not args[1].strip():
-        raise ValueError("usage: /models live|known|refresh ENDPOINT (configured endpoint name)")
     mode = args[0]
-    endpoint_id = args[1].strip()
+    if mode == "refresh":
+        return _handle_models_refresh(args[1:], step_mod=step_mod, context=context)
+    if mode not in {"live", "known"}:
+        raise ValueError("usage: /models live|known|refresh ENDPOINT (configured endpoint name)")
+    endpoint_id, details, raw = _parse_models_flags(args[1:])
+    if raw and mode == "known":
+        raise ValueError("/models known does not support --raw; the known catalog has no stored response body")
     endpoint = next((entry for entry in context.config.llm.endpoints if entry.id == endpoint_id), None)
     if endpoint is None:
         raise ValueError(f"unknown endpoint: {endpoint_id}")
@@ -272,11 +276,16 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
             for observation in endpoint.model_observations
             if endpoint.models_last_refreshed_at and observation.last_seen != endpoint.models_last_refreshed_at
         ) or "(none)"
-        return [_result_node(
+        lines = [
             f"known endpoint model catalog:\n  endpoint: {endpoint.id}\n"
             f"  models: {models}\n"
             f"  last refresh: {endpoint.models_last_refreshed_at or '(never)'}\n"
-            f"  not seen in latest: {unseen}",
+            f"  not seen in latest: {unseen}"
+        ]
+        if details:
+            lines.append("  details: normalized endpoint metadata is not available yet; use /models live ENDPOINT --raw")
+        return [_result_node(
+            "\n".join(lines),
             step_mod=step_mod,
             context=context,
         )]
@@ -301,26 +310,28 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
         llm_provider=endpoint.provider or base_settings.llm_provider,
         llm_ca_file=base_settings.llm_ca_file,
     )
-    observation = observe_endpoint_models(settings, fetcher=fetch_models)
+    observation = observe_endpoint_models(settings, fetcher=fetch_models, include_raw=raw)
     lines = [
         "endpoint model observation:",
         f"  endpoint: {observation['endpoint'] or '(default)'}",
-        f"  provider: {observation['provider'] or '(default)'}",
-        f"  requested model: {observation['requested_model'] or '(none)'}",
+        f"  protocol: {observation['protocol'] or '(unknown)'}",
         f"  status: {observation['status']}",
     ]
     if observation["status"] == "ok":
         models = observation.get("models", ())
-        lines.append("  reported models: " + (", ".join(models) if models else "(none)"))
+        lines.append("  reported models: " + (", ".join(_display_model_id(model) for model in models) if models else "(none)"))
     else:
         lines.append(f"  error: {observation['error']}")
+    if details:
+        lines.append("  details: normalized model metadata is not available yet; use --raw for the endpoint response")
+    if raw:
+        lines.append("  raw response:")
+        lines.append(str(observation.get("raw_response", observation.get("error", "(none)"))))
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
 def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    if len(args) != 1 or not args[0].strip():
-        raise ValueError("usage: /models refresh ENDPOINT (configured endpoint name)")
-    endpoint_id = args[0].strip()
+    endpoint_id, details, raw = _parse_models_flags(args)
     endpoint = next((entry for entry in context.config.llm.endpoints if entry.id == endpoint_id), None)
     if endpoint is None:
         raise ValueError(f"unknown endpoint: {endpoint_id}")
@@ -346,12 +357,17 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
         llm_provider=endpoint.provider or base_settings.llm_provider,
         llm_ca_file=base_settings.llm_ca_file,
     )
-    observation = observe_endpoint_models(settings, fetcher=fetch_models)
+    observation = observe_endpoint_models(settings, fetcher=fetch_models, include_raw=raw)
     if observation["status"] != "ok":
+        lines = [
+                f"model catalog refresh failed for {endpoint_id}: {observation['status']}",
+                f"error: {observation['error']}",
+        ]
+        if raw:
+            lines.extend(["raw response:", str(observation.get("raw_response", observation.get("error", "(none)")))])
         return [
             _result_node(
-                f"model catalog refresh failed for {endpoint_id}: {observation['status']}\n"
-                f"error: {observation['error']}",
+                "\n".join(lines),
                 step_mod=step_mod,
                 context=context,
             )
@@ -386,10 +402,45 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
     observed = observation.get("models", ())
     added = [model_id for model_id in observed if model_id not in endpoint.models]
     content = (
-        f"model catalog refreshed for {endpoint_id}: {len(added)} added, "
+        f"model catalog refreshed for {endpoint_id}: "
+        f"added {', '.join(_display_model_id(model_id) for model_id in added) if added else '(none)'} "
+        f"({len(added)} added), "
         f"{len(updated_endpoint.models)} known"
     )
+    if details:
+        content += "\ndetails: normalized model metadata is not available yet"
+    if raw:
+        content += "\nraw response:\n" + str(observation.get("raw_response", "(none)"))
     return [_result_node(content, step_mod=step_mod, context=context, config_update={"llm": {"endpoints": endpoints}})]
+
+
+def _display_model_id(model_id: str) -> str:
+    """Keep endpoint path prefixes out of the compact operator view."""
+    return model_id.rsplit("/", 1)[-1] or model_id
+
+
+def _parse_models_flags(args: list[str]) -> tuple[str, bool, bool]:
+    if not args:
+        raise ValueError("usage: /models live|known|refresh ENDPOINT [--details|--raw]")
+    endpoint: str | None = None
+    details = False
+    raw = False
+    for arg in args:
+        if arg == "--details":
+            if details:
+                raise ValueError("usage: /models ... ENDPOINT [--details|--raw]")
+            details = True
+        elif arg == "--raw":
+            if raw:
+                raise ValueError("usage: /models ... ENDPOINT [--details|--raw]")
+            raw = True
+        elif endpoint is None and arg.strip():
+            endpoint = arg.strip()
+        else:
+            raise ValueError("usage: /models ... ENDPOINT [--details|--raw]")
+    if endpoint is None:
+        raise ValueError("usage: /models ... ENDPOINT [--details|--raw]")
+    return endpoint, details, raw
 
 
 def _validate_env_key(key: str, *, step_mod) -> None:

@@ -12,9 +12,9 @@ def test_observe_endpoint_models_normalizes_openai_and_gemini_shapes():
     )
 
     assert result == {
-        "provider": "openai",
         "endpoint": "http://endpoint/v1",
         "requested_model": "requested",
+        "protocol": "openai-compatible",
         "status": "ok",
         "models": ("served", "ignored"),
     }
@@ -50,6 +50,36 @@ def test_observe_endpoint_models_rejects_malformed_response():
         fetcher=lambda _settings: {"data": ["skip", {"id": 42}, {"id": "kept"}]},
     )
     assert skipped["models"] == ("kept",)
+
+
+def test_observe_endpoint_models_preserves_raw_response_when_requested():
+    result = observe_endpoint_models(
+        Settings(llm_provider="openai"),
+        fetcher=lambda _settings, **_kwargs: {
+            "data": [{"id": "/models/Qwen/model.gguf"}],
+            "_raw_response": '{"data":[{"id":"/models/Qwen/model.gguf"}]}',
+        },
+        include_raw=True,
+    )
+
+    assert result["raw_response"] == '{"data":[{"id":"/models/Qwen/model.gguf"}]}'
+    assert result["models"] == ("/models/Qwen/model.gguf",)
+
+
+def test_observe_endpoint_models_falls_back_for_legacy_fetcher():
+    result = observe_endpoint_models(
+        Settings(), fetcher=lambda _settings: {"data": [{"id": "served"}]}, include_raw=True
+    )
+    assert result["models"] == ("served",)
+
+
+def test_observe_endpoint_models_reraises_unrelated_fetcher_type_error():
+    def broken_fetcher(_settings, **_kwargs):
+        raise TypeError("broken fetcher")
+
+    result = observe_endpoint_models(Settings(), fetcher=broken_fetcher, include_raw=True)
+    assert result["status"] == "unavailable"
+    assert result["error"] == "broken fetcher"
 
 
 def test_merge_endpoint_model_ids_preserves_metadata_and_existing_order():

@@ -101,6 +101,27 @@ selection, and observed model identity.
 - explicit note identifying which detail fields remain deferred;
 - focused and full verification results.
 
+## Completion evidence
+
+Implemented operation-scoped `--details` and `--raw` handling for `/models`.
+Live and refresh preserve and render the exact successful response body when
+requested, including an HTTP failure body where available; `known --raw` is
+rejected because the catalog does not persist response envelopes. Compact
+output now labels the access protocol, displays path-like model IDs by
+basename, and keeps requested selection out of advertised model output.
+Refresh names newly added models and reports an explicit empty delta. Details
+is a stable, honest stub that identifies the deferred metadata extraction and
+points operators to `--raw`.
+
+Focused result: `184 passed` across model observation, operator model, and
+harness tests.
+Full result: `3227 passed, 17 deselected`; coverage `100%`; acceptance and
+integration `17 passed`; Ruff and mypy passed.
+
+Deferred detail fields remain endpoint-specific metadata such as capabilities,
+context limits, ownership, and permissions; the captured raw response is the
+source for a later extractor slice.
+
 ## Status
 
-Ready for implementation.
+Closed 2026-09-12.

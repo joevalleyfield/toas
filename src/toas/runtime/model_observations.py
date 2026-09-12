@@ -11,21 +11,36 @@ def observe_endpoint_models(
     settings: Settings,
     *,
     fetcher: Callable[..., dict],
+    include_raw: bool = False,
 ) -> dict:
     """Return a bounded, read-only observation of the endpoint model catalog."""
     observation = {
-        "provider": settings.llm_provider,
         "endpoint": settings.llm_base_url,
         "requested_model": settings.llm_model,
+        "protocol": "openai-compatible" if settings.llm_provider == "openai" else settings.llm_provider,
     }
     try:
-        payload = fetcher(settings)
+        if include_raw:
+            try:
+                payload = fetcher(settings, include_raw=True)
+            except TypeError as exc:
+                if "include_raw" not in str(exc):
+                    raise
+                payload = fetcher(settings)
+        else:
+            payload = fetcher(settings)
     except Exception as exc:
         return {**observation, "status": "unavailable", "error": str(exc)}
     if not isinstance(payload, dict):
         return {**observation, "status": "malformed", "error": "endpoint returned a non-object response"}
+    raw_response = payload.get("_raw_response")
+    result_base = {**observation, "status": "ok"}
+    if isinstance(raw_response, str):
+        result_base["raw_response"] = raw_response
     if payload.get("error"):
-        return {**observation, "status": "unavailable", "error": str(payload["error"])}
+        result_base["status"] = "unavailable"
+        result_base["error"] = str(payload["error"])
+        return result_base
 
     raw_models = payload.get("data")
     if raw_models is None:
@@ -43,7 +58,7 @@ def observe_endpoint_models(
         model_id = model_id.strip()
         if model_id and model_id not in models:
             models.append(model_id)
-    return {**observation, "status": "ok", "models": tuple(models)}
+    return {**result_base, "models": tuple(models)}
 
 
 def merge_endpoint_model_ids(

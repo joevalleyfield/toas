@@ -87,7 +87,13 @@ def evaluate_expectations(report: dict, *, expectations: dict | None = None) -> 
     }
 
 
-def _request_json(url: str, *, payload: dict | None = None, timeout_s: int = 15):
+def _request_json(
+    url: str,
+    *,
+    payload: dict | None = None,
+    timeout_s: int = 15,
+    include_raw: bool = False,
+):
     data = None
     method = "GET"
     headers = {}
@@ -98,7 +104,9 @@ def _request_json(url: str, *, payload: dict | None = None, timeout_s: int = 15)
 
     req = request.Request(url, data=data, headers=headers, method=method)
     with request.urlopen(req, timeout=timeout_s) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        body = resp.read().decode("utf-8")
+    parsed = json.loads(body)
+    return (parsed, body) if include_raw else parsed
 
 
 def fetch_health(settings: Settings, *, timeout_s: int = 15) -> dict:
@@ -106,7 +114,7 @@ def fetch_health(settings: Settings, *, timeout_s: int = 15) -> dict:
     return _request_json(f"{base}/health", timeout_s=timeout_s)
 
 
-def fetch_models(settings: Settings, *, timeout_s: int = 15) -> dict:
+def fetch_models(settings: Settings, *, timeout_s: int = 15, include_raw: bool = False) -> dict:
     if settings.llm_provider == "gemini-rest":
         base_url = settings.llm_base_url.rstrip("/")
         if base_url == "http://localhost:8080/v1" or not base_url:
@@ -119,10 +127,39 @@ def fetch_models(settings: Settings, *, timeout_s: int = 15) -> dict:
         if settings.llm_api_key and settings.llm_api_key != "not-needed":
             url += f"?key={settings.llm_api_key}"
         try:
-            return _request_json(url, timeout_s=timeout_s)
+            if include_raw:
+                result = _request_json(url, timeout_s=timeout_s, include_raw=True)
+            else:
+                result = _request_json(url, timeout_s=timeout_s)
+            if include_raw:
+                payload, raw = result
+                return {**payload, "_raw_response": raw}
+            return result
         except Exception as exc:
-            return {"error": str(exc)}
-    return _request_json(f"{settings.llm_base_url.rstrip('/')}/models", timeout_s=timeout_s)
+            result = {"error": str(exc)}
+            raw = getattr(exc, "read", lambda: b"")()
+            if include_raw and raw:
+                result["_raw_response"] = raw.decode("utf-8", errors="replace")
+            return result
+    try:
+        if include_raw:
+            result = _request_json(
+                f"{settings.llm_base_url.rstrip('/')}/models",
+                timeout_s=timeout_s,
+                include_raw=True,
+            )
+        else:
+            result = _request_json(f"{settings.llm_base_url.rstrip('/')}/models", timeout_s=timeout_s)
+    except Exception as exc:
+        result = {"error": str(exc)}
+        raw = getattr(exc, "read", lambda: b"")()
+        if include_raw and raw:
+            result["_raw_response"] = raw.decode("utf-8", errors="replace")
+        return result
+    if include_raw:
+        payload, raw = result
+        return {**payload, "_raw_response": raw}
+    return result
 
 
 def analyze_chat_response(

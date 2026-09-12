@@ -346,3 +346,60 @@ def test_fetch_models_gemini_rest(monkeypatch):
     assert "error" in res_err
     assert "failed to fetch" in res_err["error"]
 
+
+def test_fetch_models_can_return_raw_response(monkeypatch):
+    from toas.llm_harness import fetch_models
+
+    monkeypatch.setattr(
+        "toas.llm_harness._request_json",
+        lambda _url, *, timeout_s=15, include_raw=False: (
+            {"data": [{"id": "served"}]},
+            '{"data":[{"id":"served"}]}',
+        ),
+    )
+
+    result = fetch_models(Settings(), include_raw=True)
+    assert result == {
+        "data": [{"id": "served"}],
+        "_raw_response": '{"data":[{"id":"served"}]}',
+    }
+
+
+def test_fetch_models_gemini_can_return_raw_response(monkeypatch):
+    from toas.llm_harness import fetch_models
+
+    monkeypatch.setattr(
+        "toas.llm_harness._request_json",
+        lambda _url, *, timeout_s=15, include_raw=False: (
+            {"models": [{"name": "gemini-1.5"}]},
+            '{"models":[{"name":"gemini-1.5"}]}',
+        ),
+    )
+    result = fetch_models(Settings(llm_provider="gemini-rest"), include_raw=True)
+    assert result["_raw_response"] == '{"models":[{"name":"gemini-1.5"}]}'
+
+
+def test_fetch_models_gemini_preserves_http_error_body(monkeypatch):
+    from toas.llm_harness import fetch_models
+
+    class HttpFailure(Exception):
+        def read(self):
+            return b'{"error":"bad key"}'
+
+    monkeypatch.setattr("toas.llm_harness._request_json", lambda *_args, **_kwargs: (_ for _ in ()).throw(HttpFailure("401")))
+    result = fetch_models(Settings(llm_provider="gemini-rest"), include_raw=True)
+    assert result["error"] == "401"
+    assert result["_raw_response"] == '{"error":"bad key"}'
+
+
+def test_fetch_models_openai_preserves_http_error_body(monkeypatch):
+    from toas.llm_harness import fetch_models
+
+    class HttpFailure(Exception):
+        def read(self):
+            return b'{"error":"server busy"}'
+
+    monkeypatch.setattr("toas.llm_harness._request_json", lambda *_args, **_kwargs: (_ for _ in ()).throw(HttpFailure("503")))
+    result = fetch_models(Settings(), include_raw=True)
+    assert result["error"] == "503"
+    assert result["_raw_response"] == '{"error":"server busy"}'

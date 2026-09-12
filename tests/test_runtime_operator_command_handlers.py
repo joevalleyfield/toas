@@ -360,7 +360,8 @@ def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
     out = handle_prompt_workspace_commands("models", ["live", "local"], step_mod=step_mod, context=_ctx(config=config))
 
     assert "endpoint model observation:" in out[0]["content"]
-    assert "requested model: requested" in out[0]["content"]
+    assert "protocol: openai-compatible" in out[0]["content"]
+    assert "requested model:" not in out[0]["content"]
     assert "reported models: served" in out[0]["content"]
 
 
@@ -384,6 +385,46 @@ def test_prompt_workspace_models_reports_bounded_failure(monkeypatch):
     assert "error: connection refused" in out[0]["content"]
 
 
+def test_prompt_workspace_models_live_raw_and_details(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
+
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://endpoint/v1"), {}),
+    )
+
+    def fetch(_settings, *, include_raw=False):
+        payload = {"data": [{"id": "/models/Qwen/model.gguf"}]}
+        return {**payload, "_raw_response": '{"data":[{"id":"/models/Qwen/model.gguf"}]}' } if include_raw else payload
+
+    monkeypatch.setattr(harness, "fetch_models", fetch)
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
+
+    out = handle_prompt_workspace_commands(
+        "models", ["live", "local", "--details", "--raw"], step_mod=step_mod, context=_ctx(config=config)
+    )
+    content = out[0]["content"]
+    assert "protocol: openai-compatible" in content
+    assert "reported models: model.gguf" in content
+    assert "details: normalized model metadata is not available yet" in content
+    assert '{"data":[{"id":"/models/Qwen/model.gguf"}]}' in content
+
+    with pytest.raises(ValueError, match="known does not support --raw"):
+        handle_prompt_workspace_commands("models", ["known", "local", "--raw"], step_mod=step_mod, context=_ctx(config=config))
+
+    known = handle_prompt_workspace_commands(
+        "models", ["known", "local", "--details"], step_mod=step_mod, context=_ctx(config=config)
+    )
+    assert "details: normalized endpoint metadata is not available yet" in known[0]["content"]
+
+    with pytest.raises(ValueError, match="usage: /models live"):
+        handle_prompt_workspace_commands("models", ["unknown", "local"], step_mod=step_mod, context=_ctx(config=config))
+
+
 def test_prompt_workspace_models_rejects_arguments():
     import toas.step as step_mod
 
@@ -391,8 +432,10 @@ def test_prompt_workspace_models_rejects_arguments():
     assert out[0]["content"] == (
         "/models live ENDPOINT    query a configured endpoint (network, no write)\n"
         "/models known ENDPOINT   read its durable model catalog (no network)\n"
-        "/models refresh ENDPOINT query and merge its catalog (network + config write)\n"
-        "\nENDPOINT is a configured endpoint name, not a URL."
+            "/models refresh ENDPOINT query and merge its catalog (network + config write)\n"
+            "  add --details for normalized metadata (initially limited)\n"
+            "  add --raw to live or refresh for the exact endpoint response\n"
+            "\nENDPOINT is a configured endpoint name, not a URL."
     )
 
     with pytest.raises(ValueError, match=r"usage: /models live\|known\|refresh ENDPOINT"):
@@ -434,10 +477,60 @@ def test_prompt_workspace_models_refresh_merges_endpoint_catalog(monkeypatch):
 
     out = handle_prompt_workspace_commands("models", ["refresh", "local"], step_mod=step_mod, context=_ctx(config=config))
 
-    assert "1 added, 2 known" in out[0]["content"]
+    assert "added new (1 added), 2 known" in out[0]["content"]
     assert out[0]["config_update"]["llm"]["endpoints"][0]["models"] == ["old", "new"]
     assert out[0]["config_update"]["llm"]["endpoints"][0]["models_last_refreshed_at"]
     assert out[0]["config_update"]["llm"]["endpoints"][0]["model_observations"]
+
+
+def test_prompt_workspace_models_refresh_reports_empty_delta(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
+
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://endpoint/v1", models=("old",)),)))
+    monkeypatch.setattr(policy_edges, "settings_for_runtime", lambda _config: (harness.Settings(), {}))
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"data": [{"id": "old"}]})
+
+    out = handle_prompt_workspace_commands("models", ["refresh", "local"], step_mod=step_mod, context=_ctx(config=config))
+
+    assert "added (none) (0 added), 1 known" in out[0]["content"]
+
+
+def test_prompt_workspace_models_refresh_details_and_raw_failure(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
+
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="local", base_url="http://endpoint/v1"),)))
+    monkeypatch.setattr(policy_edges, "settings_for_runtime", lambda _config: (harness.Settings(), {}))
+    monkeypatch.setattr(
+        harness,
+        "fetch_models",
+        lambda _settings, **_kwargs: {"data": [{"id": "new"}], "_raw_response": '{"data":[{"id":"new"}]}'},
+    )
+    out = handle_prompt_workspace_commands(
+        "models", ["refresh", "local", "--details", "--raw"], step_mod=step_mod, context=_ctx(config=config)
+    )
+    assert "details: normalized model metadata is not available yet" in out[0]["content"]
+    assert '{"data":[{"id":"new"}]}' in out[0]["content"]
+
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings, **_kwargs: {"error": "offline", "_raw_response": "busy"})
+    failed = handle_prompt_workspace_commands(
+        "models", ["refresh", "local", "--raw"], step_mod=step_mod, context=_ctx(config=config)
+    )
+    assert "raw response:\nbusy" in failed[0]["content"]
+
+    with pytest.raises(ValueError, match="usage: /models"):
+        handle_prompt_workspace_commands("models", ["live", "local", "--raw", "--raw"], step_mod=step_mod, context=_ctx(config=config))
+    with pytest.raises(ValueError, match="usage: /models"):
+        handle_prompt_workspace_commands("models", ["live", "local", "--details", "--details"], step_mod=step_mod, context=_ctx(config=config))
+    with pytest.raises(ValueError, match="usage: /models"):
+        handle_prompt_workspace_commands("models", ["live", "local", "extra"], step_mod=step_mod, context=_ctx(config=config))
+    with pytest.raises(ValueError, match="usage: /models"):
+        handle_prompt_workspace_commands("models", ["live", "--details"], step_mod=step_mod, context=_ctx(config=config))
 
 
 def test_prompt_workspace_models_refresh_failure_does_not_write(monkeypatch):
@@ -463,7 +556,7 @@ def test_prompt_workspace_models_refresh_failure_does_not_write(monkeypatch):
 def test_prompt_workspace_models_refresh_validates_endpoint_argument():
     import toas.step as step_mod
 
-    with pytest.raises(ValueError, match="usage: /models refresh ENDPOINT"):
+    with pytest.raises(ValueError, match="usage: /models live\\|known\\|refresh ENDPOINT"):
         handle_prompt_workspace_commands("models", ["refresh"], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="unknown endpoint"):
         handle_prompt_workspace_commands("models", ["refresh", "missing"], step_mod=step_mod, context=_ctx())

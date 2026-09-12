@@ -40,11 +40,11 @@ topics:
     facets:
       plain:
         summary: "An endpoint provides access; a catalog records known or observed model IDs; a target combines an endpoint, requested model, and generation choices; selection is a separate session decision. Catalog presence is not proof of live availability."
-        next_actions: ["/endpoints", "/models", "/model targets", "/config endpoint add local BASE_URL", "/models refresh local", "/config target add --all-known local", "/model select local-MODEL"]
+        next_actions: ["/endpoints", "/models", "/models live ENDPOINT [--details|--raw]", "/model targets", "/config endpoint add local BASE_URL", "/models refresh local", "/config target add --all-known local", "/model select local-MODEL"]
       config:
         summary: "Follow the explicit path: define an endpoint, observe or refresh its catalog, promote known models into durable targets, then select a target for this session. `live` reads the endpoint without writing; `known` reads local catalog state; `refresh` probes and writes the catalog; target creation is local and non-probing."
         related_keys: [llm.model, llm.models, llm.endpoints, llm.targets, llm.base_url, backend.mode]
-        next_actions: ["/config show models", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint set NAME.default_model MODEL", "/models live ENDPOINT", "/models known ENDPOINT", "/models refresh ENDPOINT", "/config target add --all-known ENDPOINT", "/config target add ENDPOINT MODEL", "/config target list", "/model targets", "/model select TARGET"]
+        next_actions: ["/config show models", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint set NAME.default_model MODEL", "/models live ENDPOINT [--details|--raw]", "/models known ENDPOINT [--details]", "/models refresh ENDPOINT [--details|--raw]", "/config target add --all-known ENDPOINT", "/config target add ENDPOINT MODEL", "/config target list", "/model targets", "/model select TARGET"]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
     summary: "Generation settings control thinking, output budgets, retries, and request transport."
