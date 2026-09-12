@@ -462,7 +462,7 @@ def _target_config_update(target_id: str, values: dict) -> dict:
 
 def _target_id_for_model(endpoint_id: str, model_id: str) -> str:
     parts = []
-    for value in (endpoint_id, model_id):
+    for value in (endpoint_id, model_id.rsplit("/", 1)[-1]):
         slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-._")
         if slug:
             parts.append(slug)

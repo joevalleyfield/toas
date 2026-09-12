@@ -535,6 +535,29 @@ def test_prompt_workspace_models_refresh_reports_empty_delta(monkeypatch):
     assert "added (none) (0 added), 1 known" in out[0]["content"]
 
 
+def test_target_promotion_uses_model_basename_but_preserves_raw_id():
+    import toas.step as step_mod
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
+
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            endpoints=(EndpointCatalogEntry(
+                id="local-llama",
+                base_url="http://endpoint/v1",
+                models=("/models/Qwen/model.gguf",),
+            ),)
+        )
+    )
+    out = handle_config_help_commands(
+        "config", ["target", "add", "--all-known", "local-llama"], step_mod=step_mod, context=_ctx(config=config)
+    )
+
+    assert "local-llama-model.gguf" in out[0]["content"]
+    assert out[0]["config_update"]["llm"]["targets"] == {
+        "local-llama-model.gguf": {"endpoint": "local-llama", "model": "/models/Qwen/model.gguf"}
+    }
+
+
 def test_prompt_workspace_models_refresh_details_and_raw_failure(monkeypatch):
     import toas.llm_harness as harness
     import toas.runtime.policy_edges as policy_edges
@@ -2079,7 +2102,7 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
         context=_ctx(config=OperatorConfig(llm=LLMPolicy(endpoints=endpoint_cfg.llm.endpoints))),
     )[0]
     assert derived_new["config_update"] == {
-        "llm": {"targets": {"local-new-model": {"endpoint": "local", "model": "new/model"}}}
+            "llm": {"targets": {"local-model": {"endpoint": "local", "model": "new/model"}}}
     }
     with pytest.raises(ValueError, match="already exists: local-qwen3.6"):
         handle_config_help_commands(
@@ -2093,14 +2116,14 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
         "config", ["target", "add", "--all-known", "local", "--preview"], step_mod=step_mod, context=_ctx(config=endpoint_cfg)
     )[0]
     assert "planned model targets for endpoint local" in preview["content"]
-    assert "local-llama-3" in preview["content"]
+    assert "local-3" in preview["content"]
     assert "config_update" not in preview
 
     bulk = handle_config_help_commands(
         "config", ["target", "add", "--all-known", "local"], step_mod=step_mod, context=_ctx(config=endpoint_cfg)
     )[0]
     assert bulk["config_update"] == {
-        "llm": {"targets": {"local-llama-3": {"endpoint": "local", "model": "llama/3"}}}
+            "llm": {"targets": {"local-3": {"endpoint": "local", "model": "llama/3"}}}
     }
     no_new = handle_config_help_commands(
         "config",
@@ -2110,7 +2133,7 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
             config=OperatorConfig(
                 llm=LLMPolicy(
                     endpoints=endpoint_cfg.llm.endpoints,
-                    targets=endpoint_cfg.llm.targets + (TargetCatalogEntry(id="local-llama-3", endpoint="local", model="llama/3"),),
+                        targets=endpoint_cfg.llm.targets + (TargetCatalogEntry(id="local-3", endpoint="local", model="llama/3"),),
                 )
             )
         ),
@@ -2231,7 +2254,7 @@ def test_config_endpoint_bootstrap_refreshes_promotes_and_selects(monkeypatch):
     assert promoted["config_update"]["llm"]["endpoints"][0]["models"] == ["qwen3.6", "llama/3"]
     assert promoted["config_update"]["llm"]["targets"] == {
         "local-qwen3.6": {"endpoint": "local", "model": "qwen3.6"},
-        "local-llama-3": {"endpoint": "local", "model": "llama/3"},
+            "local-3": {"endpoint": "local", "model": "llama/3"},
     }
     assert "target_selection_update" not in promoted
 

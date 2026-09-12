@@ -238,7 +238,7 @@ def then_endpoint_target_authoring_contract(acceptance_state: dict) -> None:
     targets = _output(outputs, "/config target list")
     assert "local-qwen: endpoint=local, model=qwen3.6" in targets
     assert "local-qwen3.6: endpoint=local, model=qwen3.6" in targets
-    assert "local-llama-3: endpoint=local, model=llama/3" in targets
+    assert "local-3: endpoint=local, model=llama/3" in targets
 
     preview = _output(outputs, "/config target add --all-known local --preview")
     assert "planned model targets for endpoint local" in preview
