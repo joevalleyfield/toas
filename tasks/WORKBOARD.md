@@ -275,6 +275,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
 - **[T260912-config-execution-facet-design]** Deliberate the execution config/help facet
 - **[T260912-config-show-navigation-and-model-view]** Turn the new `/config show` overview into a trustworthy navigation surface and make detailed model configuration human-readable by default without los...
+- **[T260912-retire-global-model-catalog]** Retire the global `llm.models` catalog
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
