@@ -1015,18 +1015,79 @@ def test_config_show_unfiltered_resolves_active_target_without_rendering_secret(
     assert "SECRET_REF" not in content
 
 
+def test_config_show_models_structured_lists_catalog_endpoints_and_targets():
+    import toas.step as step_mod
+    from toas.config import (
+        EndpointCatalogEntry,
+        LLMPolicy,
+        ModelCatalogEntry,
+        OperatorConfig,
+        TargetCatalogEntry,
+    )
+
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            models=(ModelCatalogEntry(id="known-a", label="Known A"), ModelCatalogEntry(id="known-b")),
+            endpoints=(
+                EndpointCatalogEntry(
+                    id="local",
+                    base_url="http://localhost/v1",
+                    default_model="served",
+                    models=("served",),
+                    models_last_refreshed_at="2026-09-12T12:00:00+00:00",
+                ),
+            ),
+            targets=(
+                TargetCatalogEntry(id="local-served", endpoint="local", model="served"),
+                TargetCatalogEntry(id="fallback", model=""),
+            ),
+        )
+    )
+    context = _ctx(config=config, events=[{"kind": "target_selection", "payload": {"action": "set", "target_id": "local-served"}}])
+    content = handle_config_help_commands("config", ["show", "models"], step_mod=step_mod, context=context)[0]["content"]
+
+    assert "active:\n  target: local-served" in content
+    assert "local:\n    base URL: http://localhost/v1" in content
+    assert "known models: served" in content
+    assert "last refresh: 2026-09-12T12:00:00+00:00" in content
+    assert "known-a (Known A)" in content
+    assert "known-b" in content
+    assert "local-served: endpoint=local, model=served" in content
+    assert "fallback: endpoint=(default), model=(inferred)" in content
+    assert "SECRET" not in content
+
+
+def test_config_show_models_structured_handles_unresolved_active_target():
+    import toas.step as step_mod
+
+    context = _ctx(events=[{"kind": "target_selection", "payload": {"action": "set", "target_id": "missing"}}])
+    content = handle_config_help_commands("config", ["show", "models"], step_mod=step_mod, context=context)[0]["content"]
+
+    assert "target: missing" in content
+    assert "endpoints:\n  (none)" in content
+
+
 def test_config_show_supports_curated_topic_filters_and_source_order():
     import toas.step as step_mod
 
     context = _ctx(config_sources={"llm.model": "env", "backend.mode": "config_file"})
     topic = handle_config_help_commands("config", ["show", "models"], step_mod=step_mod, context=context)[0]
     topic_content = topic["content"]
-    assert "llm.model =" in topic_content
-    assert "llm.models =" in topic_content
-    assert "llm.endpoints =" in topic_content
-    assert "llm.base_url =" in topic_content
-    assert "backend.mode =" in topic_content
+    assert "model configuration" in topic_content
+    assert "global fallback:" in topic_content
+    assert "endpoints:" in topic_content
+    assert "global catalog:" in topic_content
+    assert "targets:" in topic_content
     assert "config_update" not in topic
+
+    flat = handle_config_help_commands(
+        "config", ["show", "models", "--flat"], step_mod=step_mod, context=context
+    )[0]["content"]
+    assert "llm.model =" in flat
+    assert "llm.models =" in flat
+    assert "llm.endpoints =" in flat
+    assert "llm.base_url =" in flat
+    assert "backend.mode =" in flat
 
     with_sources = handle_config_help_commands(
         "config", ["show", "models", "--sources"], step_mod=step_mod, context=context
@@ -1046,7 +1107,7 @@ def test_bare_config_is_compact_navigation_not_state_dump():
     content = out["content"]
 
     assert "config: inspect or change configuration" in content
-    assert "/config show [FILTER] [--sources]" in content
+    assert "/config show [FILTER] [--flat] [--sources]" in content
     assert "/config show --sources" in content
     assert "/config show <topic-or-key>" in content
     assert "/config values KEY" in content
@@ -1094,14 +1155,37 @@ def test_config_show_filtered_projection_is_compact_and_uses_effective_llm_defau
     out = handle_config_help_commands("config", ["show", "models"], step_mod=step_mod, context=context)[0]
     content = out["content"]
 
-    assert "llm.model = qwen3.5-35b-a3b" in content
-    assert "llm.base_url = http://localhost:8080/v1" in content
-    assert "llm.models = ()" in content
-    assert "llm.endpoints = ()" in content
+    assert "requested model: qwen3.5-35b-a3b" in content
+    assert "endpoint: http://localhost:8080/v1" in content
+    assert "endpoints:\n  (none)" in content
+    assert "global catalog:\n  (none)" in content
     assert "precedence stack" not in content
     assert "Quick edits:" not in content
-    assert "/config show models --sources" in content
+    assert "/config show models --flat" in content
     assert "config_update" not in out
+
+    flat = handle_config_help_commands(
+        "config", ["show", "models", "--flat"], step_mod=step_mod, context=context
+    )[0]["content"]
+    assert "llm.model = qwen3.5-35b-a3b" in flat
+    assert "llm.base_url = http://localhost:8080/v1" in flat
+    assert "llm.models = ()" in flat
+    assert "llm.endpoints = ()" in flat
+
+
+def test_config_show_models_flat_sources_preserves_provenance():
+    import toas.step as step_mod
+
+    context = _ctx(config_sources={"llm.model": "env"})
+    flat = handle_config_help_commands(
+        "config", ["show", "models", "--flat", "--sources"], step_mod=step_mod, context=context
+    )[0]["content"]
+    sources = handle_config_help_commands(
+        "config", ["show", "--sources", "models"], step_mod=step_mod, context=context
+    )[0]["content"]
+    assert flat == sources
+    assert "llm.model =" in flat
+    assert "[source=env]" in flat
 
 
 def test_config_show_rejects_multiple_filters():

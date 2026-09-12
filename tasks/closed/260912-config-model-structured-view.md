@@ -48,6 +48,25 @@ explicit spelling) based on the existing command grammar; do not overload
 - focused unit/acceptance tests;
 - this task and generated workboard.
 
+## Completion evidence
+
+`/config show models` now renders a human-readable model topology with
+separate active, global fallback, endpoint, global catalog, and target
+sections. Empty/default state is explicit, endpoint credentials are represented
+only by source/ref metadata, and the active model remains labeled as the
+requested model.
+
+`--flat` is the explicit exhaustive key/value escape hatch. `--sources`
+continues to use the exhaustive projection for provenance inspection, and
+`--flat --sources` is equivalent to the established sourced view. Help and
+entrypoint usage document the distinction.
+
+Focused result: 19 config-handler tests passed; 7 config acceptance scenarios
+passed; Ruff passed.
+
+Full result: 3,237 tests passed, 17 deselected; 100% coverage; acceptance,
+Ruff, and mypy passed via `scripts/check.sh`.
+
 ## Status
 
-Ready for implementation.
+Closed 2026-09-12.

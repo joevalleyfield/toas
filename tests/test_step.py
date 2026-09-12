@@ -3255,7 +3255,7 @@ def test_config_no_args_is_compact_navigation():
 
     assert len(out) == 1
     content = out[0]["content"]
-    assert "/config show [FILTER] [--sources]" in content
+    assert "/config show [FILTER] [--flat] [--sources]" in content
     assert "/help config" in content
     assert "/config --help" in content
     assert "extraction.yaml_position" not in content

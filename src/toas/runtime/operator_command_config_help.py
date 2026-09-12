@@ -5,7 +5,11 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..assets.help_catalog import resolve_config_help_keys
+from ..assets.help_catalog import (
+    load_config_help_catalog,
+    resolve_config_help_keys,
+    resolve_config_help_topic,
+)
 from ..config import OperatorConfig
 from ..graph import active_target_selection
 from .operator_command_context import OperatorCommandContext
@@ -19,7 +23,7 @@ _YAML_POSITION_COMPAT_NOTE = (
 )
 
 _CONFIG_USAGE = (
-    "usage: /config [show|list] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
+    "usage: /config [show|list] [FILTER] [--flat] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
     "| /config endpoint [list|add|set|remove|capture] ... | /config target [list|add|set|remove] ... | /config restore | /config load [path] | /config save [path] | /config secret ..."
 )
 
@@ -65,17 +69,20 @@ def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **f
     )
 
 
-def _config_show_filter(args: list[str]) -> tuple[str | None, bool]:
+def _config_show_filter(args: list[str]) -> tuple[str | None, bool, bool]:
     show_sources = False
+    show_flat = False
     filters: list[str] = []
     for arg in args:
         if arg == "--sources":
             show_sources = True
+        elif arg == "--flat":
+            show_flat = True
         else:
             filters.append(arg)
     if len(filters) > 1:
-        raise ValueError("usage: /config show [filter] [--sources]")
-    return (filters[0] if filters else None), show_sources
+        raise ValueError("usage: /config show [filter] [--flat] [--sources]")
+    return (filters[0] if filters else None), show_sources, show_flat
 
 
 def _config_entrypoint_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -84,8 +91,9 @@ def _config_entrypoint_result(*, step_mod, context: OperatorCommandContext) -> l
             "config: inspect or change configuration",
             "",
             "usage:",
-            "  /config show [FILTER] [--sources]  inspect effective values",
+            "  /config show [FILTER] [--flat] [--sources]  inspect effective values",
             "  /config show --sources             inspect all keys with winning sources",
+            "  /config show models --flat         inspect model keys as flat key/value data",
             "  /config show <topic-or-key>       inspect a focused key/topic view",
             "  /config values KEY                 inspect allowed choices",
             "  /config set KEY VALUE              record a session override",
@@ -230,8 +238,109 @@ def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
     return "\n".join(lines)
 
 
+def _config_models_overview(*, step_mod, context: OperatorCommandContext) -> str:
+    """Render model configuration as an operator-readable topology."""
+    from .policy_edges import settings_for_runtime
+
+    settings, _sources = settings_for_runtime(context.config, runtime_secrets={})
+    active_id = active_target_selection(context.events)
+    active_target = None
+    if active_id:
+        from .model_targets import (
+            resolve_model_target,
+            resolve_target_generation,
+            resolve_target_invocation,
+        )
+
+        active_target = resolve_model_target(context.config, active_id)
+        if active_target is not None:
+            invocation = resolve_target_invocation(
+                context.config,
+                active_target,
+                settings,
+                secret_resolver=lambda **_kwargs: "",
+            )
+            if invocation is not None:
+                settings = invocation.settings
+            generation = resolve_target_generation(context.config, active_target)
+        else:
+            generation = context.config.generation
+    else:
+        generation = context.config.generation
+
+    def display(value: object, *, unset: str = "(unset)") -> str:
+        if value is None or value == "" or value == () or value == []:
+            return unset
+        return str(value)
+
+    lines = [
+        "model configuration",
+        "",
+        "active:",
+        f"  target: {active_id or '(none; using global fallback)'}",
+        f"  endpoint: {display(settings.llm_base_url)}",
+        f"  requested model: {display(settings.llm_model, unset='(unresolved)')}",
+        f"  transport: {display(settings.llm_transport_mode, unset='(default)')}",
+        "",
+        "global fallback:",
+        f"  llm.base_url: {display(context.config.llm.base_url)}",
+        f"  llm.model: {display(context.config.llm.model)}",
+        f"  llm.provider: {display(context.config.llm.provider)}",
+        f"  credentials: {context.config.llm.api_key_source} (ref {context.config.llm.api_key_ref})",
+        f"  generation: thinking={generation.thinking_mode}, max_tokens={display(generation.max_tokens, unset='(auto)')}",
+        "",
+        "endpoints:",
+    ]
+    if context.config.llm.endpoints:
+        for endpoint in context.config.llm.endpoints:
+            models = ", ".join(endpoint.models) or "(none)"
+            refreshed = endpoint.models_last_refreshed_at or "(never)"
+            lines.extend(
+                [
+                    f"  {endpoint.id}:",
+                    f"    base URL: {display(endpoint.base_url)}",
+                    f"    default model: {display(endpoint.default_model)}",
+                    f"    known models: {models}",
+                    f"    last refresh: {refreshed}",
+                    f"    credentials: {endpoint.api_key_source} (ref {endpoint.api_key_ref})",
+                ]
+            )
+    else:
+        lines.append("  (none)")
+
+    lines.extend(["", "global catalog:"])
+    if context.config.llm.models:
+        for model in context.config.llm.models:
+            label = f" ({model.label})" if model.label else ""
+            lines.append(f"  {model.id}{label}")
+    else:
+        lines.append("  (none)")
+
+    lines.extend(["", "targets:"])
+    if context.config.llm.targets:
+        for target in context.config.llm.targets:
+            endpoint_id = target.endpoint or "(default)"
+            model_id = target.model or "(inferred)"
+            lines.append(f"  {target.id}: endpoint={endpoint_id}, model={model_id}")
+    else:
+        lines.append("  (none)")
+
+    lines.extend(
+        [
+            "",
+            "next:",
+            "  /models live [ENDPOINT]       query live endpoint availability",
+            "  /models known [ENDPOINT]      inspect durable catalog",
+            "  /models refresh [ENDPOINT]    update durable catalog",
+            "  /config show models --flat    inspect exhaustive model keys",
+            "  /config show models --sources inspect model keys with winning sources",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    filter_text, show_sources = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
+    filter_text, show_sources, show_flat = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
 
     flat = _effective_config_values(step_mod.flatten_config(context.config), step_mod=step_mod)
     keys = _config_key_matches(list(flat), filter_text)
@@ -245,7 +354,10 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
                 context=context,
             )
         ]
-    if filter_text is None and not show_sources:
+    model_topic = resolve_config_help_topic(load_config_help_catalog(), filter_text) if filter_text else None
+    if filter_text and model_topic is not None and model_topic.topic_id == "models" and not show_sources and not show_flat:
+        return [_result_node(_config_models_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+    if filter_text is None and not show_sources and not show_flat:
         return [_result_node(_config_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
     if show_sources:
         sources = context.config_sources or {}

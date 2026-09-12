@@ -5,8 +5,9 @@ overview:
   - "  /config --help           exact config-interface usage"
   - "  /config show             inspect effective current values"
   - "  /config list             alias for /config show"
-  - "  /config show --sources   inspect values with their provenance"
+  - "  /config show --sources   inspect values with their provenance (flat)"
   - "  /config show <topic>     inspect a focused key/topic view"
+  - "  /config show models --flat  inspect model configuration as flat key/value data"
   - "  /config values <key>     inspect allowed categorical values"
   - "  /config set <key> <value> set a durable session override"
   - "  /config endpoint list|add|set|remove ... manage configured endpoint definitions"
@@ -46,7 +47,7 @@ topics:
       config:
         summary: "Follow the explicit path: define an endpoint, observe or refresh its catalog, promote known models into durable targets, then select a target for this session. `live` reads the endpoint without writing; `known` reads local catalog state; `refresh` probes and writes the catalog; target creation is local and non-probing."
         related_keys: [llm.model, llm.models, llm.endpoints, llm.targets, llm.base_url, backend.mode]
-        next_actions: ["/config show models", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint set NAME.default_model MODEL", "/models live [ENDPOINT] [--details|--raw]", "/models known [ENDPOINT] [--details]", "/models refresh [ENDPOINT] [--details|--raw]", "/config target add --all-known ENDPOINT", "/config target add ENDPOINT MODEL", "/config target list", "/model targets", "/model select TARGET"]
+        next_actions: ["/config show models", "/config show models --flat", "/config show models --sources", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint set NAME.default_model MODEL", "/models live [ENDPOINT] [--details|--raw]", "/models known [ENDPOINT] [--details]", "/models refresh [ENDPOINT] [--details|--raw]", "/config target add --all-known ENDPOINT", "/config target add ENDPOINT MODEL", "/config target list", "/model targets", "/model select TARGET"]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
     summary: "Generation settings control thinking, output budgets, retries, and request transport."

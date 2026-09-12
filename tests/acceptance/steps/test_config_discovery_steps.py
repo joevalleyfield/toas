@@ -69,6 +69,7 @@ def when_follow_config_discovery(acceptance_state: dict, capsys) -> None:
         "/config show backend",
         "/config show shell",
         "/config show tool_writes",
+        "/config show models --flat",
         "/config show models --sources",
         "/config show --sources models",
         "/help config sources",
@@ -88,7 +89,7 @@ def when_open_bare_config(acceptance_state: dict, capsys) -> None:
 @then("bare config should point to inspection without dumping state")
 def then_bare_config_contract(acceptance_state: dict) -> None:
     content = acceptance_state["bare_config"]
-    assert "/config show [FILTER] [--sources]" in content
+    assert "/config show [FILTER] [--flat] [--sources]" in content
     assert "/help config" in content
     assert "/config --help" in content
     assert "llm.model =" not in content
@@ -124,6 +125,7 @@ def when_follow_endpoint_target_authoring(acceptance_state: dict, capsys) -> Non
         "/config target add --all-known local --preview",
         "/config target add --all-known local",
         "/config list models",
+        "/config list models --flat",
         "/config endpoint list",
         "/config target list",
         "/models",
@@ -174,13 +176,17 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
     assert "/config target add --all-known local" in plain_models
 
     show_models = _output(outputs, "/config show models")
-    for key in ("llm.model =", "llm.models =", "llm.endpoints =", "llm.base_url =", "backend.mode ="):
-        assert key in show_models
-    assert "llm.model = qwen3.5-35b-a3b" in show_models
-    assert "llm.base_url = http://localhost:8080/v1" in show_models
+    for section in ("model configuration", "global fallback:", "endpoints:", "global catalog:", "targets:"):
+        assert section in show_models
+    assert "requested model: qwen3.5-35b-a3b" in show_models
+    assert "endpoint: http://localhost:8080/v1" in show_models
     assert "precedence stack" not in show_models
     assert "Quick edits:" not in show_models
     assert "config_update" not in show_models
+
+    flat_models = _output(outputs, "/config show models --flat")
+    for key in ("llm.model =", "llm.models =", "llm.endpoints =", "llm.base_url =", "backend.mode ="):
+        assert key in flat_models
 
     overview = _output(outputs, "/config show")
     for section in ("models:", "generation:", "extraction:", "execution:", "next:"):
@@ -241,8 +247,12 @@ def then_endpoint_target_authoring_contract(acceptance_state: dict) -> None:
     outputs = acceptance_state["endpoint_target_outputs"]
     assert acceptance_state["probe_calls"] == []
     listed_config = _output(outputs, "/config list models")
-    assert "llm.model =" in listed_config
+    assert "model configuration" in listed_config
+    assert "targets:" in listed_config
     assert "precedence stack" not in listed_config
+
+    flat_config = _output(outputs, "/config list models --flat")
+    assert "llm.model =" in flat_config
 
     endpoints = _output(outputs, "/config endpoint list")
     assert "configured endpoints:" in endpoints
