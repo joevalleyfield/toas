@@ -7,14 +7,15 @@ Related: `260912-config-model-structured-view`; `260912-model-observation-raw-de
 
 keywords: config, models, migration, inception, compatibility, contract
 
-# Retire the global `llm.models` catalog
+# Replace the global model catalog with named targets
 
 ## Pressure
 
 The newer model surface has endpoint-associated catalogs, live observations,
-and named targets. The global `llm.models` collection duplicates model
-knowledge without identifying which endpoint serves it, while still feeding
-the legacy `/model` availability/listing path and the config display.
+and named targets. `llm.models` was intended to provide selectable model
+choices, but its entries lack the endpoint, credentials, and generation context
+that make a selection complete. Named targets provide that complete shape and
+are intentionally global IDs, not endpoint-namespaced IDs.
 
 ## Current uses to replace or remove
 
@@ -27,26 +28,36 @@ the legacy `/model` availability/listing path and the config display.
 
 ## Resolved direction
 
-`llm.models` has no coherent legacy behavior worth retaining. It is not a
-fallback catalog, a meaningful validation space, or a substitute for named
-targets. Remove it rather than deriving a replacement aggregate.
+`llm.models` should not survive as a parallel selectable-model concept. Its
+selection role moves to named targets; its catalog role is already covered by
+endpoint-associated known/observed models. Do not derive a replacement global
+catalog.
 
 The sole compatibility behavior is the explicit scalar `llm.model` selection
 when no target-oriented configuration is available. That scalar remains a
 valid config/file/environment input and must not be confused with endpoint-
 reported availability or a named target.
 
+The intended target shape permits short global names such as `luna`, `qwen`,
+and `gemini`, each pointing to a different endpoint/model pair. Explicit
+authoring already supports this; automatic promotion from known endpoint
+models does not yet offer operator-chosen short IDs.
+
 ## Proposed migration order
 
 1. Inventory and test all remaining behavioral consumers of `llm.models`.
 2. Make endpoint catalogs/targets sufficient for model discovery and selection
-   without changing the user-facing target contract.
+   without changing the user-facing target contract; preserve globally scoped
+   target IDs independent of endpoint identity.
 3. Remove the no-target `/model` catalog listing and fragment validation path;
    retain only explicit scalar `llm.model` fallback resolution.
 4. Remove `llm.models` from the valid-key, parser, serializer, help, and
    config structures. Existing files containing it should not silently create
    global model knowledge.
-5. Cross-check save/load, `/models known|refresh`, `/model`, `/model targets`,
+5. Decide and implement the intentional authoring/promotion path for short
+   target IDs, including collision behavior when multiple endpoints advertise
+   the same model name.
+6. Cross-check save/load, `/models known|refresh`, `/model`, `/model targets`,
    `/model select TARGET`, and `/config show models` after removal.
 
 ## Non-goals
