@@ -78,6 +78,35 @@ legitimate plain-help concept and a possible composed inspection view, but
 composition would need labeled subsections and must preserve each setting's
 existing topic ownership.
 
+## Filter suitability finding
+
+The useful relationship is not “every help topic becomes a config filter.” It
+is:
+
+```text
+/help config TOPIC
+        |
+        +-- config facet with related_keys --> /config show TOPIC
+        |
+        +-- plain-only facet ----------------> explanation, no config view
+```
+
+The existing resolver already embodies this contract: a curated topic with a
+config facet returns its ordered `related_keys`; a topic without that facet
+returns no curated keys; and an unknown query falls through to exact, prefix,
+token, and description search over the valid key registry. This preserves two
+different kinds of discovery:
+
+- curated topics answer “what belongs together for this operator question?”;
+- key search answers “where is this configurable behavior described?”
+
+On that basis, `execution` can be a plain-help topic without automatically
+being a `/config show execution` filter. A future composed filter would need
+an explicit config facet whose related keys are deliberately selected from
+other owners, with the output labeling those ownership boundaries. The
+existence of the word `execution` in the overview is not sufficient evidence
+for that facet.
+
 ## Design questions
 
 1. Is `execution` primarily a plain-help concept, a config facet, or both?
