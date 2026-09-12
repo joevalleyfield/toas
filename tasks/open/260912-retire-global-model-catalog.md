@@ -54,11 +54,15 @@ models does not yet offer operator-chosen short IDs.
 4. Remove `llm.models` from the valid-key, parser, serializer, help, and
    config structures. Existing files containing it should not silently create
    global model knowledge.
-5. Decide and implement the intentional authoring/promotion path for short
-   target IDs, including collision behavior when multiple endpoints advertise
-   the same model name.
-6. Cross-check save/load, `/models known|refresh`, `/model`, `/model targets`,
+5. Cross-check save/load, `/models known|refresh`, `/model`, `/model targets`,
    `/model select TARGET`, and `/config show models` after removal.
+
+## Follow-ons
+
+Short-name promotion from endpoint catalogs, collision behavior when multiple
+endpoints advertise the same model name, and richer catalog management remain
+separate follow-ons. Explicit target authoring already provides the immediate
+path for names such as `luna`, `qwen`, and `gemini`.
 
 ## Non-goals
 
