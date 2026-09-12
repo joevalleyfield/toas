@@ -77,6 +77,27 @@ def _config_show_filter(args: list[str]) -> tuple[str | None, bool]:
     return (filters[0] if filters else None), show_sources
 
 
+def _config_entrypoint_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
+    content = "\n".join(
+        [
+            "config: inspect or change configuration",
+            "",
+            "usage:",
+            "  /config show [FILTER] [--sources]  inspect effective values",
+            "  /config values KEY                 inspect allowed choices",
+            "  /config set KEY VALUE              record a session override",
+            "  /config endpoint ...               define or inspect endpoints",
+            "  /config target ...                 define or inspect model targets",
+            "",
+            "more:",
+            "  /help config                       concepts and discovery",
+            "  /config --help                    complete config syntax",
+            "  /config show                       all effective values",
+        ]
+    )
+    return [_result_node(content, step_mod=step_mod, context=context)]
+
+
 def _config_key_matches(keys: list[str], filter_text: str | None) -> list[str]:
     if filter_text is None:
         return list(keys)
@@ -723,7 +744,9 @@ def _config_target_result(args: list[str], *, step_mod, context: OperatorCommand
 def _handle_config_command(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if args == ["--help"]:
         return [_result_node(step_mod.render_help_config(), step_mod=step_mod, context=context)]
-    if not args or args[0] in {"show", "list"} or (len(args) == 1 and args[0] == "--sources"):
+    if not args:
+        return _config_entrypoint_result(step_mod=step_mod, context=context)
+    if args[0] in {"show", "list"} or (len(args) == 1 and args[0] == "--sources"):
         return _config_show_result(args, step_mod=step_mod, context=context)
     if args[0] == "secret":
         return _config_secret_result(args, step_mod=step_mod, context=context)

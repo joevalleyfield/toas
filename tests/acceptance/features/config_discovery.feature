@@ -8,6 +8,11 @@ Feature: Config discovery from help to effective state
     When the operator follows the config models discovery path
     Then config discovery should expose compact effective state and sources
 
+  Scenario: "Bare config is a navigation card"
+    Given a scratch TOAS workspace for config discovery
+    When the operator opens the bare config entrypoint
+    Then bare config should point to inspection without dumping state
+
   Scenario: "Generation topic pairs behavioral and configuration help"
     Given a scratch TOAS workspace for config discovery
     When the operator follows the config generation discovery path

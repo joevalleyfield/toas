@@ -3241,7 +3241,7 @@ def test_config_show_returns_flat_keys():
     assert "llm.base_url = " in content
 
 
-def test_config_show_no_args_same_as_explicit_show():
+def test_config_no_args_is_compact_navigation():
     transcript = """\
 ## TOAS:USER
 /config
@@ -3250,7 +3250,12 @@ def test_config_show_no_args_same_as_explicit_show():
     _, out = step(transcript, [])
 
     assert len(out) == 1
-    assert "extraction.yaml_position" in out[0]["content"]
+    content = out[0]["content"]
+    assert "/config show [FILTER] [--sources]" in content
+    assert "/help config" in content
+    assert "/config --help" in content
+    assert "extraction.yaml_position" not in content
+    assert "precedence stack" not in content
 
 
 def test_config_set_returns_config_update_payload():
@@ -3815,6 +3820,8 @@ def test_render_session_help_compact_points_to_topics():
     assert "/help commands" in out
     assert "/help approvals" in out
     assert "/help config" in out
+    assert "/help history" in out
+    assert "/help capabilities" in out
 
 
 def test_render_session_help_full_includes_all_slash_commands():
@@ -3867,7 +3874,8 @@ def test_slash_help_returns_result_node():
 def test_slash_help_result_contains_slash_commands():
     _, consequences = step(_make_help_transcript(), [])
     content = consequences[0]["content"]
-    assert "/extract" in content
+    assert "/run" in content
+    assert "/stage" in content
     assert "/config" in content
 
 
@@ -4136,6 +4144,7 @@ def test_render_help_cli_includes_core_commands():
     assert out.startswith("cli commands:")
     assert "toas step" in out
     assert "toas heads" in out
+    assert "/help history" in out
 
 
 def test_inert_region_duds_slash_and_tool_intent_inside_region():

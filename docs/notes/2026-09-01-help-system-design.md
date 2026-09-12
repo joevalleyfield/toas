@@ -1145,3 +1145,139 @@ loaders should retain distinct semantics. The migration target and staged
 posture are tracked in `260905-common-asset-library-migration`: old paths may
 survive temporarily during bounded moves, but the intended final form has no
 remaining compatibility adapters.
+
+## Scenario evidence — configuration path, 2026-09-07
+
+The configuration path now supplies a concrete discovery result for the
+design model. The completed config UX slice and its acceptance coverage show
+the following progression:
+
+```text
+/help config [topic-or-query]
+  conceptual explanation, related keys, and next actions
+      ↓
+/config
+  compact usage and navigation card
+      ↓
+/config show [filter] [--sources]
+  effective values and winning provenance
+      ↓
+/config values KEY
+  categorical choices where available
+      ↓
+/config set KEY VALUE
+  compact effective before/after feedback and session boundary
+```
+
+This establishes a useful disclosure rule: guidance explains, inspection
+reports state, and mutation reports effective change. It also confirms that
+the same domain can have related surfaces without collapsing them into one
+item. In particular, bare `/config` is navigation, while `/config show` is
+state inspection; the former must not inherit the latter's full dump.
+
+The scenario does not settle the global help vocabulary, universal indexing,
+or the relationship between all prompt/procedure assets and help. It does
+provide a product-level test for those decisions: a new help surface should
+make its disclosure role and next operation clear without duplicating a
+neighboring surface's entire output.
+
+The next most informative rationalization slice is the human history path:
+CLI help → an inspection intent → the appropriate heads/history/transcript/
+llm-input view. It exercises the same separation between orientation and
+state, while adding selection, lineage, and projection distinctions. The
+focused capability lookup can follow as the contrasting model-facing case,
+where runtime availability and operating guidance must remain separate.
+
+## Scenario evidence — history inspection path, 2026-09-07
+
+The existing history slices provide enough evidence to run the second
+discovery scenario without another broad collection pass.
+
+```text
+toas help / toas --help
+  lists heads, history, graph, transcript, and llm-input
+      ↓
+operator asks: which view answers my inspection question?
+      ↓
+toas heads       branch-tip/navigation targets
+toas history    bounded root-to-head message lineage
+toas graph      history topology
+toas transcript history-backed executable-context reconstruction
+toas llm-input  model-visible conversation or generation envelope
+```
+
+The command descriptions are individually accurate, and the corpus
+establishes that these are distinct read-only projections with different
+selection and disclosure roles. The scenario nevertheless fails at the
+choice point: top-level CLI help names the neighboring commands but does not
+explain which inspection question each one answers or link the user onward
+with that distinction.
+
+This is a navigation gap, not evidence that the commands should be merged or
+renamed. The current evidence supports a compact history/projections
+orientation item that preserves the five meanings and routes to exact CLI
+usage. Whether that belongs in `toas help`, `/help cli`, a new plain-help
+topic, or a combination remains open; the important acceptance condition is
+that a user with an inspection intent can choose without already knowing the
+projection vocabulary.
+
+## Scenario evidence — capability lookup path, 2026-09-07
+
+The capability slice uses `capture_task_thread` as a deliberately configured
+and runtime-conditioned example. Its evidence crosses the registry, config,
+focused `capability_help`, and dynamic prompt surfaces.
+
+```text
+capability overview
+  what is advertised for the current profile
+      ↓
+capability_help(topic: "capture_task_thread")
+  exact required/optional arguments and callable detail
+      ↓
+dynamic capability prompt
+  operating policy, side-thread fork rule, and return behavior
+```
+
+The scenario establishes five separate claims:
+
+- registry identity describes what the capability is;
+- `capability_advertisement.profile` and `hidden_tools` affect configured
+  exposure;
+- effective profile state determines runtime visibility;
+- `capability_help` supplies callable argument shape and defaults;
+- prompt policy explains how the visible capability should be used.
+
+Configured presence is therefore not equivalent to currently callable
+availability. This is the capability analogue of keeping `/config show`
+state separate from `/help config` explanation.
+
+## Consolidated synthesis — 2026-09-07
+
+The three scenarios now provide a usable product decision boundary:
+
+| Scenario | Established help rule | Remaining gap |
+| --- | --- | --- |
+| Configuration | Guidance explains; bare entrypoints navigate; inspection reports live state/provenance; mutation reports effective change and durability. | Continue adding paired facets only where invariant/config distinctions are real. |
+| History inspection | Related read-only projections should be chosen by the operator's question, then linked to exact commands. | Top-level CLI help still lists neighboring projections more effectively than it orients their choice. |
+| Capability lookup | Static identity, configured exposure, runtime visibility, callable shape, and operating policy must remain separately labeled. | The model-facing overview and focused lookup do not yet share one explicit runtime-availability status contract. |
+
+Across all three, help assets are the right home for stable conceptual
+explanations, distinctions, aliases, and next actions. Runtime/configuration
+owners remain authoritative for effective values, provenance, visible tools,
+and callable schemas. A universal registry is not required to make this
+boundary work.
+
+The immediate design choices are now narrow:
+
+1. Decide whether the concrete history navigation gap merits one more small
+   orientation touch in top-level `toas help`, in addition to `/help history`
+   and `/help cli`.
+2. Decide whether capability availability needs a runtime status projection,
+   or whether the current labeled distinction is sufficient until a stale or
+   misleading prompt scenario appears.
+3. Defer global help indexing, universal vocabulary, and broad asset
+   migration until a concrete cross-family discovery failure requires them.
+
+The parent survey now has evidence for all three required scenarios. Its
+remaining value is to preserve these dispositions and reopening triggers,
+not to authorize another general collection batch.

@@ -105,8 +105,8 @@ SLASH_COMMANDS = [
     ("concept-graph", "/concept-graph",                          "append an LLM-generated concept graph to the transcript"),
     ("abridge",   "/abridge [--dry-run] [--threshold <n>]",     "mechanically collapse RESULT blocks above a character threshold"),
     ("extract",   "/extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN] | --coalesce [#cN]", "preview/adopt valid callable content, explicitly salvage malformed YAML literals, or coalesce adjacent YAML plans from the latest assistant message"),
-    ("run",        "/run [pN|pN..|pN.oM|pN.oM..]",            "run selected executable source from the latest assistant message under assistant policy"),
-    ("stage",      "/stage [pN|pN..|pN.oM|pN.oM..]",          "quietly stage a source reference for a later explicit run"),
+    ("run",        "/run [pN|pN..|pN.oM|pN.oM..|oM|oM..]",   "run selected executable source from the latest assistant message under assistant policy"),
+    ("stage",      "/stage [pN|pN..|pN.oM|pN.oM..|oM|oM..]", "quietly stage a source reference for a later explicit run"),
     (
         "replay",
         "/replay [--dry-run] [--index <n|rN>] [--force] "
@@ -122,9 +122,10 @@ INERT_REGION_END = "[[/inert]]"
 def render_session_help() -> str:
     lines: list[str] = [
         "help (compact):",
-        "topics: /help full | /help commands | /help tools | /help cli | /help approvals | /help config",
+        "topics: /help full | /help commands | /help tools | /help cli | /help approvals | /help config | /help history | /help capabilities",
         "common quick actions:",
-        "  /extract [index]       preview/adopt callable content from latest assistant message",
+        "  /run [oN|oN..]         run all, or an operation from the first plan",
+        "  /stage [oN|oN..]       defer a source reference for a later /run",
         "  /replay --index #rN    replay callable intent by handle",
         "  /queue [approve*|resume|skip|cancel] [qN]",
         "  /config show",
@@ -281,6 +282,7 @@ def render_help_cli() -> str:
     lines.append("- toas prompt <kind>/<version>")
     lines.append("- toas prompts [prefix]")
     lines.append("- toas history [limit]  show the current root-to-head lineage as a bounded window")
+    lines.append("- history view chooser: /help history  choose among durable-state projections by inspection question")
     return "\n".join(lines)
 
 

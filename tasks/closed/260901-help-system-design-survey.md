@@ -6,7 +6,7 @@ Legacy index:
 Parent: `260823-projection-discoverability`
 Related: `260628-heads-selected-history-leaf-framing`; `260627-history-affordances-semantic-restaging`
 
-keywords: docs, investigation, active, usability, discoverability, parity, surface
+keywords: docs, investigation, closed, usability, discoverability, parity, surface
 
 # Help System Design Survey
 
@@ -354,3 +354,19 @@ history inspection, focused capability lookup), and every selected follow-on
 has an owner seam and testable acceptance criteria. Deferred gaps need a reason
 and reopening trigger, not speculative child tasks. Child implementation need
 not be complete for this design parent to close.
+
+## Completion evidence — 2026-09-07
+
+- All nine product families have dispositions in the steering table, each
+  covered with an explicit gap or deferral.
+- The three required discovery scenarios are recorded in the design note:
+  configuration, history inspection, and focused capability lookup.
+- Selected follow-ons have bounded seams and acceptance evidence:
+  configuration state feedback, asset-backed history help, capability help,
+  and the top-level CLI history pointer.
+- The resulting design boundary is stable: assets own conceptual guidance and
+  next actions; runtime owners supply live state, provenance, visibility, and
+  callable schemas; no universal registry is required yet.
+- Remaining gaps have reopening triggers: a concrete navigation failure for
+  history, stale or misleading runtime availability for capabilities, or a
+  cross-family discovery failure requiring broader indexing.

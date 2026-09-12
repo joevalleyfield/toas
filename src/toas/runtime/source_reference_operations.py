@@ -13,7 +13,8 @@ from .operator_command_context import OperatorCommandContext
 from .retry_materialization import materialize_executable_fence_timeout
 
 _SELECTOR_RE = re.compile(r"^p(?P<plan>-?[1-9][0-9]*)(?:\.o(?P<operation>-?[1-9][0-9]*))?(?P<tail>\.\.)?$")
-_USAGE = "usage: /run|/stage [pN|pN..|pN.oM|pN.oM..]"
+_USAGE = "usage: /run|/stage [pN|pN..|pN.oM|pN.oM..|oM|oM..]"
+_OPERATION_SELECTOR_RE = re.compile(r"^o(?P<operation>-?[1-9][0-9]*)(?P<tail>\.\.)?$")
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,9 @@ def _parse_selector(args: list[str], *, command: str) -> tuple[int | None, int |
         raise ValueError(_USAGE)
     if not args:
         return None, None, True
+    operation_match = _OPERATION_SELECTOR_RE.fullmatch(args[0])
+    if operation_match is not None:
+        return 1, int(operation_match["operation"]), bool(operation_match["tail"])
     match = _SELECTOR_RE.fullmatch(args[0])
     if match is None:
         raise ValueError(_USAGE)

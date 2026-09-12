@@ -270,9 +270,9 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered...
 - **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations
-- **[T260901-help-system-design-survey]** Describe the current TOAS help and discoverability surfaces in design/docs space, drawing on their existing behavior before proposing implementation s...
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
 - **[T260903-user-lane-timeout-recovery]** Make direct user execution unbounded by default and distinguish its terminal-on-failure behavior from recovery of assistant source reached through `/r...
+- **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -356,10 +356,10 @@ continuation, and authority concerns without reopening completed slices.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260907-target-authoring-surface]** Provide a durable configuration surface for named endpoint/model/generation targets without making `/model select` mutate configuration.
+- **[T260907-source-reference-operation-shorthand]** Make the common single-plan source-reference path compact without changing the meaning of bare `/run`.
 - **[T260907-model-observation-provenance]** Add minimal durable provenance for successful endpoint catalog refreshes without changing target selection or treating observations as availability tr...
 - **[T260907-model-observation-grammar]** Separate live endpoint observation, durable catalog inspection, and catalog refresh in the operator grammar.
 - **[T260907-model-help-finishing-pass]** Complete the small follow-up to the model configuration help topic before zooming out to global help organization.
-- **[T260907-model-config-help-discoverability]** Make the completed endpoint/model/target configuration workflow discoverable through the help system. The topic should teach the semantic distinctions...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

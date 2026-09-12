@@ -132,6 +132,30 @@ def test_plain_help_renders_extraction_invariant_and_execution_boundary():
     assert "configuration: /help config extraction" in rendered
 
 
+def test_plain_help_renders_history_projection_chooser_from_asset():
+    rendered = render_plain_help("history")
+    assert rendered is not None
+    assert rendered.startswith("help: history")
+    assert "find branch tips" in rendered
+    assert "read a bounded root-to-head lineage" in rendered
+    assert "inspect history topology" in rendered
+    assert "reconstruct transcript-shaped context" in rendered
+    assert "audit model-visible input" in rendered
+    assert "configuration:" not in rendered
+
+
+def test_plain_help_renders_capability_orientation_from_asset():
+    rendered = render_plain_help("capabilities")
+    assert rendered is not None
+    assert rendered.startswith("help: capabilities")
+    assert "registry describes" in rendered
+    assert "configured profile" in rendered
+    assert "currently callable" in rendered
+    assert "capability_help(topic: \"capture_task_thread\")" in rendered
+    assert "arguments.title" in rendered
+    assert "/config show capability_advertisement" in rendered
+
+
 def test_plain_help_renders_facet_next_actions(monkeypatch):
     catalog = ConfigHelpCatalog(
         summary="summary",

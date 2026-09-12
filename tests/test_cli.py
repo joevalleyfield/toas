@@ -685,6 +685,7 @@ def test_main_help_flag_prints_usage(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.startswith("Usage:\n")
     assert "TOAS_RPC_MODE=auto|on|off" in out
+    assert "History surfaces (read-only; choose by inspection question; see `/help history`)" in out
     assert "heads                    show the selected history graph leaf set as compact branch tips" in out
     assert "history [limit]          show the current root-to-head lineage as a bounded window" in out
     assert "graph [--projection ...] show the selected history graph as a topology view" in out

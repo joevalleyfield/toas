@@ -145,6 +145,24 @@ def test_run_executes_selected_source_in_assistant_lane():
     assert out[0]["source_reference"]["selectors"] == ["p2.o1"]
 
 
+@pytest.mark.parametrize("command", ["run", "stage"])
+@pytest.mark.parametrize(
+    "selector, run_selectors, staged_reference",
+    [("o1", ["p1.o1"], "/run p1.o1"), ("o-1", ["p1.o1"], "/run p1.o1"), ("o1..", ["p1.o1..", "p2"], "/run p1..")],
+)
+def test_operation_relative_selector_implies_first_plan(command, selector, run_selectors, staged_reference):
+    out = handle_source_reference_commands(
+        command,
+        [selector],
+        step_mod=_Step,
+        context=_ctx([{"role": "assistant", "content": "source"}, {"role": "user", "content": f"/{command} {selector}"}]),
+    )
+    if command == "stage":
+        assert out[0]["content"] == staged_reference
+    else:
+        assert out[0]["source_reference"]["selectors"] == run_selectors
+
+
 def test_failed_run_projects_direct_retry_and_bounded_reference_tail():
     class FailingStep(_Step):
         @staticmethod

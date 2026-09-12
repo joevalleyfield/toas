@@ -116,7 +116,7 @@ USAGE = """Usage:
 Environment:
   TOAS_RPC_MODE=auto|on|off
 
-History surfaces:
+History surfaces (read-only; choose by inspection question; see `/help history`):
   heads                    show the selected history graph leaf set as compact branch tips
   history [limit]          show the current root-to-head lineage as a bounded window
   graph [--projection ...] show the selected history graph as a topology view

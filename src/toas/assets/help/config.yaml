@@ -72,6 +72,32 @@ topics:
         summary: "Adjust candidate fallback, lane participation, arbitration, staging, and projection behavior."
         related_keys: [extraction.yaml_position, extraction.loose_command_fallback, extraction.user_shell, extraction.operator_command, extraction.intent_arbitration, extraction.shell_staging, extraction.projection_shape]
         next_actions: [/config show extraction, /config values extraction.intent_arbitration, /config set extraction.intent_arbitration in_order]
+  - id: history
+    aliases: [projections, durable-state]
+    summary: "Durable-state inspection uses distinct projections for branch tips, lineage, topology, transcript reconstruction, and model-visible input."
+    facets:
+      plain:
+        summary: "Choose a history surface by the question you need answered: find branch tips, read a lineage, inspect topology, reconstruct executable context, or audit what reaches generation. These views are read-only and related, but not interchangeable."
+        next_actions:
+          - "toas heads [--sources ...]  find branch tips and navigation targets"
+          - "toas history [limit] [anchor]  read a bounded root-to-head lineage"
+          - "toas graph [--projection ...]  inspect history topology"
+          - "toas transcript [anchor]  reconstruct transcript-shaped context"
+          - "toas llm-input [anchor] [--envelope]  audit model-visible input"
+  - id: capabilities
+    aliases: [capability, tools]
+    summary: "Callable capabilities have separate identity, configuration, runtime visibility, argument shape, and operating policy."
+    facets:
+      plain:
+        summary: "The registry describes what a capability is; the configured profile and hidden-tool settings affect whether it is advertised now; capability_help supplies the callable shape; and prompt policy describes how to use it safely. Configured does not by itself mean currently callable."
+        next_actions:
+          - "capability_help(topic: \"core\")  inspect the current model-facing capability group"
+          - "capability_help(topic: \"capture_task_thread\")  inspect one callable shape"
+          - "capture_task_thread requires arguments.title and arguments.kind"
+          - "capture_task_thread optional arguments include evidence, blocks_progress, active_task_id, scope_hint, and capture_id"
+          - "capture_task_thread is a side-thread fork: keep the payload concise and return to the primary task"
+          - "/config show capability_advertisement  inspect profile and hidden-tool settings"
+          - "/help tools  inspect the broader callable tool reference"
 key_descriptions:
   llm.model: "Selects the active model for generation."
   llm.models: "Defines available model catalog entries."

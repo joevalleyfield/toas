@@ -72,6 +72,22 @@ def when_follow_config_discovery(acceptance_state: dict, capsys) -> None:
     acceptance_state["outputs"] = outputs
 
 
+@when("the operator opens the bare config entrypoint")
+def when_open_bare_config(acceptance_state: dict, capsys) -> None:
+    _run_control(acceptance_state["repo"], "/config")
+    acceptance_state["bare_config"] = capsys.readouterr().out
+
+
+@then("bare config should point to inspection without dumping state")
+def then_bare_config_contract(acceptance_state: dict) -> None:
+    content = acceptance_state["bare_config"]
+    assert "/config show [FILTER] [--sources]" in content
+    assert "/help config" in content
+    assert "/config --help" in content
+    assert "llm.model =" not in content
+    assert "precedence stack" not in content
+
+
 @when("the operator follows the config generation discovery path")
 def when_follow_generation_discovery(acceptance_state: dict, capsys) -> None:
     outputs = []

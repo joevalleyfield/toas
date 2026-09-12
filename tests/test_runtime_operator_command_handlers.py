@@ -825,6 +825,25 @@ def test_config_show_supports_curated_topic_filters_and_source_order():
     assert "backend.mode =" in with_sources and "[source=config_file]" in with_sources
 
 
+def test_bare_config_is_compact_navigation_not_state_dump():
+    import toas.step as step_mod
+
+    out = handle_config_help_commands("config", [], step_mod=step_mod, context=_ctx())[0]
+    content = out["content"]
+
+    assert "config: inspect or change configuration" in content
+    assert "/config show [FILTER] [--sources]" in content
+    assert "/config values KEY" in content
+    assert "/config endpoint ..." in content
+    assert "/config target ..." in content
+    assert "/help config" in content
+    assert "/config --help" in content
+    assert "llm.model =" not in content
+    assert "precedence stack" not in content
+    assert "Quick edits:" not in content
+    assert "config_update" not in out
+
+
 def test_config_show_filter_sources_and_no_match_are_read_only():
     import toas.step as step_mod
 
