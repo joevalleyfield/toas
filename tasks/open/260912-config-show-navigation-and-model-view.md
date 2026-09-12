@@ -46,6 +46,7 @@ existing dictionary-shaped projection.
 
 - `260912-config-show-next-command-audit`
 - `260912-config-model-structured-view`
+- `260912-config-execution-facet-design`
 
 ## Non-goals
 
