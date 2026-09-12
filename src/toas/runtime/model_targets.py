@@ -63,7 +63,7 @@ def resolve_target_generation(config: OperatorConfig, target: TargetCatalogEntry
         }.items()
         if value is not None
     }
-    return replace(config.generation, **values)
+    return replace(config.generation, **values)  # type: ignore[arg-type]
 
 
 def resolve_target_invocation(

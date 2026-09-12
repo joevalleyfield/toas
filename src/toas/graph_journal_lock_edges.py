@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import threading
 from contextlib import contextmanager
+from io import BufferedRandom
 from pathlib import Path
 
 _LOCKS: dict[Path, threading.RLock] = {}
@@ -15,7 +16,7 @@ def _lock_path(events_path: str | Path) -> Path:
     return path.with_name(f".{path.name}.lock")
 
 
-def _thread_depths() -> dict[Path, tuple[object, int]]:
+def _thread_depths() -> dict[Path, tuple[BufferedRandom, int]]:
     depths = getattr(_LOCAL, "depths", None)
     if depths is None:
         depths = {}
@@ -31,7 +32,7 @@ def _process_lock(lock_file) -> None:
         lock_file.write(b"0")  # pragma: no cover
         lock_file.flush()  # pragma: no cover
         lock_file.seek(0)  # pragma: no cover
-        msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)  # pragma: no cover
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)  # type: ignore[attr-defined]  # pragma: no cover
         return  # pragma: no cover
     import fcntl
 
@@ -43,7 +44,7 @@ def _release_process_lock(lock_file) -> None:
         import msvcrt  # pragma: no cover
 
         lock_file.seek(0)  # pragma: no cover
-        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)  # pragma: no cover
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]  # pragma: no cover
         return  # pragma: no cover
     import fcntl
 

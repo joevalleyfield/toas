@@ -158,6 +158,7 @@ def step_once(
     """Run one local operator step using CLI-equivalent semantics."""
     if run_step_fn is None:
         from .cli_session_commands import run_step as run_step_fn
+    assert run_step_fn is not None
 
     if (
         stdin_mode
@@ -710,7 +711,8 @@ def _extend_lineage_stats(parent_stats: dict, event: dict, parent_event: dict | 
         turns += 1
     counts = dict(parent_stats["provenance"])
     prov = event.get("provenance")
-    source = prov.get("source") if isinstance(prov, dict) else "?"
+    source_value = prov.get("source") if isinstance(prov, dict) else "?"
+    source = source_value if isinstance(source_value, str) else "?"
     counts[source] = counts.get(source, 0) + 1
     return {"depth": depth, "turns": turns, "provenance": counts}
 
@@ -721,7 +723,8 @@ def _lineage_stats(lineage: list[dict]) -> dict:
     counts: dict[str, int] = {}
     for event in lineage:
         prov = event.get("provenance")
-        source = prov.get("source") if isinstance(prov, dict) else "?"
+        source_value = prov.get("source") if isinstance(prov, dict) else "?"
+        source = source_value if isinstance(source_value, str) else "?"
         counts[source] = counts.get(source, 0) + 1
     return {"depth": depth, "turns": turns, "provenance": counts}
 
@@ -755,7 +758,8 @@ def _resolve_session_path(events: list[dict]) -> Path:
 
 def _provenance_marker(event: dict) -> str:
     prov = event.get("provenance")
-    source = prov.get("source") if isinstance(prov, dict) else None
+    source_value = prov.get("source") if isinstance(prov, dict) else None
+    source = source_value if isinstance(source_value, str) else "?"
     if source == "user_correction" and isinstance(prov, dict):
         corrects = prov.get("corrects", "?")
         return f"[C→{corrects}]"

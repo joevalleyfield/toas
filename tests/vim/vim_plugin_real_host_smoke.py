@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import tempfile
 import threading
 import time
@@ -67,6 +68,7 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
             out = tdp / "out.json"
             script = tdp / "script.vim"
             plugin_path = _vim_quote(root / "vim" / "plugin" / "toas.vim")
+            host_python = _vim_quote(Path(sys.executable))
             session_quoted = _vim_quote(session_path)
             out_path = _vim_quote(out)
             script.write_text(
@@ -77,6 +79,7 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
                         "set noswapfile",
                         "set shortmess+=I",
                         f"source {plugin_path}",
+                        f"let g:ToasTestLocalHostStartCmd = ['{host_python}', '-m', 'toas', 'host', 'serve', '--stdio-json']",
                         "let g:toas_step_nonblocking = 1",
                         "let g:toas_notice_enabled = 0",
                         "let g:toas_transport_mode = 'local_host'",
@@ -103,6 +106,8 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
             )
 
             env = dict(os.environ)
+            env["PATH"] = os.pathsep.join([str(Path(sys.executable).parent), env.get("PATH", "")])
+            env["PYTHONPATH"] = os.pathsep.join([str(root / "src"), env.get("PYTHONPATH", "")])
             env["TOAS_RPC_MODE"] = "off"
             env["TOAS_LLM_BASE_URL"] = llm_base_url
             env["TOAS_LLM_MODEL"] = "fake-model"

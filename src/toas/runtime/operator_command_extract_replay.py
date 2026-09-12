@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from typing import cast
 
 import yaml
 
@@ -636,7 +638,8 @@ def _execute_replay_choice(chosen: dict, *, dry_run: bool, step_mod, context: Op
         }
         executed_nodes, _ = _run_queue_until_boundary(queue, step_mod=step_mod, context=context, action="resume")
     else:
-        executed_nodes = step_mod._as_nodes(context.execute(context.working, chosen["plan"]))
+        execute = cast(Callable[[list[dict], list[dict]], object], context.execute)
+        executed_nodes = step_mod._as_nodes(execute(context.working, chosen["plan"]))
     for node in executed_nodes:
         node["replay_execution"] = {
             "target_message_index": chosen["index"],

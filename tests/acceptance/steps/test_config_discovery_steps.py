@@ -61,6 +61,7 @@ def when_follow_config_discovery(acceptance_state: dict, capsys) -> None:
     outputs = []
     for command in (
         "/help config models",
+        "/help models",
         "/config show models",
         "/config show models --sources",
         "/config show --sources models",

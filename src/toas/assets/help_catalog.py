@@ -168,7 +168,7 @@ def render_config_help(query: str | None = None, *, valid_keys: list[str]) -> st
         )
     lines = [f"config help search: {query}", "matching keys:"]
     for _rank, key, reason in sorted(results):
-        description = descriptions.get(key)
+        description = descriptions.get(key) or ""
         suffix = f" — {description}" if description else ""
         lines.append(f"  {key}{suffix} (matched by {reason})")
     lines.extend(["", "inspect: /config show <filter>", "set: /config set <key> <value>"])

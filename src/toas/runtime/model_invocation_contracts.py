@@ -64,7 +64,7 @@ class ModelInvocationPort:
     transient_error: type[Exception]
     permanent_error: type[Exception]
     stream_presenter: type
-    write_audit: Callable[..., None]
+    write_audit: Callable[..., object]
 
 
 def default_model_invocation_port() -> ModelInvocationPort:

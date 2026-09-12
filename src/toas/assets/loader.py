@@ -34,7 +34,8 @@ def list_packaged_assets(kind: str, *, suffix: str) -> list[str]:
     normalized_kind = normalize_asset_ref(kind)
     root = resources.files("toas").joinpath("assets", normalized_kind)
     refs: list[str] = []
-    for path in root.rglob(f"*{suffix}"):
-        if path.is_file() and path.name.endswith(suffix):
-            refs.append(str(path.relative_to(root)).removesuffix(suffix))
+    with resources.as_file(root) as root_path:
+        for path in root_path.rglob(f"*{suffix}"):
+            if path.is_file() and path.name.endswith(suffix):
+                refs.append(str(path.relative_to(root_path)).removesuffix(suffix))
     return sorted(refs)

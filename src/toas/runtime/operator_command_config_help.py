@@ -608,10 +608,11 @@ def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: Ope
 
     config_endpoints = [_endpoint_config_dict(item) for item in context.config.llm.endpoints]
     config_endpoints.append(_endpoint_config_dict(endpoint))
-    update = {"llm": {"endpoints": config_endpoints}}
+    llm_update: dict[str, object] = {"endpoints": config_endpoints}
     if additions:
-        update["llm"]["targets"] = additions
-    fields = {"config_update": update}
+        llm_update["targets"] = additions
+    update: dict[str, object] = {"llm": llm_update}
+    fields: dict[str, object] = {"config_update": update}
     if select and target_model is not None:
         fields["target_selection_update"] = {"action": "set", "target_id": _target_id_for_model(endpoint_id, target_model)}
         phase_lines.append(f"active selection: {_target_id_for_model(endpoint_id, target_model)}")
@@ -680,12 +681,12 @@ def _parse_target_field(field: str, raw_value: str) -> tuple[str, object]:
         return field, value
     if field == "generation.retry_delay_s":
         try:
-            value = float(raw_value)
+            parsed_value = float(raw_value)
         except ValueError as exc:
             raise ValueError(f"{field}: expected float") from exc
-        if value < 0:
+        if parsed_value < 0:
             raise ValueError(f"{field}: expected >= 0")
-        return field, value
+        return field, parsed_value
     if field in {"tags", "generation.avoid_terms"}:
         return field, [part.strip() for part in raw_value.split(",") if part.strip()]
     return field, raw_value
@@ -729,8 +730,12 @@ def _config_target_result(args: list[str], *, step_mod, context: OperatorCommand
         if not any(target.id == target_id for target in context.config.llm.targets):
             raise ValueError(f"unknown model target: {target_id}")
         field, value = _parse_target_field(args[3], args[4])
-        values = {field: value} if "." not in field else {field.split(".", 1)[0]: {field.split(".", 1)[1]: value}}
-        return [_result_node(f"updated model target {target_id}.{field}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, values))]
+        target_values: dict[str, object] = (
+            {field: value}
+            if "." not in field
+            else {field.split(".", 1)[0]: {field.split(".", 1)[1]: value}}
+        )
+        return [_result_node(f"updated model target {target_id}.{field}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, target_values))]
     if action == "remove":
         if len(args) != 3 or not args[2].strip():
             raise ValueError("usage: /config target remove NAME")

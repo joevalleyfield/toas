@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import cast
 
 from ..tools import REGISTRY
 from .fence_activation import classify_fence_activation
@@ -286,7 +287,8 @@ def _tail_selector_for_failure(*, selections: list[SourceSelection], failed_inde
 def _retry_source(source: str, call: dict, timeout_s: int) -> str | None:
     if not source:
         return None
-    tool = REGISTRY.get(call.get("tool_name"))
+    tool_name = cast(str, call.get("tool_name"))
+    tool = REGISTRY.get(tool_name)
     if tool is None or "timeout_s" not in tool.optional_args:
         return source
     if re.search(r"(?m)^\s+timeout_s\s*:", source):

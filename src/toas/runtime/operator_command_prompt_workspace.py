@@ -4,6 +4,7 @@ import re
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 
 from ..graph import (
     active_intent,
@@ -781,7 +782,7 @@ def _handle_coordination(args: list[str], *, step_mod, context: OperatorCommandC
         if not value.strip():
             raise ValueError(usage)
         if flag == "--evidence":
-            update.setdefault("evidence_refs", []).append(value)
+            cast(list[str], update.setdefault("evidence_refs", [])).append(value)
         elif flag == "--cohort": update["cohort_key"] = value
         elif flag == "--needs": update["needs"] = [value]
         elif flag == "--blocked-by": update["blocked_by"] = [value]

@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-07
+> **Last Sync:** 2026-09-12
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -239,7 +239,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260418-weak-model-safe-apply-patch-contract]** Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models. ⚠️ Stale
 - **[T260428-cross-repo-intent-routing]** Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants. ⚠️ Stale
 - **[T260509-alternative-operator-frontends]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces. ⚠️ Stale
-- **[T260509-multi-operator-orchestration]** Evaluate how TOAS can support an operator/driver relationship in which a human or Codex holds the larger intent and trajectory, while TOAS and its con...
+- **[T260509-multi-operator-orchestration]** Evaluate how TOAS can support an operator/driver relationship in which a human or Codex holds the larger intent and trajectory, while TOAS and its con... ⚠️ Stale
 - **[T260515-apply-patch-windows-crlf-hardening]** Investigate and harden `apply_patch` behavior on Windows/CRLF files with explicit diagnostics around newline/context matching. ⚠️ Stale
 - **[T260524-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise. ⚠️ Stale
 - **[T260524-auto-inferred-task-dependencies]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy. ⚠️ Stale
@@ -355,11 +355,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260912-repair-full-check]** Restore a passing `scripts/check.sh` after the elevated full verification pass exposed an acceptance discovery mismatch, Vim host-surface hangs, and m...
 - **[T260907-target-authoring-surface]** Provide a durable configuration surface for named endpoint/model/generation targets without making `/model select` mutate configuration.
 - **[T260907-source-reference-operation-shorthand]** Make the common single-plan source-reference path compact without changing the meaning of bare `/run`.
 - **[T260907-model-observation-provenance]** Add minimal durable provenance for successful endpoint catalog refreshes without changing target selection or treating observations as availability tr...
 - **[T260907-model-observation-grammar]** Separate live endpoint observation, durable catalog inspection, and catalog refresh in the operator grammar.
-- **[T260907-model-help-finishing-pass]** Complete the small follow-up to the model configuration help topic before zooming out to global help organization.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
