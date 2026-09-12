@@ -430,15 +430,16 @@ def test_prompt_workspace_models_rejects_arguments():
 
     out = handle_prompt_workspace_commands("models", [], step_mod=step_mod, context=_ctx())
     assert out[0]["content"] == (
-        "/models live ENDPOINT    query a configured endpoint (network, no write)\n"
-        "/models known ENDPOINT   read its durable model catalog (no network)\n"
-            "/models refresh ENDPOINT query and merge its catalog (network + config write)\n"
-            "  add --details for normalized metadata (initially limited)\n"
+            "/models live [ENDPOINT]    query a configured endpoint (network, no write)\n"
+                "/models known [ENDPOINT]   read its durable model catalog (no network)\n"
+                "/models refresh [ENDPOINT] query and merge its catalog (network + config write)\n"
+                "  ENDPOINT may be omitted when exactly one endpoint is configured\n"
+                "  add --details for normalized metadata (initially limited)\n"
             "  add --raw to live or refresh for the exact endpoint response\n"
             "\nENDPOINT is a configured endpoint name, not a URL."
     )
 
-    with pytest.raises(ValueError, match=r"usage: /models live\|known\|refresh ENDPOINT"):
+    with pytest.raises(ValueError, match="no configured endpoints"):
         handle_prompt_workspace_commands("models", ["live"], step_mod=step_mod, context=_ctx())
 
 
@@ -455,6 +456,42 @@ def test_prompt_workspace_models_known_reads_catalog_without_probe():
 
     with pytest.raises(ValueError, match="unknown endpoint"):
         handle_prompt_workspace_commands("models", ["known", "missing"], step_mod=step_mod, context=_ctx(config=config))
+
+
+def test_prompt_workspace_models_inferrs_the_only_endpoint(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
+
+    config = OperatorConfig(
+        llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="only", base_url="http://endpoint/v1", models=("known",)),))
+    )
+    monkeypatch.setattr(policy_edges, "settings_for_runtime", lambda _config: (harness.Settings(), {}))
+    monkeypatch.setattr(harness, "fetch_models", lambda _settings: {"data": [{"id": "live"}]})
+
+    live = handle_prompt_workspace_commands("models", ["live"], step_mod=step_mod, context=_ctx(config=config))
+    assert "endpoint: http://endpoint/v1" in live[0]["content"]
+    known = handle_prompt_workspace_commands("models", ["known"], step_mod=step_mod, context=_ctx(config=config))
+    assert "models: known" in known[0]["content"]
+    refresh = handle_prompt_workspace_commands("models", ["refresh"], step_mod=step_mod, context=_ctx(config=config))
+    assert "model catalog refreshed for only" in refresh[0]["content"]
+
+
+def test_prompt_workspace_models_requires_endpoint_when_not_unambiguous():
+    import toas.step as step_mod
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
+
+    empty = _ctx(config=OperatorConfig())
+    with pytest.raises(ValueError, match="no configured endpoints"):
+        handle_prompt_workspace_commands("models", ["known"], step_mod=step_mod, context=empty)
+
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(
+        EndpointCatalogEntry(id="one", base_url="http://one"),
+        EndpointCatalogEntry(id="two", base_url="http://two"),
+    )))
+    with pytest.raises(ValueError, match="multiple endpoints.*one, two"):
+        handle_prompt_workspace_commands("models", ["known"], step_mod=step_mod, context=_ctx(config=config))
 
 
 def test_prompt_workspace_models_refresh_merges_endpoint_catalog(monkeypatch):
@@ -529,8 +566,6 @@ def test_prompt_workspace_models_refresh_details_and_raw_failure(monkeypatch):
         handle_prompt_workspace_commands("models", ["live", "local", "--details", "--details"], step_mod=step_mod, context=_ctx(config=config))
     with pytest.raises(ValueError, match="usage: /models"):
         handle_prompt_workspace_commands("models", ["live", "local", "extra"], step_mod=step_mod, context=_ctx(config=config))
-    with pytest.raises(ValueError, match="usage: /models"):
-        handle_prompt_workspace_commands("models", ["live", "--details"], step_mod=step_mod, context=_ctx(config=config))
 
 
 def test_prompt_workspace_models_refresh_failure_does_not_write(monkeypatch):
@@ -556,7 +591,7 @@ def test_prompt_workspace_models_refresh_failure_does_not_write(monkeypatch):
 def test_prompt_workspace_models_refresh_validates_endpoint_argument():
     import toas.step as step_mod
 
-    with pytest.raises(ValueError, match="usage: /models live\\|known\\|refresh ENDPOINT"):
+    with pytest.raises(ValueError, match="no configured endpoints"):
         handle_prompt_workspace_commands("models", ["refresh"], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="unknown endpoint"):
         handle_prompt_workspace_commands("models", ["refresh", "missing"], step_mod=step_mod, context=_ctx())

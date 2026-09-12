@@ -249,9 +249,10 @@ def _handle_model_select(args: list[str], *, step_mod, context: OperatorCommandC
 def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args:
         return [_result_node(
-            "/models live ENDPOINT    query a configured endpoint (network, no write)\n"
-            "/models known ENDPOINT   read its durable model catalog (no network)\n"
-            "/models refresh ENDPOINT query and merge its catalog (network + config write)\n"
+            "/models live [ENDPOINT]    query a configured endpoint (network, no write)\n"
+            "/models known [ENDPOINT]   read its durable model catalog (no network)\n"
+            "/models refresh [ENDPOINT] query and merge its catalog (network + config write)\n"
+            "  ENDPOINT may be omitted when exactly one endpoint is configured\n"
             "  add --details for normalized metadata (initially limited)\n"
             "  add --raw to live or refresh for the exact endpoint response\n"
             "\nENDPOINT is a configured endpoint name, not a URL.",
@@ -266,6 +267,7 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
     endpoint_id, details, raw = _parse_models_flags(args[1:])
     if raw and mode == "known":
         raise ValueError("/models known does not support --raw; the known catalog has no stored response body")
+    endpoint_id = _resolve_models_endpoint(endpoint_id, context)
     endpoint = next((entry for entry in context.config.llm.endpoints if entry.id == endpoint_id), None)
     if endpoint is None:
         raise ValueError(f"unknown endpoint: {endpoint_id}")
@@ -332,6 +334,7 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
 
 def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     endpoint_id, details, raw = _parse_models_flags(args)
+    endpoint_id = _resolve_models_endpoint(endpoint_id, context)
     endpoint = next((entry for entry in context.config.llm.endpoints if entry.id == endpoint_id), None)
     if endpoint is None:
         raise ValueError(f"unknown endpoint: {endpoint_id}")
@@ -419,9 +422,7 @@ def _display_model_id(model_id: str) -> str:
     return model_id.rsplit("/", 1)[-1] or model_id
 
 
-def _parse_models_flags(args: list[str]) -> tuple[str, bool, bool]:
-    if not args:
-        raise ValueError("usage: /models live|known|refresh ENDPOINT [--details|--raw]")
+def _parse_models_flags(args: list[str]) -> tuple[str | None, bool, bool]:
     endpoint: str | None = None
     details = False
     raw = False
@@ -438,9 +439,19 @@ def _parse_models_flags(args: list[str]) -> tuple[str, bool, bool]:
             endpoint = arg.strip()
         else:
             raise ValueError("usage: /models ... ENDPOINT [--details|--raw]")
-    if endpoint is None:
-        raise ValueError("usage: /models ... ENDPOINT [--details|--raw]")
     return endpoint, details, raw
+
+
+def _resolve_models_endpoint(endpoint_id: str | None, context: OperatorCommandContext) -> str:
+    if endpoint_id is not None:
+        return endpoint_id
+    endpoints = context.config.llm.endpoints
+    if not endpoints:
+        raise ValueError("no configured endpoints\nhint: use /config endpoint add NAME BASE_URL")
+    if len(endpoints) > 1:
+        choices = ", ".join(endpoint.id for endpoint in endpoints)
+        raise ValueError(f"endpoint is required when multiple endpoints are configured: {choices}")
+    return endpoints[0].id
 
 
 def _validate_env_key(key: str, *, step_mod) -> None:
