@@ -24,7 +24,7 @@ def validate_powershell_script_args(
     if not cwd.is_dir():
         raise RuntimeError("tool powershell_script requires cwd to be a directory")
     timeout_s = args.get("timeout_s", 5)
-    if not isinstance(timeout_s, int) or timeout_s <= 0:
+    if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
         raise RuntimeError("invalid arguments for tool powershell_script: timeout_s must be a positive int")
     runtime = args.get("runtime", ["pwsh"])
     if not isinstance(runtime, list) or not runtime or not all(isinstance(part, str) and part for part in runtime):

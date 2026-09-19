@@ -239,7 +239,7 @@ def shell_allow_policy(*, allowed_commands: list[str] | tuple[str, ...] | set[st
 
 
 @contextmanager
-def assistant_execution_policy(*, timeout_s: int, timeout_source: str):
+def assistant_execution_policy(*, timeout_s: int | None, timeout_source: str):
     global _ASSISTANT_TIMEOUT_S, _ASSISTANT_TIMEOUT_SOURCE
     previous_timeout = _ASSISTANT_TIMEOUT_S
     previous_source = _ASSISTANT_TIMEOUT_SOURCE
@@ -631,7 +631,7 @@ def execute_plan(
     workspace_mode: str | None = None,
     default_shell_env: dict[str, str | None] | None = None,
     shell_allowed_commands: list[str] | tuple[str, ...] | set[str] | None = None,
-    assistant_timeout_s: int = 5,
+    assistant_timeout_s: int | None = 5,
     assistant_timeout_source: str = "default",
     executable_grant_policy: ExecutableGrantPolicy | None = None,
     authority: str = "assistant",
@@ -649,6 +649,7 @@ def execute_plan(
             default_shell_cwd=default_shell_cwd,
             default_shell_env=default_shell_env,
             default_shell_timeout_s=assistant_timeout_s,
+            default_timeout_s=assistant_timeout_s,
         )
 
 

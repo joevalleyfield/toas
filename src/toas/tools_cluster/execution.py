@@ -7,15 +7,24 @@ def adapt_call_for_execution(
     default_shell_cwd: str | None,
     default_shell_env: dict[str, str | None] | None,
     default_shell_timeout_s: int | None = None,
+    default_timeout_s: int | None = None,
 ) -> dict:
     call = raw_call
     if isinstance(raw_call.get("args"), dict):
         args = dict(raw_call["args"])
         base = Path(default_shell_cwd).expanduser().resolve() if default_shell_cwd is not None else None
 
-        if raw_call.get("tool_name") in {"shell", "shell_script"} and "timeout_s" not in args:
-            if default_shell_timeout_s is not None:
-                args["timeout_s"] = default_shell_timeout_s
+        if "timeout_s" not in args:
+            if raw_call.get("tool_name") in {"shell", "shell_script"}:
+                if default_shell_timeout_s is not None:
+                    args["timeout_s"] = default_shell_timeout_s
+            elif default_timeout_s is None and raw_call.get("tool_name") in {
+                "python_script",
+                "powershell_script",
+                "interpreter_script",
+                "search",
+            }:
+                args["timeout_s"] = default_timeout_s
 
         if raw_call.get("tool_name") == "shell" and base is not None:
             cwd_arg = args.get("cwd")
@@ -97,6 +106,7 @@ def execute_plan_calls(
     default_shell_cwd: str | None = None,
     default_shell_env: dict[str, str | None] | None = None,
     default_shell_timeout_s: int | None = None,
+    default_timeout_s: int | None = None,
 ) -> list[dict]:
     results = []
     for raw_call in plan:
@@ -105,6 +115,7 @@ def execute_plan_calls(
             default_shell_cwd=default_shell_cwd,
             default_shell_env=default_shell_env,
             default_shell_timeout_s=default_shell_timeout_s,
+            default_timeout_s=default_timeout_s,
         )
         try:
             output = execute_call(call)

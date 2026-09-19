@@ -58,11 +58,9 @@ def test_policy_or_validation_failure_remains_a_canonical_projection() -> None:
 """
     )
 
-    assert len(results) == 2
+    assert len(results) == 1
     assert results[0]["content"].startswith("[ERROR] shell_script:")
     assert results[0]["projection_lane"] == "user"
-    assert results[1]["role"] == "user"
-    assert "Retry failed operation" in results[1]["content"]
     projection = render_transcript_blocks(results)
     assert projection.count("## RESULT") == 1
     assert "[ERROR] shell_script:" in projection

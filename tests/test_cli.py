@@ -2223,11 +2223,7 @@ def test_run_step_first_failure_records_attempted_prefix_and_stages_direct_recov
     assert [result["related_to"] for result in results] == ["n1", "n1"]
     assert [result["payload"]["tool_name"] for result in results] == ["echo", "missing"]
     assert all(result["payload"].get("text") != "unattempted" for result in results)
-    recovery = next(event for event in events if event.get("id") == "n2")
-    assert "- tool_name: missing" in recovery["content"]
-    assert "```yaml staged" in recovery["content"]
-    assert "text: unattempted" in recovery["content"]
-    assert "Retry failed operation" in capsys.readouterr().out
+    assert "Retry failed operation" not in capsys.readouterr().out
 
 
 def test_run_step_extract_selection_adopts_user_content_without_tool_execution(monkeypatch, tmp_path, capsys):

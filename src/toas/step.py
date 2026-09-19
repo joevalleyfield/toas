@@ -742,6 +742,8 @@ def _execute_plan_user_context(
             env_modifiers=env_modifiers,
             shell_allowed_commands=tuple(sorted(SHELL_ALLOWED)),
             stream_stdout_enabled=stream_stdout_enabled,
+            assistant_timeout_s=None,
+            assistant_timeout_source="direct-user",
         )
         nodes.extend(plan_results)
         if plan_results and _result_node_failed(plan_results[-1]):

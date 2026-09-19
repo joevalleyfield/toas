@@ -868,6 +868,42 @@ arguments:
     assert payload["exit_code"] == 0
 
 
+def test_direct_user_python_policy_is_unbounded_but_explicit_timeout_is_forwarded(monkeypatch):
+    from toas.step import _execute_plan_user_context
+
+    seen = []
+
+    def fake_run_subprocess(argv, *, cwd, timeout_s, env=None, stream_stdout_override=None, tool_name="shell"):
+        seen.append(timeout_s)
+        return {"tool_name": tool_name, "ok": True, "summary": "exit=0", "exit_code": 0, "argv": argv}
+
+    monkeypatch.setattr("toas.tools_cluster.python_ops.run_subprocess", fake_run_subprocess)
+    _execute_plan_user_context(
+        [{"tool_name": "python_script", "args": {"script": "print(1)"}}],
+        origin_role="user", command_cwd=".", workspace_mode="strict", workspace_roots=["."],
+    )
+    _execute_plan_user_context(
+        [{"tool_name": "python_script", "args": {"script": "print(1)", "timeout_s": 7}}],
+        origin_role="user", command_cwd=".", workspace_mode="strict", workspace_roots=["."],
+    )
+
+    assert seen == [None, 7]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "```yaml\n- tool_name: missing\n  args: {}\n```",
+        "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: missing\n  args: {}\n```",
+    ],
+)
+def test_direct_user_failure_is_terminal_for_original_and_edited_retry(content):
+    _, out = step(f"## TOAS:USER\n{content}\n", [])
+
+    assert len(out) == 1
+    assert out[0]["payload"]["ok"] is False
+
+
 def test_user_tail_shell_is_unbounded_while_callable_shell_is_bounded(fake_shell_subprocess):
     user_transcript = """\
 ## TOAS:USER
@@ -1312,19 +1348,13 @@ please run this
     new_nodes, out = step(transcript, [])
 
     assert new_nodes == [
-        {
-            "role": "user",
-            "content": "please run this\n```yaml\n- tool_name: missing\n  args: {}\n```",
-            "provenance": {"source": "user_authored"},
-        },
-        _tool_result("[ERROR] missing: unknown tool: missing", payload={"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing", "failure_kind": "validation", "outcome": "failed"}),
             {
                 "role": "user",
-                "content": "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: missing\n  args: {}\n```",
-                "provenance": {"source": "adopted"},
-                "recovery_transition": "frontier",
+                "content": "please run this\n```yaml\n- tool_name: missing\n  args: {}\n```",
+                "provenance": {"source": "user_authored"},
             },
-    ]
+            _tool_result("[ERROR] missing: unknown tool: missing", payload={"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing", "failure_kind": "validation", "outcome": "failed"}),
+        ]
     assert out == new_nodes[1:]
 
 
@@ -1351,19 +1381,13 @@ please run this
         "```"
     )
     assert new_nodes == [
-        {
-            "role": "user",
-            "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
-            "provenance": {"source": "user_authored"},
-        },
-        _tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text", "failure_kind": "validation", "outcome": "failed"}),
             {
                 "role": "user",
-                "content": "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: echo\n  args: {}\n```",
-                "provenance": {"source": "adopted"},
-                "recovery_transition": "frontier",
+                "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
+                "provenance": {"source": "user_authored"},
             },
-    ]
+            _tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text", "failure_kind": "validation", "outcome": "failed"}),
+        ]
     assert out == new_nodes[1:]
 
 

@@ -28,7 +28,7 @@ def run_interpreter_script(args: dict, *, workspace_path_fn) -> dict:
     if not cwd.is_dir():
         raise RuntimeError("tool interpreter_script requires cwd to be a directory")
     timeout_s = args.get("timeout_s", 5)
-    if not isinstance(timeout_s, int) or timeout_s <= 0:
+    if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
         raise RuntimeError("invalid arguments for tool interpreter_script: timeout_s must be a positive int")
     persist = args.get("persist", False)
     if not isinstance(persist, bool):

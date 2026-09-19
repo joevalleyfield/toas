@@ -256,6 +256,32 @@ def test_failed_referenced_python_fence_preserves_fence_form_and_materializes_ti
     assert "```yaml" not in recovery
 
 
+def test_failed_referenced_bash_fence_preserves_fence_form_and_materializes_timeout():
+    class FailingFenceStep:
+        @staticmethod
+        def _select_assistant_plan_candidates(**kwargs):
+            return select_user_intent_candidates(
+                content=kwargs["content"], plan=None, operator_command=None, shell_command=None, shell_argv=None,
+                yaml_position="any", arbitration_mode="in_order", include_plan_candidates=True, include_shell_candidates=False,
+            )
+
+        resolve_effective_env_modifiers = staticmethod(_Step.resolve_effective_env_modifiers)
+        resolve_effective_shell_allowed = staticmethod(_Step.resolve_effective_shell_allowed)
+        resolve_effective_shell_stream_stdout = staticmethod(_Step.resolve_effective_shell_stream_stdout)
+        _execute_plan = staticmethod(lambda _plan, **_kwargs: [{"role": "result", "content": "failed", "payload": {"ok": False}}])
+
+    content = "```bash exec\nset -e\nprintf 'hello\\n'\n```"
+    out = handle_source_reference_commands(
+        "run", [], step_mod=FailingFenceStep,
+        context=_ctx([{"role": "assistant", "content": content}, {"role": "user", "content": "/run"}]),
+    )
+
+    recovery = out[-1]["content"]
+    assert "```bash exec timeout_s=5" in recovery
+    assert "set -e\nprintf 'hello\\n'" in recovery
+    assert "```yaml" not in recovery
+
+
 def test_failed_referenced_fence_surfaces_explicit_materialization_refusal(monkeypatch):
     class FailingFenceStep:
         _select_assistant_plan_candidates = staticmethod(

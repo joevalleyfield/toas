@@ -3,7 +3,9 @@ FKA:
 AKA: direct user timeout; no user retry frontier; source-preserving run recovery; executable-fence recovery
 Legacy index:
 
-keywords: runtime, projection, implementation, active, correctness, contract, transcript, frontier, provenance, authority, policy, timeout
+keywords: runtime, projection, implementation, historical, correctness, contract, transcript, frontier, provenance, authority, policy, timeout
+
+Status: closed (2026-09-19)
 
 Parent: `260831-transcript-source-reference-operations`
 Related: `260803-assistant-execution-authority`; `260803-language-exec-fenced-block-lane`; `260901-retry-materialization-adapters`; `260901-source-reference-recovery-integration`
@@ -129,3 +131,23 @@ recovery frontier is justified.
    equivalence.
 4. Refactor the generic recovery input, if needed, to use source/execution
    semantics rather than authorship as its decision key.
+
+## Completion Evidence
+
+- Direct-user execution now passes an explicit unbounded timeout policy for
+  timeout-capable tools when no `timeout_s` is authored; explicit positive
+  `timeout_s` values remain enforced.
+- Direct-user failures now project only their result and stop. This covers
+  original user plans and user-edited/adopted retry frontiers. Assistant-side
+  `/run` recovery retains its existing generic recovery behavior.
+- Executable-fence recovery preserves Python and Bash fence source, including
+  the authored body and header while materializing the assistant timeout.
+  YAML/source-span recovery remains covered by the existing representation-
+  neutral tests.
+- Owner seams: timeout policy in `src/toas/step.py` and
+  `src/toas/tools_cluster/execution.py`; terminal disposition in
+  `src/toas/runtime/step_runtime.py`; source-preserving `/run` recovery in
+  `src/toas/runtime/source_reference_operations.py`.
+- Verification: `./.codex-local/bin/uvt run pytest -q` — 3235 passed, 17
+  deselected, 100% coverage; focused direct-user/source-reference tests — 296
+  passed; Ruff clean on changed files.

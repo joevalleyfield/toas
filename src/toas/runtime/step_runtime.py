@@ -324,6 +324,7 @@ def _run_user_intent_candidate(  # noqa: PLR0913
             plan=plan,
             results=results,
             frontier_content=frontier_content,
+            allow_failure_recovery=False,
         )
         return
     if kind == "shell":
@@ -780,6 +781,7 @@ def _handle_plan_frontier(  # noqa: PLR0913
             plan=plan,
             results=results,
             frontier_content=frontier["content"],
+            allow_failure_recovery=frontier["role"] != "user",
         )
     if recovery_staged:
         return
@@ -855,10 +857,13 @@ def _append_plan_recovery_consequence(
     retry_note: str | None = None,
     remainder_reference: str | None = None,
     recovery_provenance: dict | None = None,
+    allow_failure_recovery: bool = True,
 ) -> bool:
     failed_index = _failed_result_index(results)
     staged_remainder = extract_staged_plan(frontier_content)
     if failed_index is not None:
+        if not allow_failure_recovery:
+            return False
         if _is_completed_shell_result(results[failed_index]):
             return False
         source = extract_plan_source(frontier_content, plan=plan)

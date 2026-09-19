@@ -241,7 +241,7 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
     if not isinstance(regex, bool):
         raise RuntimeError("invalid arguments for tool search: regex must be a bool")
     timeout_s = args.get("timeout_s", 5)
-    if not isinstance(timeout_s, int) or timeout_s <= 0:
+    if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
         raise RuntimeError("invalid arguments for tool search: timeout_s must be a positive int")
 
     path = workspace_path_fn(path_arg)
