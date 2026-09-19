@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-12
+> **Last Sync:** 2026-09-19
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -275,6 +275,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
 - **[T260912-config-execution-facet-design]** Deliberate the execution config/help facet
 - **[T260912-config-show-navigation-and-model-view]** Turn the new `/config show` overview into a trustworthy navigation surface and make detailed model configuration human-readable by default without los...
+- **[T260919-transcript-env-runtime-fences]** Make transcript-scoped `/env set` and `/env unset` modifiers apply to every runtime executable-fence lane with the same durable, ordered semantics alr...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
