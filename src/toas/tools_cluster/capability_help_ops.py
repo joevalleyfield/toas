@@ -81,7 +81,7 @@ TOOL_EXAMPLES: dict[str, str] = {
 class CapabilityHelpDeps:
     registry: dict
     shell_allowed: set[str]
-    assistant_timeout_s: int = 5
+    assistant_timeout_s: int | None = 5
     assistant_timeout_source: str = "default"
 
 
@@ -121,13 +121,14 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
     if name not in deps.registry:
         raise RuntimeError(f"unknown tool for capability help: {name}")
     required = ", ".join(deps.registry[name].required_args) or "none"
+    timeout_label = "unbounded" if deps.assistant_timeout_s is None else f"{deps.assistant_timeout_s}s"
     lines = [f"- `{name}`: {tool_summary(name)}", f"  required args: {required}"]
     if name == "shell":
         allowed = ", ".join(sorted(deps.shell_allowed))
         lines.append("  callable shape: use `arguments.argv` as list[str] (not `command`/`cmd` in action lane)")
         lines.append(
             "  timeout: any positive timeout_s; "
-            f"omitted default {deps.assistant_timeout_s}s "
+            f"omitted default {timeout_label} "
             f"(shell.assistant_timeout_s, source={deps.assistant_timeout_source})"
         )
         lines.append(f"  limits: workspace-bounded; allowed commands: {allowed}")
@@ -136,7 +137,7 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
         lines.append("  callable shape: use `arguments.script` as shell text for multiline/operators")
         lines.append(
             "  timeout: any positive timeout_s; "
-            f"omitted default {deps.assistant_timeout_s}s "
+            f"omitted default {timeout_label} "
             f"(shell.assistant_timeout_s, source={deps.assistant_timeout_source})"
         )
         lines.append(f"  limits: workspace-bounded; leading command must be allowed: {allowed}")

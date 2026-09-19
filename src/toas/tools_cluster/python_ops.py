@@ -9,7 +9,7 @@ from pathlib import Path
 from .shell_ops import run_subprocess
 
 
-def validate_python_script_args(args: dict, *, workspace_path_fn) -> tuple[str, Path, int, list[str], bool, Path, bool]:
+def validate_python_script_args(args: dict, *, workspace_path_fn) -> tuple[str, Path, int | None, list[str], bool, Path, bool]:
     script = args.get("script")
     if not isinstance(script, str) or not script.strip():
         raise RuntimeError("invalid arguments for tool python_script: script must be a non-empty string")

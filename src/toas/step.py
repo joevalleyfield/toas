@@ -630,7 +630,7 @@ def _execute_plan(
     env_modifiers: dict[str, str | None] | None = None,
     shell_allowed_commands: tuple[str, ...] | None = None,
     stream_stdout_enabled: bool | None = None,
-    assistant_timeout_s: int = 5,
+    assistant_timeout_s: int | None = 5,
     assistant_timeout_source: str = "default",
 ) -> list[dict]:
     effective_env = dict(env_modifiers or {})
