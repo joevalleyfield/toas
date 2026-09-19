@@ -156,6 +156,28 @@ def test_normalize_windows_shell_env_preserves_host_path_for_every_runtime(monke
     assert normalized["PATH"] == host_path
 
 
+def test_run_subprocess_applies_case_insensitive_process_environment_overrides_on_windows(monkeypatch, tmp_path):
+    from toas.runtime.environment_policy import active_environment_overrides
+    from toas.tools_cluster.shell_ops import run_subprocess
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setenv("TOAS_ENV_TEST", "host-value")
+    monkeypatch.setenv("PATH", "C:/host/bin;C:/Windows")
+    seen = {}
+
+    def _run(*_args, **kwargs):
+        seen["env"] = kwargs["env"]
+        return subprocess.CompletedProcess(["echo"], 0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.subprocess.run", _run)
+    with active_environment_overrides({"toas_env_test": "transcript-value", "path": "C:/Transcript;C:/TRANSCRIPT"}):
+        run_subprocess(["/bin/echo", "ok"], cwd=tmp_path, timeout_s=1, stream_stdout_override=False)
+
+    assert seen["env"]["toas_env_test"] == "transcript-value"
+    assert "TOAS_ENV_TEST" not in seen["env"]
+    assert seen["env"]["PATH"] == "C:/Transcript;C:/TRANSCRIPT"
+
+
 def test_validate_shell_args_happy_and_errors(tmp_path):
     out = validate_shell_args(
         {"argv": ["echo", "hi"], "cwd": str(tmp_path), "timeout_s": 3},

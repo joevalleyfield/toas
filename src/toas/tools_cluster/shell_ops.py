@@ -10,7 +10,11 @@ import time
 import traceback
 from pathlib import Path
 
-from ..runtime.environment_policy import apply_environment_policy, current_environment_policy
+from ..runtime.environment_policy import (
+    apply_environment_policy,
+    current_environment_overrides,
+    current_environment_policy,
+)
 from ..runtime.tool_stream_context import emit_tool_done
 from ..shell_grants import shell_command_decision, shell_script_segment_commands
 from .shell_streaming import run_streaming_subprocess
@@ -142,6 +146,16 @@ def run_subprocess(
     inherited_env = dict(os.environ)
     if env is not None:
         inherited_env.update(env)
+    for key, value in (current_environment_overrides() or {}).items():
+        if sys.platform.startswith("win"):
+            if key.casefold() == "path":
+                key = "PATH"
+            for existing in [name for name in inherited_env if name.casefold() == key.casefold()]:
+                del inherited_env[existing]
+        else:
+            inherited_env.pop(key, None)
+        if value is not None:
+            inherited_env[key] = value
     effective_env = _normalize_windows_shell_env(inherited_env, argv=argv)
     argv, effective_env = apply_environment_policy(
         effective_env,

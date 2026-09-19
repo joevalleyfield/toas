@@ -648,7 +648,7 @@ def _execute_plan(
             default_shell_cwd=command_cwd,
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
-            default_shell_env=effective_env,
+            default_process_env=effective_env,
             shell_allowed_commands=shell_allowed_commands,
             assistant_timeout_s=assistant_timeout_s,
             assistant_timeout_source=assistant_timeout_source,

@@ -105,3 +105,22 @@ loose `$ ...` shell lane merely because the operator used a fence.
 3. Add `/env unset`, `/run`, inherited-PATH, and Windows-normalization
    regressions; verify configured environment policy continues to compose only
    after the transcript overlay is resolved.
+
+## Status
+
+Closed: 2026-09-19
+
+## Progress
+
+- 2026-09-19: Added a shared process-environment overlay context at the
+  executable-plan boundary. Host inheritance is retained, ordered transcript
+  set/unset modifiers are applied before Windows normalization, and configured
+  environment policy still composes afterward. The legacy shell-named keyword
+  remains accepted as a compatibility alias while `default_process_env` is the
+  shared owner-facing parameter.
+- 2026-09-19: Added direct shell-script, Python, generic-interpreter, and
+  PowerShell-runner coverage, plus unset, inherited-PATH, replace-policy, and
+  mocked Windows case-insensitive environment regressions. `/run` uses the same
+  `_execute_plan` boundary and therefore receives the overlay.
+- 2026-09-19: Verification passed: focused runtime/tool tests (577 passed),
+  full suite (3,240 passed, 17 deselected, 100% coverage), and Ruff checks.

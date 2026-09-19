@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -30,6 +31,9 @@ class EnvironmentPolicy:
 
 
 _ACTIVE_POLICY: ContextVar[EnvironmentPolicy | None] = ContextVar("toas_environment_policy", default=None)
+_ACTIVE_OVERRIDES: ContextVar[dict[str, str | None] | None] = ContextVar(
+    "toas_environment_overrides", default=None
+)
 
 
 @contextmanager
@@ -43,6 +47,20 @@ def active_environment_policy(policy: EnvironmentPolicy | None):
 
 def current_environment_policy() -> EnvironmentPolicy | None:
     return _ACTIVE_POLICY.get()
+
+
+@contextmanager
+def active_environment_overrides(overrides: dict[str, str | None] | None):
+    """Apply transcript/process environment modifiers to nested subprocesses."""
+    token = _ACTIVE_OVERRIDES.set(dict(overrides) if overrides else None)
+    try:
+        yield
+    finally:
+        _ACTIVE_OVERRIDES.reset(token)
+
+
+def current_environment_overrides() -> dict[str, str | None] | None:
+    return _ACTIVE_OVERRIDES.get()
 
 
 def resolve_executable(argv0: str, *, env: dict[str, str]) -> str:
@@ -113,7 +131,7 @@ def apply_environment_policy(
     if profile is not None:
         effective.update(dict(profile.variables))
         path = effective.get("PATH", "").split(os.pathsep) if effective.get("PATH") else []
-        windows = os.name == "nt"
+        windows = os.name == "nt" or sys.platform.startswith("win")
         effective["PATH"] = os.pathsep.join(
             _deduplicate_path(
                 [*profile.path_prepend, *path, *profile.path_append],

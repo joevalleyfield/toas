@@ -1,7 +1,11 @@
+import sys
+
 import pytest
 
+from toas.runtime.environment_policy import EnvironmentPolicy, active_environment_policy
 from toas.tools_cluster.execution import adapt_call_for_execution, execute_plan_calls
 from toas.tools_cluster.file_match_ops import RepairSuggestionError
+from toas.tools_cluster.shell_ops import run_subprocess
 
 
 def test_adapt_call_for_execution_no_default_cwd_returns_original_call():
@@ -21,6 +25,48 @@ def test_adapt_call_for_execution_shell_sets_default_cwd_and_env_filters_none(tm
     assert adapted["args"]["cwd"] == str(tmp_path.resolve())
     assert adapted["args"]["env"] == {"A": "1"}
     assert adapted["args"]["timeout_s"] == 120
+
+
+def test_execute_plan_calls_applies_process_environment_to_runtime_subprocess(tmp_path, monkeypatch):
+    monkeypatch.setenv("TOAS_ENV_TEST", "host-value")
+    monkeypatch.setenv("TOAS_ENV_REMOVE", "remove-me")
+
+    def _execute(_call):
+        return run_subprocess(
+            [sys.executable, "-c", "import os; print(os.getenv('TOAS_ENV_TEST', 'missing')); print(os.getenv('TOAS_ENV_REMOVE', 'missing')); print(bool(os.getenv('PATH')))"],
+            cwd=tmp_path,
+            timeout_s=5,
+        )
+
+    result = execute_plan_calls(
+        [{"tool_name": "python_script", "args": {"script": "unused"}}],
+        execute_call=_execute,
+        default_process_env={"TOAS_ENV_TEST": "transcript-value", "TOAS_ENV_REMOVE": None},
+    )[0]
+
+    assert result["ok"] is True
+    assert result["stdout"].splitlines() == ["transcript-value", "missing", "True"]
+
+
+def test_execute_plan_calls_applies_replace_policy_after_process_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("TOAS_ENV_TEST", "host-value")
+
+    def _execute(_call):
+        return run_subprocess(
+            [sys.executable, "-c", "import os; print(os.getenv('TOAS_ENV_TEST', 'missing')); print(bool(os.getenv('PATH')))"],
+            cwd=tmp_path,
+            timeout_s=5,
+        )
+
+    with active_environment_policy(EnvironmentPolicy(mode="replace")):
+        result = execute_plan_calls(
+            [{"tool_name": "python_script", "args": {"script": "unused"}}],
+            execute_call=_execute,
+            default_process_env={"TOAS_ENV_TEST": "transcript-value"},
+        )[0]
+
+    assert result["ok"] is True
+    assert result["stdout"].splitlines() == ["missing", "False"]
 
 
 def test_adapt_call_for_execution_preserves_unbounded_explicit_positive_timeout(tmp_path):

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from toas.runtime.environment_policy import active_environment_overrides
 from toas.tools_cluster.powershell_ops import run_powershell_script, validate_powershell_script_args
 
 
@@ -37,6 +38,17 @@ def test_powershell_script_records_runtime_source_and_persists_artifact(tmp_path
     assert result["persist"] is True
     assert artifact.suffix == ".ps1"
     artifact.unlink()
+
+
+def test_powershell_script_receives_process_environment_overlay(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("TOAS_ENV_TEST", "host-value")
+    with active_environment_overrides({"TOAS_ENV_TEST": "transcript-value"}):
+        result = run_powershell_script(
+            {"script": "import os; print(os.environ['TOAS_ENV_TEST'])", "runtime": [sys.executable]},
+            workspace_path_fn=_workspace(tmp_path),
+        )
+
+    assert result["stdout"].strip() == "transcript-value"
 
 
 def test_powershell_script_reports_missing_runtime(tmp_path: Path):

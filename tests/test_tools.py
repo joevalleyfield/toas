@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -212,6 +213,42 @@ def test_execute_plan_preserves_intention_in_results():
         ]
     )
     assert result[0]["intention"] == "confirm write path"
+
+
+def test_execute_plan_applies_transcript_environment_to_all_available_fence_runners(tmp_path, monkeypatch):
+    monkeypatch.setenv("TOAS_ENV_TEST", "host-value")
+    plan = [
+        {"tool_name": "shell_script", "args": {"script": 'echo "$TOAS_ENV_TEST"'}},
+        {
+            "tool_name": "python_script",
+            "args": {
+                "script": "import os; print(os.environ['TOAS_ENV_TEST'])",
+                "runtime": [sys.executable],
+            },
+        },
+        {
+            "tool_name": "interpreter_script",
+            "args": {
+                "language": "python",
+                "script": "import os; print(os.environ['TOAS_ENV_TEST'])",
+                "runtime": [sys.executable],
+            },
+        },
+    ]
+
+    results = execute_plan(
+        plan,
+        default_shell_cwd=str(tmp_path),
+        workspace_roots=[str(tmp_path)],
+        default_process_env={"TOAS_ENV_TEST": "transcript-value"},
+        authority="user",
+    )
+
+    assert [result["stdout"].strip() for result in results] == [
+        "transcript-value",
+        "transcript-value",
+        "transcript-value",
+    ]
 
 
 def test_execute_plan_injects_configured_timeout_only_when_omitted(monkeypatch):
