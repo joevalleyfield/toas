@@ -42,7 +42,7 @@ the work remains open. The vote consolidates the config, fidelity,
 continuation, and authority concerns without reopening completed slices.
 
 1. **Authority and guardrail semantics:** prioritize the remaining slices of
-   `260830-exec-grant-policy-matchers` and `260903-user-lane-timeout-recovery`.
+   `260830-exec-grant-policy-matchers`.
    Assistant-side bounds should be explicit, overridable per restriction, and
    kept separate from the unbounded-but-interruptible user lane. The remaining
    shell authorization work should be allowed to express contextual,
