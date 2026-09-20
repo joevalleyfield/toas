@@ -1390,9 +1390,10 @@ def run_step(  # noqa: PLR0913
         working=handoff.working_for_frontier,
         baseline_config=baseline_config,
     )
-    if handoff.divergence_parent is not None or branch_config_present:
+    is_rewrite = handoff.lcp_index < len(log) - handoff.bind_index
+    if is_rewrite or branch_config_present:
         config = branch_config
-    policy_events = durable_events if handoff.divergence_parent is None and not branch_grant_events else branch_grant_events
+    policy_events = durable_events if not is_rewrite and not branch_grant_events else branch_grant_events
     generate, execute = _resolve_execution_dependencies(
         step_mod=step_mod,
         command_cwd=command_cwd,

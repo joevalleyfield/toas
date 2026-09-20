@@ -814,7 +814,7 @@ run shell
     assert out[0]["payload"]["exit_code"] == 0
 
 
-def test_assistant_shell_does_not_use_same_turn_transcript_allow_override():
+def test_assistant_shell_uses_preceding_transcript_allow_override(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 /shell allow sh
@@ -827,10 +827,10 @@ def test_assistant_shell_does_not_use_same_turn_transcript_allow_override():
 ```
 """
     _, out = step(transcript, [])
-    assert out[0]["payload"]["ok"] is False
+    assert out[0]["payload"]["ok"] is True
 
 
-def test_assistant_shell_does_not_use_same_turn_transcript_prefix_grant():
+def test_assistant_shell_uses_preceding_transcript_prefix_grant(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 /shell add prefix:py
@@ -843,7 +843,7 @@ def test_assistant_shell_does_not_use_same_turn_transcript_prefix_grant():
 ```
 """
     _, out = step(transcript, [])
-    assert out[0]["payload"]["ok"] is False
+    assert out[0]["payload"]["ok"] is True
 
 
 def test_user_shell_script_plan_executes_in_user_context(fake_shell_subprocess):

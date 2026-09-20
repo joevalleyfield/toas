@@ -74,3 +74,9 @@ isolation. The first-slice compatibility rule is explicit: linear continuation
 may consume legacy durable grant records, while a rewrite consumes only direct
 declarations visible in its reconstructed branch. The broader program retains
 future work for diagnostics and migration of other control domains.
+
+Corrective completion: `tests/test_step.py` now asserts that a declarative
+grant preceding assistant source is effective, and preserves the distinct
+ordinary-append compatibility case for durable grants. The runtime determines
+a rewrite from LCP versus the existing tail, rather than from the presence of a
+continuation parent.
