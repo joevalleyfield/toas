@@ -80,3 +80,8 @@ grant preceding assistant source is effective, and preserves the distinct
 ordinary-append compatibility case for durable grants. The runtime determines
 a rewrite from LCP versus the existing tail, rather than from the presence of a
 continuation parent.
+
+Coverage completion: focused reducer tests cover malformed declarations,
+scoped/reset grants, invalid config values, and direct config unset/restore.
+The targeted `step_runtime` report is now 99% (three pre-existing misses),
+with no uncovered lines introduced by this task.

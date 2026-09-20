@@ -15,6 +15,8 @@ from toas.runtime.step_runtime import (
     _append_strict_mixed_intent_error_if_needed,
     _apply_live_config_update,
     _bootstrap_seed_consequences,
+    _branch_config_from_direct_declarations,
+    _branch_shell_grant_events,
     _build_assistant_auto_staged_plan,
     _build_bootstrap_node,
     _build_new_transcript_nodes,
@@ -128,6 +130,51 @@ def test_working_with_transcript_tail_frontier_empty_reconstructed_uses_transcri
     )
 
     assert out == [{"role": "user", "content": "tail"}]
+
+
+def test_branch_shell_grant_events_reduce_scoped_and_reset_declarations():
+    events = _branch_shell_grant_events(
+        [
+            {"role": "control", "content": None},
+            {
+                "role": "control",
+                "content": '/shell add sh --scope head\n/shell reset --scope session\n/shell \n/shell "',
+            },
+            {"role": "assistant", "content": "frontier"},
+        ]
+    )
+
+    assert events == [
+        {"kind": "shell_scope_grant", "payload": {"scope": "head", "action": "add", "grant": "sh"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "reset"}},
+    ]
+
+
+def test_branch_config_reducer_skips_invalid_values_and_applies_unset_restore(monkeypatch):
+    baseline = OperatorConfig(shell=ShellPolicy(assistant_timeout_s=5))
+    original_apply = real_step_mod.apply_dotted_override
+
+    def reject_nine_hundred(config, key, value):
+        if value == "900":
+            raise ValueError("rejected")
+        return original_apply(config, key, value)
+
+    monkeypatch.setattr(real_step_mod, "apply_dotted_override", reject_nine_hundred)
+    config, applied = _branch_config_from_direct_declarations(
+        step_mod=real_step_mod,
+        baseline_config=baseline,
+        working=[
+            {"role": "control", "content": None},
+            {
+                "role": "control",
+                "content": '/config set shell.assistant_timeout_s "\n/config set shell.assistant_timeout_s 800\n/config set shell.assistant_timeout_s 900\n/config unset shell.assistant_timeout_s\n/config restore',
+            },
+            {"role": "assistant", "content": "frontier"},
+        ],
+    )
+
+    assert applied is True
+    assert config.shell.assistant_timeout_s == 5
 
 
 def test_working_with_transcript_tail_frontier_empty_transcript_keeps_reconstructed():
