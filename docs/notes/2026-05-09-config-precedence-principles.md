@@ -41,6 +41,14 @@ Effective config settings are resolved in the following order of precedence (hig
 6. **In-Code Defaults** (lowest)
    - Hardcoded fallback settings defined within the policies.
 
+For a rewritten transcript branch, the session-override layer is not a
+journal-wide bucket. It is the ordered config-delta overlay visible on the
+selected branch, evaluated from that branch's message LCP through the selected
+operation. The current user/project file result remains the ordinary baseline.
+See [LCP policy reevaluation](2026-09-20-transcript-control-state-contract.md#transcript-control-deltas-and-lcp-reevaluation)
+for the branch rule, including immutable reconstitution of a prior config-load
+result versus an explicit fresh load.
+
 ## Operation Classes
 
 Configuration actions belong to one of three distinct classes:

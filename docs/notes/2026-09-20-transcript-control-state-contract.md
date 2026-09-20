@@ -57,13 +57,35 @@ For example, streaming flags and child-process environment have their own
 resolvers, and selected runtime policy can intentionally replace an earlier
 environment layer.
 
-### Transcript control deltas
+### Policy baseline and transcript overlay
+
+Every operation starts from the current ordinary user/workspace policy resolved
+for its domain. Transcript control is a branch-scoped overlay on that baseline,
+not a parallel replacement configuration universe:
+
+```text
+effective operation policy
+  = domain-specific user/workspace baseline and hard constraints
+    + visible transcript deltas before the operation
+```
+
+The `+` is a domain reducer, not a universal last-write rule. Ordinary config
+values and timeouts normally let a later transcript delta replace the base
+value; grants reduce add/remove operations over a baseline grant set; and
+child-process environment applies its ordered merge/replace rules. A
+transcript delta cannot lift a non-overridable hard safety constraint.
+
+The baseline is normally current at step time. A future checkpoint may
+explicitly capture a resolved baseline or only a transcript overlay, but those
+are different projections and must not be conflated.
+
+### Transcript control deltas and LCP reevaluation
 
 Each control record has its own state transition and provenance. Relevant
 records include config overrides, shell-scope grants, command/workspace
 context, target selection, surface bindings, and related session controls.
 
-The resolver contract is:
+For an unchanged continuation, the resolver contract is:
 
 1. identify the message lineage or explicit history head for the operation;
 2. select only control records applicable to that lineage;
@@ -77,6 +99,39 @@ identifier. Normal stepping commonly supplies the full journal, which makes
 these controls history-forward today. This is explicitly current behavior, not
 the target contract. New control-state work should take lineage as an explicit
 input and preserve branch-forward semantics.
+
+For a transcript rewrite, branch-forward semantics require **LCP policy
+reevaluation**. Let `L` be the message least common prefix between the prior
+materialized transcript branch and the edited transcript:
+
+1. reduce visible declarative deltas through `L` over the current ordinary
+   baseline;
+2. materialize the new transcript suffix;
+3. reduce eligible deltas in that new suffix in transcript order, only through
+   the selected executable operation; and
+4. execute with that effective policy and expose the contributing source
+   message IDs.
+
+This makes a recreated declaration operational without importing a retired
+branch's effect record. For example, after an upstream typo edit,
+`C1: /shell add sh` may become new message `C1'` in the rewritten suffix.
+`C1'`, not old `C1`'s grant record, supplies the policy for a later `A2`.
+Conversely, a sibling that does not contain `C1'` cannot receive its grant.
+
+The rule is reduction, not arbitrary historical command execution. A typed,
+serializable declaration such as a config value, timeout, grant, target, or
+child-environment modifier can be folded from its source message. An external
+resolution such as `/config load` may be reconstituted only from an immutable,
+identified result that records its source message, resolved canonical delta,
+input identity/digest, and eligibility for reconstitution. The new source
+message then records that it reconstituted that result. File contents are not
+read again merely because a branch is reevaluated. A fresh external read or
+other imperative operation remains explicit and produces a new result.
+
+Older unlinked control records remain a compatibility concern; they cannot be
+retrospectively claimed as branch-scoped evidence. New transcript-originated
+records need source-message linkage so inspection can distinguish direct
+reduction, reconstituted results, and exceptional legacy fallback.
 
 ### Same-step visibility
 
