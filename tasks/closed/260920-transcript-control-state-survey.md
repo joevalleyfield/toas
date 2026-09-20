@@ -147,16 +147,22 @@ The survey must make the following explicit without deciding them prematurely:
 - Operator surfaces and provenance: `src/toas/runtime/operator_command_*`,
   config/help assets, and existing config/grant/environment tests.
 
-## Next Actions
+## Follow-On Actions
 
-1. Build the broad inventory from the current config registry, operator
-   commands, durable record writers/readers, environment-policy code, and
-   help/docs surfaces.
-2. Trace actual resolver call paths and tests for each domain; record where
-   implementation differs from the documented precedence contract.
-3. Classify controls by transcript-delta capability, file serializability,
-   branch behavior, and environment compatibility status.
-4. Identify the categories worth culling from the eventual settings/checkpoint
-   scope only after the inventory is complete.
-5. Split implementation follow-ons for the agreed delta model, checkpoint
-   projection, inline fence overrides, or environment-variable retirement.
+The survey work above is complete. Implementation can now be split into
+lineage-aware reducers, config round-trip/provenance repair, record-specific
+branch-forward deltas, child-environment inspection/inline support, and a
+validated checkpoint projection, as described in the durable note.
+
+## Survey Result
+
+Status: Complete (survey; implementation intentionally deferred).
+
+The durable survey is documented in
+[`docs/notes/2026-09-20-transcript-control-state-survey.md`](../../docs/notes/2026-09-20-transcript-control-state-survey.md).
+It confirms the broad inventory before scope cuts, separates TOAS control-plane
+environment from child-process environment, and records the current
+history-forward behavior of non-message control reducers. The recommended
+implementation order is lineage-aware reducers, complete config round-trip and
+provenance, record-specific branch-forward deltas, child-environment inspection
+and inline support, then a validated checkpoint projection.
