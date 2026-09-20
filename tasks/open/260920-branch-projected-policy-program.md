@@ -76,6 +76,12 @@ Expected implementation surfaces: `src/toas/runtime/step_runtime.py`,
 `src/toas/runtime/session_step_edges.py`, `src/toas/graph_control_state_edges.py`,
 `src/toas/graph_record_writers.py`, and focused runtime/integration tests.
 
+Status: Complete for the initial config/grant slice (`260920-lcp-direct-policy-deltas`).
+Direct declarations now project from the reconstructed branch, exact assistant
+resteps carry provenance, and new config/grant records link their source
+message. The compatibility boundary is deliberately narrow: linear
+continuation may consume legacy durable grants; rewrites do not.
+
 ### Phase 2 — other reducible transcript policy domains
 
 Bring child-process environment modifiers, target selection, command/workspace

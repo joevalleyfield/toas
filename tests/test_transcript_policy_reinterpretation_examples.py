@@ -98,6 +98,14 @@ def test_inserted_config_timeout_applies_to_restepped_assistant(monkeypatch, tmp
     assert fake_shell_subprocess.call_args.kwargs["timeout_s"] == 900
 
 
+def test_config_delta_on_one_sibling_does_not_change_another_sibling(monkeypatch, tmp_path, fake_shell_subprocess):
+    _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n## TOAS:CONTROL\n/config set shell.assistant_timeout_s 900\n")
+
+    _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n" + TIMEOUT_PLAN)
+
+    assert fake_shell_subprocess.call_args.kwargs["timeout_s"] == 5
+
+
 def test_restep_after_inserted_control_creates_related_assistant_under_new_policy(monkeypatch, tmp_path, fake_shell_subprocess):
     """Desired recovery: P1 changes policy for A2 without regenerating A1."""
     before = _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n" + ASSISTANT_PLAN)

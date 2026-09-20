@@ -275,7 +275,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260912-config-execution-facet-design]** Deliberate the execution config/help facet
 - **[T260912-config-show-navigation-and-model-view]** Turn the new `/config show` overview into a trustworthy navigation surface and make detailed model configuration human-readable by default without los...
 - **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program
-- **[T260920-lcp-direct-policy-deltas]** Implement Direct LCP Policy Deltas
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -362,7 +361,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-transcript-control-state-survey]** Establish the status quo for all operator-controlled state that can affect a future TOAS step before proposing a generalized settings-delta or checkpo...
 - **[T260920-transcript-control-documentation-contract]** Turn the completed transcript-control survey into a small, navigable documentation contract. The documentation must distinguish ordinary config preced...
 - **[T260920-lcp-policy-reevaluation-contract]** Document LCP Policy Reevaluation Contract
-- **[T260919-transcript-env-runtime-fences]** Make transcript-scoped `/env set` and `/env unset` modifiers apply to every runtime executable-fence lane with the same durable, ordered semantics alr...
+- **[T260920-lcp-direct-policy-deltas]** Implement Direct LCP Policy Deltas
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

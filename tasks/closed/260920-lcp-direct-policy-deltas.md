@@ -67,6 +67,10 @@ before a restepped assistant operation, without leaking to siblings.
   continuation. A rewrite uses only declarations visible in its reconstructed
   transcript branch, so legacy records cannot silently leak into a sibling.
 
-Remaining in this task: add targeted coverage for config sibling isolation and
-decide whether the current explicit linear-only legacy fallback is sufficient
-for the first slice or needs a surfaced diagnostic before completion.
+## Result
+
+Status: Complete. Config sibling isolation is covered alongside grant
+isolation. The first-slice compatibility rule is explicit: linear continuation
+may consume legacy durable grant records, while a rewrite consumes only direct
+declarations visible in its reconstructed branch. The broader program retains
+future work for diagnostics and migration of other control domains.
