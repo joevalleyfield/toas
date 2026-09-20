@@ -89,6 +89,11 @@ context, and other eligible serializable controls onto the same projection
 interface. Preserve each domain's own merge and scope behavior rather than
 forcing all controls into config-override semantics.
 
+The first bounded Phase-2 follow-on is
+`260920-branch-projected-target-selection`: it covers only direct active-target
+selection over an existing catalog. Catalog mutation/discovery remains separate
+because it needs source-linked typed config or external-result semantics.
+
 ### Phase 3 — reconstitutable external resolutions
 
 Introduce immutable typed resolution-result records for operations such as
