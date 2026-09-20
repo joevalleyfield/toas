@@ -361,8 +361,8 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-transcript-policy-reinterpretation-examples]** Transcript Policy Reinterpretation Examples
 - **[T260920-transcript-control-state-survey]** Establish the status quo for all operator-controlled state that can affect a future TOAS step before proposing a generalized settings-delta or checkpo...
 - **[T260920-transcript-control-documentation-contract]** Turn the completed transcript-control survey into a small, navigable documentation contract. The documentation must distinguish ordinary config preced...
+- **[T260920-ruff-cleanup]** Clear current Ruff findings without changing runtime behavior, so normal verification remains a trustworthy repository-wide gate.
 - **[T260920-lcp-policy-reevaluation-contract]** Document LCP Policy Reevaluation Contract
-- **[T260920-lcp-direct-policy-deltas]** Implement Direct LCP Policy Deltas
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -20,16 +20,15 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from difflib import SequenceMatcher
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 
 @dataclass(frozen=True)
 class LegacyNode:
     id: str
-    parent: Optional[str]
+    parent: str | None
     role: str
     content: str
     line_no: int
@@ -38,7 +37,7 @@ class LegacyNode:
 @dataclass(frozen=True)
 class CanonNode:
     id: str
-    parent: Optional[str]
+    parent: str | None
     role: str
     content: str
 
@@ -111,8 +110,8 @@ def normalize_whitespace_structural(text: str) -> str:
     return t.strip("\n")
 
 
-def load_legacy_messages(events_path: Path) -> List[LegacyNode]:
-    out: List[LegacyNode] = []
+def load_legacy_messages(events_path: Path) -> list[LegacyNode]:
+    out: list[LegacyNode] = []
     with events_path.open("r", encoding="utf-8") as f:
         for line_no, line in enumerate(f, 1):
             line = line.strip()
@@ -136,11 +135,11 @@ def load_legacy_messages(events_path: Path) -> List[LegacyNode]:
     return out
 
 
-def collapse_prefix(nodes: List[LegacyNode], *, normalize_mode: str = "none") -> Tuple[Dict[str, str], Dict[str, CanonNode]]:
+def collapse_prefix(nodes: list[LegacyNode], *, normalize_mode: str = "none") -> tuple[dict[str, str], dict[str, CanonNode]]:
     """Return (legacy->canonical id map, canonical node dict)."""
-    legacy_to_canon: Dict[str, str] = {}
-    key_to_canon: Dict[Tuple[Optional[str], str, str], str] = {}
-    canon_nodes: Dict[str, CanonNode] = {}
+    legacy_to_canon: dict[str, str] = {}
+    key_to_canon: dict[tuple[str | None, str, str], str] = {}
+    canon_nodes: dict[str, CanonNode] = {}
     next_idx = 0
 
     for n in nodes:
@@ -163,11 +162,11 @@ def collapse_prefix(nodes: List[LegacyNode], *, normalize_mode: str = "none") ->
     return legacy_to_canon, canon_nodes
 
 
-def lineage_legacy(id_to_node: Dict[str, LegacyNode], target: str) -> List[str]:
+def lineage_legacy(id_to_node: dict[str, LegacyNode], target: str) -> list[str]:
     if target not in id_to_node:
         raise KeyError(f"target not found: {target}")
-    out: List[str] = []
-    cur: Optional[str] = target
+    out: list[str] = []
+    cur: str | None = target
     seen = set()
     while cur is not None and cur in id_to_node:
         if cur in seen:
@@ -180,11 +179,11 @@ def lineage_legacy(id_to_node: Dict[str, LegacyNode], target: str) -> List[str]:
     return out
 
 
-def lineage_canon(canon_nodes: Dict[str, CanonNode], target_canon: str) -> List[str]:
+def lineage_canon(canon_nodes: dict[str, CanonNode], target_canon: str) -> list[str]:
     if target_canon not in canon_nodes:
         raise KeyError(f"canonical target not found: {target_canon}")
-    out: List[str] = []
-    cur: Optional[str] = target_canon
+    out: list[str] = []
+    cur: str | None = target_canon
     seen = set()
     while cur is not None and cur in canon_nodes:
         if cur in seen:
@@ -196,9 +195,9 @@ def lineage_canon(canon_nodes: Dict[str, CanonNode], target_canon: str) -> List[
     return out
 
 
-def render_transcript_from_legacy(ids: List[str], id_to_node: Dict[str, LegacyNode]) -> str:
+def render_transcript_from_legacy(ids: list[str], id_to_node: dict[str, LegacyNode]) -> str:
     # Match current transcript projection style for legacy records.
-    parts: List[str] = []
+    parts: list[str] = []
     for mid in ids:
         n = id_to_node[mid]
         role = n.role.upper() if n.role else "UNKNOWN"
@@ -206,8 +205,8 @@ def render_transcript_from_legacy(ids: List[str], id_to_node: Dict[str, LegacyNo
     return "\n\n".join(parts)
 
 
-def render_transcript_from_canon(ids: List[str], canon_nodes: Dict[str, CanonNode]) -> str:
-    parts: List[str] = []
+def render_transcript_from_canon(ids: list[str], canon_nodes: dict[str, CanonNode]) -> str:
+    parts: list[str] = []
     for cid in ids:
         n = canon_nodes[cid]
         role = n.role.upper() if n.role else "UNKNOWN"

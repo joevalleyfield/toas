@@ -14,7 +14,6 @@ import pytest
 
 import toas.cli as cli
 
-
 ASSISTANT_PLAN = """## TOAS:ASSISTANT
 ```yaml
 - operation: shell
