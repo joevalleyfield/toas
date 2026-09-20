@@ -83,5 +83,6 @@ continuation parent.
 
 Coverage completion: focused reducer tests cover malformed declarations,
 scoped/reset grants, invalid config values, and direct config unset/restore.
-The targeted `step_runtime` report is now 99% (three pre-existing misses),
-with no uncovered lines introduced by this task.
+The targeted `step_runtime` report is now 100%, including exact assistant
+restep provenance, disabled failure recovery, and live-config executor update
+branches.

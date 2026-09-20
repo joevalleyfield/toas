@@ -132,6 +132,27 @@ def test_working_with_transcript_tail_frontier_empty_reconstructed_uses_transcri
     assert out == [{"role": "user", "content": "tail"}]
 
 
+def test_build_new_transcript_nodes_marks_exact_assistant_restep():
+    _, _, nodes, _, _ = _build_new_transcript_nodes(
+        step_mod=real_step_mod,
+        transcript="## TOAS:USER\nchanged\n\n## TOAS:ASSISTANT\nplan\n",
+        log=[
+            {"role": "user", "content": "original", "id": "n1"},
+            {"role": "assistant", "content": "plan", "id": "n2"},
+        ],
+        lineage=[
+            {"role": "user", "content": "original", "id": "n1"},
+            {"role": "assistant", "content": "plan", "id": "n2"},
+        ],
+        bind_index=0,
+        anchor_index=None,
+        bind_parent=None,
+        storage_tip_parent=None,
+    )
+
+    assert nodes[-1]["provenance"] == {"source": "assistant_restep", "restep_of": "n2"}
+
+
 def test_branch_shell_grant_events_reduce_scoped_and_reset_declarations():
     events = _branch_shell_grant_events(
         [
@@ -2343,6 +2364,9 @@ def test_handle_user_frontier_applies_config_update_before_later_operator():
 
     step_mod = SimpleNamespace(_execute_operator_command=execute_operator)
     config = OperatorConfig()
+    def execute(*_args, **_kwargs):
+        return []
+    execute._toas_live_config = [config]
     _handle_user_or_control_frontier(
         step_mod=step_mod,
         frontier={"role": "user", "content": "/config set extraction.yaml_position any\n/config show"},
@@ -2356,7 +2380,7 @@ def test_handle_user_frontier_applies_config_update_before_later_operator():
         shell_command=None,
         shell_argv=None,
         turn_inert=False,
-        execute=lambda *_a, **_k: [],
+        execute=execute,
         events=[],
         working=[{"role": "user", "content": "frontier"}],
         transcript="",
@@ -2375,6 +2399,7 @@ def test_handle_user_frontier_applies_config_update_before_later_operator():
     assert len(seen_configs) == 2
     assert seen_configs[0].extraction.yaml_position == "tail"
     assert seen_configs[1].extraction.yaml_position == "any"
+    assert execute._toas_live_config[0].extraction.yaml_position == "any"
 
 
 def test_handle_user_frontier_applies_unset_to_later_operator():
@@ -2611,6 +2636,21 @@ def test_append_plan_recovery_consequence_splits_failed_call_from_forward_plan()
     recovery = consequences[-1]
     assert real_step_mod.extract_plan_with_status(recovery["content"], yaml_position="tail")[0] == [plan[1]]
     assert real_step_mod._extract_staged_plan(recovery["content"]) == [plan[2]]
+
+
+def test_append_plan_recovery_consequence_can_disable_failure_recovery():
+    result = _result("failed", payload={"tool_name": "echo", "ok": False})
+    consequences = [result]
+
+    assert _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=[{"tool_name": "echo", "args": {"text": "retry"}}],
+        results=[result],
+        frontier_content="",
+        allow_failure_recovery=False,
+    ) is False
+    assert consequences == [result]
 
 
 @pytest.mark.parametrize("failed_index", [0, 1, 2])
