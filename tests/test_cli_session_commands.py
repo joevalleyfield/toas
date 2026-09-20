@@ -87,11 +87,10 @@ def test_build_step_kwargs_marks_injected_controls_when_step_accepts_them():
 
     kwargs = mod._build_step_kwargs(
         deps=SimpleNamespace(step_fn=fake_step),
-        runtime_ctx={"events": []},
+        runtime_ctx={"events": [], "injected_control": True},
         operator_config=OperatorConfig(),
         config_sources={},
         generation_fn=lambda _working: None,
-        injected_control=True,
     )
 
     assert kwargs["injected_control"] is True

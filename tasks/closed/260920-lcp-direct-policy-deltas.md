@@ -94,3 +94,8 @@ endpoint and target authoring loses earlier controls between invocations.
 
 Verified the correction with the endpoint/target authoring and bootstrap
 acceptance scenarios plus the CLI handoff and direct-policy suites (36 passed).
+
+Compatibility correction: the injected-control marker stays inside the
+runtime-context mapping used by the CLI assembly edge.  It is intentionally
+not added to `_build_step_kwargs`'s public call signature, so existing
+diagnostic wrappers and adapter seams remain valid.
