@@ -79,6 +79,24 @@ def test_build_step_kwargs_threads_explicit_stream_stdout_when_step_accepts_it()
     assert kwargs["stream_stdout_enabled"] is False
 
 
+def test_build_step_kwargs_marks_injected_controls_when_step_accepts_them():
+    import toas.cli_session_commands as mod
+
+    def fake_step(transcript, log, *, generate=None, injected_control=False):
+        return (transcript, log, generate, injected_control)
+
+    kwargs = mod._build_step_kwargs(
+        deps=SimpleNamespace(step_fn=fake_step),
+        runtime_ctx={"events": []},
+        operator_config=OperatorConfig(),
+        config_sources={},
+        generation_fn=lambda _working: None,
+        injected_control=True,
+    )
+
+    assert kwargs["injected_control"] is True
+
+
 def test_settings_with_stream_mode_clones_settings_with_replaced_mode():
     settings = Settings("http://model", "secret", "model", False, "chat_messages", True)
 

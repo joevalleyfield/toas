@@ -75,6 +75,7 @@ def _build_step_kwargs(
     config_sources,
     generation_fn,
     stream_stdout_enabled: bool | None = None,
+    injected_control: bool = False,
 ):
     step_kwargs = {
         "generate": generation_fn,
@@ -96,6 +97,8 @@ def _build_step_kwargs(
         step_kwargs["events"] = runtime_ctx["events"]
     if "bind_index" in params:
         step_kwargs["bind_index"] = runtime_ctx["bind_index"]
+    if injected_control and "injected_control" in params:
+        step_kwargs["injected_control"] = True
     if stream_stdout_enabled is not None and "stream_stdout_enabled" in params:
         step_kwargs["stream_stdout_enabled"] = stream_stdout_enabled
     return step_kwargs
@@ -221,6 +224,7 @@ def run_step(
         "operator_config": operator_config,
         "config_sources": config_sources,
         "generation_fn": generate_override or generation_runner.generate,
+        "injected_control": control is not None,
     }
     if stream_stdout_enabled is not None:
         build_kwargs["stream_stdout_enabled"] = stream_stdout_enabled

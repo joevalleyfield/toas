@@ -86,3 +86,11 @@ scoped/reset grants, invalid config values, and direct config unset/restore.
 The targeted `step_runtime` report is now 100%, including exact assistant
 restep provenance, disabled failure recovery, and live-config executor update
 branches.
+
+Regression follow-up: CLI-injected `control=` commands materialize as sibling
+control records even though they are not session-transcript edits.  They must
+retain the existing history-forward durable configuration lane; otherwise
+endpoint and target authoring loses earlier controls between invocations.
+
+Verified the correction with the endpoint/target authoring and bootstrap
+acceptance scenarios plus the CLI handoff and direct-policy suites (36 passed).

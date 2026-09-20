@@ -931,6 +931,7 @@ def step(
     events: list[dict] | None = None,
     stream_stdout_enabled: bool | None = None,
     bind_index: int = 0,
+    injected_control: bool = False,
 ):
     from .runtime.step_runtime import run_step
 
@@ -949,4 +950,5 @@ def step(
         events=events,
         stream_stdout_enabled=stream_stdout_enabled,
         bind_index=bind_index,
+        injected_control=injected_control,
     )
