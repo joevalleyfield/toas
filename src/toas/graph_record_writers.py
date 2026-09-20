@@ -9,12 +9,15 @@ def write_command_context_record(
     *,
     cwd: str,
     previous_cwd: str | None = None,
+    source_message_id: str | None = None,
     append_nodes_fn,
 ) -> dict:
     payload = {"cwd": cwd}
     if previous_cwd is not None:
         payload["previous_cwd"] = previous_cwd
     record = {"kind": "command_context", "payload": payload}
+    if source_message_id is not None:
+        record["related_to"] = source_message_id
     append_nodes_fn(path, [record])
     return record
 

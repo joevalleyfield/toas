@@ -100,6 +100,15 @@ only from the current branch; unlinked records remain a stated compatibility
 input. Target catalog mutation/discovery, command/workspace context, and other
 Phase-2 domains remain separate.
 
+The next bounded Phase-2 slice is `260920-branch-projected-command-context`:
+ordered direct `/cd` projection for executable frontiers. Workspace scope is
+explicitly deferred because its root/mode validation is a separate policy
+domain.
+
+Status: Complete for direct command-context projection. Rewrites reduce
+visible `/cd` declarations from the process baseline, and source-linked context
+records preserve provenance. Workspace scope remains a distinct Phase-2 domain.
+
 ### Phase 3 — reconstitutable external resolutions
 
 Introduce immutable typed resolution-result records for operations such as

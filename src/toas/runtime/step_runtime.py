@@ -5,6 +5,7 @@ import json
 import logging
 import shlex
 from pathlib import Path
+from types import SimpleNamespace
 
 from ..config import OperatorConfig, apply_overrides, config_from_discovered_paths
 from ..graph import active_config_overrides
@@ -558,6 +559,50 @@ def _branch_config_from_direct_declarations(*, step_mod, working: list[dict], ba
                 )
                 applied = True
     return config, applied
+
+
+def _branch_command_context_from_direct_declarations(
+    *,
+    working: list[dict],
+    command_cwd: str,
+    previous_command_cwd: str | None,
+    workspace_mode: str,
+    workspace_roots: list[str],
+) -> tuple[str, str | None, bool]:
+    """Reduce valid direct `/cd` declarations before the current frontier."""
+    from .operator_command_prompt_workspace import _guard_workspace_target, _resolve_cd_target
+
+    cwd = command_cwd
+    previous_cwd = previous_command_cwd
+    applied = False
+    for node in working[:-1]:
+        content = node.get("content")
+        if not isinstance(content, str):
+            continue
+        for line in content.splitlines():
+            if not line.startswith("/cd "):
+                continue
+            try:
+                args = shlex.split(line[1:])
+            except ValueError:
+                continue
+            if len(args) != 2 or args[0] != "cd":
+                continue
+            context = SimpleNamespace(
+                command_cwd=cwd,
+                previous_command_cwd=previous_cwd,
+                workspace_mode=workspace_mode,
+                workspace_roots=workspace_roots,
+            )
+            try:
+                target = _resolve_cd_target(args[1], context=context)
+                _guard_workspace_target(target, args[1], context=context)
+            except ValueError:
+                continue
+            previous_cwd = str(Path(cwd).expanduser().resolve())
+            cwd = str(target)
+            applied = True
+    return cwd, previous_cwd, applied
 
 
 
@@ -1391,12 +1436,21 @@ def run_step(  # noqa: PLR0913
         working=handoff.working_for_frontier,
         baseline_config=baseline_config,
     )
+    is_rewrite = not injected_control and handoff.lcp_index < len(log) - handoff.bind_index
+    context_baseline_cwd = str(Path.cwd().resolve()) if is_rewrite else command_cwd
+    context_baseline_previous_cwd = None if is_rewrite else previous_command_cwd
+    command_cwd, previous_command_cwd, _branch_context_present = _branch_command_context_from_direct_declarations(
+        working=handoff.working_for_frontier,
+        command_cwd=context_baseline_cwd,
+        previous_command_cwd=context_baseline_previous_cwd,
+        workspace_mode=workspace_mode,
+        workspace_roots=workspace_roots,
+    )
     # CLI-injected `control=` turns are intentionally ephemeral transcript
     # input.  They materialize as sibling control records, rather than edits
     # to session.md, so their LCP with the selected message lineage is not a
     # user-authored transcript rewrite.  Preserve their existing
     # history-forward configuration lane.
-    is_rewrite = not injected_control and handoff.lcp_index < len(log) - handoff.bind_index
     if is_rewrite or branch_config_present:
         config = branch_config
     policy_events = durable_events if not is_rewrite and not branch_grant_events else branch_grant_events

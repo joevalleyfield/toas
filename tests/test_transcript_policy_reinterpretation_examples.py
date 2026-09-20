@@ -128,3 +128,43 @@ def test_policy_delta_on_one_sibling_does_not_authorize_another_sibling(monkeypa
     events = _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n" + ASSISTANT_PLAN)
 
     assert _assistant_results(events)[-1]["payload"]["ok"] is False
+
+
+def test_inserted_cd_applies_to_restepped_assistant(monkeypatch, tmp_path, fake_shell_subprocess):
+    target = tmp_path / "target"
+    target.mkdir()
+
+    _step(
+        monkeypatch,
+        tmp_path,
+        "## TOAS:USER\nP0\n\n"
+        f"## TOAS:CONTROL\n/cd {target}\n\n"
+        "## TOAS:CONTROL\n/shell add sh\n\n"
+        + ASSISTANT_PLAN,
+    )
+
+    assert Path(fake_shell_subprocess.call_args.kwargs["cwd"]) == target
+
+
+def test_cd_on_one_sibling_does_not_change_another_sibling(monkeypatch, tmp_path, fake_shell_subprocess):
+    target = tmp_path / "target"
+    target.mkdir()
+    _step(monkeypatch, tmp_path, f"## TOAS:USER\nP0\n\n## TOAS:CONTROL\n/cd {target}\n")
+
+    _step(
+        monkeypatch,
+        tmp_path,
+        "## TOAS:USER\nP0\n\n## TOAS:CONTROL\n/shell add sh\n\n" + ASSISTANT_PLAN,
+    )
+
+    assert Path(fake_shell_subprocess.call_args.kwargs["cwd"]) == tmp_path
+
+
+def test_cd_context_record_links_its_source_message(monkeypatch, tmp_path):
+    target = tmp_path / "target"
+    target.mkdir()
+    events = _step(monkeypatch, tmp_path, f"## TOAS:CONTROL\n/cd {target}\n")
+
+    source = next(event for event in _message_events(events) if event["content"] == f"/cd {target}")
+    record = next(event for event in events if event.get("kind") == "command_context")
+    assert record["related_to"] == source["id"]

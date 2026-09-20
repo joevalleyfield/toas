@@ -15,6 +15,7 @@ from toas.runtime.step_runtime import (
     _append_strict_mixed_intent_error_if_needed,
     _apply_live_config_update,
     _bootstrap_seed_consequences,
+    _branch_command_context_from_direct_declarations,
     _branch_config_from_direct_declarations,
     _branch_shell_grant_events,
     _build_assistant_auto_staged_plan,
@@ -169,6 +170,33 @@ def test_branch_shell_grant_events_reduce_scoped_and_reset_declarations():
         {"kind": "shell_scope_grant", "payload": {"scope": "head", "action": "add", "grant": "sh"}},
         {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "reset"}},
     ]
+
+
+def test_branch_command_context_reducer_applies_ordered_cd_and_dash(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    cwd, previous, applied = _branch_command_context_from_direct_declarations(
+        working=[
+            {"role": "control", "content": None},
+            {"role": "control", "content": "/cd 'unterminated"},
+            {"role": "control", "content": "/cd first extra"},
+            {"role": "control", "content": "/cd missing"},
+            {"role": "control", "content": f"/cd {first}"},
+            {"role": "control", "content": f"/cd {second}\n/cd -"},
+            {"role": "assistant", "content": "frontier"},
+        ],
+        command_cwd=str(tmp_path),
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=[str(tmp_path)],
+    )
+
+    assert applied is True
+    assert cwd == str(first)
+    assert previous == str(second)
 
 
 def test_branch_config_reducer_skips_invalid_values_and_applies_unset_restore(monkeypatch):

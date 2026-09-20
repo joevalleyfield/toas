@@ -254,7 +254,11 @@ def apply_result_side_effects(
     _apply_lens_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_intent_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_coordination_state_updates(events_path=events_path, result_nodes=result_nodes)
-    _apply_context_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_context_updates(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        source_message_id=source_message_id,
+    )
     _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
     _apply_config_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
@@ -491,7 +495,12 @@ def _apply_coordination_state_updates(*, events_path: Path, result_nodes: list[d
             write_coordination_state_record(str(events_path), payload=update)
 
 
-def _apply_context_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+def _apply_context_updates(
+    *,
+    events_path: Path,
+    result_nodes: list[dict],
+    source_message_id: str | None = None,
+) -> None:
     for node in result_nodes:
         context_update = node.get("context_update")
         if not isinstance(context_update, dict):
@@ -501,7 +510,12 @@ def _apply_context_updates(*, events_path: Path, result_nodes: list[dict]) -> No
             continue
         previous = context_update.get("previous_cwd")
         previous_cwd = previous if isinstance(previous, str) and previous else None
-        write_command_context_record(str(events_path), cwd=cwd, previous_cwd=previous_cwd)
+        write_command_context_record(
+            str(events_path),
+            cwd=cwd,
+            previous_cwd=previous_cwd,
+            source_message_id=source_message_id,
+        )
 
 
 def _apply_workspace_updates(*, events_path: Path, result_nodes: list[dict]) -> None:

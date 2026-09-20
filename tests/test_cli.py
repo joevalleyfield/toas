@@ -2610,7 +2610,11 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
             "payload": {"ok": True, "content": "/tmp", "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"}},
             "related_to": "c1",
         },
-        {"kind": "command_context", "payload": {"cwd": "/tmp", "previous_cwd": "/previous"}},
+        {
+            "kind": "command_context",
+            "payload": {"cwd": "/tmp", "previous_cwd": "/previous"},
+            "related_to": "n1",
+        },
     ]
     assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\n/tmp\n\n"
 

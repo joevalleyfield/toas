@@ -603,11 +603,18 @@ def write_anchor_record(path: str, *, offset: int, node_id: str) -> dict:
     return _write_anchor_record_core(path, offset=offset, node_id=node_id, append_nodes_fn=append_nodes)
 
 
-def write_command_context_record(path: str, *, cwd: str, previous_cwd: str | None = None) -> dict:
+def write_command_context_record(
+    path: str,
+    *,
+    cwd: str,
+    previous_cwd: str | None = None,
+    source_message_id: str | None = None,
+) -> dict:
     return _write_command_context_record_core(
         path,
         cwd=cwd,
         previous_cwd=previous_cwd,
+        source_message_id=source_message_id,
         append_nodes_fn=append_nodes,
     )
 
