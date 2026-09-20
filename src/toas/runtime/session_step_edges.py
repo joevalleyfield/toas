@@ -245,6 +245,7 @@ def apply_result_side_effects(
     session_path: Path,
     session_newline: str,
     runtime_secrets: dict[str, str],
+    source_message_id: str | None = None,
     serialize_operator_config_toml,
     write_text_with_newline_style,
     apply_newline_style,
@@ -256,9 +257,9 @@ def apply_result_side_effects(
     _apply_context_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
-    _apply_config_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_config_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
     _apply_target_selection_updates(events_path=events_path, result_nodes=result_nodes)
-    _apply_shell_scope_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_shell_scope_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
     _apply_visible_prompt_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_compaction_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_concept_graph_updates(events_path=events_path, result_nodes=result_nodes)
@@ -537,12 +538,12 @@ def _apply_secret_updates(*, result_nodes: list[dict], runtime_secrets: dict[str
             runtime_secrets.pop("llm_api_key", None)
 
 
-def _apply_config_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+def _apply_config_updates(*, events_path: Path, result_nodes: list[dict], source_message_id: str | None = None) -> None:
     for node in result_nodes:
         config_update = node.get("config_update")
         if not isinstance(config_update, dict) or not config_update:
             continue
-        write_config_override_record(str(events_path), config_update)
+        write_config_override_record(str(events_path), config_update, source_message_id=source_message_id)
 
 
 def _apply_target_selection_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
@@ -563,7 +564,7 @@ def _apply_target_selection_updates(*, events_path: Path, result_nodes: list[dic
         )
 
 
-def _apply_shell_scope_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+def _apply_shell_scope_updates(*, events_path: Path, result_nodes: list[dict], source_message_id: str | None = None) -> None:
     for node in result_nodes:
         update = node.get("shell_scope_update")
         if not isinstance(update, dict):
@@ -574,9 +575,9 @@ def _apply_shell_scope_updates(*, events_path: Path, result_nodes: list[dict]) -
         if not isinstance(scope, str) or not isinstance(action, str):
             continue
         if action in {"add", "remove", "unset"} and isinstance(grant, str) and grant:
-            write_shell_scope_grant_record(str(events_path), scope=scope, action=action, grant=grant)
+            write_shell_scope_grant_record(str(events_path), scope=scope, action=action, grant=grant, source_message_id=source_message_id)
         elif action == "reset":
-            write_shell_scope_grant_record(str(events_path), scope=scope, action=action)
+            write_shell_scope_grant_record(str(events_path), scope=scope, action=action, source_message_id=source_message_id)
 
 
 def _apply_config_saves(*, result_nodes: list[dict], operator_config: OperatorConfig, serialize_operator_config_toml) -> None:

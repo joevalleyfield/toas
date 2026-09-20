@@ -275,6 +275,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260912-config-execution-facet-design]** Deliberate the execution config/help facet
 - **[T260912-config-show-navigation-and-model-view]** Turn the new `/config show` overview into a trustworthy navigation surface and make detailed model configuration human-readable by default without los...
 - **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program
+- **[T260920-lcp-direct-policy-deltas]** Implement Direct LCP Policy Deltas
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

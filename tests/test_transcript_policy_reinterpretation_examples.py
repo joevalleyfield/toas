@@ -70,25 +70,14 @@ def test_earlier_nonpolicy_edit_retains_a_recreated_policy_delta(monkeypatch, tm
     assert _assistant_results(events)[-1]["payload"]["ok"] is True
 
 
-def test_inserted_control_is_persisted_but_not_applied_when_restepping_later_assistant(monkeypatch, tmp_path, fake_shell_subprocess):
-    """Current history-forward baseline: a new preceding control turn is inert here."""
-    _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n" + ASSISTANT_PLAN)
+def test_direct_control_records_link_their_source_message(monkeypatch, tmp_path):
+    events = _step(monkeypatch, tmp_path, "## TOAS:CONTROL\n/config set shell.assistant_timeout_s 900\n")
 
-    events = _step(
-        monkeypatch,
-        tmp_path,
-        "## TOAS:USER\nP0\n\n## TOAS:CONTROL\n/shell add sh\n\n" + ASSISTANT_PLAN,
-    )
-
-    messages = _message_events(events)
-    inserted_control = next(event for event in messages if event["role"] == "control" and event["content"] == "/shell add sh")
-    restep = [event for event in messages if event["role"] == "assistant"][-1]
-    assert restep["parent"] == inserted_control["id"]
-    assert _assistant_results(events)[-1]["payload"]["ok"] is False
-    assert not any(event.get("kind") == "shell_scope_grant" for event in events)
+    source = _message_events(events)[-1]
+    override = next(event for event in events if event.get("kind") == "config_override")
+    assert override["related_to"] == source["id"]
 
 
-@pytest.mark.xfail(strict=True, reason="transcript restep does not yet apply an inserted preceding policy delta")
 def test_restep_after_inserted_control_creates_related_assistant_under_new_policy(monkeypatch, tmp_path, fake_shell_subprocess):
     """Desired recovery: P1 changes policy for A2 without regenerating A1."""
     before = _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n" + ASSISTANT_PLAN)
@@ -101,11 +90,10 @@ def test_restep_after_inserted_control_creates_related_assistant_under_new_polic
     )
 
     restep = [event for event in _message_events(events) if event["role"] == "assistant"][-1]
-    assert restep["provenance"]["resteps"] == original["id"]
+    assert restep["provenance"]["restep_of"] == original["id"]
     assert _assistant_results(events)[-1]["payload"]["ok"] is True
 
 
-@pytest.mark.xfail(strict=True, reason="control reducers are history-wide rather than scoped to the selected message branch")
 def test_policy_delta_on_one_sibling_does_not_authorize_another_sibling(monkeypatch, tmp_path, fake_shell_subprocess):
     """Desired isolation: a P1 grant is visible only below its branch."""
     _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n## TOAS:CONTROL\n/shell add sh\n")

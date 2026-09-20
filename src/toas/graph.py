@@ -616,16 +616,17 @@ def write_workspace_scope_record(path: str, *, mode: str, roots: list[str]) -> d
     return _write_workspace_scope_record_core(path, mode=mode, roots=roots, append_nodes_fn=append_nodes)
 
 
-def write_config_override_record(path: str, nested: dict) -> dict:
-    return _write_config_override_record_core(path, nested, append_nodes_fn=append_nodes)
+def write_config_override_record(path: str, nested: dict, *, source_message_id: str | None = None) -> dict:
+    return _write_config_override_record_core(path, nested, source_message_id=source_message_id, append_nodes_fn=append_nodes)
 
 
-def write_shell_scope_grant_record(path: str, *, scope: str, action: str, grant: str | None = None) -> dict:
+def write_shell_scope_grant_record(path: str, *, scope: str, action: str, grant: str | None = None, source_message_id: str | None = None) -> dict:
     return _write_shell_scope_grant_record_core(
         path,
         scope=scope,
         action=action,
         grant=grant,
+        source_message_id=source_message_id,
         append_nodes_fn=append_nodes,
     )
 

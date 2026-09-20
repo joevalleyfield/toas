@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import shlex
 from pathlib import Path
 
 from ..config import OperatorConfig, apply_overrides, config_from_discovered_paths
@@ -429,12 +430,23 @@ def _build_new_transcript_nodes(
         continuation_parent=divergence_parent,
         storage_tip_parent=None,
     )
+    replayed_assistant_ids = {
+        index: old["id"]
+        for index, node in enumerate(new_from_transcript)
+        for old in bound_log[i:]
+        if node.get("role") == "assistant"
+        and node.get("content") == old.get("content")
+        and old.get("role") == "assistant"
+        and isinstance(old.get("id"), str)
+    }
     annotated = []
     for j, node in enumerate(new_from_transcript):
         if j in corrections:
             annotated.append({**node, "provenance": {"source": "user_correction", "corrects": corrections[j]}})
         elif node.get("role") == "user" and "provenance" not in node and j not in uncertain:
             annotated.append({**node, "provenance": {"source": "user_authored"}})
+        elif j in replayed_assistant_ids:
+            annotated.append({**node, "provenance": {"source": "assistant_restep", "restep_of": replayed_assistant_ids[j]}})
         else:
             annotated.append(node)
     _append_frontier_debug(
@@ -459,6 +471,43 @@ def _build_new_transcript_nodes(
         new_from_transcript_len=len(annotated),
     )
     return bind_index, i, annotated, divergence_parent, diagnostics
+
+
+def _branch_shell_grant_events(working: list[dict]) -> list[dict]:
+    """Project direct shell-grant declarations preceding the frontier.
+
+    This is deliberately a narrow first reducer.  It gives a rewritten
+    transcript branch its own grants without consulting unrelated journal
+    records; the fuller typed control projection will replace it.
+    """
+    events: list[dict] = []
+    for node in working[:-1]:
+        content = node.get("content")
+        if not isinstance(content, str):
+            continue
+        for line in content.splitlines():
+            if not line.startswith("/shell "):
+                continue
+            try:
+                args = shlex.split(line)[1:]
+            except ValueError:
+                continue
+            if not args:
+                continue
+            action = args[0]
+            if action in {"add", "allow", "remove", "deny"} and len(args) >= 2:
+                scope = "session"
+                if len(args) == 4 and args[2] == "--scope":
+                    scope = args[3]
+                if scope in {"global", "user", "workspace", "head", "session", "transient"}:
+                    events.append({"kind": "shell_scope_grant", "payload": {"scope": scope, "action": "add" if action in {"add", "allow"} else "remove", "grant": args[1]}})
+            elif action == "reset":
+                scope = "session"
+                if len(args) == 3 and args[1] == "--scope":
+                    scope = args[2]
+                if scope in {"global", "user", "workspace", "head", "session", "transient"}:
+                    events.append({"kind": "shell_scope_grant", "payload": {"scope": scope, "action": "reset"}})
+    return events
 
 
 
@@ -1274,6 +1323,19 @@ def run_step(  # noqa: PLR0913
     config = config or OperatorConfig()
     durable_events = events if events is not None else log
     baseline_config = config_from_discovered_paths(workdir=Path(command_cwd).expanduser().resolve())
+
+    handoff = _build_run_step_frontier_context(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        bind_index=bind_index,
+    )
+
+    # A branch rewrite must not inherit unrelated journal grants.  The direct
+    # declarations in the reconstructed transcript are the Phase-1 policy
+    # projection; linear callers retain the legacy durable-event fallback.
+    branch_grant_events = _branch_shell_grant_events(handoff.working_for_frontier)
+    policy_events = durable_events if handoff.divergence_parent is None and not branch_grant_events else branch_grant_events
     generate, execute = _resolve_execution_dependencies(
         step_mod=step_mod,
         command_cwd=command_cwd,
@@ -1282,16 +1344,9 @@ def run_step(  # noqa: PLR0913
         config=config,
         generate=generate,
         execute=execute,
-        events=durable_events,
+        events=policy_events,
         config_sources=config_sources,
         stream_stdout_enabled=stream_stdout_enabled,
-    )
-
-    handoff = _build_run_step_frontier_context(
-        step_mod=step_mod,
-        transcript=transcript,
-        log=log,
-        bind_index=bind_index,
     )
 
     if not handoff.working_for_frontier and config.session.bootstrap_prompt_ref:

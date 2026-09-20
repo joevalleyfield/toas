@@ -42,6 +42,14 @@ def persist_step_outputs_runtime(
             )
 
         materialized = deps.persist_messages_and_llm_calls(events_path, persisted_message_nodes)
+        source_message_id = next(
+            (
+                node["id"]
+                for node in reversed(materialized)
+                if isinstance(node, dict) and isinstance(node.get("id"), str)
+            ),
+            materialized_head_id if isinstance(materialized_head_id, str) else None,
+        )
         synthetic_stdout_prefix = deps.stitch_frontier_records(
             events_path=events_path,
             materialized=materialized,
@@ -56,6 +64,7 @@ def persist_step_outputs_runtime(
             operator_config=operator_config,
             session_path=session_path,
             session_newline=session_newline,
+            source_message_id=source_message_id,
         )
         storage = getattr(operator_config, "storage", None)
         configured_limit_mb = getattr(storage, "hot_journal_limit_mb", 0)

@@ -25,8 +25,10 @@ def write_workspace_scope_record(path: str, *, mode: str, roots: list[str], appe
     return record
 
 
-def write_config_override_record(path: str, nested: dict, *, append_nodes_fn) -> dict:
+def write_config_override_record(path: str, nested: dict, *, source_message_id: str | None = None, append_nodes_fn) -> dict:
     record = {"kind": "config_override", "payload": nested}
+    if source_message_id is not None:
+        record["related_to"] = source_message_id
     append_nodes_fn(path, [record])
     return record
 
@@ -46,12 +48,15 @@ def write_shell_scope_grant_record(
     scope: str,
     action: str,
     grant: str | None = None,
+    source_message_id: str | None = None,
     append_nodes_fn,
 ) -> dict:
     payload: dict[str, object] = {"scope": scope, "action": action}
     if grant is not None:
         payload["grant"] = grant
     record = {"kind": "shell_scope_grant", "payload": payload}
+    if source_message_id is not None:
+        record["related_to"] = source_message_id
     append_nodes_fn(path, [record])
     return record
 
