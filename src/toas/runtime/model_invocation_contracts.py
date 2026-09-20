@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,41 @@ from .model_targets import (
     resolve_model_target,
     resolve_target_invocation,
 )
+
+
+def _direct_target_selection(working: list[dict]) -> str | None:
+    """Return the last direct `/model select TARGET` declaration in a branch."""
+    selected: str | None = None
+    for message in working:
+        content = message.get("content")
+        if not isinstance(content, str):
+            continue
+        for line in content.splitlines():
+            if not line.startswith("/model "):
+                continue
+            try:
+                args = shlex.split(line[1:])
+            except ValueError:
+                continue
+            if len(args) == 3 and args[0] == "model" and args[1] == "select" and args[2].strip():
+                selected = args[2].strip()
+    return selected
+
+
+def _branch_visible_target_selection(*, working: list[dict], events: list[dict]) -> str | None:
+    direct = _direct_target_selection(working)
+    if direct is not None:
+        return direct
+
+    visible_message_ids = {message.get("id") for message in working if isinstance(message.get("id"), str)}
+    compatible_events = [
+        event
+        for event in events
+        if event.get("kind") != "target_selection"
+        or event.get("related_to") is None
+        or event.get("related_to") in visible_message_ids
+    ]
+    return active_target_selection(compatible_events)
 
 
 @dataclass(frozen=True)
@@ -100,7 +136,7 @@ def resolve_model_invocation(
         events=events,
     )
     messages = shape_messages_for_packet(packet)
-    active_target_id = active_target_selection(events)
+    active_target_id = _branch_visible_target_selection(working=working, events=events)
     active_target = resolve_model_target(operator_config, active_target_id) if active_target_id else None
     target_invocation = (
         resolve_target_invocation(

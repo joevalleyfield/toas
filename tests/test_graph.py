@@ -1794,8 +1794,11 @@ def test_write_surface_bind_record_appends_non_message_record(tmp_path):
 
 def test_write_target_selection_record_uses_graph_facade(tmp_path):
     path = tmp_path / "events.jsonl"
-    write_target_selection_record(str(path), action="set", target_id="local")
-    assert active_target_selection(read_log(str(path))) == "local"
+    record = write_target_selection_record(str(path), action="set", target_id="local", source_message_id="n1")
+    assert record["related_to"] == "n1"
+    persisted = read_log(str(path))
+    assert active_target_selection(persisted) == "local"
+    assert persisted[-1]["related_to"] == "n1"
 
 
 def test_surface_bindings_latest_wins_and_ignores_invalid(tmp_path):

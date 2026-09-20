@@ -258,7 +258,11 @@ def apply_result_side_effects(
     _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
     _apply_config_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
-    _apply_target_selection_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_target_selection_updates(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        source_message_id=source_message_id,
+    )
     _apply_shell_scope_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
     _apply_visible_prompt_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_compaction_updates(events_path=events_path, result_nodes=result_nodes)
@@ -546,7 +550,12 @@ def _apply_config_updates(*, events_path: Path, result_nodes: list[dict], source
         write_config_override_record(str(events_path), config_update, source_message_id=source_message_id)
 
 
-def _apply_target_selection_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+def _apply_target_selection_updates(
+    *,
+    events_path: Path,
+    result_nodes: list[dict],
+    source_message_id: str | None = None,
+) -> None:
     for node in result_nodes:
         update = node.get("target_selection_update")
         if not isinstance(update, dict):
@@ -561,6 +570,7 @@ def _apply_target_selection_updates(*, events_path: Path, result_nodes: list[dic
             str(events_path),
             action=action,
             target_id=target_id.strip() if isinstance(target_id, str) else None,
+            source_message_id=source_message_id,
         )
 
 

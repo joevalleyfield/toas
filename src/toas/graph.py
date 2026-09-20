@@ -662,11 +662,18 @@ def write_surface_bind_record(path: str, *, surface_id: str, transcript_path: st
     )
 
 
-def write_target_selection_record(path: str, *, action: str, target_id: str | None = None) -> dict:
+def write_target_selection_record(
+    path: str,
+    *,
+    action: str,
+    target_id: str | None = None,
+    source_message_id: str | None = None,
+) -> dict:
     return _write_target_selection_record_core(
         path,
         action=action,
         target_id=target_id,
+        source_message_id=source_message_id,
         append_nodes_fn=append_nodes,
     )
 

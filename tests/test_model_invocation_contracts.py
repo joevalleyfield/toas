@@ -1,6 +1,6 @@
 import pytest
 
-from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
+from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig, TargetCatalogEntry
 from toas.llm import Settings
 from toas.runtime.model_invocation_contracts import (
     ModelInvocationPort,
@@ -104,6 +104,54 @@ def test_active_target_overrides_legacy_fragments_and_generation(tmp_path):
     )
     assert invocation.selected_settings.llm_model == "target-model"
     assert invocation.selected_model_source == "target:local"
+
+
+def test_direct_target_selection_is_branch_visible_and_sibling_isolated(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        '{"kind":"target_selection","payload":{"action":"set","target_id":"target-b"},"related_to":"off-branch-control"}\n',
+        encoding="utf-8",
+    )
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            targets=(
+                TargetCatalogEntry(id="target-a", model="model-a"),
+                TargetCatalogEntry(id="target-b", model="model-b"),
+            ),
+        ),
+    )
+    kwargs = {
+        "operator_config": config,
+        "base_settings": Settings(llm_base_url="http://default", llm_model="base"),
+        "settings_sources": {"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
+        "policy": type("Policy", (), {"extra_body": {}, "max_tokens": None, "max_retries": 0, "retry_delay_s": 1.0})(),
+        "events_path": events_path,
+        "project_messages": lambda _working: [{"role": "user", "content": "projected"}],
+    }
+
+    selected = resolve_model_invocation(
+        working=[
+            {"id": "p0", "role": "user", "content": "P0"},
+            {"id": "ignored", "role": "control", "content": None},
+            {"id": "malformed", "role": "control", "content": "/model select 'unterminated"},
+            {"id": "on-branch-control", "role": "control", "content": "/model select target-a"},
+            {"id": "a2", "role": "assistant", "content": "restep"},
+        ],
+        llm_stream_mode="enabled",
+        **kwargs,
+    )
+    sibling = resolve_model_invocation(
+        working=[
+            {"id": "p0", "role": "user", "content": "P0"},
+            {"id": "sibling", "role": "assistant", "content": "restep"},
+        ],
+        **kwargs,
+    )
+
+    assert selected.selected_settings.llm_model == "model-a"
+    assert selected.selected_model_source == "target:target-a"
+    assert selected.selected_settings.llm_stream_mode == "enabled"
+    assert sibling.selected_settings.llm_model == "base"
 
 
 def test_unavailable_active_target_fails_closed(tmp_path):

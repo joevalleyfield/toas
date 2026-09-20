@@ -7,6 +7,7 @@ from toas.graph import active_compaction_projection, read_log
 from toas.runtime.session_step_edges import (
     _apply_compaction_updates,
     _apply_concept_graph_updates,
+    _apply_target_selection_updates,
     _apply_visible_prompt_updates,
     _selected_plan_payload,
     apply_result_side_effects,
@@ -329,6 +330,20 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     assert runtime_secrets["llm_api_key"] == "k1"
     assert writes == {"queue": 1, "lens": 1, "intent": 1, "coordination": 1, "context": 1, "workspace": 1, "config": 1, "target": 1}
     assert session_path.read_text(encoding="utf-8") == "## TOAS:USER\n\nhi\n"
+
+
+def test_target_selection_update_links_its_source_message(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+
+    _apply_target_selection_updates(
+        events_path=events_path,
+        result_nodes=[{"role": "result", "content": "selected", "target_selection_update": {"action": "set", "target_id": "local"}}],
+        source_message_id="n1",
+    )
+
+    event = read_log(str(events_path))[-1]
+    assert event["payload"] == {"action": "set", "target_id": "local"}
+    assert event["related_to"] == "n1"
 
 
 def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tmp_path):

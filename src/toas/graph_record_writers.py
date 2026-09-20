@@ -33,11 +33,20 @@ def write_config_override_record(path: str, nested: dict, *, source_message_id: 
     return record
 
 
-def write_target_selection_record(path: str, *, action: str, target_id: str | None, append_nodes_fn) -> dict:
+def write_target_selection_record(
+    path: str,
+    *,
+    action: str,
+    target_id: str | None,
+    source_message_id: str | None = None,
+    append_nodes_fn,
+) -> dict:
     payload: dict[str, str] = {"action": action}
     if target_id is not None:
         payload["target_id"] = target_id
     record = {"kind": "target_selection", "payload": payload}
+    if source_message_id is not None:
+        record["related_to"] = source_message_id
     append_nodes_fn(path, [record])
     return record
 

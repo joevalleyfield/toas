@@ -94,6 +94,12 @@ The first bounded Phase-2 follow-on is
 selection over an existing catalog. Catalog mutation/discovery remains separate
 because it needs source-linked typed config or external-result semantics.
 
+Status: Complete for direct active-target selection. The reducer now prefers
+the last visible `/model select` declaration and admits linked durable records
+only from the current branch; unlinked records remain a stated compatibility
+input. Target catalog mutation/discovery, command/workspace context, and other
+Phase-2 domains remain separate.
+
 ### Phase 3 — reconstitutable external resolutions
 
 Introduce immutable typed resolution-result records for operations such as

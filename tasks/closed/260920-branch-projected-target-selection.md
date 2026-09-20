@@ -28,6 +28,8 @@ active-target selection does not. Target definitions themselves arrive through
 specialized `config_update` records and are deliberately outside this initial
 selection-only seam.
 
+Status: Complete.
+
 ## Desired Reality
 
 For an operation on a reconstructed transcript branch, the active model target
@@ -86,3 +88,23 @@ the materialized source message.
   pass.
 - The policy-runtime targeted coverage gate remains at 100%.
 - Full suite, acceptance selection scenario, and Ruff pass before closure.
+
+## Result
+
+- `resolve_model_invocation()` now reduces the last direct `/model select`
+  declaration visible in the working transcript before consulting durable
+  selections.
+- Source-linked target selections are admitted only when their `related_to`
+  message belongs to the working branch. Unlinked historical records remain
+  the explicit ordinary-append compatibility input.
+- New target-selection records receive source-message linkage during result
+  persistence.
+- Verified: 41 focused persistence/model tests, 46 focused tests including the
+  endpoint/target acceptance scenarios, strict 100% targeted coverage for
+  `model_invocation_contracts`, Ruff, and the full suite (3,253 passed, 17
+  deselected, 100% coverage).
+
+The compatibility implication for a `--control`-originated selection remains
+intentionally deferred to `260920-one-shot-control-ingress-disposition`: such
+a command is not transcript-visible and therefore cannot become a reliable
+branch policy source.
