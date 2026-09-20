@@ -23,6 +23,14 @@ ASSISTANT_PLAN = """## TOAS:ASSISTANT
 ```
 """
 
+TIMEOUT_PLAN = """## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["echo", "policy-timeout"]
+```
+"""
+
 
 def _events(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -76,6 +84,18 @@ def test_direct_control_records_link_their_source_message(monkeypatch, tmp_path)
     source = _message_events(events)[-1]
     override = next(event for event in events if event.get("kind") == "config_override")
     assert override["related_to"] == source["id"]
+
+
+def test_inserted_config_timeout_applies_to_restepped_assistant(monkeypatch, tmp_path, fake_shell_subprocess):
+    _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n" + TIMEOUT_PLAN)
+
+    _step(
+        monkeypatch,
+        tmp_path,
+        "## TOAS:USER\nP0\n\n## TOAS:CONTROL\n/config set shell.assistant_timeout_s 900\n\n" + TIMEOUT_PLAN,
+    )
+
+    assert fake_shell_subprocess.call_args.kwargs["timeout_s"] == 900
 
 
 def test_restep_after_inserted_control_creates_related_assistant_under_new_policy(monkeypatch, tmp_path, fake_shell_subprocess):

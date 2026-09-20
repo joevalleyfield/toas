@@ -510,6 +510,56 @@ def _branch_shell_grant_events(working: list[dict]) -> list[dict]:
     return events
 
 
+def _branch_config_from_direct_declarations(*, step_mod, working: list[dict], baseline_config):
+    """Reduce direct `/config set|unset|restore` declarations before frontier."""
+    config = baseline_config
+    overrides: dict = {}
+    applied = False
+    for node in working[:-1]:
+        content = node.get("content")
+        if not isinstance(content, str):
+            continue
+        for line in content.splitlines():
+            if not line.startswith("/config "):
+                continue
+            try:
+                args = shlex.split(line)
+            except ValueError:
+                continue
+            if len(args) == 4 and args[1] == "set" and args[2] in step_mod.valid_config_keys():
+                try:
+                    updated = step_mod.apply_dotted_override(config, args[2], args[3])
+                except ValueError:
+                    continue
+                value = step_mod.flatten_config(updated)[args[2]]
+                section, key = args[2].split(".", 1)
+                update = {section: {key: value}}
+                config, overrides = _apply_live_config_update(
+                    config=config,
+                    baseline_config=baseline_config,
+                    overrides=overrides,
+                    update=update,
+                )
+                applied = True
+            elif len(args) == 3 and args[1] == "unset" and args[2] in step_mod.valid_config_keys():
+                config, overrides = _apply_live_config_update(
+                    config=config,
+                    baseline_config=baseline_config,
+                    overrides=overrides,
+                    update={"__op__": "unset", "key": args[2]},
+                )
+                applied = True
+            elif len(args) == 2 and args[1] == "restore":
+                config, overrides = _apply_live_config_update(
+                    config=config,
+                    baseline_config=baseline_config,
+                    overrides=overrides,
+                    update={"__op__": "restore"},
+                )
+                applied = True
+    return config, applied
+
+
 
 def _stabilize_lcp_for_assistant_tail_replay(*, nodes: list[dict], bound_log: list[dict], lcp_index: int) -> int:
     """Prevent n-1 fallback when only terminal assistant replay text drifts.
@@ -1335,6 +1385,13 @@ def run_step(  # noqa: PLR0913
     # declarations in the reconstructed transcript are the Phase-1 policy
     # projection; linear callers retain the legacy durable-event fallback.
     branch_grant_events = _branch_shell_grant_events(handoff.working_for_frontier)
+    branch_config, branch_config_present = _branch_config_from_direct_declarations(
+        step_mod=step_mod,
+        working=handoff.working_for_frontier,
+        baseline_config=baseline_config,
+    )
+    if handoff.divergence_parent is not None or branch_config_present:
+        config = branch_config
     policy_events = durable_events if handoff.divergence_parent is None and not branch_grant_events else branch_grant_events
     generate, execute = _resolve_execution_dependencies(
         step_mod=step_mod,

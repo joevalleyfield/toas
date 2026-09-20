@@ -58,7 +58,15 @@ before a restepped assistant operation, without leaking to siblings.
 - New config-override and shell-scope-grant records are linked to the
   materialized source message when available.
 - The policy-reinterpretation integration contracts now pass for inserted
-  grants, sibling isolation, and source linkage.
+  grants, sibling isolation, source linkage, and inserted config timeout.
+- Direct `/config set`, `/config unset`, and `/config restore` declarations
+  preceding the frontier now reduce over the current discovered baseline when
+  the transcript is rewritten (and when such declarations occur in an initial
+  transcript).
+- Legacy durable grant records remain the compatibility input for linear
+  continuation. A rewrite uses only declarations visible in its reconstructed
+  transcript branch, so legacy records cannot silently leak into a sibling.
 
-Remaining in this task: reduce direct declarative config deltas through the
-same branch/LCP projection and establish the explicit legacy-record fallback.
+Remaining in this task: add targeted coverage for config sibling isolation and
+decide whether the current explicit linear-only legacy fallback is sufficient
+for the first slice or needs a surfaced diagnostic before completion.
