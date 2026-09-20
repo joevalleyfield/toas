@@ -2,11 +2,14 @@
 
 ## Executive Summary
 
-The transcript is operational. The graph is observational.
+The transcript is operational. The graph is durable evidence and control-state
+storage.
 
-The transcript participates in execution. The graph records execution.
+The transcript participates in execution. The graph records execution and, for
+selected control domains, stores facts that are resolved into runtime policy.
 
-The transcript gets a vote. The graph gets an audit trail.
+The transcript gets a vote. The graph gets an audit trail and durable control
+facts; neither is a substitute for the other.
 
 TOAS maintains two histories:
 
@@ -33,16 +36,22 @@ The graph does not redirect execution.
 
 The graph does not rewrite the transcript.
 
-The graph does not participate in ordinary forward execution.
+The graph does not choose the ordinary transcript frontier. Resolved control
+records may still participate in ordinary execution as runtime inputs.
 
-During normal operation, information flows from the transcript into the graph, not from the graph into the transcript.
+During normal operation, information flows from the transcript into the graph,
+while runtime context may resolve applicable control records from durable
+history. This does not let history redirect the transcript frontier.
 
 ```text
 transcript -> execution
 transcript -> graph
+control records -> policy resolution -> execution
 ```
 
-The reverse direction exists only through explicit history-oriented operations.
+The graph-to-transcript direction exists only through explicit history-oriented
+operations. Graph control facts may still flow through policy resolution into
+ordinary execution without rewriting the transcript.
 
 ---
 
@@ -66,13 +75,15 @@ Divergence results in additional graph nodes.
 
 Execution continues from the transcript frontier.
 
-### The graph is observational
+### The graph is observational for frontier selection
 
-The graph is an audit record, provenance store, branching history, and reuse artifact.
+The graph is an audit record, provenance store, branching history, reuse
+artifact, and durable store for selected control facts.
 
 It exists to remember.
 
-It does not exist to decide.
+It does not choose the transcript frontier. Owning policy resolvers may consult
+applicable control records when constructing runtime context.
 
 ### History access is explicit
 
@@ -187,7 +198,8 @@ The graph can be used to reconstruct transcripts and historical states when expl
 
 None of these purposes grant authority over ordinary execution.
 
-The graph is observational.
+The graph is observational with respect to frontier selection, not an inert
+sidecar for every runtime policy.
 
 ---
 
@@ -222,17 +234,44 @@ This flow is explicit.
 
 It never occurs implicitly during ordinary stepping.
 
+## Control state and resolution
+
+Not every setting that affects a future step is an ordinary project or global
+configuration value. Transcript control deltas include config overrides,
+shell-scope grants, command/workspace context, target selection, surface
+bindings, and child-process environment modifiers. They remain individual
+durable records so that operator intent, ordering, provenance, and branching
+are preserved.
+
+The resolution order is domain-specific. Ordinary `OperatorConfig` values use
+the [config precedence contract](notes/2026-05-09-config-precedence-principles.md).
+Child-process environment is a separate consumer with its own layering, and
+TOAS control-plane environment variables are compatibility inputs rather than
+transcript state. The complete distinction is maintained in the [transcript
+control-state contract](notes/2026-09-20-transcript-control-state-contract.md).
+
+The intended history rule is branch-forward: a delta inserted at a frontier
+applies to that branch and its descendants until overridden. The current
+implementation is mixed. Message-derived controls use working lineage in
+several paths, but some record reducers currently scan the supplied journal
+without a head and therefore behave history-forward when normal stepping gives
+them the whole journal. A requested head or branch must not be silently reduced
+to the storage tip as this work is completed.
+
 ---
 
 ## Common Misconceptions
 
-### "The graph is the source of runtime state."
+### "The graph is the source of all runtime state."
 
 No.
 
-The transcript is the source of runtime state.
+The transcript is the source of the operational frontier. Runtime policy may
+also include resolved durable control records, file configuration, and explicit
+environment inputs.
 
-The graph is a provenance artifact.
+The graph is a provenance artifact and a durable store for those control facts;
+it is not a universal settings object.
 
 ### "Execution proceeds from a graph frontier."
 
@@ -268,9 +307,12 @@ Ordinary forward execution proceeds from the transcript.
 
 ### "History automatically affects future execution."
 
-No.
+Not in the undifferentiated sense.
 
-History affects execution only through explicit history-oriented operations.
+Not message history merely because it exists. Control records do affect future
+execution when the owning resolver includes them, and the resolver must select
+the applicable lineage rather than blindly using all history. History does not
+automatically choose the frontier or replace the working transcript.
 
 ---
 
@@ -280,7 +322,8 @@ If you remember only one thing, remember this:
 
 The transcript is operational.
 
-The graph is observational.
+The graph is observational for frontier selection and durable for control-state
+facts.
 
 The transcript participates in execution.
 

@@ -7,6 +7,11 @@ transcript settings-delta or checkpoint model. It distinguishes the documented
 configuration contract from the current resolver paths, which are not yet
 uniform.
 
+The normative navigation companion is [Transcript Control State And Resolution
+Contract](2026-09-20-transcript-control-state-contract.md). This survey remains
+the evidence inventory; the companion note states the cross-domain contract and
+the current-versus-target lineage distinction.
+
 ## Executive findings
 
 1. The documented configuration ladder is clear for the ordinary config lane:

@@ -66,6 +66,18 @@ let outer surfaces call into it. Legacy response shapes and fidelity-lowering
 edge views should be derived from domain results or stream events, not treated
 as the source of truth.
 
+Effective Policy And Authority is a policy-resolution owner, not a universal
+settings ladder. Ordinary file/session configuration, transcript control
+deltas, child-process environment, and TOAS control-plane environment each
+have distinct source domains and provenance rules. Durable control records and
+their lineage selection belong at the graph/runtime seam: reducers must receive
+the requested message lineage or explicit head rather than silently treating
+the storage journal tip as the active branch. Child-process tools consume the
+resolved environment policy; they do not thereby own TOAS bootstrap or host
+environment semantics. See the [Transcript Control State And Resolution
+Contract](notes/2026-09-20-transcript-control-state-contract.md) for the
+cross-domain contract.
+
 ## Current Module Map
 
 ### Semantic Runtime
@@ -212,6 +224,14 @@ Use these defaults when choosing where to edit:
   health? Use the Model Backend Lifecycle owner.
 - Does it change config, grants, owner identity, or authority precedence? Use
   Effective Policy And Authority seams, and keep provenance observable.
+- Does it change how a durable control record is selected for a branch? Keep
+  record storage and lineage selection in graph/runtime seams, then let
+  Effective Policy And Authority resolve the record-specific policy. Do not
+  hide branch selection in a process-global settings cache.
+- Does it change the environment received by a child process? Keep the policy
+  resolver in the policy/runtime seam and the process launch in
+  `tools_cluster/`; do not conflate that with `TOAS_*` variables that configure
+  TOAS itself.
 - Does it change rendered transcript/result text? Use Projection And Rendering;
   rendered text must not become canonical state.
 - Does it change prompt asset discovery/rendering? Use `prompts.py` or prompt
