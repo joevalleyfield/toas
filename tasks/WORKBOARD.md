@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-19
+> **Last Sync:** 2026-09-20
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -224,6 +224,7 @@ continuation, and authority concerns without reopening completed slices.
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `561`, `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`, `260626-events-jsonl-multiplicity-and-merge-provenance`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260811-activity-health-telemetry Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... (related `260602-transport-equivalence-certification`, `260530-shell-lane-spawn-semantics`)
+  - 260920-transcript-control-state-survey Establish the status quo for all operator-controlled state that can affect a future TOAS step before proposing a generalized settings-delta or checkpo... (related `325-config-override-lifecycle-load-save-restore-and-unset`, `310-transcript-env-modifiers-as-execution-surface`, `330-semi-durable-shell-grants-transcript-and-config-lanes`, `260912-config-execution-facet-design`, `260621-windows-shell-launcher-and-path-resolution`, `260620-retire-host-session-path-env-coupling`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - Warning: root `260628-acceptance-live-generation-bounds` not rendered (closed task).
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
@@ -274,6 +275,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
 - **[T260912-config-execution-facet-design]** Deliberate the execution config/help facet
 - **[T260912-config-show-navigation-and-model-view]** Turn the new `/config show` overview into a trustworthy navigation surface and make detailed model configuration human-readable by default without los...
+- **[T260920-transcript-control-state-survey]** Establish the status quo for all operator-controlled state that can affect a future TOAS step before proposing a generalized settings-delta or checkpo...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
