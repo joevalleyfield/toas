@@ -610,7 +610,6 @@ def _apply_config_load_resolutions(*, events_path: Path, result_nodes: list[dict
                 "input_digest": input_digest,
                 "delta": delta,
                 "reconstitution_eligible": True,
-                "fresh": resolution.get("fresh") is True,
             },
             source_message_id=source_message_id,
         )

@@ -440,6 +440,16 @@ def _build_new_transcript_nodes(
         and old.get("role") == "assistant"
         and isinstance(old.get("id"), str)
     }
+    replayed_control_ids = {
+        index: old["id"]
+        for index, node in enumerate(new_from_transcript)
+        for old in [bound_log[i + index] if i + index < len(bound_log) else None]
+        if node.get("role") == "control"
+        and isinstance(old, dict)
+        and old.get("role") == "control"
+        and node.get("content") == old.get("content")
+        and isinstance(old.get("id"), str)
+    }
     annotated = []
     for j, node in enumerate(new_from_transcript):
         if j in corrections:
@@ -448,6 +458,8 @@ def _build_new_transcript_nodes(
             annotated.append({**node, "provenance": {"source": "user_authored"}})
         elif j in replayed_assistant_ids:
             annotated.append({**node, "provenance": {"source": "assistant_restep", "restep_of": replayed_assistant_ids[j]}})
+        elif j in replayed_control_ids:
+            annotated.append({**node, "provenance": {"source": "control_restep", "restep_of": replayed_control_ids[j]}})
         else:
             annotated.append(node)
     _append_frontier_debug(
@@ -511,57 +523,29 @@ def _branch_shell_grant_events(working: list[dict]) -> list[dict]:
     return events
 
 
-def _matching_config_load_resolution(*, declaration: list[str], events: list[dict]) -> tuple[dict | None, str | None]:
-    """Find the one immutable load result proven by the same control declaration."""
-    if len(declaration) >= 3 and declaration[2] == "--fresh":
-        return None, "fresh config loads must be stepped at the frontier"
-
-    source_messages = {
-        event.get("id"): event
-        for event in events
-        if isinstance(event.get("id"), str) and isinstance(event.get("content"), str)
-    }
-    matches: dict[str, dict] = {}
-    for event in events:
-        if event.get("kind") != "config_load_resolution":
+def _adjacent_config_load_resolution(*, source_message_id: str | None, events: list[dict]) -> dict | None:
+    """Return the immutable result written immediately after one load control."""
+    if not source_message_id:
+        return None
+    for index, event in enumerate(events[:-1]):
+        if event.get("id") != source_message_id:
             continue
-        payload = event.get("payload")
-        source_id = event.get("related_to")
-        source = source_messages.get(source_id)
-        if not isinstance(payload, dict) or not isinstance(source, dict):
-            continue
-        if payload.get("reconstitution_eligible") is not True:
-            continue
+        resolution = events[index + 1]
+        payload = resolution.get("payload")
+        if resolution.get("kind") != "config_load_resolution" or resolution.get("related_to") != source_message_id:
+            return None
+        if not isinstance(payload, dict) or payload.get("reconstitution_eligible") is not True:
+            return None
         delta = payload.get("delta")
-        if not isinstance(delta, dict) or not delta:
-            continue
-        for line in source["content"].splitlines():
-            if not line.startswith("/config "):
-                continue
-            try:
-                source_declaration = shlex.split(line)
-            except ValueError:
-                continue
-            if source_declaration != declaration:
-                continue
-            fingerprint = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
-            matches[fingerprint] = delta
-            break
-    if len(matches) == 1:
-        return next(iter(matches.values())), None
-    if not matches:
-        return None, "no immutable result matches this /config load declaration"
-    return None, "multiple immutable results match this /config load declaration"
+        return delta if isinstance(delta, dict) and delta else None
+    return None
 
 
-def _branch_config_from_direct_declarations(
-    *, step_mod, working: list[dict], baseline_config, events: list[dict] | None = None, fail_unresolved_loads: bool = False
-):
+def _branch_config_from_direct_declarations(*, step_mod, working: list[dict], baseline_config, events: list[dict] | None = None):
     """Reduce transcript-native config deltas and proven immutable load results."""
     config = baseline_config
     overrides: dict = {}
     applied = False
-    errors: list[str] = []
     for node in working[:-1]:
         content = node.get("content")
         if not isinstance(content, str):
@@ -604,11 +588,11 @@ def _branch_config_from_direct_declarations(
                     update={"__op__": "restore"},
                 )
                 applied = True
-            elif args[1] == "load" and (len(args) in {2, 3} or (len(args) == 4 and args[2] == "--fresh")):
-                update, error = _matching_config_load_resolution(declaration=args, events=events or [])
+            elif args[1] == "load" and len(args) in {2, 3}:
+                provenance = node.get("provenance")
+                source_message_id = provenance.get("restep_of") if isinstance(provenance, dict) else None
+                update = _adjacent_config_load_resolution(source_message_id=source_message_id, events=events or [])
                 if update is None:
-                    if fail_unresolved_loads and error is not None:
-                        errors.append(error)
                     continue
                 config, overrides = _apply_live_config_update(
                     config=config,
@@ -617,7 +601,7 @@ def _branch_config_from_direct_declarations(
                     update=update,
                 )
                 applied = True
-    return config, applied, errors
+    return config, applied
 
 
 def _branch_command_context_from_direct_declarations(
@@ -1530,12 +1514,11 @@ def run_step(  # noqa: PLR0913
     # projection; linear callers retain the legacy durable-event fallback.
     is_rewrite = not injected_control and handoff.lcp_index < len(log) - handoff.bind_index
     branch_grant_events = _branch_shell_grant_events(handoff.working_for_frontier)
-    branch_config, branch_config_present, branch_config_errors = _branch_config_from_direct_declarations(
+    branch_config, branch_config_present = _branch_config_from_direct_declarations(
         step_mod=step_mod,
         working=handoff.working_for_frontier,
         baseline_config=baseline_config,
         events=durable_events,
-        fail_unresolved_loads=is_rewrite,
     )
     workspace_baseline_mode = "strict" if is_rewrite else workspace_mode
     workspace_baseline_roots = [str(Path.cwd().resolve())] if is_rewrite else workspace_roots
@@ -1560,15 +1543,6 @@ def run_step(  # noqa: PLR0913
     # history-forward configuration lane.
     if is_rewrite or branch_config_present:
         config = branch_config
-    if branch_config_errors:
-        consequences = [
-            make_result_node(
-                f"[ERROR] config load reconstitution: {branch_config_errors[0]}",
-                origin_role="control",
-                origin_kind="slash_command",
-            )
-        ]
-        return handoff.new_from_transcript + consequences, consequences
     policy_events = durable_events if not is_rewrite and not branch_grant_events else branch_grant_events
     generate, execute = _resolve_execution_dependencies(
         step_mod=step_mod,

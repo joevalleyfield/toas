@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-20
+> **Last Sync:** 2026-09-21
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*

@@ -120,8 +120,9 @@ the rotation-bounded compatibility input.
 Status: Complete for the first immutable external-resolution slice
 (`260920-config-load-result-reconstitution`). `/config load` now persists a
 source-linked canonical result and a recreated matching declaration reduces
-that result without rereading the file. Missing or ambiguous evidence refuses
-to guess, and `--fresh` remains explicit frontier work.
+that immediately adjacent result without rereading the file. The pairing is
+the recreated control's structural predecessor, not a path or global
+same-declaration lookup; ordinary frontier loads remain explicit file reads.
 
 ### Phase 3 — reconstitutable external resolutions
 

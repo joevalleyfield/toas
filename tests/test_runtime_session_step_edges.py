@@ -379,7 +379,6 @@ def test_config_load_resolution_links_its_source_message(tmp_path):
                 "input_digest": "a" * 64,
                 "delta": {"generation": {"max_retries": 3}},
                 "reconstitution_eligible": True,
-                "fresh": False,
             },
             "related_to": "n1",
         }

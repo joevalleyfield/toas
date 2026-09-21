@@ -3,7 +3,7 @@ FKA:
 AKA: immutable config-load result; branch load replay; identified external resolution
 Legacy index:
 
-keywords: runtime, implementation, historical, correctness, transcript, policy, lineage, config, provenance, replay
+keywords: runtime, implementation, active, correctness, transcript, policy, lineage, config, provenance, replay
 
 Parent: `260920-branch-projected-policy-program`
 Depends on: `260920-lcp-direct-policy-deltas`
@@ -23,13 +23,21 @@ rewritten branch cannot apply the old result from transcript text alone. A
 fresh reread during reinterpretation would make history depend on mutable
 external state.
 
+## Revised Direction
+
+The original implementation searched historical source messages for a matching
+load declaration. That introduced unnecessary missing/ambiguous cases. A load
+result instead belongs immediately to the control message that produced it.
+When that control is structurally recreated during a transcript rewrite, its
+provenance identifies the prior control message and therefore its one adjacent
+immutable result. No path or global declaration search is permitted.
+
 ## Desired Reality
 
 A completed load has a durable typed result containing its source message ID,
 canonical resolved delta, input identity/digest, and reconstitution eligibility.
-A recreated matching load may refer to that result; an explicit fresh-load form
-performs a new read and records a new result. Missing, ambiguous, or changed
-references fail visibly rather than guessing.
+A recreated control reuses that result. A newly authored load remains normal
+frontier work and reads its file once to create a new adjacent result.
 
 ## Acceptance Criteria
 
@@ -38,8 +46,9 @@ references fail visibly rather than guessing.
 - Recreating that source on a branch reuses the recorded canonical delta even
   after the file changes or disappears.
 - A sibling without the recreated load does not receive the delta.
-- Fresh loading is explicit and records a distinct result.
-- Ambiguous/missing result references fail without applying configuration.
+- A newly authored frontier load reads once and records a distinct result.
+- Reconstitution is keyed only by the recreated control's explicit structural
+  predecessor and its linked result; absent pairing means no replayed delta.
 
 ## Allowed Write Surfaces
 
@@ -59,17 +68,12 @@ references fail visibly rather than guessing.
 
 - Added source-linked `config_load_resolution` records containing the resolved
   delta, input digest, canonical target path, and reconstitution eligibility.
-- Branch projection now applies a load only when exactly one eligible result is
-  linked to a prior message with the same `/config load` declaration. It never
-  rereads the file during reinterpretation.
-- `/config load --fresh [path]` is explicit frontier work. A historical fresh
-  declaration cannot silently perform external I/O during a rewrite.
-- Missing or ambiguous evidence produces a visible reconstitution error rather
-  than applying a guessed delta.
+- Branch projection uses only a recreated control's positional predecessor and
+  the immutable resolution record written immediately after it.
 
 ## Completion Evidence
 
 - `./.codex-local/bin/uvt run ruff check .`
-- `./.codex-local/bin/uvt run pytest` — 3271 passed, 17 deselected, 100% coverage.
+- `./.codex-local/bin/uvt run pytest` — 3267 passed, 17 deselected, 100% coverage.
 
 Status: Complete.
