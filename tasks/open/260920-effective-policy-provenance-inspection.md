@@ -62,6 +62,12 @@ ephemeral child environment/secrets durable.
 - New branch reducers or source-reference syntax.
 - Secret disclosure and durable capture of host/bootstrap environment.
 
+## Progress
+
+- Added a head-aware graph projection that partitions supported policy records
+  into source-linked selected-lineage evidence and explicitly labeled unlinked
+  compatibility fallback. Rendering and domain reduction remain next.
+
 ## Completion Evidence
 
 - Compact inspection output demonstrates a branch-local source, an immutable

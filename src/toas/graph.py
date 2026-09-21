@@ -570,6 +570,31 @@ def message_lineage(events: list[dict], head_id: str | None = None) -> list[dict
     return _message_lineage_core(events, head_id=head_id, lineage_fn=_lineage)
 
 
+def branch_policy_records(events: list[dict], *, head_id: str | None = None) -> dict[str, list[dict]]:
+    """Partition policy records into selected-lineage evidence and legacy fallback."""
+    lineage_ids = {event.get("id") for event in message_lineage(events, head_id=head_id)}
+    supported = {
+        "config_override",
+        "config_load_resolution",
+        "shell_scope_grant",
+        "target_selection",
+        "command_context",
+        "workspace_scope",
+    }
+    visible: list[dict] = []
+    fallback: list[dict] = []
+    for event in events:
+        if event.get("kind") not in supported:
+            continue
+        source_id = event.get("related_to")
+        if isinstance(source_id, str):
+            if source_id in lineage_ids:
+                visible.append(event)
+        else:
+            fallback.append(event)
+    return {"visible": visible, "legacy_fallback": fallback}
+
+
 def active_command_context(events: list[dict]) -> tuple[str, str | None]:
     return _active_command_context_core(events)
 

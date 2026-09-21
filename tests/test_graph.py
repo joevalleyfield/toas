@@ -19,6 +19,7 @@ from toas.graph import (
     alignment_anchor_index,
     append_nodes,
     bind_parent_id,
+    branch_policy_records,
     coordination_state_records,
     ensure_anchor_record,
     extract_plan,
@@ -77,6 +78,22 @@ def test_read_log_returns_empty_for_missing_file(tmp_path):
     path = tmp_path / "events.jsonl"
 
     assert read_log(str(path)) == []
+
+
+def test_branch_policy_records_selects_one_lineage_and_labels_unlinked_fallback():
+    events = [
+        {"id": "n1", "role": "user", "content": "root"},
+        {"id": "n2", "parent": "n1", "role": "control", "content": "/config set shell.assistant_timeout_s 9"},
+        {"kind": "config_override", "related_to": "n2", "payload": {"shell": {"assistant_timeout_s": 9}}},
+        {"id": "n3", "parent": "n1", "role": "control", "content": "/shell add sh"},
+        {"kind": "shell_scope_grant", "related_to": "n3", "payload": {"scope": "session", "action": "add", "grant": "sh"}},
+        {"kind": "target_selection", "payload": {"action": "set", "target_id": "legacy"}},
+    ]
+
+    records = branch_policy_records(events, head_id="n2")
+
+    assert records["visible"] == [events[2]]
+    assert records["legacy_fallback"] == [events[5]]
 
 
 def test_read_logical_history_stitches_segments_and_hot_file(tmp_path):
