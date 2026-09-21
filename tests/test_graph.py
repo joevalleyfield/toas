@@ -19,6 +19,7 @@ from toas.graph import (
     alignment_anchor_index,
     append_nodes,
     bind_parent_id,
+    branch_policy_provenance,
     branch_policy_records,
     coordination_state_records,
     ensure_anchor_record,
@@ -94,6 +95,24 @@ def test_branch_policy_records_selects_one_lineage_and_labels_unlinked_fallback(
 
     assert records["visible"] == [events[2]]
     assert records["legacy_fallback"] == [events[5]]
+
+
+def test_branch_policy_provenance_groups_visible_records_by_domain():
+    events = [
+        {"id": "n1", "role": "user", "content": "root"},
+        {"id": "n2", "parent": "n1", "role": "control", "content": "/config load config.toml"},
+        {"kind": "config_load_resolution", "related_to": "n2", "payload": {"delta": {"shell": {"assistant_timeout_s": 9}}}},
+        {"kind": "config_override", "related_to": "n2", "payload": {"shell": {"assistant_timeout_s": 9}}},
+        {"id": "n3", "parent": "n2", "role": "control", "content": "/shell add sh"},
+        {"kind": "shell_scope_grant", "related_to": "n3", "payload": {"scope": "session", "action": "add", "grant": "sh"}},
+    ]
+
+    provenance = branch_policy_provenance(events, head_id="n3")
+
+    assert provenance["head_id"] == "n3"
+    assert provenance["domains"]["config"][0]["source_message_id"] == "n2"
+    assert provenance["domains"]["shell_grants"][0]["payload"]["grant"] == "sh"
+    assert provenance["legacy_fallback"] == []
 
 
 def test_read_logical_history_stitches_segments_and_hot_file(tmp_path):

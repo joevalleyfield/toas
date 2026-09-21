@@ -595,6 +595,35 @@ def branch_policy_records(events: list[dict], *, head_id: str | None = None) -> 
     return {"visible": visible, "legacy_fallback": fallback}
 
 
+def branch_policy_provenance(events: list[dict], *, head_id: str | None = None) -> dict[str, object]:
+    """Present selected branch policy evidence by domain without reducing fallback."""
+    records = branch_policy_records(events, head_id=head_id)
+    domain_for_kind = {
+        "config_override": "config",
+        "config_load_resolution": "config",
+        "shell_scope_grant": "shell_grants",
+        "target_selection": "target",
+        "command_context": "command_context",
+        "workspace_scope": "workspace_scope",
+    }
+    domains: dict[str, list[dict]] = {}
+    for event in records["visible"]:
+        kind = event.get("kind")
+        domain = domain_for_kind.get(kind)
+        payload = event.get("payload")
+        source_id = event.get("related_to")
+        if domain is None or not isinstance(payload, dict) or not isinstance(source_id, str):
+            continue
+        domains.setdefault(domain, []).append(
+            {"kind": kind, "source_message_id": source_id, "payload": payload}
+        )
+    return {
+        "head_id": head_id,
+        "domains": domains,
+        "legacy_fallback": records["legacy_fallback"],
+    }
+
+
 def active_command_context(events: list[dict]) -> tuple[str, str | None]:
     return _active_command_context_core(events)
 
