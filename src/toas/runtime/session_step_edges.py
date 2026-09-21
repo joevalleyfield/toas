@@ -259,7 +259,11 @@ def apply_result_side_effects(
         result_nodes=result_nodes,
         source_message_id=source_message_id,
     )
-    _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_workspace_updates(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        source_message_id=source_message_id,
+    )
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
     _apply_config_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
     _apply_target_selection_updates(
@@ -518,7 +522,12 @@ def _apply_context_updates(
         )
 
 
-def _apply_workspace_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+def _apply_workspace_updates(
+    *,
+    events_path: Path,
+    result_nodes: list[dict],
+    source_message_id: str | None = None,
+) -> None:
     for node in result_nodes:
         workspace_update = node.get("workspace_update")
         if not isinstance(workspace_update, dict):
@@ -536,7 +545,12 @@ def _apply_workspace_updates(*, events_path: Path, result_nodes: list[dict]) -> 
                 normalized.append(candidate)
         if not normalized:
             continue
-        write_workspace_scope_record(str(events_path), mode=mode, roots=normalized)
+        write_workspace_scope_record(
+            str(events_path),
+            mode=mode,
+            roots=normalized,
+            source_message_id=source_message_id,
+        )
 
 
 def _apply_secret_updates(*, result_nodes: list[dict], runtime_secrets: dict[str, str]) -> None:

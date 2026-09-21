@@ -619,8 +619,20 @@ def write_command_context_record(
     )
 
 
-def write_workspace_scope_record(path: str, *, mode: str, roots: list[str]) -> dict:
-    return _write_workspace_scope_record_core(path, mode=mode, roots=roots, append_nodes_fn=append_nodes)
+def write_workspace_scope_record(
+    path: str,
+    *,
+    mode: str,
+    roots: list[str],
+    source_message_id: str | None = None,
+) -> dict:
+    return _write_workspace_scope_record_core(
+        path,
+        mode=mode,
+        roots=roots,
+        source_message_id=source_message_id,
+        append_nodes_fn=append_nodes,
+    )
 
 
 def write_config_override_record(path: str, nested: dict, *, source_message_id: str | None = None) -> dict:

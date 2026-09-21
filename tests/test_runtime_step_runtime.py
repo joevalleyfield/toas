@@ -18,6 +18,7 @@ from toas.runtime.step_runtime import (
     _branch_command_context_from_direct_declarations,
     _branch_config_from_direct_declarations,
     _branch_shell_grant_events,
+    _branch_workspace_scope_from_direct_declarations,
     _build_assistant_auto_staged_plan,
     _build_bootstrap_node,
     _build_new_transcript_nodes,
@@ -197,6 +198,30 @@ def test_branch_command_context_reducer_applies_ordered_cd_and_dash(tmp_path):
     assert applied is True
     assert cwd == str(first)
     assert previous == str(second)
+
+
+def test_branch_workspace_scope_reducer_applies_ordered_add_remove_reset_and_mode(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+
+    mode, roots, applied = _branch_workspace_scope_from_direct_declarations(
+        working=[
+            {"role": "control", "content": None},
+            {"role": "control", "content": "/workspace add 'unterminated"},
+            {"role": "control", "content": "/workspace"},
+            {"role": "control", "content": "/workspace add missing"},
+            {"role": "control", "content": f"/workspace add {outside}"},
+            {"role": "control", "content": f"/workspace remove {outside}\n/workspace mode unbounded"},
+            {"role": "control", "content": "/workspace reset"},
+            {"role": "assistant", "content": "frontier"},
+        ],
+        baseline_mode="strict",
+        baseline_roots=[str(tmp_path)],
+    )
+
+    assert applied is True
+    assert mode == "strict"
+    assert roots == [str(tmp_path)]
 
 
 def test_branch_config_reducer_skips_invalid_values_and_applies_unset_restore(monkeypatch):

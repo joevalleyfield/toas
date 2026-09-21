@@ -605,6 +605,45 @@ def _branch_command_context_from_direct_declarations(
     return cwd, previous_cwd, applied
 
 
+def _branch_workspace_scope_from_direct_declarations(
+    *,
+    working: list[dict],
+    baseline_mode: str,
+    baseline_roots: list[str],
+) -> tuple[str, list[str], bool]:
+    """Reduce direct `/workspace` declarations before the current frontier."""
+    mode = baseline_mode
+    roots = list(baseline_roots)
+    applied = False
+    for node in working[:-1]:
+        content = node.get("content")
+        if not isinstance(content, str):
+            continue
+        for line in content.splitlines():
+            if not line.startswith("/workspace "):
+                continue
+            try:
+                args = shlex.split(line[1:])
+            except ValueError:
+                continue
+            if len(args) == 3 and args[1] in {"add", "remove"}:
+                target = Path(args[2]).expanduser().resolve()
+                if not target.is_dir():
+                    continue
+                target_s = str(target)
+                if args[1] == "add" and target_s not in roots:
+                    roots.append(target_s)
+                elif args[1] == "remove":
+                    roots = [root for root in roots if root != target_s] or list(baseline_roots)
+                roots.sort()
+                applied = True
+            elif len(args) == 2 and args[1] == "reset":
+                mode, roots, applied = "strict", list(baseline_roots), True
+            elif len(args) == 3 and args[1] == "mode" and args[2] in {"strict", "unbounded"}:
+                mode, applied = args[2], True
+    return mode, roots, applied
+
+
 
 def _stabilize_lcp_for_assistant_tail_replay(*, nodes: list[dict], bound_log: list[dict], lcp_index: int) -> int:
     """Prevent n-1 fallback when only terminal assistant replay text drifts.
@@ -1437,6 +1476,13 @@ def run_step(  # noqa: PLR0913
         baseline_config=baseline_config,
     )
     is_rewrite = not injected_control and handoff.lcp_index < len(log) - handoff.bind_index
+    workspace_baseline_mode = "strict" if is_rewrite else workspace_mode
+    workspace_baseline_roots = [str(Path.cwd().resolve())] if is_rewrite else workspace_roots
+    workspace_mode, workspace_roots, _branch_workspace_present = _branch_workspace_scope_from_direct_declarations(
+        working=handoff.working_for_frontier,
+        baseline_mode=workspace_baseline_mode,
+        baseline_roots=workspace_baseline_roots,
+    )
     context_baseline_cwd = str(Path.cwd().resolve()) if is_rewrite else command_cwd
     context_baseline_previous_cwd = None if is_rewrite else previous_command_cwd
     command_cwd, previous_command_cwd, _branch_context_present = _branch_command_context_from_direct_declarations(

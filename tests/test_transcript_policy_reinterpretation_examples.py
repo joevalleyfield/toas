@@ -168,3 +168,36 @@ def test_cd_context_record_links_its_source_message(monkeypatch, tmp_path):
     source = next(event for event in _message_events(events) if event["content"] == f"/cd {target}")
     record = next(event for event in events if event.get("kind") == "command_context")
     assert record["related_to"] == source["id"]
+
+
+def test_workspace_add_allows_cd_before_restepped_assistant(monkeypatch, tmp_path, fake_shell_subprocess):
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside.mkdir()
+    _step(
+        monkeypatch,
+        tmp_path,
+        "## TOAS:USER\nP0\n\n"
+        f"## TOAS:CONTROL\n/workspace add {outside}\n\n"
+        f"## TOAS:CONTROL\n/cd {outside}\n\n"
+        "## TOAS:CONTROL\n/shell add sh\n\n"
+        + ASSISTANT_PLAN,
+    )
+
+    assert Path(fake_shell_subprocess.call_args.kwargs["cwd"]) == outside
+
+
+def test_workspace_add_on_one_sibling_does_not_expand_another(monkeypatch, tmp_path, fake_shell_subprocess):
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside.mkdir()
+    _step(monkeypatch, tmp_path, f"## TOAS:USER\nP0\n\n## TOAS:CONTROL\n/workspace add {outside}\n")
+
+    _step(
+        monkeypatch,
+        tmp_path,
+        "## TOAS:USER\nP0\n\n"
+        f"## TOAS:CONTROL\n/cd {outside}\n\n"
+        "## TOAS:CONTROL\n/shell add sh\n\n"
+        + ASSISTANT_PLAN,
+    )
+
+    assert Path(fake_shell_subprocess.call_args.kwargs["cwd"]) == tmp_path

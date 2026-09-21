@@ -22,8 +22,17 @@ def write_command_context_record(
     return record
 
 
-def write_workspace_scope_record(path: str, *, mode: str, roots: list[str], append_nodes_fn) -> dict:
+def write_workspace_scope_record(
+    path: str,
+    *,
+    mode: str,
+    roots: list[str],
+    source_message_id: str | None = None,
+    append_nodes_fn,
+) -> dict:
     record = {"kind": "workspace_scope", "payload": {"mode": mode, "roots": roots}}
+    if source_message_id is not None:
+        record["related_to"] = source_message_id
     append_nodes_fn(path, [record])
     return record
 

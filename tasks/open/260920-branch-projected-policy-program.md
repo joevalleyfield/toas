@@ -109,6 +109,14 @@ Status: Complete for direct command-context projection. Rewrites reduce
 visible `/cd` declarations from the process baseline, and source-linked context
 records preserve provenance. Workspace scope remains a distinct Phase-2 domain.
 
+The active next slice is `260920-branch-projected-workspace-scope`, which
+reduces direct workspace roots/mode before the frontier and composes with the
+completed branch-local `/cd` resolver.
+
+Status: Complete for direct workspace scope. Branch-visible roots and mode now
+feed same-step command-context validation; unlinked legacy scope records remain
+the rotation-bounded compatibility input.
+
 ### Phase 3 — reconstitutable external resolutions
 
 Introduce immutable typed resolution-result records for operations such as

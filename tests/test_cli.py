@@ -2654,7 +2654,11 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
             "payload": {"ok": True, "content": "mode=unbounded", "workspace_update": {"mode": "unbounded", "roots": [str(tmp_path)]}},
             "related_to": "c1",
         },
-        {"kind": "workspace_scope", "payload": {"mode": "unbounded", "roots": [str(tmp_path)]}},
+        {
+            "kind": "workspace_scope",
+            "payload": {"mode": "unbounded", "roots": [str(tmp_path)]},
+            "related_to": "n1",
+        },
     ]
     assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\nmode=unbounded\n\n"
 
