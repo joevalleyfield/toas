@@ -117,6 +117,10 @@ Status: Complete for direct workspace scope. Branch-visible roots and mode now
 feed same-step command-context validation; unlinked legacy scope records remain
 the rotation-bounded compatibility input.
 
+The active Phase-3 slice is `260920-config-load-result-reconstitution`.
+It introduces one typed immutable external-resolution result for `/config load`
+before considering any broader checkpoint or replay surface.
+
 ### Phase 3 — reconstitutable external resolutions
 
 Introduce immutable typed resolution-result records for operations such as
