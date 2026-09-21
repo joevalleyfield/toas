@@ -137,6 +137,11 @@ Expose effective-policy provenance and source layers to operators. Consider
 settings checkpoints only as explicit projections, distinguishing transcript
 overlay snapshots from fully resolved current-baseline snapshots.
 
+The first bounded Phase-4 slice is
+`260920-effective-policy-provenance-inspection`: inspect the completed
+branch-local domains and their source/fallback provenance without introducing
+a checkpoint.
+
 ## Boundaries and deferred choices
 
 - Phase 1 must not broaden into all record kinds or file-load reconstitution.
