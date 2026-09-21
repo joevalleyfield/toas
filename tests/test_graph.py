@@ -53,6 +53,7 @@ from toas.graph import (
     write_command_context_record,
     write_command_request_record,
     write_command_result_record,
+    write_config_load_resolution_record,
     write_config_override_record,
     write_coordination_state_record,
     write_execution_queue_record,
@@ -1723,6 +1724,22 @@ def test_write_config_override_record_appends_non_message_record(tmp_path):
 
     assert read_log(str(path)) == [
         {"kind": "config_override", "payload": {"extraction": {"yaml_position": "any"}}},
+    ]
+
+
+def test_write_config_load_resolution_record_links_its_source_message(tmp_path):
+    path = tmp_path / "events.jsonl"
+    payload = {
+        "path": "/workspace/alt.toml",
+        "input_digest": "a" * 64,
+        "delta": {"generation": {"max_retries": 3}},
+        "reconstitution_eligible": True,
+    }
+
+    write_config_load_resolution_record(str(path), payload, source_message_id="n1")
+
+    assert read_log(str(path)) == [
+        {"kind": "config_load_resolution", "payload": payload, "related_to": "n1"},
     ]
 
 

@@ -3,7 +3,7 @@ FKA:
 AKA: immutable config-load result; branch load replay; identified external resolution
 Legacy index:
 
-keywords: runtime, implementation, active, transcript, policy, lineage, config, provenance, replay
+keywords: runtime, implementation, historical, correctness, transcript, policy, lineage, config, provenance, replay
 
 Parent: `260920-branch-projected-policy-program`
 Depends on: `260920-lcp-direct-policy-deltas`
@@ -55,4 +55,21 @@ references fail visibly rather than guessing.
   checkpoints, or broad result-reference syntax beyond config load.
 - Treating path strings alone as immutable evidence.
 
-Status: Active.
+## Progress
+
+- Added source-linked `config_load_resolution` records containing the resolved
+  delta, input digest, canonical target path, and reconstitution eligibility.
+- Branch projection now applies a load only when exactly one eligible result is
+  linked to a prior message with the same `/config load` declaration. It never
+  rereads the file during reinterpretation.
+- `/config load --fresh [path]` is explicit frontier work. A historical fresh
+  declaration cannot silently perform external I/O during a rewrite.
+- Missing or ambiguous evidence produces a visible reconstitution error rather
+  than applying a guessed delta.
+
+## Completion Evidence
+
+- `./.codex-local/bin/uvt run ruff check .`
+- `./.codex-local/bin/uvt run pytest` — 3271 passed, 17 deselected, 100% coverage.
+
+Status: Complete.

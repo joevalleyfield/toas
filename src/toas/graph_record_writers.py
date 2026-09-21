@@ -45,6 +45,14 @@ def write_config_override_record(path: str, nested: dict, *, source_message_id: 
     return record
 
 
+def write_config_load_resolution_record(path: str, payload: dict, *, source_message_id: str | None = None, append_nodes_fn) -> dict:
+    record = {"kind": "config_load_resolution", "payload": payload}
+    if source_message_id is not None:
+        record["related_to"] = source_message_id
+    append_nodes_fn(path, [record])
+    return record
+
+
 def write_target_selection_record(
     path: str,
     *,

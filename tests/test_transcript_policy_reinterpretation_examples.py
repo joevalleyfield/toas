@@ -85,6 +85,37 @@ def test_direct_control_records_link_their_source_message(monkeypatch, tmp_path)
     assert override["related_to"] == source["id"]
 
 
+def test_recreated_config_load_reuses_its_durable_result_after_file_removal(monkeypatch, tmp_path, fake_shell_subprocess):
+    config_path = tmp_path / "branch-policy.toml"
+    config_path.write_text("[shell]\nassistant_timeout_s = 900\n", encoding="utf-8")
+    _step(monkeypatch, tmp_path, f"## TOAS:USER\nP0 original\n\n## TOAS:CONTROL\n/config load {config_path}\n")
+
+    config_path.unlink()
+    events = _step(
+        monkeypatch,
+        tmp_path,
+        f"## TOAS:USER\nP0 corrected\n\n## TOAS:CONTROL\n/config load {config_path}\n\n" + TIMEOUT_PLAN,
+    )
+
+    assert fake_shell_subprocess.call_args.kwargs["timeout_s"] == 900
+    resolution = next(event for event in events if event.get("kind") == "config_load_resolution")
+    assert resolution["related_to"]
+
+
+def test_config_load_on_one_sibling_does_not_change_another_sibling(monkeypatch, tmp_path, fake_shell_subprocess):
+    config_path = tmp_path / "branch-policy.toml"
+    config_path.write_text("[shell]\nassistant_timeout_s = 900\n", encoding="utf-8")
+    _step(monkeypatch, tmp_path, f"## TOAS:USER\nP0 original\n\n## TOAS:CONTROL\n/config load {config_path}\n")
+
+    _step(
+        monkeypatch,
+        tmp_path,
+        "## TOAS:USER\nP0 sibling\n\n## TOAS:CONTROL\n/shell add sh\n\n" + TIMEOUT_PLAN,
+    )
+
+    assert fake_shell_subprocess.call_args.kwargs["timeout_s"] == 5
+
+
 def test_inserted_config_timeout_applies_to_restepped_assistant(monkeypatch, tmp_path, fake_shell_subprocess):
     _step(monkeypatch, tmp_path, "## TOAS:USER\nP0\n\n" + TIMEOUT_PLAN)
 

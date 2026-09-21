@@ -36,6 +36,7 @@ from toas.runtime.step_runtime import (
     _handle_user_generation_fallback,
     _handle_user_or_control_frontier,
     _map_lcp_index_to_lineage_boundary_index,
+    _matching_config_load_resolution,
     _repair_command_arg,
     _resolve_execution_dependencies,
     _route_frontier_consequence_path,
@@ -234,7 +235,7 @@ def test_branch_config_reducer_skips_invalid_values_and_applies_unset_restore(mo
         return original_apply(config, key, value)
 
     monkeypatch.setattr(real_step_mod, "apply_dotted_override", reject_nine_hundred)
-    config, applied = _branch_config_from_direct_declarations(
+    config, applied, errors = _branch_config_from_direct_declarations(
         step_mod=real_step_mod,
         baseline_config=baseline,
         working=[
@@ -249,6 +250,146 @@ def test_branch_config_reducer_skips_invalid_values_and_applies_unset_restore(mo
 
     assert applied is True
     assert config.shell.assistant_timeout_s == 5
+    assert errors == []
+
+
+def test_matching_config_load_resolution_requires_one_source_linked_exact_declaration():
+    events = [
+        {"id": "n1", "role": "control", "content": "/config load config/branch.toml"},
+        {
+            "kind": "config_load_resolution",
+            "related_to": "n1",
+            "payload": {
+                "path": "/workspace/config/branch.toml",
+                "input_digest": "a" * 64,
+                "delta": {"generation": {"max_retries": 3}},
+                "reconstitution_eligible": True,
+            },
+        },
+    ]
+
+    update, error = _matching_config_load_resolution(
+        declaration=["/config", "load", "config/branch.toml"],
+        events=events,
+    )
+
+    assert update == {"generation": {"max_retries": 3}}
+    assert error is None
+
+
+def test_matching_config_load_resolution_rejects_missing_ambiguous_and_fresh_declarations():
+    events = [
+        {"id": "n1", "role": "control", "content": "/config load config/branch.toml"},
+        {
+            "kind": "config_load_resolution",
+            "related_to": "n1",
+            "payload": {
+                "path": "/workspace/config/branch.toml",
+                "input_digest": "a" * 64,
+                "delta": {"generation": {"max_retries": 3}},
+                "reconstitution_eligible": True,
+            },
+        },
+        {"id": "n2", "role": "control", "content": "/config load config/branch.toml"},
+        {
+            "kind": "config_load_resolution",
+            "related_to": "n2",
+            "payload": {
+                "path": "/workspace/config/branch.toml",
+                "input_digest": "b" * 64,
+                "delta": {"generation": {"max_retries": 4}},
+                "reconstitution_eligible": True,
+            },
+        },
+    ]
+
+    assert _matching_config_load_resolution(declaration=["/config", "load", "missing.toml"], events=events) == (
+        None,
+        "no immutable result matches this /config load declaration",
+    )
+    assert _matching_config_load_resolution(declaration=["/config", "load", "config/branch.toml"], events=events) == (
+        None,
+        "multiple immutable results match this /config load declaration",
+    )
+    assert _matching_config_load_resolution(declaration=["/config", "load", "--fresh", "config/branch.toml"], events=events) == (
+        None,
+        "fresh config loads must be stepped at the frontier",
+    )
+
+
+def test_matching_config_load_resolution_ignores_ineligible_and_malformed_evidence():
+    events = [
+        {"id": "n1", "role": "control", "content": "ordinary text\n/config 'unterminated"},
+        {"kind": "config_load_resolution", "payload": {"delta": {"generation": {"max_retries": 3}}}},
+        {
+            "kind": "config_load_resolution",
+            "related_to": "n1",
+            "payload": {"reconstitution_eligible": False, "delta": {"generation": {"max_retries": 3}}},
+        },
+        {
+            "kind": "config_load_resolution",
+            "related_to": "n1",
+            "payload": {"reconstitution_eligible": True, "delta": {}},
+        },
+        {
+            "kind": "config_load_resolution",
+            "related_to": "n1",
+            "payload": {"reconstitution_eligible": True, "delta": {"generation": {"max_retries": 3}}},
+        },
+    ]
+
+    assert _matching_config_load_resolution(declaration=["/config", "load", "config/branch.toml"], events=events) == (
+        None,
+        "no immutable result matches this /config load declaration",
+    )
+
+
+def test_branch_config_reducer_applies_one_immutable_load_result():
+    config, applied, errors = _branch_config_from_direct_declarations(
+        step_mod=real_step_mod,
+        baseline_config=OperatorConfig(),
+        working=[
+            {"role": "control", "content": "/config load config/branch.toml"},
+            {"role": "assistant", "content": "frontier"},
+        ],
+        events=[
+            {"id": "n1", "role": "control", "content": "/config load config/branch.toml"},
+            {
+                "kind": "config_load_resolution",
+                "related_to": "n1",
+                "payload": {
+                    "path": "/workspace/config/branch.toml",
+                    "input_digest": "a" * 64,
+                    "delta": {"generation": {"max_retries": 3}},
+                    "reconstitution_eligible": True,
+                },
+            },
+        ],
+        fail_unresolved_loads=True,
+    )
+
+    assert applied is True
+    assert errors == []
+    assert config.generation.max_retries == 3
+
+
+def test_run_step_reports_unresolved_config_load_in_a_rewrite():
+    transcript = """\
+## TOAS:CONTROL
+/config load config/branch.toml
+
+## TOAS:ASSISTANT
+keep this assistant content
+"""
+    log = [
+        {"id": "n1", "role": "user", "content": "prior user content"},
+        {"id": "n2", "role": "assistant", "content": "keep this assistant content"},
+    ]
+
+    new_nodes, out = run_step(transcript, log, events=log, generate=lambda _working: pytest.fail("must not generate"))
+
+    assert new_nodes[-1]["content"] == "[ERROR] config load reconstitution: no immutable result matches this /config load declaration"
+    assert out == [new_nodes[-1]]
 
 
 def test_working_with_transcript_tail_frontier_empty_transcript_keeps_reconstructed():

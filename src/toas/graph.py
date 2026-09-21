@@ -101,6 +101,9 @@ from .graph_record_writers import (
     write_command_context_record as _write_command_context_record_core,
 )
 from .graph_record_writers import (
+    write_config_load_resolution_record as _write_config_load_resolution_record_core,
+)
+from .graph_record_writers import (
     write_config_override_record as _write_config_override_record_core,
 )
 from .graph_record_writers import (
@@ -637,6 +640,15 @@ def write_workspace_scope_record(
 
 def write_config_override_record(path: str, nested: dict, *, source_message_id: str | None = None) -> dict:
     return _write_config_override_record_core(path, nested, source_message_id=source_message_id, append_nodes_fn=append_nodes)
+
+
+def write_config_load_resolution_record(path: str, payload: dict, *, source_message_id: str | None = None) -> dict:
+    return _write_config_load_resolution_record_core(
+        path,
+        payload,
+        source_message_id=source_message_id,
+        append_nodes_fn=append_nodes,
+    )
 
 
 def write_shell_scope_grant_record(path: str, *, scope: str, action: str, grant: str | None = None, source_message_id: str | None = None) -> dict:

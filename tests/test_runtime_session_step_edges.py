@@ -7,6 +7,7 @@ from toas.graph import active_compaction_projection, read_log
 from toas.runtime.session_step_edges import (
     _apply_compaction_updates,
     _apply_concept_graph_updates,
+    _apply_config_load_resolutions,
     _apply_target_selection_updates,
     _apply_visible_prompt_updates,
     _selected_plan_payload,
@@ -248,7 +249,7 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     events_path = tmp_path / "events.jsonl"
     session_path = tmp_path / "session.md"
     runtime_secrets: dict[str, str] = {}
-    writes = {"queue": 0, "lens": 0, "intent": 0, "coordination": 0, "context": 0, "workspace": 0, "config": 0, "target": 0}
+    writes = {"queue": 0, "lens": 0, "intent": 0, "coordination": 0, "context": 0, "workspace": 0, "config": 0, "load": 0, "target": 0}
 
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_execution_queue_record",
@@ -278,6 +279,10 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_config_override_record",
         lambda *_args, **_kwargs: writes.__setitem__("config", writes["config"] + 1),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_config_load_resolution_record",
+        lambda *_args, **_kwargs: writes.__setitem__("load", writes["load"] + 1),
     )
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_target_selection_record",
@@ -328,7 +333,7 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     )
 
     assert runtime_secrets["llm_api_key"] == "k1"
-    assert writes == {"queue": 1, "lens": 1, "intent": 1, "coordination": 1, "context": 1, "workspace": 1, "config": 1, "target": 1}
+    assert writes == {"queue": 1, "lens": 1, "intent": 1, "coordination": 1, "context": 1, "workspace": 1, "config": 1, "load": 0, "target": 1}
     assert session_path.read_text(encoding="utf-8") == "## TOAS:USER\n\nhi\n"
 
 
@@ -344,6 +349,92 @@ def test_target_selection_update_links_its_source_message(tmp_path):
     event = read_log(str(events_path))[-1]
     assert event["payload"] == {"action": "set", "target_id": "local"}
     assert event["related_to"] == "n1"
+
+
+def test_config_load_resolution_links_its_source_message(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+
+    _apply_config_load_resolutions(
+        events_path=events_path,
+        result_nodes=[
+            {
+                "role": "result",
+                "content": "loaded",
+                "config_load_resolution": {
+                    "path": "/workspace/alt.toml",
+                    "input_digest": "a" * 64,
+                    "delta": {"generation": {"max_retries": 3}},
+                    "reconstitution_eligible": True,
+                },
+            }
+        ],
+        source_message_id="n1",
+    )
+
+    assert read_log(str(events_path)) == [
+        {
+            "kind": "config_load_resolution",
+            "payload": {
+                "path": "/workspace/alt.toml",
+                "input_digest": "a" * 64,
+                "delta": {"generation": {"max_retries": 3}},
+                "reconstitution_eligible": True,
+                "fresh": False,
+            },
+            "related_to": "n1",
+        }
+    ]
+
+
+def test_config_load_resolution_ignores_incomplete_evidence(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    _apply_config_load_resolutions(
+        events_path=events_path,
+        source_message_id="n1",
+        result_nodes=[
+            {"role": "result", "content": "x"},
+            {
+                "role": "result",
+                "content": "x",
+                "config_load_resolution": {
+                    "input_digest": "a" * 64,
+                    "delta": {"generation": {"max_retries": 3}},
+                    "reconstitution_eligible": True,
+                },
+            },
+            {
+                "role": "result",
+                "content": "x",
+                "config_load_resolution": {
+                    "path": "/workspace/alt.toml",
+                    "delta": {"generation": {"max_retries": 3}},
+                    "reconstitution_eligible": True,
+                },
+            },
+            {
+                "role": "result",
+                "content": "x",
+                "config_load_resolution": {
+                    "path": "/workspace/alt.toml",
+                    "input_digest": "a" * 64,
+                    "delta": {},
+                    "reconstitution_eligible": True,
+                },
+            },
+            {
+                "role": "result",
+                "content": "x",
+                "config_load_resolution": {
+                    "path": "/workspace/alt.toml",
+                    "input_digest": "a" * 64,
+                    "delta": {"generation": {"max_retries": 3}},
+                    "reconstitution_eligible": False,
+                },
+            },
+        ],
+    )
+
+    assert not events_path.exists()
 
 
 def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tmp_path):

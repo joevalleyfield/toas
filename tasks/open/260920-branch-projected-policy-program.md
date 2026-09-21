@@ -117,9 +117,11 @@ Status: Complete for direct workspace scope. Branch-visible roots and mode now
 feed same-step command-context validation; unlinked legacy scope records remain
 the rotation-bounded compatibility input.
 
-The active Phase-3 slice is `260920-config-load-result-reconstitution`.
-It introduces one typed immutable external-resolution result for `/config load`
-before considering any broader checkpoint or replay surface.
+Status: Complete for the first immutable external-resolution slice
+(`260920-config-load-result-reconstitution`). `/config load` now persists a
+source-linked canonical result and a recreated matching declaration reduces
+that result without rereading the file. Missing or ambiguous evidence refuses
+to guess, and `--fresh` remains explicit frontier work.
 
 ### Phase 3 — reconstitutable external resolutions
 

@@ -14,6 +14,7 @@ from ..graph import (
     write_command_result_record,
     write_compaction_projection_record,
     write_concept_graph_projection_record,
+    write_config_load_resolution_record,
     write_config_override_record,
     write_coordination_state_record,
     write_execution_queue_record,
@@ -265,6 +266,11 @@ def apply_result_side_effects(
         source_message_id=source_message_id,
     )
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
+    _apply_config_load_resolutions(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        source_message_id=source_message_id,
+    )
     _apply_config_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
     _apply_target_selection_updates(
         events_path=events_path,
@@ -576,6 +582,38 @@ def _apply_config_updates(*, events_path: Path, result_nodes: list[dict], source
         if not isinstance(config_update, dict) or not config_update:
             continue
         write_config_override_record(str(events_path), config_update, source_message_id=source_message_id)
+
+
+def _apply_config_load_resolutions(*, events_path: Path, result_nodes: list[dict], source_message_id: str | None = None) -> None:
+    """Persist immutable config-load evidence only when it has a source message."""
+    if not source_message_id:
+        return
+    for node in result_nodes:
+        resolution = node.get("config_load_resolution")
+        if not isinstance(resolution, dict):
+            continue
+        path = resolution.get("path")
+        input_digest = resolution.get("input_digest")
+        delta = resolution.get("delta")
+        if not isinstance(path, str) or not path:
+            continue
+        if not isinstance(input_digest, str) or not input_digest:
+            continue
+        if not isinstance(delta, dict) or not delta:
+            continue
+        if resolution.get("reconstitution_eligible") is not True:
+            continue
+        write_config_load_resolution_record(
+            str(events_path),
+            {
+                "path": path,
+                "input_digest": input_digest,
+                "delta": delta,
+                "reconstitution_eligible": True,
+                "fresh": resolution.get("fresh") is True,
+            },
+            source_message_id=source_message_id,
+        )
 
 
 def _apply_target_selection_updates(

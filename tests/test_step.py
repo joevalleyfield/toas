@@ -3411,6 +3411,26 @@ def test_config_load_returns_nested_config_update(tmp_path):
 """
     _, out = step(transcript, [], command_cwd=str(tmp_path))
     assert out[0]["config_update"] == {"generation": {"max_retries": 3}}
+    assert out[0]["config_load_resolution"] == {
+        "path": str(cfg),
+        "input_digest": "61e53a905dd6f64e53738a7993a43466fe2f9769a9e44f7241292db8bedecc33",
+        "delta": {"generation": {"max_retries": 3}},
+        "reconstitution_eligible": True,
+        "fresh": False,
+    }
+
+
+def test_config_load_fresh_marks_the_new_resolution(tmp_path):
+    cfg = tmp_path / "alt.toml"
+    cfg.write_text('[generation]\nmax_retries = 3\n', encoding="utf-8")
+    transcript = f"""\
+## TOAS:USER
+/config load --fresh {cfg.as_posix()}
+"""
+
+    _, out = step(transcript, [], command_cwd=str(tmp_path))
+
+    assert out[0]["config_load_resolution"]["fresh"] is True
 
 
 def test_config_save_returns_save_payload():

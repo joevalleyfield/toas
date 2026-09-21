@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -24,7 +26,7 @@ _YAML_POSITION_COMPAT_NOTE = (
 
 _CONFIG_USAGE = (
     "usage: /config [show|list] [FILTER] [--flat] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
-    "| /config endpoint [list|add|set|remove|capture] ... | /config target [list|add|set|remove] ... | /config restore | /config load [path] | /config save [path] | /config secret ..."
+    "| /config endpoint [list|add|set|remove|capture] ... | /config target [list|add|set|remove] ... | /config restore | /config load [--fresh] [path] | /config save [path] | /config secret ..."
 )
 
 _TARGET_USAGE = "usage: /config target [list|add|set|remove] ..."
@@ -617,21 +619,31 @@ def _resolve_config_path(path: str, *, context: OperatorCommandContext) -> Path:
 
 
 def _config_load_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    if len(args) > 2:
-        raise ValueError("usage: /config load [path]")
-    path = args[1] if len(args) == 2 else _PROJECT_CONFIG_DEFAULT_PATH
+    fresh = len(args) >= 2 and args[1] == "--fresh"
+    load_args = args[2:] if fresh else args[1:]
+    if len(load_args) > 1:
+        raise ValueError("usage: /config load [--fresh] [path]")
+    path = load_args[0] if load_args else _PROJECT_CONFIG_DEFAULT_PATH
     target = _resolve_config_path(path, context=context)
     if not target.exists():
         raise ValueError(f"config file not found: {path}")
     loaded = step_mod.load_file_config(target)
     if not loaded:
         raise ValueError(f"failed to load config from: {path}")
+    canonical_delta = json.dumps(loaded, sort_keys=True, separators=(",", ":"), default=str)
     return [
         _result_node(
             f"Loaded config into session override lane from {target}",
             step_mod=step_mod,
             context=context,
             config_update=loaded,
+            config_load_resolution={
+                "path": str(target),
+                "input_digest": hashlib.sha256(target.read_bytes()).hexdigest(),
+                "delta": json.loads(canonical_delta),
+                "reconstitution_eligible": True,
+                "fresh": fresh,
+            },
         )
     ]
 
