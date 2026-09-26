@@ -12,7 +12,9 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -20,8 +22,12 @@ from typing import Any, Protocol
 from ..llm import NO_THINKING, Settings, complete_chat_response
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3]
-PROCEDURE = """Organize all supplied dirty changes into coherent commits using the supplied repository customs. Inspect before acting. Preserve all intended content. Every task change must include its task evidence in that commit and keep WORKBOARD references valid at each boundary. Commit documentation and behavior separately. After each successful action, record what it established in progress and replace next_steps with the remaining work. Do not repeat an action when its observation is unchanged unless new evidence justifies it. Report completion only after the working copy is clean and the commit history is correct. Use only these bounded actions: inspect; read with a relative path; write with a relative path and complete text for an existing file; commit with a non-empty list of relative paths and a description; continue; finish; blocked. Do not use arbitrary shell. On every turn return exactly one valid JSON object, with no markdown fence, reasoning, or extra fields. Follow this valid example: {\"state_patch\":{},\"action\":{\"type\":\"inspect\"}}. A patch is a sparse object update. Action examples: {\"type\":\"inspect\"}, {\"type\":\"read\",\"path\":\"README.md\"}, {\"type\":\"write\",\"path\":\"README.md\",\"content\":\"complete file text\"}, {\"type\":\"commit\",\"paths\":[\"README.md\"],\"description\":\"docs(readme): update usage\"}, or {\"type\":\"continue\"}/{\"type\":\"finish\"}/{\"type\":\"blocked\"}. Inspect and read the actual dirty files before deciding partitions. A commit selects only its listed paths; remaining changes stay available for later actions."""
-SCHEMA_GUIDANCE = "State fields: goal (objective string); progress (concrete completed actions and findings that may matter later); next_steps (only remaining actionable work); artifacts (produced paths); blockers (obstacles preventing progress); notes (object with constraints, accepted_decisions, pending_proposals, uncertainties arrays). After a successful action, update progress and remove completed work from next_steps. This generic state shape is authored for this experiment, not supplied by the paper."
+PROCEDURE = """Organize all supplied dirty changes into coherent commits using the supplied repository customs. Preserve intended content and keep each task file with its change; maintain WORKBOARD references at every commit boundary. A task's WORKBOARD entry must not appear until its task file is committed; include the task file and its board update together. WORKBOARD entries are Markdown bullets exactly like `- task-slug`; preserve existing bullets when editing. Include each task's source, test, task file, and matching WORKBOARD update in its behavior commit. An empty jj working-copy commit is normal and clean; do not abandon it. Use explicit progress memory and do not repeat a tool call when its observation has not changed. State-only requests do not include prior observations: put important findings and completed work in state. Before finish, verify the working copy is clean and history is correct.
+
+Tools: inspect is one call that reports jj status, the complete patch from jj diff --git, and the last five commits; use it instead of separate scripts for status/diff/history. read returns a named file. write replaces a named existing file with complete text, using {\"type\":\"write\",\"path\":\"README.md\",\"content\":\"complete file text\"}. commit selects one or more relative paths and a description. script runs a Python or Bash snippet from the fixture; each snippet is safety-reviewed after proposal and before execution, and is rejected if no reviewer approves it. Use exactly {\"type\":\"script\",\"language\":\"bash\",\"snippet\":\"jj status\"} for Bash or replace bash with python. Scripts are general-purpose and are not an OS sandbox: do not access paths outside the fixture, use the network, or perform destructive host operations. Use the focused repository tools when they suffice.
+
+On each inference return exactly one JSON object with state_patch and action, and no extra fields. action may be one tool call, a terminal outcome, or a plan of 1 to 8 tool calls. After inspect has exposed the full changes, prefer a short plan when remaining paths, contents, and order are already clear; this saves inference turns. The controller executes planned calls in order, records each result, and stops on the first failure. Plans receive no intermediate model feedback; group calls only when their arguments are grounded in current evidence. A plan contains only inspect, read, write, commit, or script calls. Do not put finish, blocked, or continue in a plan. A commit may contain multiple paths. Examples: {\"state_patch\":{},\"action\":{\"type\":\"inspect\"}} and {\"state_patch\":{},\"action\":{\"type\":\"plan\",\"steps\":[{\"type\":\"inspect\"},{\"type\":\"read\",\"path\":\"README.md\"}]}}. Script steps use {\"type\":\"script\",\"language\":\"bash\",\"snippet\":\"jj status\"}. Inspect the patch and read relevant files before choosing commit partitions. Keep progress updates to facts established by prior observations; update state again after receiving the plan results."""
+SCHEMA_GUIDANCE = "State fields: goal (objective string); progress (concrete completed actions and findings that may matter later); next_steps (only remaining actionable work); artifacts (produced paths); blockers (obstacles preventing progress); notes (object with constraints, accepted_decisions, pending_proposals, uncertainties arrays). State-only calls receive no previous tool output except facts preserved here. Record completed progress only after observing its result. This generic state shape is authored for this experiment, not supplied by the paper."
 INITIAL_STATE: dict[str, Any] = {
     "goal": "Organize two unrelated dirty changes into coherent commits under the supplied customs.",
     "progress": [],
@@ -40,7 +46,7 @@ INITIAL_STATE: dict[str, Any] = {
         "uncertainties": [],
     },
 }
-CUSTOMS = "Use conventional lowercase commit descriptions (`docs(scope): summary` or `fix(scope): summary`). Each task change includes its task file in the same commit; update WORKBOARD references accordingly."
+CUSTOMS = "Use conventional lowercase commit descriptions: `docs(scope): summary` for documentation, `feat(scope): summary` for a new capability, and `fix(scope): summary` for a repair. Each task change includes all relevant source/test files, its task file, and matching WORKBOARD entry in the same commit. The WORKBOARD is a Markdown bullet list with one `- task-slug` entry per line; preserve existing bullets. Do not add a WORKBOARD task entry before its task file is committed. Never abandon commits to clean up; an empty jj working-copy commit is already clean."
 
 
 class Adapter(Protocol):
@@ -91,6 +97,7 @@ class LiveAdapter:
         return {
             "provider": self.settings.llm_provider,
             "model": self.settings.llm_model,
+            "configured_model": self.settings.llm_model,
             "transport_mode": self.settings.llm_transport_mode,
             "stream_mode": self.settings.llm_stream_mode,
             "thinking": "disabled",
@@ -149,17 +156,39 @@ def apply_patch(state: dict[str, Any], patch: object) -> dict[str, Any]:
 
 
 def parse_proposal(text: str) -> dict[str, Any]:
+    candidate = text.strip()
+    if candidate.startswith("```") and candidate.endswith("```"):
+        candidate = candidate[3:-3].strip()
+        if candidate[:4].casefold() == "json":
+            candidate = candidate[4:].lstrip()
     try:
-        obj = json.loads(text)
+        obj = json.loads(candidate)
     except json.JSONDecodeError as exc:
         raise ValueError(f"response is not JSON: {exc.msg}") from exc
     if not isinstance(obj, dict) or set(obj) != {"state_patch", "action"}:
         raise ValueError("response must contain exactly state_patch and action")
-    if not isinstance(obj["action"], dict) or obj["action"].get("type") not in {
+    action = obj["action"]
+    if not isinstance(action, dict):
+        raise ValueError("invalid action")
+    if action.get("type") == "plan":
+        steps = action.get("steps")
+        if not isinstance(steps, list) or not 1 <= len(steps) <= 8:
+            raise ValueError("plan requires 1 to 8 tool calls")
+        for step in steps:
+            if not isinstance(step, dict) or step.get("type") not in {
+                "inspect",
+                "read",
+                "write",
+                "commit",
+                "script",
+            }:
+                raise ValueError("plan steps must be inspect, read, write, commit, or script calls")
+    elif action.get("type") not in {
         "inspect",
         "read",
         "write",
         "commit",
+        "script",
         "continue",
         "finish",
         "blocked",
@@ -188,6 +217,31 @@ def _env(root: Path) -> dict[str, str]:
     return env
 
 
+def _script_env(root: Path) -> dict[str, str]:
+    """Expose a small fixture-oriented environment, not caller credentials."""
+    home = root / ".experiment-home"
+    temp = root / ".experiment-tmp"
+    home.mkdir(exist_ok=True)
+    temp.mkdir(exist_ok=True)
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": str(home),
+        "TMPDIR": str(temp),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": str(root / "gitconfig"),
+        "GIT_AUTHOR_NAME": "Harness",
+        "GIT_AUTHOR_EMAIL": "harness@example.invalid",
+        "GIT_COMMITTER_NAME": "Harness",
+        "GIT_COMMITTER_EMAIL": "harness@example.invalid",
+        "JJ_CONFIG": str(root / "jj-config.toml"),
+        "JJ_USER": "Harness",
+        "JJ_EMAIL": "harness@example.invalid",
+        "GIT_TERMINAL_PROMPT": "0",
+    }
+    return env
+
+
 def _run(root: Path, args: list[str], *, timeout: float = 10) -> str:
     exe = shutil.which(args[0])
     if not exe:
@@ -208,7 +262,8 @@ def create_fixture(root: Path) -> dict[str, Any]:
     root = _ensure_external_root(root)
     root.mkdir(parents=True, exist_ok=True)
     (root / "AGENTS.md").write_text(
-        "Use conventional commits. Keep each task's task file in its commit.\n", encoding="utf-8"
+        "Use conventional commits. Keep each task's task file and matching WORKBOARD reference in its commit. Never abandon commits to clean up; an empty jj working-copy commit is already clean.\n",
+        encoding="utf-8",
     )
     (root / "tasks/open").mkdir(parents=True, exist_ok=True)
     (root / "docs").mkdir(exist_ok=True)
@@ -263,7 +318,7 @@ def create_fixture(root: Path) -> dict[str, Any]:
                     "tasks/open/subtract.md",
                     "tasks/WORKBOARD.md",
                 ],
-                "prefix": "fix(",
+                "prefix": "feat(",
             },
         ],
         "customs": CUSTOMS,
@@ -278,7 +333,14 @@ def safe_path(root: Path, rel: str) -> Path:
     return candidate
 
 
-def act(root: Path, action: dict[str, Any], *, timeout: float) -> str:
+def act(
+    root: Path,
+    action: dict[str, Any],
+    *,
+    timeout: float,
+    review_script: Callable[[Path, dict[str, Any]], tuple[bool, str]] | None = None,
+    review_records: list[dict[str, Any]] | None = None,
+) -> str:
     root = _ensure_external_root(root)
     typ = action["type"]
     if typ in {"continue", "finish", "blocked"}:
@@ -287,7 +349,7 @@ def act(root: Path, action: dict[str, Any], *, timeout: float) -> str:
         return (
             _run(root, ["jj", "status"])
             + "\n"
-            + _run(root, ["jj", "diff", "--summary"])
+            + _run(root, ["jj", "diff", "--git"])
             + "\n"
             + _run(root, ["jj", "log", "-n", "5"])
         )
@@ -300,14 +362,67 @@ def act(root: Path, action: dict[str, Any], *, timeout: float) -> str:
             raise ValueError("read target must be a regular fixture file")
         return p.read_text(encoding="utf-8")
     if typ == "write":
-        rel, content = action.get("path"), action.get("content")
+        rel = action.get("path")
+        content = action.get("content", action.get("text"))
         if not isinstance(rel, str) or not isinstance(content, str):
-            raise ValueError("write requires path and text content")
+            raise ValueError("write requires path and complete text content")
         p = safe_path(root, rel)
         if p.is_symlink() or not p.is_file():
             raise ValueError("write target must be an existing regular fixture file")
         p.write_text(content, encoding="utf-8")
         return f"Updated {rel} ({len(content)} characters)."
+    if typ == "script":
+        language = action.get("language")
+        content = next(
+            (
+                action[key]
+                for key in ("snippet", "content", "code", "command")
+                if isinstance(action.get(key), str)
+            ),
+            None,
+        )
+        if language not in {"python", "bash"} or not isinstance(content, str):
+            raise ValueError("script requires language python or bash and a snippet string")
+        record: dict[str, Any] = {"action": copy.deepcopy(action), "approved": False}
+        if review_script is None:
+            record["reason"] = "No script reviewer supplied; rejected by default."
+        else:
+            approved, reason = review_script(root, copy.deepcopy(action))
+            record.update({"approved": bool(approved), "reason": str(reason)})
+        if review_records is not None:
+            review_records.append(record)
+        if not record["approved"]:
+            raise PermissionError(record["reason"] or "Script rejected by reviewer.")
+        cwd_value = action.get("cwd", ".")
+        if not isinstance(cwd_value, str):
+            raise ValueError("script cwd must be a relative path")
+        cwd = root.resolve() if cwd_value == "." else safe_path(root, cwd_value)
+        if cwd.is_symlink() or not cwd.is_dir():
+            raise ValueError("script cwd must be a fixture directory")
+        command = [sys.executable, "-c", content] if language == "python" else ["/bin/bash", "-c", content]
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            env=_script_env(root),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if completed.returncode:
+            raise RuntimeError(
+                f"script exited {completed.returncode}; stdout={completed.stdout!r}; "
+                f"stderr={completed.stderr!r}"
+            )
+        return json.dumps(
+            {
+                "language": language,
+                "cwd": cwd.relative_to(root).as_posix() or ".",
+                "exit_code": completed.returncode,
+                "stdout": completed.stdout,
+                "stderr": completed.stderr,
+            },
+            ensure_ascii=False,
+        )
     if typ == "commit":
         paths = action.get("paths")
         description = action.get("description")
@@ -332,7 +447,15 @@ def evaluate(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
         p: (root / p).read_text(encoding="utf-8") if (root / p).is_file() else None
         for p in expected
     }
-    content_ok = actual == expected
+    content_ok = all(
+        (
+            sorted((actual.get(path) or "").splitlines())
+            == sorted((expected.get(path) or "").splitlines())
+            if path == "tasks/WORKBOARD.md"
+            else actual.get(path) == expected.get(path)
+        )
+        for path in expected
+    )
     status = _run(root, ["jj", "status"])
     log = _run(root, ["jj", "log", "-n", "6"])
     # Inspect commit file ownership directly; shared WORKBOARD may occur in both.
@@ -345,7 +468,7 @@ def evaluate(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
     conventions = (
         len(rows) >= 2
         and any(x.startswith("docs(") for x in rows)
-        and any(x.startswith("fix(") for x in rows)
+        and any(x.startswith(("feat(", "fix(")) for x in rows)
     )
     clean = "Working copy changes:" not in status
     tracked = set(_run(root, ["jj", "file", "list"]).splitlines())
@@ -362,7 +485,7 @@ def evaluate(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
             'commit_id ++ "\\t" ++ description ++ "\\n"',
         ],
     )
-    task_evidence: dict[str, list[str]] = {"docs": [], "fix": []}
+    task_evidence: dict[str, list[str]] = {"docs": [], "behavior": []}
     for line in commit_rows.splitlines():
         if "\t" not in line:
             continue
@@ -370,8 +493,8 @@ def evaluate(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
         family = (
             "docs"
             if description.startswith("docs(")
-            else "fix"
-            if description.startswith("fix(")
+            else "behavior"
+            if description.startswith(("feat(", "fix("))
             else None
         )
         if family:
@@ -394,12 +517,17 @@ def evaluate(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
                 changed += "\nTASK_OR_WORKBOARD_BOUNDARY_INVALID"
             task_evidence[family].append(changed)
     docs_task = any(
-        "docs/guide.md" in diff and "tasks/open/docs-guide.md" in diff
+        "TASK_OR_WORKBOARD_BOUNDARY_INVALID" not in diff
+        and "docs/guide.md" in diff
+        and "tasks/open/docs-guide.md" in diff
         for diff in task_evidence["docs"]
     )
     fix_task = any(
-        "src/math.py" in diff and "tasks/open/subtract.md" in diff and "tests/test_math.py" in diff
-        for diff in task_evidence["fix"]
+        "TASK_OR_WORKBOARD_BOUNDARY_INVALID" not in diff
+        and "src/math.py" in diff
+        and "tasks/open/subtract.md" in diff
+        and "tests/test_math.py" in diff
+        for diff in task_evidence["behavior"]
     )
     checks = {
         "intended_content_preserved": content_ok,
@@ -431,6 +559,7 @@ def run_episode(
     action_timeout_s: float = 10,
     state_limit: int | None = 30000,
     observation_limit: int | None = 30000,
+    review_script: Callable[[Path, dict[str, Any]], tuple[bool, str]] | None = None,
 ) -> dict[str, Any]:
     root = _ensure_external_root(root)
     state = copy.deepcopy(INITIAL_STATE)
@@ -449,7 +578,7 @@ def run_episode(
         "observation_limit": observation_limit,
         "role_layout": "user_only",
         "customs_source": "supplied",
-        "max_tokens": 900,
+        "max_tokens": 1400,
     }
     for turn in range(max_turns):
         if state_limit is not None and len(json.dumps(state)) > state_limit:
@@ -524,14 +653,45 @@ def run_episode(
                 outcome = "blocked"
                 observation = "Model reported blocked."
                 break
-            action_started = time.monotonic()
-            try:
-                observation = act(root, action, timeout=action_timeout_s)
-                entry["action_error"] = None
-            except Exception as exc:
-                observation = f"Action failed: {type(exc).__name__}: {exc}"
-                entry["action_error"] = observation
-            entry["action_duration_ms"] = (time.monotonic() - action_started) * 1000
+            planned_steps = action["steps"] if action["type"] == "plan" else [action]
+            tool_calls: list[dict[str, Any]] = []
+            script_reviews: list[dict[str, Any]] = []
+            observations: list[str] = []
+            for call_index, tool_action in enumerate(planned_steps, start=1):
+                action_started = time.monotonic()
+                try:
+                    result = act(
+                        root,
+                        tool_action,
+                        timeout=action_timeout_s,
+                        review_script=review_script,
+                        review_records=script_reviews,
+                    )
+                    tool_error = None
+                    observations.append(f"Tool {call_index} ({tool_action['type']}) result:\n{result}")
+                except Exception as exc:
+                    result = ""
+                    tool_error = f"{type(exc).__name__}: {exc}"
+                    observations.append(
+                        f"Tool {call_index} ({tool_action['type']}) failed: {tool_error}"
+                    )
+                tool_calls.append(
+                    {
+                        "action": copy.deepcopy(tool_action),
+                        "result": result,
+                        "error": tool_error,
+                        "duration_ms": (time.monotonic() - action_started) * 1000,
+                    }
+                )
+                if tool_error:
+                    break
+            observation = "\n\n".join(observations)
+            entry["tool_calls"] = tool_calls
+            entry["script_reviews"] = script_reviews
+            entry["action_error"] = next(
+                (call["error"] for call in tool_calls if call["error"]), None
+            )
+            entry["action_duration_ms"] = sum(call["duration_ms"] for call in tool_calls)
             entry["observation"] = observation
             history.extend(
                 [{"role": "assistant", "content": raw}, {"role": "user", "content": observation}]
@@ -540,7 +700,7 @@ def run_episode(
         if outcome in {"failure", "finished", "blocked"}:
             break
     evaluator = evaluate(root, fixture)
-    if outcome == "finished" and not evaluator["checks"]["working_copy_clean"]:
+    if outcome == "finished" and not evaluator["pass"]:
         outcome = "failure"
     return {
         "mode": mode,
@@ -552,8 +712,17 @@ def run_episode(
         "evaluator": evaluator,
         "params": params,
         "adapter": adapter.name,
-        "model": adapter.model,
-        "adapter_config": getattr(adapter, "manifest", {"model": adapter.model}),
+        "configured_model": adapter.model,
+        "returned_models": sorted(
+            {
+                c["response_model"]
+                for c in captures
+                if isinstance(c.get("response_model"), str) and c["response_model"]
+            }
+        ),
+        "adapter_config": getattr(
+            adapter, "manifest", {"configured_model": adapter.model}
+        ),
         "budget_reason": budget_reason if outcome == "budget_exhausted" else None,
         "initial_input_hash": locals().get("initial_input_hash"),
     }
@@ -606,7 +775,7 @@ def _script() -> list[str]:
                         "tasks/open/subtract.md",
                         "tasks/WORKBOARD.md",
                     ],
-                    "description": "fix(math): add subtraction operation",
+                    "description": "feat(math): add subtraction operation",
                 },
             }
         ),
@@ -669,6 +838,7 @@ def run_pair(output: Path, *, max_turns: int = 8) -> dict[str, Any]:
             "passed": r["evaluator"]["pass"],
             "calls": len(r["captures"]),
             "actions": len(r["actions"]),
+            "tool_calls": sum(len(c.get("tool_calls", [])) for c in r["captures"]),
             "retries": r["invalid_proposals"],
             "latency_ms": sum(c.get("duration_ms", 0) or 0 for c in r["captures"]),
             "request_characters": sum(

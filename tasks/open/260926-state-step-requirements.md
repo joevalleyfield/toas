@@ -5,7 +5,7 @@ Legacy index:
 
 keywords: runtime, investigation, active, contract, projection, frontier, provenance
 Depends on: `260926-state-simulation-checkpoint`
-Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260803-session-rotation-lifecycle`
+Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260803-session-rotation-lifecycle`
 
 # State-Transition Step: Requirements And Implementation Straw Man
 
@@ -188,6 +188,17 @@ its bounded experimental implementation surfaces.
   request/token counts and the captured run paths.
 - This is one history-exposure observation, not a reproduction of ReAct or
   statistical evidence that either architecture is generally more effective.
+- Follow-on [tool and plan experiment](../closed/260926-state-experiment-plan-tools.md)
+  responds to the trace with full Git diff inspection, multi-action plans, and
+  reviewed general-purpose scripts. It remains mechanics evidence, not a
+  production step contract decision.
+- The follow-on's matched live pair passed the revised independent repository
+  checks in both arms. State-only used one four-call plan; history-plus-state
+  required more inference turns and a reviewed script after a write-field
+  mismatch. Both responses identified the returned model as
+  `Qwen3.8-27B-Q8_0.gguf`; the configured alias was
+  `qwen3.5-35b-a3b`. See its closed task and runbook for the full trace and
+  single-pair limitations.
 
 ## Initial Evidence
 
