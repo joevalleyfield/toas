@@ -137,8 +137,44 @@ The run also exposed fixture/evaluator issues: adding subtraction is a feature
 and its `feat(...)` description is conventional; WORKBOARD task lines are
 unordered bullets; and every task reference must be valid at each commit
 boundary. Those semantics are now represented directly in customs and
-evaluation. One paired run remains a smoke observation, not a general model
+evaluation. Each paired run remains a smoke observation, not a general model
 effectiveness result.
+
+## Repeat with a jj quick reference
+
+The repeat at `/private/tmp/toas-state-live-repeat-20260926T/pair.json` added a
+short jj usage reference to the procedure, customs, and generated fixture
+`AGENTS.md`. That reference explains `jj status`, full `jj diff --git`, recent
+history, that the commit tool performs a path-focused `jj split`, why an empty
+`@` after a commit is clean, and how to inspect `@-`. No proposed script needed
+review in this pair.
+
+Both arms used the same initial fixture and model-input hashes within the pair,
+the same 10-turn / one-retry / 20-second-action limits, and the same configured
+alias and `http://localhost:8080/v1` endpoint. Both returned
+`/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf`.
+Both finished and passed every evaluator check.
+
+State-only took five model calls and eight tool calls: inspect, read the board,
+inspect again without an intervening edit, then a five-call plan (documentation
+commit, board read, board write, behavior commit, inspect), then finish.
+History-plus-state took four model calls and five tool calls: inspect, commit
+the documentation group, then a three-call plan (board write, behavior commit,
+inspect), then finish. Neither arm used a script or encountered an action
+error. Both used the canonical `content` field for the board write.
+
+Compared with the preceding pair, the state-only trajectory regressed from
+three calls with one four-tool plan to five calls with a repeated inspect and a
+five-tool plan. History-plus-state improved from eight calls—with `write.text`
+errors and a reviewed Bash recovery—to four calls with no errors or script.
+Both previous and current pairs passed the latest evaluator after reassessment.
+That is substantial run-to-run variation in a tiny sample. This is not a
+controlled repeatability estimate: the repeat intentionally changed the
+model-visible procedure by adding the jj reference, so prompt content changed
+alongside model sampling. The paired input hashes match within each run, but
+the initial model-input hashes differ between runs because the procedure
+changed. Keep this as an exploratory signal, not evidence that one context
+mode is reliably faster or better.
 
 Evaluate actual preserved files, descriptions, clean status, and real jj history.
 The evaluator checks the documentation and behavior task evidence and verifies
@@ -148,9 +184,9 @@ hashes.
 The paper's budget-matched controls motivate keeping settings aligned; its
 rollback-retry behavior for invalid patches informs state-preserving retries.
 The paper's limitation section emphasizes that state may omit facts that become
-relevant later. A scripted pair is only a mechanics check; one live pair is not
-a statistical result. Provider-injected instructions remain uncontrolled in
-live runs.
+relevant later. A scripted pair is only a mechanics check; the current live
+pairs are exploratory and too few for a statistical result. Provider-injected
+instructions remain uncontrolled in live runs.
 
 ## Current limitations
 
@@ -159,5 +195,6 @@ operations, but the scripted responses are predefined behavior and do not test
 model capability. The live adapter is opt-in and requires normal TOAS provider
 configuration. The evaluator checks this fixture's two expected task families
 and their workboard references at commit boundaries; it is not a general commit
-quality judge. The first guided local Qwen pair showed different outcomes in
-these fixtures, but one pair cannot establish general effectiveness.
+quality judge. The live Qwen pairs show variable outcomes and call sequences;
+the prompt changes between iterations and the sample remains too small to
+establish general effectiveness.
