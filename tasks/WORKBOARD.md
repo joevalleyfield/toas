@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-21
+> **Last Sync:** 2026-09-26
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -13,26 +13,24 @@ TOAS, rather than by architectural leverage or novelty. It does not by itself
 promote any task out of inception.
 
 The seed-prompt composition, first-failure recovery, assistant-execution
-authority, and LLM-native compaction priorities are complete. The remaining
-queue is:
+authority, LLM-native compaction, and successor-continuation priorities are
+complete. The remaining queue is:
 
-1. `260803-session-rotation-lifecycle`: keep working transcripts bounded and
-   cheap to reason over while durable event history supplies continuity.
-2. `260803-tool-intent-ingress-separation`: establish native tool calling and
+1. `260803-tool-intent-ingress-separation`: establish native tool calling and
    alternate text lanes as separable ingress adapters to the same execution
    model. This is important foundation, but offers less immediate relief than
    repairing the currently used path.
-3. `260803-language-exec-fenced-block-lane`: add executable language fences,
+2. `260803-language-exec-fenced-block-lane`: add executable language fences,
    prompted-shell sequencing, resilient activators, and explicit tool fences
    after the shared ingress contract is stable enough to prevent a parallel
    execution model.
-4. `260412-json-callable-lane-parser-and-policy`: treat JSON as the inexpensive
+3. `260412-json-callable-lane-parser-and-policy`: treat JSON as the inexpensive
    serialization sibling of the YAML lane once the shared scanner and policy
    seam exist, rather than as a standalone priority.
 
-Sequencing constraints: compaction should settle what context is projected
-before session rotation decides what crosses a boundary. New native and fenced
-ingress should normalize through the common tool-intent seam; the JSON
+Compaction and successor continuation now establish what crosses an explicit
+working-transcript boundary. New native and fenced ingress should normalize
+through the common tool-intent seam; the JSON
 corollary follows the executable-fence scanner rather than preceding it.
 
 ### Operator priority vote — 2026-09-04
@@ -261,10 +259,10 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin...
 - **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri... ⚠️ Stale
 - **[T260811-activity-health-telemetry]** Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... ⚠️ Stale
-- **[T260813-transcript-highlighting-design]** Explore a role-aware syntax-highlighting model for TOAS transcripts in Vim. The transcript remains an ordinary Markdown document, but its role heading...
-- **[T260823-conversation-map-projection]** Explore an inspectable conversation-map projection that reifies intent-tracking events, focus changes, and related provenance without adding cognitive...
-- **[T260823-intent-tail-focus-trace]** Explore how TOAS can derive a durable or inspectable trace of changing focus from intent-tracking tails and surrounding transcript evidence.
-- **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ...
+- **[T260813-transcript-highlighting-design]** Explore a role-aware syntax-highlighting model for TOAS transcripts in Vim. The transcript remains an ordinary Markdown document, but its role heading... ⚠️ Stale
+- **[T260823-conversation-map-projection]** Explore an inspectable conversation-map projection that reifies intent-tracking events, focus changes, and related provenance without adding cognitive... ⚠️ Stale
+- **[T260823-intent-tail-focus-trace]** Explore how TOAS can derive a durable or inspectable trace of changing focus from intent-tracking tails and surrounding transcript evidence. ⚠️ Stale
+- **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ... ⚠️ Stale
 - **[T260825-visible-transcript-turn-ids]** Define a general transcript-facing way to display stable turn identifiers that are normally excluded from the LLM message projection, so users and edi...
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context.
 - **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered...
@@ -359,11 +357,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260926-state-simulation-checkpoint]** Save the conversation's instruction/state simulation, its design revisions, and source references. Update the draft design to reflect sparse patches, ...
+- **[T260926-skill-state-reference-and-design]** Preserve the full versioned paper as attributed Markdown reference material, then capture the user's state-transition-buffer idea in a separate TOAS d...
 - **[T260920-transcript-policy-reinterpretation-examples]** Transcript Policy Reinterpretation Examples
 - **[T260920-transcript-control-state-survey]** Establish the status quo for all operator-controlled state that can affect a future TOAS step before proposing a generalized settings-delta or checkpo...
 - **[T260920-transcript-control-documentation-contract]** Turn the completed transcript-control survey into a small, navigable documentation contract. The documentation must distinguish ordinary config preced...
-- **[T260920-ruff-cleanup]** Clear current Ruff findings without changing runtime behavior, so normal verification remains a trustworthy repository-wide gate.
-- **[T260920-lcp-policy-reevaluation-contract]** Document LCP Policy Reevaluation Contract
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

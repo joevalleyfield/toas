@@ -2,6 +2,15 @@
 
 Short-form product and architecture notes that are not tasks.
 
+External source material lives in [Reference Material](../references/README.md).
+TOAS interpretations belong here, including the draft
+[state-transition buffer design](2026-09-26-state-transition-buffers.md)
+inspired by SKILL.state.
+
+The [conversation simulation](2026-09-26-state-simulation.md) keeps explicit
+[instructions and state in YAML](2026-09-26-state-simulation.yaml) for the
+ongoing experiment.
+
 ## Purpose
 
 Use this directory for ideas, observations, and operating heuristics that may or may not become roadmap work.

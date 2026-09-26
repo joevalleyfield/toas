@@ -1,0 +1,120 @@
+# Design checkpoint, not TOAS runtime configuration.
+# Companion: 2026-09-26-state-simulation.md
+instructions:
+  version: 2
+  purpose: >
+    Maintain explicit working state alongside this conversation to explore
+    state-based execution for varied TOAS repository work.
+  turn_process:
+    - Read these instructions, current state, and the latest observation.
+    - Propose a state patch reflecting meaningful changes from the observation.
+    - Preserve unchanged state; omission from a patch does not delete it.
+    - Keep pending proposals distinct from accepted decisions.
+    - Choose the next useful authorized action in service of the goal.
+  field_rules:
+    goal: >
+      State the objective. Refine it when the user changes or clarifies intent;
+      preserve still-applicable scope and constraints.
+    progress: >
+      Record completed actions, milestones, and concrete findings. Recording
+      that a decision was made does not retire its ongoing effect.
+    next_steps: >
+      Keep actionable next work and ongoing activities here until their completion
+      conditions are met. Record intermediate results separately in progress.
+    artifacts: >
+      Identify outputs produced or modified; distinguish proposed from existing
+      outputs. Structured entries remain provisional in this simulation.
+    blockers: >
+      Record obstacles preventing a next step. Put non-blocking uncertainties in notes.
+    notes: >
+      Preserve continuation-relevant information as native YAML categories:
+      constraints, accepted_decisions, pending_proposals, and uncertainties.
+      Do not fence or escape these categories inside a string. Distinguish
+      hypotheses from confirmed facts and proposals from accepted decisions.
+  simulation_rules:
+    - Show a proposed state patch each turn, including meta discussion, or report no change.
+    - A requested consolidated snapshot may replace the patch display.
+    - User feedback establishes only the acceptance its scope supports.
+    - >
+      Revise instructions explicitly during experiment design and record the
+      reason. Revisions govern subsequent turns, not their own acceptance.
+    - Instruction revision history is inspectable but need not enter inference context.
+    - Full-transcript access prevents this exercise from establishing state sufficiency.
+    - >
+      An empty user turn may signal continuation of useful work already supported
+      by the goal, state, and authority. It supplies no evidence, approves no
+      pending proposal, and implies neither action success nor a requested loop.
+
+instruction_revisions:
+  - version: 1
+    status: adopted_for_simulation
+    reason: >
+      User requested consolidation of the generic baseline and discussed rules
+      for placement, ongoing activities, visible patches, and explicit revisions.
+    provenance: >
+      Conversation-authored adaptation of vitkuz573/skillstate's generic procedure;
+      not the paper's original domain instructions.
+  - version: 2
+    status: current_simulation_revision
+    reason: >
+      User accepted native structured notes and described empty turns as
+      continuation under an action-oriented prompt. Record these explicitly
+      for subsequent simulation turns while retaining evidence and acceptance boundaries.
+    changes:
+      - Make the accepted mapping structure of notes explicit.
+      - Keep structured artifact entries explicitly provisional.
+      - Allow empty-turn continuation of authorized work without inventing evidence.
+
+state:
+  goal: >
+    Explore explicit-state execution for varied TOAS repository work, using
+    SKILL.state and independent implementations to inform a deliberate design
+    before runtime implementation.
+  progress:
+    - Vendored the paper as attributed Markdown with its original figure.
+    - Added a separate draft note connecting the paper to TOAS.
+    - Reviewed the paper's model, evidence, limitations, and unspecified details.
+    - Examined independent generic and SWE instruction/schema examples.
+    - Began displaying state patches alongside the full-transcript conversation.
+    - Consolidated instructions and accepted native structured notes.
+    - Saved this simulation checkpoint and updated the draft design connections.
+    - Checked YAML structure, instruction versions, artifact paths, and 14 local links.
+  next_steps:
+    - >
+      Use the checkpoint to guide another repository-work turn. Inspect patches
+      for lost, ambiguous, or misclassified meaning; simulation remains ongoing.
+    - Examine generic fields against concrete work before proposing more schema changes.
+    - Compare the Pi SWE schema after concrete gaps emerge in the generic procedure.
+  artifacts:
+    - path: docs/references/skill-state/paper.md
+      status: created
+    - path: docs/references/skill-state/README.md
+      status: created
+    - path: docs/notes/2026-09-26-state-transition-buffers.md
+      status: updated
+    - path: docs/notes/2026-09-26-state-simulation.md
+      status: created
+    - path: docs/notes/2026-09-26-state-simulation.yaml
+      status: created
+  blockers: []
+  notes:
+    constraints:
+      - TOAS supports varied repository work, not only software engineering.
+      - Distinguish paper fidelity, unspecified details, and deliberate extensions.
+      - Some engines permit only user-role input; record role placement as a variable.
+      - Avoid expensive manual auditing of model omissions as a prerequisite to continuation.
+    accepted_decisions:
+      - Explore the generic procedure before the Pi SWE schema.
+      - Simulate state updates alongside this continuing conversation.
+      - Preserve notes categories as native YAML structure.
+      - Instruction revisions refine the experiment; runtime self-modification is not proposed.
+      - Persist the checkpoint and update the draft design note.
+    pending_proposals:
+      - Share step across explicit transcript and state-transition buffer shapes.
+      - Show state diffs independently of inference input, with recovery of omitted context.
+      - Retain structured artifact entries; their precise shape remains provisional.
+    uncertainties:
+      - The paper omits full domain prompts, API role placement, and some failure semantics.
+      - Notes may accumulate too much material despite structured categories.
+      - Full-transcript simulation cannot demonstrate isolated-turn sufficiency or performance.
+      - Empty-turn representation in a future TOAS state mode remains unspecified.
