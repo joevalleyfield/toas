@@ -5,7 +5,7 @@ Legacy index:
 
 keywords: runtime, investigation, active, contract, projection, frontier, provenance
 Depends on: `260926-state-simulation-checkpoint`
-Related: `260926-state-step-contract-spike`; `260803-session-rotation-lifecycle`
+Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260803-session-rotation-lifecycle`
 
 # State-Transition Step: Requirements And Implementation Straw Man
 
@@ -140,6 +140,12 @@ must name capability detection, explicit refusal, or supported routing.
 
 ## Sequence And Promotion Gates
 
+The user has prioritized actual isolated-state evidence before deeper integration.
+The [experimental harness](260926-state-experiment-harness.md) is READY for
+implementation independently of the buffer contract spike. Its fixed experimental
+choices do not settle the production grammar or lifecycle below. The user will
+ask Luna to implement it; no agent has been dispatched by this planning turn.
+
 1. **Ready now:** [contract spike](260926-state-step-contract-spike.md). Produce
    concrete examples, a decision matrix, and a recommended first bounded slice.
 2. **Candidate follow-on:** pure parsing, state patch validation, and model-input
@@ -163,7 +169,19 @@ follow-on links here; do not use roadmap updates as task threading.
 
 Planning writes: this task, its task-linked planning artifacts, child task
 metadata, and generated workboard sections. No source or test implementation
-is authorized by this planning task.
+is authorized by this planning task. The harness child separately authorizes
+its bounded experimental implementation surfaces.
+
+## Harness Handoff Progress
+
+- Prepared a self-contained implementation task for paired dirty-tree commit
+  organization experiments with fresh fixtures and explicit context isolation.
+- Both arms share the same state/action protocol; one additionally receives
+  history. This is a history-exposure comparison, not a claim to reproduce ReAct.
+- The first task supplies repo customs; discovery of customs remains a variant.
+- Simulation state update: task preparation is complete; the next action is
+  the user's Luna handoff, then harness implementation and offline verification.
+  Actual comparative model effectiveness remains unknown.
 
 ## Initial Evidence
 

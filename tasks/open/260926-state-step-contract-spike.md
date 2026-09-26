@@ -6,10 +6,15 @@ Legacy index:
 keywords: runtime, investigation, active, contract, frontier, provenance
 Parent: `260926-state-step-requirements`
 Depends on: `260926-state-simulation-checkpoint`
+Related: `260926-state-experiment-harness`
 
 # Specify The First State-Step Slice
 
 Status: READY for bounded investigation; no implementation handoff yet
+
+The separate experimental harness is ready for implementation and does not
+depend on this spike. This task concerns production `step` integration; use
+later harness evidence to inform its recommendations.
 
 ## Objective
 
