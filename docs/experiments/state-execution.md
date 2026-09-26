@@ -176,6 +176,28 @@ the initial model-input hashes differ between runs because the procedure
 changed. Keep this as an exploratory signal, not evidence that one context
 mode is reliably faster or better.
 
+### Same-prompt rerun
+
+The rerun at
+`/private/tmp/toas-state-live-repeat-unchanged-20260926T/pair.json` made no
+prompt or harness changes. Its initial input hash matched the preceding jj
+reference pair exactly in both arms; both returned
+`Qwen3.8-27B-Q8_0.gguf`, finished, and passed all evaluator checks.
+
+State-only took 3 model calls / 6 tool calls (inspect; a five-step plan of
+read, write, two commits, inspect; finish), with 5,027 prompt and 542 completion
+tokens. History-plus-state took 4 model calls / 5 tool calls (inspect; write; a
+three-step plan of two commits and inspect; finish), with 10,706 prompt and 969
+completion tokens. Neither arm had an action error or needed a script review.
+The prior same-prompt pair had 8,468 / 1,192 prompt/completion tokens for
+state-only and 11,291 / 1,211 for history-plus-state. Usage exposes no cached
+token split, so these remain raw counts, not cache-adjusted costs.
+
+Across the two same-prompt runs, state-only moved from 5 calls / 8 tool calls
+to 3 / 6; history-plus-state remained at 4 / 5 but changed its sequence. Both
+pairs passed. This is direct evidence of trajectory variation under a fixed
+prompt and harness, still only two repetitions.
+
 Evaluate actual preserved files, descriptions, clean status, and real jj history.
 The evaluator checks the documentation and behavior task evidence and verifies
 the matching task/workboard entries at each material commit boundary. It allows

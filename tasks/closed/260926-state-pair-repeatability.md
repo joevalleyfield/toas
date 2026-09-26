@@ -43,4 +43,16 @@ variability.
 - Comparison with the prior pair shows substantial trajectory variation, but
   the prompt changed to include the jj reference, so this is exploratory and
   not a controlled repeatability estimate.
+- Same-prompt rerun:
+  `/private/tmp/toas-state-live-repeat-unchanged-20260926T/pair.json`. Its
+  initial model-input hash matched the previous pair in both arms. Both arms
+  again returned `Qwen3.8-27B-Q8_0.gguf` and passed. State-only used 3 model / 6
+  tool calls and 5,027 prompt / 542 completion tokens; history-plus-state used
+  4 model / 5 tool calls and 10,706 prompt / 969 completion tokens. Neither
+  encountered an action error or required a script review. The provider did
+  not report cached-token counts.
+- Against the preceding same-prompt pair, state-only changed from 5 model / 8
+  tool calls to 3 / 6, while history-plus-state stayed at 4 / 5 with a
+  different action sequence. Two repetitions show trajectory variability,
+  not a statistical estimate.
 - Python syntax compilation passed. Tests were not run.
