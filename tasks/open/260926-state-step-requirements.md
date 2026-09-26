@@ -141,10 +141,11 @@ must name capability detection, explicit refusal, or supported routing.
 ## Sequence And Promotion Gates
 
 The user has prioritized actual isolated-state evidence before deeper integration.
-The [experimental harness](260926-state-experiment-harness.md) is READY for
-implementation independently of the buffer contract spike. Its fixed experimental
-choices do not settle the production grammar or lifecycle below. The user will
-ask Luna to implement it; no agent has been dispatched by this planning turn.
+The [experimental harness](../closed/260926-state-experiment-harness.md) was
+ready for implementation independently of the buffer contract spike. It is now
+implemented and closed; its fixed experimental choices do not settle the
+production grammar or lifecycle below. See its completion evidence and runbook
+before promoting any production contract.
 
 1. **Ready now:** [contract spike](260926-state-step-contract-spike.md). Produce
    concrete examples, a decision matrix, and a recommended first bounded slice.
@@ -174,14 +175,19 @@ its bounded experimental implementation surfaces.
 
 ## Harness Handoff Progress
 
-- Prepared a self-contained implementation task for paired dirty-tree commit
-  organization experiments with fresh fixtures and explicit context isolation.
-- Both arms share the same state/action protocol; one additionally receives
-  history. This is a history-exposure comparison, not a claim to reproduce ReAct.
-- The first task supplies repo customs; discovery of customs remains a variant.
-- Simulation state update: task preparation is complete; the next action is
-  the user's Luna handoff, then harness implementation and offline verification.
-  Actual comparative model effectiveness remains unknown.
+- The paired harness now creates fresh equal jj fixtures, compares
+  `state_only` with `history_plus_state`, supplies customs in both arms, and
+  independently checks real commits and task/workboard boundaries.
+- Offline scripted demo and 100% targeted module coverage pass. Full pytest had
+  no test failures (3,293 passed, 17 deselected); the repo coverage gate still
+  reports the unrelated pre-existing `src/toas/graph.py:616` miss.
+- A user-authorized local Qwen pair used equal fixtures and initial requests.
+  The state-only arm repeated inspection and failed within 12 turns. The
+  history-plus-state arm passed repository checks for both commits but exhausted
+  the same budget without a terminal `finish`. See the closed harness task for
+  request/token counts and the captured run paths.
+- This is one history-exposure observation, not a reproduction of ReAct or
+  statistical evidence that either architecture is generally more effective.
 
 ## Initial Evidence
 
@@ -196,12 +202,11 @@ Readable edit notation for this turn; the dated checkpoint is not overwritten:
 
 ```yaml
 progress_added:
-  - Surveyed the current transcript, model-input, and persistence boundaries.
-  - Created a requirements parent and a ready contract-investigation task.
+  - Built and verified the paired state-only/history-plus-state experiment harness.
 next_steps_prepend:
   - Run the bounded state-step contract spike and review its recommended first slice.
 accepted_decisions_added:
-  - Begin implementation planning with an explicitly provisional straw man.
+  - Treat the experiment as mechanics evidence only; do not promote its authored schema or patch rules into production by implication.
 ```
 
 Validation: task metadata, local links, and unique section headings checked;

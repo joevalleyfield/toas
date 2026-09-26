@@ -3,15 +3,15 @@ FKA:
 AKA: isolated-turn harness; transcript versus state; commit organization experiment
 Legacy index:
 
-keywords: tooling, implementation, active, research, projection, provenance
+keywords: tooling, implementation, historical, research, projection, provenance
 Parent: `260926-state-step-requirements`
 Depends on: `260926-state-simulation-checkpoint`
 Related: `260926-state-step-contract-spike`
 
 # Build An Isolated State Execution Experiment Harness
 
-Status: READY for implementation
-Intended implementer: Luna (user will initiate the handoff)
+Status: CLOSED — 2026-09-26
+Implemented in direct follow-through after the user selected this ready task.
 
 ## Objective
 
@@ -25,7 +25,7 @@ evaluate resulting repository changes independently of model claims.
 This is an experimental runner, not a new TOAS `step` mode. It does not depend
 on the buffer/transition contract spike. Do not implement editor integration,
 daemon/RPC support, production graph records, or a general agent framework.
-Do not dispatch another agent; the user will give this task to Luna.
+The original handoff plan was superseded by the user's direct implementation request.
 
 ## Read First
 
@@ -209,3 +209,72 @@ recovery; discovery-mode customs; blind human review of commit coherence;
 ReAct-only baseline; production buffer grammar; TOAS event-log integration;
 editor state diffs; general SWE schema; arbitrary shell access. Do not expand
 into these to complete the first harness.
+
+## Completion Evidence
+
+- Added the runnable paired experiment at
+  [`src/toas/experiments/state_execution.py`](../../src/toas/experiments/state_execution.py)
+  and its runbook at [`docs/experiments/state-execution.md`](../../docs/experiments/state-execution.md).
+- The offline run produced separate fixture roots with matching initial fixture
+  and model-input fingerprints. Both scripted arms made real sequential jj
+  commits; both passed checks for content preservation, no extra files,
+  conventional descriptions, task evidence and workboard references at each
+  commit boundary, and a clean working copy. Source-checkout paths are rejected
+  as fixture or output roots. Premature finish and deliberately wrong task
+  partition tests fail based on repository state.
+- Added adapter-boundary message captures, retry/state/action/observation
+  records, usage and timing fields, role/config metadata, request character
+  counts, and paired JSON plus concise summary artifacts. Generated artifacts
+  are written only to the explicitly selected output directory.
+- Verification: offline demo passed with
+  `PYTHONPATH=src python3 -m toas.experiments.state_execution --output /private/tmp/toas-state-demo`;
+  targeted coverage passed at 100% with
+  `.venv/bin/python scripts/targeted_coverage.py --cov toas.experiments.state_execution --fail-under 100 --max-missing-files 0 -- tests/test_state_execution_experiment.py -q`;
+  focused Ruff checks passed.
+- Full `uv run pytest`: 3,293 passed, 17 deselected; the repository coverage
+  gate failed on the pre-existing uncovered line `src/toas/graph.py:616`.
+  The unrestricted run had no test failures. The live-adapter follow-up also
+  uses the existing `NO_THINKING` option and records it in transport captures.
+- User-authorized live Qwen run, guided/no-thinking variant:
+  `/private/tmp/toas-state-live-qwen-guided-nothink-20260926T195848Z/pair.json`.
+  The two arms had identical fixture and initial-input hashes. In 12 turns,
+  state-only repeated `inspect` and failed all completion checks. The
+  history-plus-state arm committed both coherent tasks and passed every
+  repository check, but exhausted its turn budget after final `inspect`
+  without emitting `finish`. Provider usage was 9,539 prompt / 580 completion
+  tokens for state-only and 21,315 / 1,134 for history-plus-state; the endpoint
+  reported model `Qwen3.8-27B-Q8_0.gguf` for the configured alias
+  `qwen3.5-35b-a3b`. This is a single paired observation, not statistical
+  evidence.
+- Earlier un-guided, thinking-default live attempts are preserved at
+  `/private/tmp/toas-state-live-qwen-p5h5km44/`; state-only repeated inspection,
+  and history calls returned empty non-streaming content. They are a separate
+  prompt/transport variant and are not pooled with the guided pair.
+- Harness mechanics and one live comparison are now available for follow-up.
+  The comparison does not establish that explicit-state execution is superior.
+
+## Live Trace Diagnosis
+
+The current `inspect` action is concretely `jj status`, `jj diff --summary`,
+and `jj log -n 5`. It reports changed paths and recent commits, not file
+contents or diff hunks. In the guided/no-thinking trace, state-only repeated
+that same summary five times before reading a file, then repeated it two more
+times later. Its first two responses also returned empty state patches, so the
+next state-only packet had no durable record of its prior action. Even after
+the procedure was strengthened to require progress updates and forbid
+unchanged repeats, the model repeated inspection. The history arm also repeated
+inspect twice, but then used the retained observations/actions to move into
+six reads, a board write, and two commits. It reached a correct clean repo but
+spent all 12 turns and omitted the explicit `finish` action.
+
+This points to several independent candidate causes rather than one proven
+root cause: a weakly named/limited inspect action, no automatic memory of the
+last action in state-only mode, a single action per inference call, and
+procedure instructions that this model did not reliably follow. The run does
+not discriminate between them: history exposure and input size also differ
+after turn zero, and this is one pair. The provider-reported model was
+`Qwen3.8-27B-Q8_0.gguf`; the environment alias `qwen3.5-35b-a3b` did not match
+the returned identity. Next experiments should vary one seam at a time: richer
+status/diff output, a batched action plan, or a strict progress/anti-repeat
+state contract, while keeping the returned model and paired request settings
+visible in reports.
