@@ -61,7 +61,7 @@ live smoke run can check prompt adherence without claiming evaluation results.
 
 | Object | Straw-man responsibility | Decision still needed |
 | --- | --- | --- |
-| User-facing transcript projections | May render conversation material alongside typed state snapshots, diffs, and observations | Exact record schema and turn grammar; semantic separation is settled |
+| State-step user-facing projections | Render typed state snapshots, diffs, and observations in state-step views | Exact record schema and turn grammar; semantic separation is settled |
 | Procedure | Generic repo-work instructions plus declared state shape | Inline versus referenced material, exact schema and role placement |
 | Current state | goal, progress, next_steps, artifacts, blockers, structured notes | Required fields, bounds, artifact shape, deletion rules |
 | Observation turn | Newly submitted user input or tool result; explicit continuation may be empty | Turn grammar, consumed-result identity, distinction between absent and empty |

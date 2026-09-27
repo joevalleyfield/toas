@@ -245,9 +245,9 @@ whole-document mode switch. A corresponding versioned state-diff record carries
 a patch or transition delta. State and state-diff records are not message
 events. They remain semantically independent from conversation-step; the two
 may share runtime services and model capabilities, but convergence needs a
-significant impetus. User-facing transcript projections may render state-step
-records alongside conversation material without making them the same semantic
-kind. Exact record schema and turn markers remain open. Unknown versions
+significant impetus. User-facing state-step projections render their own state
+and state-diff records without merging them into conversation-step semantics.
+Exact record schema and turn markers remain open. Unknown versions
 should fail clearly without reinterpreting prior history. The operator-facing
 view follows the current user-controlled state; historical records do not
 replace or overrule it. The LLM request applies its own projection policy.
@@ -562,10 +562,9 @@ unrelated suite coverage.
 
 ## Open decisions before user-facing adoption
 
-- Exact state/state-diff turn syntax and how turns coexist with the existing
-  role markers in `session.md`.
-- Exact typed record schema and how user-facing transcript projections render
-  state-step records alongside conversation material.
+- How the state-step working transcript is stored and edited while preserving
+  its semantic separation from conversation-step.
+- Exact typed record schema and state-step projection syntax.
 - Key-state criteria and whether users can pin key states, configure rules, or
   use computed significance.
 - Projection-selection controls and persistence scope (per request, session,
