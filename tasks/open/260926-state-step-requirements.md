@@ -204,17 +204,24 @@ its bounded experimental implementation surfaces.
   5 to 3 inference calls; history-plus-state stayed at 4 but changed its
   action sequence. The inputs matched across repetitions. Raw usage is recorded
   without a cache-cost interpretation; see the repeatability task/runbook.
-- The contract direction has since shifted from a leading whole-buffer state
-  marker to a transcript containing ordinary, state, and state-diff turns.
-  The event log remains canonical; selectable projections can show full
-  state/diff history, states, diffs, key states, or key states with cumulative
-  diffs. YAML and Markdown DSL are the initial configured human-facing formats
-  and round-trip through canonical JSON. Valid model patches are accepted
-  immediately; action execution remains separately controlled. Initial state
-  can select a versioned seed through the prompt-asset system. Whether state
-  turns are message events or typed records rendered as turns, projection
-  controls/key-state criteria, seed-asset details, capability scope, and
-  transport support remain open. See the updated
+- The contract direction has shifted from a leading whole-buffer state marker
+  to ordinary, state, and state-diff transcript turns. The human-controlled
+  transcript is authoritative for current working state; the event log is a
+  historical record, not operational authority that can override transcript
+  edits. User-facing projections can show full state/diff history, states,
+  diffs, key states, or key states with cumulative diffs. Separately, the
+  default LLM packet stays state-only: effective instructions/schema, current
+  state object, and one latest logical observation, not an accumulated queue.
+  The paper and inspected implementations support that latest-observation
+  default, while leaving size policy open. YAML and Markdown DSL are the
+  initial configured formats and round-trip through normalized JSON. Valid
+  model patches are accepted immediately; action execution remains separately
+  controlled. A state-operation tool may copy an identified observation into
+  a state field without making the model reproduce its text; the original
+  observation remains available. Event/message representation, transcript
+  edit and replay behavior, observation batching/size handling, tool shape,
+  key-state criteria, seed details, capability scope, and transport support
+  remain open. See the updated
   [contract recommendation](../planning/260926-state-step-contract.md).
 
 ## Initial Evidence
@@ -235,9 +242,10 @@ progress_added:
   - Added equivalent illustrative YAML and Markdown state-DSL envelopes alongside normalized JSON, keeping editable-buffer and model-request formats as separate choices.
   - User wants both YAML and Markdown DSL as initial configured formats with bidirectional parse/render against canonical JSON; valid model patches are accepted immediately.
   - Recommended selecting initial state through a versioned prompt-asset seed reference recorded with its digest.
-  - User refined the source/projection model: keep transcript/event-log history canonical, represent state and diffs as turns, and switch among full, state-only, diff-only, key-state, and cumulative-diff projections. This supersedes the prior whole-buffer state-marker routing proposal.
+  - User refined the source/projection model: current human-controlled transcript has operational authority; the event log is historical and cannot override user edits. State/diff turns support user-facing projections, distinct from the default LLM state-only packet.
+  - Confirmed the default packet uses one latest logical observation, aligned with the primary paper and inspected implementations; prior observations are not automatically queued. Recorded state-operation tools as a candidate way to copy selected observation content into state without re-emitting it.
 next_steps_prepend:
-  - Locate state/state-diff turn ownership in the event log and define key-state/projection-selection behavior before opening implementation.
+  - Define transcript/event-log edit and replay boundaries, state-operation tool semantics, and user-facing projection/key-state controls before opening implementation.
 accepted_decisions_added:
   - Treat the experiment as mechanics evidence only; do not promote its authored schema or patch rules into production by implication.
 ```

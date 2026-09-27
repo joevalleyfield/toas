@@ -15,20 +15,28 @@ state turn, a state-diff turn, or a sequence alternating between them; the
 ordinary user/assistant turn pattern remains available. Do not make the whole
 session enter a separate state mode before transcript parsing.
 
-The durable event log remains canonical. State snapshots and diffs use its
-append-only machinery, and transcript projections can expose them in different
-views without changing stored history. The user can completely rewrite the
-current state by supplying a new state turn; this adds a new branch/snapshot
-and never edits an earlier event. A validated model patch is accepted and
-recorded immediately. Any proposed action remains separately executable under
-the existing capability and authority rules.
+The human-controlled transcript is authoritative for current working state.
+The append-only event log preserves historical records; it is historically
+canonical, not operationally authoritative. Replaying an older event must not
+silently override a user's current transcript edit. The operator can completely
+rewrite the current state in a state turn. A validated model patch is accepted
+immediately. Any proposed action remains separately executable under existing
+capability and authority rules.
 
 Treat “full state plus every diff,” “states only,” “diffs only,” “key states,”
 and “key states plus cumulative diffs since the prior key” as candidate
-projections over the same log. Key-state selection is projection policy, not a
-mutation or compaction of canonical history. YAML and the Markdown state DSL
-are the initial configured human-facing formats; both parse to and render
-from canonical JSON. The model-facing request can remain a JSON projection.
+user-facing transcript views. A key state is a movable display anchor;
+shifting it changes which subsequent diffs are shown, not the transcript's
+authority or the model's default input. YAML and the Markdown state DSL are the initial
+configured human-facing formats; both parse to and render from normalized JSON.
+
+The default LLM projection remains state-only: effective instructions/schema,
+the current state object, and one latest logical observation. The user-facing
+history projection does not change that packet. Historical observations remain
+available to the operator; the model does not automatically receive an
+unconsumed-observation queue. State-operation tools may let the model place
+selected observation content into a state field without reproducing the text
+in its output; the source observation remains retained.
 
 This is a recommended first contract, not an adopted parser grammar or approval
 to change production behavior.
@@ -40,14 +48,17 @@ to change production behavior.
 | Local `step` reads and reconciles `session.md` before choosing a consequence | Existing behavior |
 | Existing generation projects message lineage, strips control/reasoning, may add lens artifacts, then invokes the provider | Existing behavior |
 | State/state-diff turns participate in transcript projections without routing the whole session through a separate state-mode parser | User decision; exact turn representation remains open |
-| Keep the transcript/event log as the source; introduce state and state-diff turn kinds and selectable LLM-facing projections | User decision; whether these are message events or typed log records rendered as turns remains open |
+| The human-controlled transcript is authoritative for current working state; the event log preserves history but cannot overrule transcript edits | User decision; exact edit/replay interaction remains open |
+| Introduce state and state-diff turns and selectable user-facing projections | User decision; whether turns are message events or typed records rendered as turns remains open |
 | The same `step` operation handles ordinary and state turns; no whole-document state-mode switch | User decision |
-| User-editable state supports YAML and a Markdown state DSL as initial configured formats, with parse/render round-tripping through canonical JSON | User decision; exact grammars and format setting remain open |
-| State inference can use an isolated user-role message projection | Deliberate TOAS adaptation informed by the isolated-context experiment; role-preserving transcript projection is another open option |
+| User-editable state supports YAML and a Markdown state DSL as initial configured formats, with parse/render round-tripping through normalized JSON | User decision; exact grammars and format setting remain open |
+| Default LLM projection is effective instructions/schema + current state object + one latest logical observation | User decision aligned with the paper and inspected implementations |
+| Prior observations are not automatically accumulated into the default LLM packet | User decision; explicit state operations can move selected observation content into state |
+| Observation content is retained as source material; state operations need not echo it as model output text | User decision; exact operation, identity, and storage/provenance shape remain open |
 | Apply a valid state patch before attempting its action | Paper-specified ordering; separate inference and execution calls are a TOAS interaction adaptation |
 | Accept and persist a valid state patch immediately; action execution remains a separate explicit decision | User decision; state edits are still append-only branches |
 | State snapshots, diffs, observations, and actions use append-only event-log machinery and can be projected as transcript turns | User decision; graph/event schema and message numbering remain open |
-| Offer full, states-only, diffs-only, key-state, and key-state-plus-cumulative-diff projections | User-proposed projection family; key-state criteria and selection controls remain open |
+| Offer full, states-only, diffs-only, key-state, and key-state-plus-cumulative-diff user-facing projections | User-proposed projection family; key-state criteria and selection controls remain open |
 | Identical resubmission is idempotent; interrupted external action is unknown and not retried automatically | Inferred safety contract for repeatability and non-duplicated side effects |
 | RPC/async preserve the same transcript turns and selected projection | Requirement; transport implementation details remain open |
 
@@ -223,8 +234,8 @@ Equivalent normalized JSON body (not a requirement for the editable buffer):
 ```
 
 Both YAML and the Markdown DSL should be supported as initial configured
-buffer formats. Since the user can rewrite the projected state, each format
-needs a parser back to canonical JSON and a renderer from canonical JSON;
+buffer formats. Since the user can rewrite the state turn, each format needs a
+parser to normalized JSON and a renderer from normalized JSON;
 this is a round-trip contract, not just a one-way display. The format is
 identified by the envelope/configuration so parsing never guesses from body
 content. Exact grammars and the setting that chooses the format remain open.
@@ -235,10 +246,11 @@ a patch or transition delta. Ordinary user/assistant turns, state turns, and
 state-diff turns can coexist in one transcript. Exact turn markers and whether
 the durable records are message events or typed event-log records rendered as
 turns remain open. Unknown turn versions should fail clearly without
-reinterpreting prior history. `step` reads the same transcript and selects an
-LLM-facing projection over its durable events.
+reinterpreting prior history. The operator-facing view is a projection of the
+current user-controlled transcript; historical event records do not replace
+or overrule it. The LLM request applies its own projection policy.
 
-Candidate projection choices over the same log:
+Candidate user-facing projections over the current transcript and its retained history:
 
 | Projection | Rendered sequence |
 | --- | --- |
@@ -248,9 +260,48 @@ Candidate projection choices over the same log:
 | Key states | `state0, state4, state7, ...` |
 | Key states with cumulative diffs | `state0, diffs0→4, state4, diffs4→7, state7, ...` |
 
-The view can change without rewriting or compacting the event log. Key-state
+The user-facing view can change without rewriting historical records. The
+view must still honor the operator's current transcript edits. Key-state
 criteria, whether keys are explicit or computed, and how users select/switch
 projections remain open.
+
+These are user-facing projection choices. They do not change the default LLM
+packet described below: the model still gets effective instructions/schema,
+the current transcript state object, and one latest logical observation.
+
+### Latest-observation evidence
+
+The primary paper defines each request as procedure, current state, and the
+latest environment observation, and explicitly excludes previous observations
+from later calls ([SKILL.state, §3 and Algorithm 1](../../docs/references/skill-state/paper.md)).
+The checked [Pi implementation](https://github.com/toadharvard/pi-skill-state-runtime)
+maps the observation to the newest user input or latest external tool-result
+batch; the tool-result batch becomes the next and only observation. Its
+observation character cap is optional and defaults to retaining the full latest
+observation. The [minimal implementation](https://github.com/kissishka/skill-state-minimal)
+also accepts one observation per `step()` and sets no hard size limit. The
+[skillstate implementation](https://github.com/vitkuz573/skillstate) describes
+the same P/state/latest-observation packet.
+
+This supports one latest logical observation as the default, not an implicit
+queue of all unconsumed observations. It does not prescribe a hard size cap;
+the paper's prompt-size expression still includes observation size. TOAS should
+retain original observations for operator inspection and only include the
+selected latest observation in the ordinary state-only packet. The precise
+definition of a logical observation when multiple user/tool events arrive
+before inference remains open.
+
+### Observation-to-state operations — Candidate TOAS adaptation
+
+Expose agent-callable state operations that can copy a selected observation
+into a declared field in the current state object by observation identity and
+destination, without requiring the model to emit the payload text again. Keep
+the original observation available in transcript/history and preserve source
+provenance on the resulting state update. This can save completion/write
+tokens; it does not erase the cost of reading the observation, and copied
+content may still increase future state-packet input. Operation names, whether
+the copy is whole-observation or selected content, schema/path restrictions,
+and provenance shape remain open.
 
 Example state-diff turn in the Markdown DSL:
 
@@ -308,9 +359,10 @@ observation supplies current goal and context. Missing, wrong-category, or
 invalid seed assets are hard errors. Prompt composition for model instructions
 can remain a separate prompt asset reference.
 
-One candidate isolated application-boundary projection for this example is
-one user message containing the selected procedure, schema
-guidance, current state, and latest observation:
+The default state-only packet for this example contains the effective
+procedure/schema, current state, and latest logical observation. The following
+single-user-message packaging is illustrative; exact role packaging remains
+open:
 
 ```json
 [{"role":"user","content":"Procedure (repo-work/v1): Help inspect the requested repository file. Propose one read_file action, or finish if the goal is already met. Never claim a tool result before it is observed.\n\nResponse schema: Return exactly one JSON object with state_patch (sparse object) and consequence. consequence is either {kind: action, tool_name: read_file, arguments: {path: relative_path}} or {kind: finish}. Do not execute the action in this inference.\n\nCurrent state (base transition st7): {goal: Understand the add implementation, progress: [], next_steps: [Read src/math.py], artifacts: [], blockers: [], notes: {constraints: [], accepted_decisions: [], pending_proposals: [], uncertainties: []}}\n\nLatest observation obs8 (user_input): Inspect src/math.py and explain how add works."}]
@@ -378,11 +430,13 @@ inference.
 
 ## Transition lifecycle and durable facts
 
-The user-controlled transcript is an editable projection. The append-only
-event log remains canonical. State snapshots and diffs carry stable IDs and
-digests; whether they are message-event variants or typed records projected as
-turns remains open. User edits that replace a full state append a new state
-turn/branch; they never rewrite prior history.
+The current transcript is the operator-controlled working surface, not merely
+a projection of historical records. The append-only event log records what
+was previously submitted or executed; it does not decide current working
+state. State snapshots and diffs may carry stable IDs and digests, but whether
+they are message-event variants or typed records remains open. User edits that
+replace a full state change the working transcript while prior records remain
+historical; no replay may silently reinstate the old state.
 
 1. **Infer:** select the latest state and observation turns under the active
    projection, validate their schema/base/digests, and build the model request.
