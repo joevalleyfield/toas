@@ -32,6 +32,29 @@ class ToolOutcomeError(RuntimeError):
         self.status = status
 
 
+def _parse_state_response(content: str) -> Any:
+    """Parse bare JSON or JSON inside one conventional Markdown fence."""
+    candidate = content.strip()
+    lines = candidate.splitlines()
+    if len(lines) >= 3 and lines[0].strip().lower() in {"```", "```json"} and lines[-1].strip() == "```":
+        candidate = "\n".join(lines[1:-1])
+    return json.loads(candidate)
+
+
+def _normalize_tool_call_aliases(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Map the observed `tool` spelling to the canonical `tool_name` key."""
+    normalized = []
+    for call in calls:
+        item = dict(call)
+        if "tool" in item:
+            if "tool_name" in item and item["tool_name"] != item["tool"]:
+                raise ValueError("tool call contains conflicting 'tool' and 'tool_name' values")
+            item.setdefault("tool_name", item["tool"])
+            del item["tool"]
+        normalized.append(item)
+    return normalized
+
+
 def parse_state_turn(text: str) -> dict[str, Any]:
     """Parse a YAML state turn or its Markdown-fenced YAML equivalent."""
     lines = text.splitlines(keepends=True)
@@ -319,7 +342,7 @@ def step_state(
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
         raise ValueError(error)
     try:
-        response = json.loads(content)
+        response = _parse_state_response(content)
     except json.JSONDecodeError as exc:
         preview = content[:240].replace("\n", "\\n")
         error = f"invalid state-step JSON response: {exc}; response preview={preview!r}"
@@ -340,6 +363,12 @@ def step_state(
         error = "state-step response requires an object state_patch and an array of tool_calls"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
         raise ValueError(error)
+    try:
+        calls = _normalize_tool_call_aliases(calls)
+    except ValueError as exc:
+        error = str(exc)
+        _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
+        raise ValueError(error) from exc
     if outcome not in {"continue", "complete"}:
         error = "state-step outcome must be 'continue' or 'complete'"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
