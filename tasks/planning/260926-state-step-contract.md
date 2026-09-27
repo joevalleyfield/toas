@@ -1,8 +1,7 @@
 # State-transition step contract spike
 
-Status: recommendation updated with the user's transcript/projection
-refinement; durable record shape, turn grammar, and projection policies remain
-unapproved.
+Status: integrated alpha direction recorded; exact event shapes, editable
+surface syntax, and projection controls remain to define.
 
 Parent: [`260926-state-step-requirements`](../open/260926-state-step-requirements.md)
 Task: [`260926-state-step-contract-spike`](../closed/260926-state-step-contract-spike.md)
@@ -19,8 +18,8 @@ The append-only event log preserves historical records; it is historically
 canonical, not operationally authoritative. Replaying an older event must not
 silently override a user's current transcript edit. The operator can completely
 rewrite the current state in a state turn. A validated model patch is accepted
-immediately. Any proposed action remains separately executable under existing
-capability and authority rules.
+immediately. Proposed tool batches remain separate from inference and run
+through existing capability and authority rules when the user steps them.
 
 Treat “full state plus every diff,” “states only,” “diffs only,” “key states,”
 and “key states plus cumulative diffs since the prior key” as candidate
@@ -29,17 +28,34 @@ shifting it changes which subsequent diffs are shown, not the transcript's
 authority or the model's default input. YAML and the Markdown state DSL are the initial
 configured human-facing formats; both parse to and render from normalized JSON.
 
-The default LLM projection remains state-only: effective instructions/schema,
-the current state object, and one latest logical observation. The user-facing
-history projection does not change that packet. Historical observations remain
-available to the operator; the model does not automatically receive an
-unconsumed-observation queue. A state operation can select exact text from the
-compound observation by reference, place it into a state diff, and have the
-runtime expand it so the next state packet contains the full text. The source
-observation remains retained.
+The default LLM packet remains state-only: effective instructions/schema, the
+current state object, and one latest compound observation. Instructions
+include a tool advertisement for the available TOAS batch lane and an
+alignment blurb explaining the state-step protocol. The model responds with a
+JSON object containing a state patch and a batch of tool requests, or a
+terminal outcome. The user-facing history projection does not change that
+packet. Historical observations remain available to the operator;
+the model does not automatically receive an unconsumed-observation queue. A
+state operation can select exact text from the compound observation by
+reference, place it into a state diff, and have the runtime expand it so the
+next state packet contains the full text. The source observation remains
+retained.
 
-This is a recommended first contract, not an adopted parser grammar or approval
-to change production behavior.
+From the user's point of view, the seed supplies an initial state shape and
+defaults before a goal exists. The user edits that initial state to add a goal
+and can add an initial compound observation. They step state-step to request
+inference. The runtime validates the JSON response, appends and applies its
+state patch immediately, and records requested tools as pending, not yet run.
+The user can inspect the new state and pending batch, edit the current state or
+observation, or step to execute the batch through existing capability and
+permission checks. Tool requests and results are recorded; results become
+components of the next compound observation. The user then steps again to
+continue inference. User edits add new state/observation history; they do not
+rewrite earlier records. State-step remains semantically independent from
+conversation-step while sharing runtime and model capabilities.
+
+This records the agreed direction for an integrated alpha feature. Exact event
+shapes and user-facing grammar can be defined in the first vertical slice.
 
 ## Status ledger
 
@@ -48,15 +64,17 @@ to change production behavior.
 | Local `step` reads and reconciles `session.md` before choosing a consequence | Existing behavior |
 | Existing generation projects message lineage, strips control/reasoning, may add lens artifacts, then invokes the provider | Existing behavior |
 | State and state-diff turns are typed state-step records, not message events; they may be rendered in user-facing transcript projections | User decision |
-| The human-controlled transcript is authoritative for current working state; the event log preserves history but cannot overrule transcript edits | User decision; exact edit/replay interaction remains open |
+| The human-controlled transcript is authoritative for current working state; the event log preserves history but cannot overrule transcript edits | User decision; exact edit/horizon interaction remains open |
 | State-step and conversation-step remain semantically independent while sharing runtime and model capabilities | User decision; convergence requires significant impetus |
 | Introduce state and state-diff records and selectable user-facing projections | User decision; exact record schema and projection controls remain open |
 | User-editable state supports YAML and a Markdown state DSL as initial configured formats, with parse/render round-tripping through normalized JSON | User decision; exact grammars and format setting remain open |
 | Default LLM projection is effective instructions/schema + current state object + one latest logical observation | User decision aligned with the paper and inspected implementations |
+| State-step responses use the existing JSON lane and can carry a state patch plus a multi-tool batch | User decision; exact response schema remains open |
+| Instructions advertise the available TOAS tool lane and explain state-step alignment | User decision; exact blurb and advertised subset remain open |
 | Prior observations are not automatically accumulated into the default LLM packet | User decision; explicit state operations can move selected observation content into state |
 | Observation content is retained as source material; state operations need not echo it as model output text | User decision; exact operation, identity, and storage/provenance shape remain open |
-| Apply a valid state patch before attempting its action | Paper-specified ordering; separate inference and execution calls are a TOAS interaction adaptation |
-| Accept and persist a valid state patch immediately; action execution remains a separate explicit decision | User decision; state edits are still append-only branches |
+| Apply a valid state patch before running any requested tools | Paper-specified ordering; inference and batch execution are separate state-step advances |
+| Accept and persist a valid state patch immediately; tool execution remains a separate explicit decision | User decision; state edits are still append-only branches |
 | State snapshots, diffs, observations, and actions use shared append-only history machinery and can be rendered as transcript turns | User decision; graph/event schema remains open |
 | Offer full, states-only, diffs-only, key-state, and key-state-plus-cumulative-diff user-facing projections | User-proposed projection family; key-state criteria and selection controls remain open |
 | Identical resubmission is idempotent; interrupted external action is unknown and not retried automatically | Inferred safety contract for repeatability and non-duplicated side effects |
@@ -342,9 +360,9 @@ Example state-diff turn in the Markdown DSL:
 - path: src/math.py
 ```
 
-The YAML DSL would carry the same transition, patch, and consequence fields.
-The accepted full state can be rendered as the next state turn or reconstructed
-from the prior state plus this diff; which form the durable log stores is open.
+The YAML DSL would carry the same transition, patch, and tool-plan fields.
+The accepted full state is stored as a state record. State diffs can be
+rendered to show change history; they are not reapplied to recreate the state.
 
 ### Initial state seed — Candidate TOAS adaptation
 
@@ -362,7 +380,7 @@ and editable-buffer format explicitly:
 - seed_ref: state-seeds/repo-work_v1
 
 ### Observation obs1 — user_input
-> Understand the add implementation in src/math.py.
+> The repository root is the current workspace. Start by inspecting src/math.py.
 ```
 
 For YAML, the same request body uses `format: yaml` and the equivalent
@@ -371,55 +389,70 @@ existing versioned prompt-asset reference/loading system; require a
 state-seed-specific metadata category and validate the loaded seed against the
 state schema. Record the normalized ref, asset digest, and resolved seed in
 the initial transition so later asset edits cannot silently change history.
-The seed supplies initial state values and schema defaults; the user's
-observation supplies current goal and context. Missing, wrong-category, or
-invalid seed assets are hard errors. Prompt composition for model instructions
-can remain a separate prompt asset reference.
+The seed supplies initial state shape and defaults before a goal exists. The
+user edits that state in either configured YAML or Markdown form to define the
+initial goal; observations supply the initial task material and context.
+Missing, wrong-category, or invalid seed assets are hard errors. Prompt
+composition for model instructions can remain a separate prompt asset
+reference.
 
-The default state-only packet for this example contains the effective
-procedure/schema, current state, and latest logical observation. The following
-single-user-message packaging is illustrative; exact role packaging remains
-open:
+The default state-only packet for this example contains effective
+instructions/schema, current state, and latest compound observation. The
+instructions include the available TOAS tool advertisement and alignment
+blurb. Provider-message role packaging remains open:
 
 ```json
-[{"role":"user","content":"Procedure (repo-work/v1): Help inspect the requested repository file. Propose one read_file action, or finish if the goal is already met. Never claim a tool result before it is observed.\n\nResponse schema: Return exactly one JSON object with state_patch (sparse object) and consequence. consequence is either {kind: action, tool_name: read_file, arguments: {path: relative_path}} or {kind: finish}. Do not execute the action in this inference.\n\nCurrent state (base transition st7): {goal: Understand the add implementation, progress: [], next_steps: [Read src/math.py], artifacts: [], blockers: [], notes: {constraints: [], accepted_decisions: [], pending_proposals: [], uncertainties: []}}\n\nLatest observation obs8 (user_input): Inspect src/math.py and explain how add works."}]
+{
+  "instructions": {
+    "procedure": "Inspect the requested repository file and report how add works.",
+    "response_alignment": "Return a state patch plus a batch of TOAS tool requests, or a terminal outcome. Tool requests are proposals; the runtime executes them through its capability and permission path.",
+    "tools": [{"name": "read_file", "description": "Read a workspace file", "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}]
+  },
+  "state": {"goal": "Understand the add implementation", "progress": [], "next_steps": ["Read src/math.py"]},
+  "observation": {"id": "obs8", "components": [{"kind": "user_input", "content": "Inspect src/math.py and explain how add works."}]}
+}
 ```
 
-For this state request, the builder must not add prior transcript messages or
-history-derived lens artifacts. Model/config selection, grants, workspace
-scope, and other authority inputs are resolved separately against the
-explicit base head and effective configuration. Capture this message list at
-the TOAS model-invocation boundary; provider-side injected prompts and any
-transport re-rendering are outside that boundary and must not be mistaken for
-the application request.
+For this state request, the builder must not add prior conversation messages
+or history-derived lens artifacts. Model/config selection, grants, workspace
+scope, and other authority inputs are resolved separately against the selected
+horizon and effective configuration. Capture the application packet at the
+TOAS model-invocation boundary; provider-side injected prompts and transport
+re-rendering are outside that boundary.
 
-Candidate model response:
+Candidate JSON response shape (field names and schema remain open):
 
 ```json
 {
   "state_patch": {"progress": ["Read src/math.py; add returns a + b."], "next_steps": []},
-  "consequence": {"kind": "action", "tool_name": "read_file", "arguments": {"path": "src/math.py"}}
+  "tool_plan": [
+    {"tool_name": "read_file", "arguments": {"path": "src/math.py"}, "intent": "Inspect the implementation"},
+    {"tool_name": "read_file", "arguments": {"path": "tests/test_math.py"}, "intent": "Check its tests"}
+  ]
 }
 ```
 
-An alternative terminal response is
-`{"state_patch":{"progress":["Goal answered."],"next_steps":[]},"consequence":{"kind":"finish"}}`.
-The response is one validated JSON object: exactly one action or terminal
-consequence, never both. A patch alone must not cause execution.
+The runtime validates and applies the patch immediately, then records every
+tool request as pending. The user can inspect or edit state/observation, or
+step the runtime to execute the batch through existing capabilities and
+permissions. The results join the next compound observation. A terminal
+response includes a terminal outcome and no tool requests. A patch alone never
+runs a tool.
 
-Expected durable facts for the action example, expressed as candidate records:
+Expected durable facts for the batch example, expressed as candidate records:
 
 ```jsonl
-{"kind":"state_transition","payload":{"transition_id":"st8","parent_transition_id":"st7","base_state_digest":"sha256:...","input_digest":"sha256:...","format":"markdown","seed_ref":"state-seeds/repo-work_v1","seed_digest":"sha256:...","observation_id":"obs8","instruction_ref":"repo-work/v1","instruction_digest":"sha256:...","state_patch":{"progress":["Read src/math.py; add returns a + b."],"next_steps":[]},"state_after":{"goal":"Understand the add implementation","progress":["Read src/math.py; add returns a + b."],"next_steps":[],"artifacts":[],"blockers":[],"notes":{"constraints":[],"accepted_decisions":[],"pending_proposals":[],"uncertainties":[]}},"consequence":{"kind":"action","tool_name":"read_file","arguments":{"path":"src/math.py"}},"patch_status":"accepted","action_status":"awaiting_approval"}}
+{"kind":"state_transition","payload":{"transition_id":"st8","horizon_state_id":"s7","input_digest":"sha256:...","seed_ref":"state-seeds/repo-work_v1","instruction_ref":"repo-work/v1","observation_id":"obs8","state_patch":{"progress":["Inspect implementation and tests."],"next_steps":[]},"state_after":{"goal":"Understand the add implementation","progress":["Inspect implementation and tests."],"next_steps":["Review results"]},"tool_plan":[{"tool_name":"read_file","arguments":{"path":"src/math.py"}},{"tool_name":"read_file","arguments":{"path":"tests/test_math.py"}}],"patch_status":"accepted","tool_status":"pending"}}
 {"kind":"llm_call","payload":{"transition_id":"st8","requested_model":"...","response_model":"...","usage":{}}}
-{"kind":"state_action","payload":{"attempt_id":"act1","transition_id":"st8","status":"started","request_digest":"sha256:..."}}
-{"kind":"state_action","payload":{"attempt_id":"act1","transition_id":"st8","status":"succeeded","observation_id":"obs9","observation":{"kind":"tool_result","content":"def add(a, b): return a + b"}}}
+{"kind":"state_tool_batch","payload":{"batch_id":"batch1","transition_id":"st8","status":"started","request_digest":"sha256:..."}}
+{"kind":"state_tool_batch","payload":{"batch_id":"batch1","transition_id":"st8","status":"succeeded","results":[{"tool_name":"read_file","content":"def add(a, b): return a + b"},{"tool_name":"read_file","content":"..."}],"observation_id":"obs9","observation":{"components":["tool result 1","tool result 2"]}}}
 ```
 
 These event kinds/shapes are proposed, not existing graph record contracts.
-Patch acceptance is recorded immediately with the transition. Any action
-approval and action-start are separate durable facts; the operation result is
-the next observation, not a message event.
+Patch acceptance is recorded immediately with the transition. A batch remains
+pending until the user steps the runtime to run it through existing capability
+checks; its results are retained together as components of the next compound
+observation, not as message events.
 
 ## State and patch semantics — Recommended TOAS adaptation
 
@@ -436,11 +469,11 @@ state schema.
 | `{"next_steps":["Read tests"]}` | Replace the complete array |
 | `{"artifacts":null}` | Attempt to delete a required field; full validation rejects the candidate |
 | `{"notes":{"accepted_decisions":null}}` | Attempt to delete a required nested array; full validation rejects the candidate |
-| `{"goal":17}` or malformed JSON | Reject; preserve the last accepted state and do not run the consequence |
+| `{"goal":17}` or malformed JSON | Reject; preserve the last accepted state and do not run tools |
 
 Adopt recursive mapping merge, scalar/array replacement, and null deletion;
 validate the whole candidate state after merge. Keep a patch and the resulting
-snapshot for replay/audit. Invalid output creates an error observation but does
+snapshot for historical inspection. Invalid output creates an error observation but does
 not mutate the accepted snapshot. Do not automatically ask the model to repair
 schema output inside the same operator call; a correction is a new explicit
 inference.
@@ -451,66 +484,64 @@ The current transcript is the operator-controlled working surface, not merely
 a projection of historical records. The append-only event log records what
 was previously submitted or executed; it does not decide current working
 state. State snapshots and diffs may carry stable IDs and digests as typed
-state-step records, separate from message events. User edits that
-replace a full state change the working transcript while prior records remain
-historical; no replay may silently reinstate the old state.
+state-step records, separate from message events. User edits that replace a
+full state change the working transcript while prior records remain historical;
+old records cannot silently replace the operator's current state.
 
-1. **Infer:** select the latest state and observation turns under the active
-   projection, validate their schema/base/digests, and build the model request.
-   The projection may be a single isolated user message or a role-preserving
-   transcript; this is an explicit projection choice. Preserve normal
-   provider/model settings and effective authority.
+1. **Choose horizon and infer:** the user selects the state to work from and
+   edits the current state/observation as needed. Build the model packet from
+   that horizon and the latest compound observation, plus effective
+   instructions/schema, tool advertisement, and alignment blurb. Preserve
+   normal provider/model settings and effective authority.
 2. **Record accepted transition:** after validating model output, append the
-   state diff and resulting full state snapshot immediately, with stable IDs,
-   parent/base digest, input digest, seed/instruction refs and digests, and
-   inference-call reference. Append the proposed action/terminal consequence
-   as part of that result. Invalid output emits an error/observation and does
-   not advance accepted state. Exact record/event shape remains open.
-3. **Execute:** return the pending action for review. A separate explicit
-   execute operation names its transition; it runs that immutable, validated
-   action through existing capability validation, grants, workspace
-   restrictions, and executor. Record append-only action-start and
-   success/failure outcome facts with the captured observation. Do not execute
-   arbitrary commands found in state text.
-4. **Continue:** the next inference names the action result as its latest
-   observation. One call performs one inference or one explicit action
-   execution, never a hidden execute-and-infer loop.
+   state diff and resulting full state immediately. Record the model's batch as
+   pending tool requests (or record a terminal outcome). Invalid output emits
+   an error observation and does not advance the horizon. Exact record/event
+   shape remains open.
+3. **Run pending batch:** the user steps the runtime to execute the proposed
+   batch through existing capability validation, permissions, workspace
+   restrictions, and executor. Record requests and outcomes. Do not execute
+   arbitrary commands found in state text. Preserve completed results if a
+   later request fails; the outcome becomes part of the next compound
+   observation.
+4. **Continue or edit:** the user may edit the current state or observation;
+   otherwise state-step uses the resulting horizon and latest compound
+   observation for the next inference. `step` advances the ready phase; it
+   never hides external execution inside inference.
 
 The proposed state patch is accepted and promoted when the validated model
-response is recorded, before its action runs. There is no separate
-accept/reject step for a valid state patch. A failed action does not roll back
-that state; its failure becomes the next observation. The paper specifies patch-before-action
-ordering; keeping inference and execution as separate explicit calls is a TOAS
-interaction adaptation that retains review time. Rejected/invalid proposals do
-not advance state. User edits make a new input branch from a named base; they do
-not rewrite prior transition facts.
+response is recorded, before its tool batch runs. There is no separate
+accept/reject step for a valid state patch. A failed tool run does not roll
+back that state; its outcome becomes part of the next compound observation.
+The paper specifies patch-before-action ordering; keeping inference and tool
+execution as separate state-step advances retains review time. Rejected or
+invalid proposals do not advance state. User edits make new state/observation
+history without rewriting prior records.
 
-Candidate record family: state snapshot/diff turns or equivalent typed log
-records; action-start/outcome records; and an `llm_call` linked to the
-transition. A user observation is a transcript turn; tool observations belong
-to the action outcome and can also be projected as turns. Extend append,
-query, replay, and projection helpers under `graph.py` and focused
+Candidate record family: state snapshots/diffs or equivalent typed state-step
+records; tool-request/outcome records; and an `llm_call` linked to the
+transition. User material is included in the compound observation; tool results
+are appended as its components. Extend append, query, and projection helpers
+under `graph.py` and focused
 `graph_*_edges.py` modules. Keep the exact relationship to existing
 message-linked `tool_request`/`tool_result` records open for the contract spike.
 
-## Continuation, edits, and interruption cases — Recommended TOAS adaptation
+## Step phases, edits, and interruption cases — Alpha direction
 
 | Case | Contract result |
 | --- | --- |
-| Empty continuation with pending proposal | Show/retain that proposal. It is not approval and does not execute or infer again. |
-| Empty continuation with no pending observation | No new inference; report that explicit input/operation is needed. |
-| Identical resubmission | Key by base transition/digest, observation ID and content digest, instruction digest, submitted input digest, and operation. Return the existing result instead of generating or executing a duplicate. A deliberate new inference requires a new explicit attempt identity. |
-| Edited prior state | Accept only against an explicit known base; append a new branch/input digest. Keep earlier transition facts immutable. The user's complete rewrite is a new state turn/snapshot, not a patch to old history. An execute request names the exact proposal ID it approves. |
-| Missing/invalid consequence (`no action`) | Reject as malformed; preserve accepted state and do not execute. A valid no-tool completion must be an explicit `finish` consequence. |
-| Tool failure with known result | Preserve accepted state; append failure outcome and expose it as a new observation. A retry requires a new explicit proposal/approval. |
-| Interruption after action-start, before result | Surface outcome as unknown and block automatic retry. Reconcile with the tool/workspace first; append a resolution fact. Exactly-once effects cannot be promised for arbitrary external tools. |
-| Malformed state turn | Reject invalid version/schema/base clearly; preserve prior events and do not reinterpret the rest of the transcript as a different mode. |
-| Finish/no action | Append terminal transition with state snapshot and no pending action. |
+| `step` with no pending batch | Request inference from the selected horizon and latest compound observation. |
+| `step` with a pending batch | Present and run the batch through existing capability/permission checks; do not infer again in the same step. |
+| User edits state or observation | Add the edited state/observation to working history; do not change prior records. |
+| Invalid JSON, patch, or tool request | Reject the invalid part, preserve the last accepted state, and show an actionable error. |
+| Tool failure with known result | Preserve accepted state, record the failure, and include it in the next compound observation. A retry is a new request. |
+| Interruption after tool start, before result | Surface outcome as unknown and do not retry automatically; reconcile through the existing tool/workspace path. |
+| Terminal model outcome | Record the resulting state and terminal outcome with no pending batch. |
 
-The identity rule prevents an unchanged buffer from ambiguously meaning “retry
-the model,” “execute again,” or “continue.” The first slice should expose
-separate `infer` and `execute <transition_id>` operations. Do not infer approval
-from an empty submission.
+`step` advances the phase indicated by runtime state. A pending batch does not
+silently turn into another inference, and inference does not execute tools.
+Exact request identity and duplicate suppression can use the existing runtime
+and tool-result mechanisms as they are mapped into state-step.
 
 ## Ownership and transport recommendation
 
@@ -518,9 +549,9 @@ from an empty submission.
 | --- | --- |
 | State/state-diff record parsing, canonical state normalization, YAML/Markdown round-trip | Focused state-step boundary; records stay separate from message events |
 | Select the state-step LLM packet and assemble the request | Model Invocation boundary plus a focused state-step input builder |
-| Select infer vs execute consequence and pending/terminal lifecycle | Focused state-transition runtime (Operator Semantics) |
-| Append/query state and action facts | Existing history machinery in `graph.py` plus focused graph helpers |
-| Resolve tool/action, grants, scope, and execution | Existing Capabilities and Effective Policy/Authority; only pass normalized requests |
+| Select inference vs pending-batch execution and terminal lifecycle | Focused state-transition runtime (Operator Semantics) |
+| Append/query state and tool-run facts | Existing history machinery in `graph.py` plus focused graph helpers |
+| Resolve tools, grants, scope, and execution | Existing Capabilities and Effective Policy/Authority; only pass normalized requests |
 | Provider selection/retries/audit | Existing Model Invocation; extend the call reference for transition identity |
 | CLI, operator, daemon/RPC adapters | Thin adapters; expose state-step separately from conversation-step while reusing runtime and model services |
 
@@ -539,33 +570,44 @@ state-step semantics and projection selection. Existing default/auto/on/off
 transport contracts remain unchanged; add a separate state-step operation over
 the shared transport/runtime seams.
 
-## Smallest useful implementation follow-on
+## First integrated alpha slice
 
-Recommended first end-to-end slice: add typed state and state-diff records to
-the state-step working transcript/history; support YAML and Markdown round-trip;
-offer full state-plus-diff and states-only projections; run one inference that accepts a
-patch immediately; execute one validated `read_file` action explicitly; add
-the result as an observation turn; then continue inference. Use scripted model
-responses first. This proves branch identity, event-log replay, projection
-selection, and reuse of an existing capability without arbitrary command
-execution.
+1. Resolve a versioned state seed that provides state shape/defaults before a
+   goal exists. Render an editable state; the user edits it to add the initial
+   goal and may add initial observation material.
+2. `step` selects the user's horizon state and latest compound observation,
+   then sends a state-only packet with effective instructions/schema, an
+   available-tool advertisement, and an alignment blurb.
+3. The model returns one JSON object with a state patch and a batch of tool
+   requests, or a terminal outcome. Validate and apply the state patch
+   immediately; record all requested tools as pending.
+4. Show the new state and pending batch. The user can edit state/observation
+   or step to run the batch through existing capability and permission checks.
+5. Append tool requests and outcomes. Bring the batch results into the next
+   compound observation; then `step` again to continue from the new horizon.
+
+The first slice uses the integrated state-step path and existing runtime,
+history, model, and capability services. It does not create a parallel harness
+or merge state-step with conversation-step.
 
 Focused test plan (not run in this investigation):
 
-- state/state-diff turn parse/render round-trip for YAML and Markdown;
-- full-state rewrites append snapshots/branches without mutating prior events;
-- each projection mode produces the expected sequence, including key states
-  with cumulative diffs;
-- model request captures the selected projection, and switching projections
-  does not mutate event history;
+- initial seed leaves goal definition to the user; the user can edit state and
+  observation before inference;
+- the state-only model packet includes effective instructions/schema, horizon
+  state, compound observation, tool advertisement, and alignment blurb;
+- JSON response validation applies the state patch and records a multi-tool
+  batch as pending without running it;
+- `step` runs the pending batch through existing capability and permission
+  checks; successful results are retained if a later request fails;
+- tool results appear as components of the next compound observation;
+- user edits to state and observation add history without rewriting earlier
+  records;
 - valid model patches append accepted state immediately; invalid patches do
-  not advance state;
-- inference does not execute; explicit action uses current capability
-  validation and denial path;
-- success/failure produce observation turns; retries are idempotent;
-  interrupted actions remain unknown and are not retried;
-- existing ordinary transcript step request/output parity;
-- RPC modes and async entry points preserve typed-turn projection semantics.
+  not advance the horizon;
+- inference never runs external tools; failed/indeterminate tool runs are
+  recorded and not silently retried;
+- conversation-step behavior remains semantically independent and unchanged.
 
 Candidate existing coverage anchors: `tests/test_operator_api.py`,
 `tests/test_runtime_context_assembly.py`,
@@ -575,21 +617,16 @@ Candidate existing coverage anchors: `tests/test_operator_api.py`,
 state-transition test modules when implementation begins; do not inflate
 unrelated suite coverage.
 
-## Open decisions before user-facing adoption
+## Implementation details to resolve while mapping the first vertical slice
 
-- How the state-step working transcript is stored and edited while preserving
-  its semantic separation from conversation-step.
-- Exact typed record schema and state-step projection syntax.
-- Key-state criteria and whether users can pin key states, configure rules, or
-  use computed significance.
-- Projection-selection controls and persistence scope (per request, session,
-  or configuration).
-- Whether state workflows may call every currently advertised capability in the
-  first slice or begins with a smaller subset of existing environment-facing
-  capabilities. State-local operations remain permission-free.
-- How inference/action records appear consistently in transcript, history,
-  `llm-input`, and rebuild projections across the candidate turn/log shapes.
-- How the projection choice is carried over RPC and async paths.
+- Editable YAML/Markdown state and observation surfaces plus minimal typed
+  records for state snapshots/diffs, transitions, tool requests, and results.
+- Exact JSON response schema and how `step` presents and runs a pending batch,
+  including partial failure and the next compound observation.
+- Initial empty-goal seed, minimal state schema, and first advertised set of
+  environment-facing tools. State-local operations remain permission-free.
+- Provider-message packaging and durable capture of instructions, advertised
+  tools, alignment blurb, selected horizon, and compound observation.
 
 ## Deferred follow-on fragments — not ready for implementation
 
@@ -605,8 +642,8 @@ unrelated suite coverage.
   runtime capability set and existing permission checks. Record model identity
   and benchmark/runtime versions so profiles can be refreshed when they change.
 - **State-step adoption details:** Define key-state selection and projection
-  controls, YAML/Markdown grammar and format selection, seed assets, the initial
-  environment-facing capability subset, and RPC/async support. Keep state-step
+  controls, full YAML/Markdown grammar and format selection, broader seed
+  assets, expanded capability scope, and RPC/async support. Keep state-step
   semantically independent from conversation-step.
 
 No final `session.md` turn grammar, generic state ontology, automatic handoff
