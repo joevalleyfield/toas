@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from ..graph import append_state_step_records, read_log
+from ..graph import append_state_step_records, normalize_tool_plan, read_log
 from ..graph import state_step_records as _state_step_records
 
 STATE_MARKER = "## TOAS:STATE/1"
@@ -42,16 +42,10 @@ def _parse_state_response(content: str) -> Any:
 
 
 def _normalize_tool_call_aliases(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Map the observed `tool` spelling to the canonical `tool_name` key."""
-    normalized = []
-    for call in calls:
-        item = dict(call)
-        if "tool" in item:
-            if "tool_name" in item and item["tool_name"] != item["tool"]:
-                raise ValueError("tool call contains conflicting 'tool' and 'tool_name' values")
-            item.setdefault("tool_name", item["tool"])
-            del item["tool"]
-        normalized.append(item)
+    """Use TOAS's shared callable-plan normalization for model tool calls."""
+    normalized, error = normalize_tool_plan(calls)
+    if normalized is None:
+        raise ValueError(error or "invalid state-step tool call")
     return normalized
 
 
@@ -287,7 +281,8 @@ def step_state(
         outcomes = []
         for index, call in enumerate(pending["tool_calls"]):
             try:
-                result = execute_call(call)
+                normalized_call = _normalize_tool_call_aliases([call])[0]
+                result = execute_call(normalized_call)
                 outcome = {"index": index, "status": "completed", "result": result}
             except ToolOutcomeError as exc:
                 outcome = {"index": index, "status": exc.status, "error": str(exc)}

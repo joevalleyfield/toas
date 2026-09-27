@@ -3,10 +3,10 @@ FKA:
 AKA: state-step model response examples; natural tool call shapes
 Legacy index:
 
-keywords: runtime, exploration, active, contract, projection, observability
+keywords: runtime, exploration, historical, contract, projection, observability
 
 Parent: `260926-state-step-requirements`
-Related: `260927-state-step-raw-response`; `260927-state-step-lenient-response`
+Related: `260927-state-step-raw-response`; `260927-state-step-lenient-response`; `260927-state-step-normalize-call-shapes`
 
 # Learn From Natural State-Step Response Shapes
 
@@ -50,9 +50,23 @@ recommended identifying the repository, inspecting its structure, and
 searching for issue-tracking references. No proposal was accepted and no call
 was executed.
 
-## Next Evidence
+Normal stepping then provided additional evidence. The model proposed
+`name`/`arguments`, `tool_name`/`parameters`, and `operation`/`arguments`
+shapes. The `name` form failed execution with a missing `tool_name`; the
+`parameters` key was ignored and capability help defaulted to the core topic.
+The shared YAML canonicalizer already supports `operation`/`arguments`, while
+the response-shapes follow-on extends it to the other observed aliases.
 
-Use these samples to choose the next narrow normalization increment. Keep
-instruction improvements as a related but separately observable axis.
+The latest accepted proposal contained four `operation`/`arguments` calls
+(`get_structure`, two `search` calls, and a read-only `shell` listing). State-
+step now passes both new and pending calls through the shared normalizer; the
+accepted batch remains pending execution in the current local session.
 
-Status: Ready.
+## Disposition
+
+The samples selected a shared-normalizer follow-on:
+[`260927-state-step-normalize-call-shapes`](260927-state-step-normalize-call-shapes.md).
+Instruction improvements remain a separately observable axis.
+
+Status: Complete — observed response forms and selected a bounded
+normalization increment.

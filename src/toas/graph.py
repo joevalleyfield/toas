@@ -1424,11 +1424,20 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
     if not isinstance(item, dict):
         return None, "expected mapping"
 
-    tool_name = item.get("tool_name")
-    operation = item.get("operation")
-    if tool_name is not None and operation is not None and tool_name != operation:
-        return None, "conflicting callable keys: tool_name and operation"
-    name = tool_name if tool_name is not None else operation
+    name_fields = {
+        field_name: item.get(field_name)
+        for field_name in ("tool_name", "operation", "name", "tool")
+        if item.get(field_name) is not None
+    }
+    distinct_names: list[object] = []
+    for field_value in name_fields.values():
+        if not any(field_value == existing for existing in distinct_names):
+            distinct_names.append(field_value)
+    if len(distinct_names) > 1:
+        if set(name_fields) == {"tool_name", "operation"}:
+            return None, "conflicting callable keys: tool_name and operation"
+        return None, "conflicting callable keys: tool_name, operation, name, tool"
+    name = next(iter(name_fields.values()), None)
 
     command = item.get("command")
     cmd = item.get("cmd")
@@ -1451,12 +1460,14 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
     args = item.get("args")
     arguments = item.get("arguments")
     params = item.get("params")
+    parameters = item.get("parameters")
     provided_arg_fields = {
         field_name: field_value
         for field_name, field_value in (
             ("args", args),
             ("arguments", arguments),
             ("params", params),
+            ("parameters", parameters),
         )
         if field_value is not None
     }
@@ -1465,8 +1476,10 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
         if not any(field_value == existing for existing in distinct_arg_values):
             distinct_arg_values.append(field_value)
     if len(distinct_arg_values) > 1:
-        return None, "conflicting argument keys: args, arguments, params"
-    normalized_args = args if args is not None else (params if params is not None else arguments)
+        if "parameters" not in provided_arg_fields:
+            return None, "conflicting argument keys: args, arguments, params"
+        return None, "conflicting argument keys: args, arguments, params, parameters"
+    normalized_args = next(iter(provided_arg_fields.values()), None)
     if normalized_args is None:
         normalized_args = {}
     if not isinstance(normalized_args, dict):

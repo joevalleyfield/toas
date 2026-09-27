@@ -3,7 +3,7 @@ FKA:
 AKA: tolerate model response formatting; state-step response normalization
 Legacy index:
 
-keywords: runtime, implementation, active, contract, projection, observability
+keywords: runtime, implementation, historical, contract, projection, observability
 
 Parent: `260926-state-step-requirements`
 Related: `260927-state-step-raw-response`; `260927-state-step-alpha-loop`
@@ -39,8 +39,9 @@ separately as further evidence accumulates.
 
 Status: Complete.
 
-Implementation: The state-step response parser now accepts a single outer
-Markdown fence tagged `json` (or untagged), and normalizes `tool` to
-`tool_name` before storing proposed calls. The original content remains on the
-model-call audit record. Conflicting aliases are rejected; all other tool
-validation and deferred execution semantics remain unchanged.
+Implementation: The state-step response parser accepts a single outer
+Markdown fence tagged `json` (or untagged). Tool-call key normalization now
+uses the shared tool-plan canonicalizer; see
+[`260927-state-step-normalize-call-shapes`](260927-state-step-normalize-call-shapes.md).
+The original content remains on the model-call audit record. Conflicting
+aliases are rejected; tool execution remains deferred to a later explicit step.

@@ -246,7 +246,10 @@ def extract_frontier_assistant_candidates(content: str, *, projection_shape: str
     candidates: list[dict] = []
     skipped: list[str] = []
     for i, block in enumerate(extract_yaml_blocks(content), start=1):
-        looks_callable = any(token in block for token in ("tool_name:", "operation:", "command:", "cmd:"))
+        looks_callable = any(
+            token in block
+            for token in ("tool_name:", "operation:", "name:", "tool:", "command:", "cmd:")
+        )
         try:
             parsed = yaml.safe_load(block)
         except yaml.YAMLError as exc:
@@ -302,7 +305,9 @@ def extract_frontier_assistant_candidates(content: str, *, projection_shape: str
             continue
         if looks_callable and tool_plan_error in {
             "conflicting callable keys: tool_name and operation",
+            "conflicting callable keys: tool_name, operation, name, tool",
             "conflicting argument keys: args, arguments, params",
+            "conflicting argument keys: args, arguments, params, parameters",
             "arguments must be a mapping",
             "conflicting intent keys: intent and intention",
             "intent must be a string",
