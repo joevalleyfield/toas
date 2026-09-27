@@ -210,10 +210,13 @@ its bounded experimental implementation surfaces.
   approval/execution, and append-only non-message transition facts. The user
   decided that the existing `step` operation should inspect its assembled
   session input and recognize state mode only from a self-identifying leading
-  marker; there should be no separate operator. Exact marker/body grammar,
-  human-facing encoding (YAML or Markdown DSL), patch approval, capability
-  scope, and transport support remain open. The human projection can differ
-  from normalized model-facing JSON. See the updated
+  marker; there should be no separate operator. YAML and Markdown DSL are the
+  initial configured editable formats and must round-trip through canonical
+  JSON. A valid model patch is accepted immediately; action execution remains
+  separately controlled. Initial input should select a versioned state seed
+  through the prompt-asset system. Exact grammars, seed-asset contract,
+  capability scope, and transport support remain open. The human projection
+  can differ from normalized model-facing JSON. See the updated
   [contract recommendation](../planning/260926-state-step-contract.md).
 
 ## Initial Evidence
@@ -232,8 +235,10 @@ progress_added:
   - Built and verified the paired state-only/history-plus-state experiment harness.
   - User selected same-step, leading-marker detection after seeing the assembled transcript input; no separate state operator.
   - Added equivalent illustrative YAML and Markdown state-DSL envelopes alongside normalized JSON, keeping editable-buffer and model-request formats as separate choices.
+  - User wants both YAML and Markdown DSL as initial configured formats with bidirectional parse/render against canonical JSON; valid model patches are accepted immediately.
+  - Recommended selecting initial state through a versioned prompt-asset seed reference recorded with its digest.
 next_steps_prepend:
-  - Compare YAML and Markdown state-DSL readability and refine the envelope grammar and remaining adoption choices before opening implementation.
+  - Specify YAML/Markdown round-trip boundaries and the versioned state-seed prompt-asset contract before opening implementation.
 accepted_decisions_added:
   - Treat the experiment as mechanics evidence only; do not promote its authored schema or patch rules into production by implication.
 ```

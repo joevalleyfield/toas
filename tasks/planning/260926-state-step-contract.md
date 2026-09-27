@@ -32,9 +32,10 @@ to change production behavior.
 | Transcript LCP, assistant callable extraction, and immediate consequence execution must not classify state input | Inferred boundary from current ownership and message semantics |
 | The same `step` operation detects an explicit versioned state marker at the start of assembled session input, then dispatches before transcript parsing | User decision; exact marker/envelope grammar remains a recommendation |
 | A missing state marker means existing ordinary transcript handling; unknown or malformed leading state markers fail closed | Recommended parser behavior |
+| User-editable state supports YAML and a Markdown state DSL as initial configured formats, with parse/render round-tripping through canonical JSON | User decision; exact grammars and format setting remain open |
 | State inference receives one user-role message containing procedure, state, and latest observation | Deliberate TOAS adaptation informed by the isolated-context experiment; not a general paper requirement |
 | Apply a valid state patch before attempting its action | Paper-specified ordering; separate inference and execution calls are a TOAS interaction adaptation |
-| Record state/action facts outside message-event numbering and use explicit action approval | Deliberate TOAS adaptation consistent with append-only history invariants |
+| Accept and persist a valid state patch immediately; action execution remains a separate explicit decision | User decision; state edits are still append-only branches |
 | Identical resubmission is idempotent; interrupted external action is unknown and not retried automatically | Inferred safety contract for repeatability and non-duplicated side effects |
 | The first state slice is local-only until a typed transport contract exists | Deliberate TOAS adaptation to current RPC/async payload limits |
 
@@ -103,6 +104,8 @@ YAML body:
 kind: toas.state-transition
 version: 1
 operation: infer
+format: yaml
+seed_ref: state-seeds/repo-work_v1
 base:
   message_head_id: m42
   transition_id: st7
@@ -137,6 +140,8 @@ Comparable Markdown-based state DSL:
 - kind: `toas.state-transition`
 - version: 1
 - operation: infer
+- format: markdown
+- seed ref: `state-seeds/repo-work_v1`
 
 ### Base
 - message head: `m42`
@@ -204,15 +209,52 @@ Equivalent normalized JSON body (not a requirement for the editable buffer):
 }
 ```
 
+Both YAML and the Markdown DSL should be supported as initial configured
+buffer formats. Since the user can rewrite the projected state, each format
+needs a parser back to canonical JSON and a renderer from canonical JSON;
+this is a round-trip contract, not just a one-way display. The format is
+identified by the envelope/configuration so parsing never guesses from body
+content. Exact grammars and the setting that chooses the format remain open.
+
 The proposed marker is a single exact first nonblank line, followed by one
-versioned body encoding. The exact marker, selected body grammar, whitespace
-rules, and whether stdin can supply the envelope are still for review. `step`
+versioned body encoding. The exact marker, whitespace rules, and whether stdin
+can supply the envelope are still for review. `step`
 reads and assembles its usual input first, then classifies it: an ordinary transcript proceeds
 unchanged; the exact supported state marker selects the state parser; an
 unknown or malformed leading `## TOAS:STATE...` marker is an error, never a
 fallback to transcript parsing. State input cannot be mixed with role-marked
 transcript blocks. Marker-like content later in ordinary content cannot
 select state mode and remains subject to the existing transcript marker rules.
+
+### Initial state seed — Candidate TOAS adaptation
+
+An initial state request has no prior transition base. It names the seed asset
+and editable-buffer format explicitly:
+
+```markdown
+## TOAS:STATE/1
+
+### Request
+- kind: toas.state-transition
+- version: 1
+- operation: initialize
+- format: markdown
+- seed_ref: state-seeds/repo-work_v1
+
+### Observation obs1 — user_input
+> Understand the add implementation in src/math.py.
+```
+
+For YAML, the same request body uses `format: yaml` and the equivalent
+`seed_ref: state-seeds/repo-work_v1` field. Resolve `seed_ref` through the
+existing versioned prompt-asset reference/loading system; require a
+state-seed-specific metadata category and validate the loaded seed against the
+state schema. Record the normalized ref, asset digest, and resolved seed in
+the initial transition so later asset edits cannot silently change history.
+The seed supplies initial state values and schema defaults; the user's
+observation supplies current goal and context. Missing, wrong-category, or
+invalid seed assets are hard errors. Prompt composition for model instructions
+can remain a separate prompt asset reference.
 
 For this example, the exact application-boundary request for isolated
 inference is one user message containing the selected procedure, schema
@@ -247,15 +289,16 @@ consequence, never both. A patch alone must not cause execution.
 Expected durable facts for the action example, expressed as candidate records:
 
 ```jsonl
-{"kind":"state_transition","payload":{"transition_id":"st8","parent_transition_id":"st7","base_state_digest":"sha256:...","input_digest":"sha256:...","observation_id":"obs8","instruction_ref":"repo-work/v1","instruction_digest":"sha256:...","state_patch":{"progress":["Read src/math.py; add returns a + b."],"next_steps":[]},"state_after":{"goal":"Understand the add implementation","progress":["Read src/math.py; add returns a + b."],"next_steps":[],"artifacts":[],"blockers":[],"notes":{"constraints":[],"accepted_decisions":[],"pending_proposals":[],"uncertainties":[]}},"consequence":{"kind":"action","tool_name":"read_file","arguments":{"path":"src/math.py"}},"status":"awaiting_approval"}}
+{"kind":"state_transition","payload":{"transition_id":"st8","parent_transition_id":"st7","base_state_digest":"sha256:...","input_digest":"sha256:...","format":"markdown","seed_ref":"state-seeds/repo-work_v1","seed_digest":"sha256:...","observation_id":"obs8","instruction_ref":"repo-work/v1","instruction_digest":"sha256:...","state_patch":{"progress":["Read src/math.py; add returns a + b."],"next_steps":[]},"state_after":{"goal":"Understand the add implementation","progress":["Read src/math.py; add returns a + b."],"next_steps":[],"artifacts":[],"blockers":[],"notes":{"constraints":[],"accepted_decisions":[],"pending_proposals":[],"uncertainties":[]}},"consequence":{"kind":"action","tool_name":"read_file","arguments":{"path":"src/math.py"}},"patch_status":"accepted","action_status":"awaiting_approval"}}
 {"kind":"llm_call","payload":{"transition_id":"st8","requested_model":"...","response_model":"...","usage":{}}}
 {"kind":"state_action","payload":{"attempt_id":"act1","transition_id":"st8","status":"started","request_digest":"sha256:..."}}
 {"kind":"state_action","payload":{"attempt_id":"act1","transition_id":"st8","status":"succeeded","observation_id":"obs9","observation":{"kind":"tool_result","content":"def add(a, b): return a + b"}}}
 ```
 
-These event kinds/shapes are proposed, not existing graph record contracts. The
-approval decision and action-start should be separate durable facts; the
-operation result is the next observation, not a message event.
+These event kinds/shapes are proposed, not existing graph record contracts.
+Patch acceptance is recorded immediately with the transition. Any action
+approval and action-start are separate durable facts; the operation result is
+the next observation, not a message event.
 
 ## State and patch semantics — Recommended TOAS adaptation
 
@@ -307,9 +350,10 @@ independent of message IDs and message numbering.
    observation. One call performs one inference or one explicit action
    execution, never a hidden execute-and-infer loop.
 
-The proposed state patch is promoted when the validated proposal is recorded,
-before its action runs. A failed action does not roll back that state; its
-failure becomes the next observation. The paper specifies patch-before-action
+The proposed state patch is accepted and promoted when the validated model
+response is recorded, before its action runs. There is no separate
+accept/reject step for a valid state patch. A failed action does not roll back
+that state; its failure becomes the next observation. The paper specifies patch-before-action
 ordering; keeping inference and execution as separate explicit calls is a TOAS
 interaction adaptation that retains review time. Rejected/invalid proposals do
 not advance state. User edits make a new input branch from a named base; they do
@@ -411,10 +455,6 @@ unrelated suite coverage.
 - Exact marker/body grammar, whitespace handling, and whether stdin can carry
   the state envelope. The user has decided that the existing `step` operation
   inspects its input; a separate operator or mode flag is not desired.
-- Whether the model-produced patch becomes accepted immediately on recording
-  or needs a separate user accept/reject operation. This recommendation favors
-  immediate promotion of a validated patch, while action execution still
-  requires explicit approval.
 - Whether state mode may call every currently advertised capability in the
   first slice or begins with the read-only subset.
 - How a durable inference/action record is surfaced in transcript, history,
