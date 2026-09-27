@@ -61,7 +61,7 @@ live smoke run can check prompt adherence without claiming evaluation results.
 
 | Object | Straw-man responsibility | Decision still needed |
 | --- | --- | --- |
-| Transcript turns | Ordinary turns plus typed state snapshots, state diffs, and observations in the same transcript/event log | Message-event versus typed-record representation; exact turn grammar |
+| User-facing transcript projections | May render conversation material alongside typed state snapshots, diffs, and observations | Exact record schema and turn grammar; semantic separation is settled |
 | Procedure | Generic repo-work instructions plus declared state shape | Inline versus referenced material, exact schema and role placement |
 | Current state | goal, progress, next_steps, artifacts, blockers, structured notes | Required fields, bounds, artifact shape, deletion rules |
 | Observation turn | Newly submitted user input or tool result; explicit continuation may be empty | Turn grammar, consumed-result identity, distinction between absent and empty |
@@ -109,7 +109,7 @@ rewrites state.
 | `src/toas/runtime/model_invocation_contracts.py::resolve_model_invocation` resolves provider settings from working context and events | Preserve model configuration/authority independently of omitted conversational context; record user-only versus other role packaging |
 | `src/toas/runtime/session_step_edges.py::persist_messages_and_llm_calls` associates model-call records with materialized messages | Decide how model-call identity links to typed state turns or event-log records |
 | `src/toas/runtime/frontier_resolution.py` handles callable-plan extraction and source preservation | Reuse capability semantics through explicit normalized intent, not arbitrary state YAML scanning |
-| `src/toas/operator_api.py::step_once` is the operator-facing seam | Keep command adapters thin; select the configured projection through the same `step` operation |
+| `src/toas/operator_api.py::step_once` is the conversation-step seam | Keep adapters thin; define a distinct state-step operation while reusing runtime and model capabilities |
 
 Candidate ownership: representation parsing in a focused boundary module;
 transition selection in Operator Semantics; append/query and replay under Durable
@@ -218,8 +218,11 @@ its bounded experimental implementation surfaces.
   model patches are accepted immediately; action execution remains separately
   controlled. A state-operation tool may copy an identified observation into
   a state field without making the model reproduce its text; the original
-  observation remains available. Event/message representation, transcript
-  edit and replay behavior, observation batching/size handling, tool shape,
+  observation remains available. State and state-diff turns are typed
+  state-step records, not message events. State-step and conversation-step are
+  semantically independent while sharing runtime and model capabilities;
+  convergence requires significant impetus. Transcript edit and replay
+  behavior, observation batching/size handling, tool shape,
   key-state criteria, seed details, capability scope, and transport support
   remain open. See the updated
   [contract recommendation](../planning/260926-state-step-contract.md).

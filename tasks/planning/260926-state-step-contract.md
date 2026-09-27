@@ -47,20 +47,20 @@ to change production behavior.
 | --- | --- |
 | Local `step` reads and reconciles `session.md` before choosing a consequence | Existing behavior |
 | Existing generation projects message lineage, strips control/reasoning, may add lens artifacts, then invokes the provider | Existing behavior |
-| State/state-diff turns participate in transcript projections without routing the whole session through a separate state-mode parser | User decision; exact turn representation remains open |
+| State and state-diff turns are typed state-step records, not message events; they may be rendered in user-facing transcript projections | User decision |
 | The human-controlled transcript is authoritative for current working state; the event log preserves history but cannot overrule transcript edits | User decision; exact edit/replay interaction remains open |
-| Introduce state and state-diff turns and selectable user-facing projections | User decision; whether turns are message events or typed records rendered as turns remains open |
-| The same `step` operation handles ordinary and state turns; no whole-document state-mode switch | User decision |
+| State-step and conversation-step remain semantically independent while sharing runtime and model capabilities | User decision; convergence requires significant impetus |
+| Introduce state and state-diff records and selectable user-facing projections | User decision; exact record schema and projection controls remain open |
 | User-editable state supports YAML and a Markdown state DSL as initial configured formats, with parse/render round-tripping through normalized JSON | User decision; exact grammars and format setting remain open |
 | Default LLM projection is effective instructions/schema + current state object + one latest logical observation | User decision aligned with the paper and inspected implementations |
 | Prior observations are not automatically accumulated into the default LLM packet | User decision; explicit state operations can move selected observation content into state |
 | Observation content is retained as source material; state operations need not echo it as model output text | User decision; exact operation, identity, and storage/provenance shape remain open |
 | Apply a valid state patch before attempting its action | Paper-specified ordering; separate inference and execution calls are a TOAS interaction adaptation |
 | Accept and persist a valid state patch immediately; action execution remains a separate explicit decision | User decision; state edits are still append-only branches |
-| State snapshots, diffs, observations, and actions use append-only event-log machinery and can be projected as transcript turns | User decision; graph/event schema and message numbering remain open |
+| State snapshots, diffs, observations, and actions use shared append-only history machinery and can be rendered as transcript turns | User decision; graph/event schema remains open |
 | Offer full, states-only, diffs-only, key-state, and key-state-plus-cumulative-diff user-facing projections | User-proposed projection family; key-state criteria and selection controls remain open |
 | Identical resubmission is idempotent; interrupted external action is unknown and not retried automatically | Inferred safety contract for repeatability and non-duplicated side effects |
-| RPC/async preserve the same transcript turns and selected projection | Requirement; transport implementation details remain open |
+| RPC/async preserve state-step inputs and selected projections across transports | Requirement; transport implementation details remain open |
 
 ## Current runtime trace — Existing behavior
 
@@ -240,15 +240,17 @@ this is a round-trip contract, not just a one-way display. The format is
 identified by the envelope/configuration so parsing never guesses from body
 content. Exact grammars and the setting that chooses the format remain open.
 
-Here `## TOAS:STATE/1` illustrates a typed transcript-turn header, not a
-whole-document mode switch. A corresponding versioned state-diff turn carries
-a patch or transition delta. Ordinary user/assistant turns, state turns, and
-state-diff turns can coexist in one transcript. Exact turn markers and whether
-the durable records are message events or typed event-log records rendered as
-turns remain open. Unknown turn versions should fail clearly without
-reinterpreting prior history. The operator-facing view is a projection of the
-current user-controlled transcript; historical event records do not replace
-or overrule it. The LLM request applies its own projection policy.
+Here `## TOAS:STATE/1` illustrates a typed state-step record header, not a
+whole-document mode switch. A corresponding versioned state-diff record carries
+a patch or transition delta. State and state-diff records are not message
+events. They remain semantically independent from conversation-step; the two
+may share runtime services and model capabilities, but convergence needs a
+significant impetus. User-facing transcript projections may render state-step
+records alongside conversation material without making them the same semantic
+kind. Exact record schema and turn markers remain open. Unknown versions
+should fail clearly without reinterpreting prior history. The operator-facing
+view follows the current user-controlled state; historical records do not
+replace or overrule it. The LLM request applies its own projection policy.
 
 Candidate user-facing projections over the current transcript and its retained history:
 
@@ -433,8 +435,8 @@ inference.
 The current transcript is the operator-controlled working surface, not merely
 a projection of historical records. The append-only event log records what
 was previously submitted or executed; it does not decide current working
-state. State snapshots and diffs may carry stable IDs and digests, but whether
-they are message-event variants or typed records remains open. User edits that
+state. State snapshots and diffs may carry stable IDs and digests as typed
+state-step records, separate from message events. User edits that
 replace a full state change the working transcript while prior records remain
 historical; no replay may silently reinstate the old state.
 
@@ -499,32 +501,34 @@ from an empty submission.
 
 | Concern | Owner |
 | --- | --- |
-| State/state-diff turn parsing, canonical state normalization, YAML/Markdown round-trip | Focused transcript/projection owner, with durable type boundaries still to be located |
-| Select LLM-facing projection and assemble the request | Model Invocation boundary plus focused event-log projection helpers |
+| State/state-diff record parsing, canonical state normalization, YAML/Markdown round-trip | Focused state-step boundary; records stay separate from message events |
+| Select the state-step LLM packet and assemble the request | Model Invocation boundary plus a focused state-step input builder |
 | Select infer vs execute consequence and pending/terminal lifecycle | Focused state-transition runtime (Operator Semantics) |
 | Append/query/replay state and action facts | Existing event-log machinery in `graph.py` plus focused graph helpers |
 | Resolve tool/action, grants, scope, and execution | Existing Capabilities and Effective Policy/Authority; only pass normalized requests |
 | Provider selection/retries/audit | Existing Model Invocation; extend the call reference for transition identity |
-| CLI, operator, daemon/RPC adapters | Thin adapters; same `step` operation reads the transcript and selects its configured projection |
+| CLI, operator, daemon/RPC adapters | Thin adapters; expose state-step separately from conversation-step while reusing runtime and model services |
 
-Retain the `operator_api.step_once` / `toas step` entry point. Parse state and
-state-diff turns as transcript content, then choose the configured LLM-facing
-projection from the event log. Do not switch the whole buffer into a separate
-state mode or route state turns through ordinary assistant callable extraction.
+Keep state-step semantically separate from the `operator_api.step_once` /
+`toas step` conversation-step path. Parse typed state and state-diff records
+through a state-step boundary, then build the configured LLM packet using
+shared model/runtime capabilities. Do not route state records through ordinary
+assistant callable extraction. Any future convergence needs significant
+impetus.
 
 The CLI currently routes ordinary unqualified `step` over RPC when configured;
 RPC exposes async step operations, while the in-process operator API wraps the
 local synchronous command. Async workers force `TOAS_RPC_MODE=off` internally
-but still run transcript semantics. RPC and async routes must preserve the same
-turn parsing and projection selection. Existing default/auto/on/off transport
-contracts remain unchanged; add state projections through the same operation
-once their payload/event-log view is supported.
+but still run transcript semantics. RPC and async routes must preserve
+state-step semantics and projection selection. Existing default/auto/on/off
+transport contracts remain unchanged; add a separate state-step operation over
+the shared transport/runtime seams.
 
 ## Smallest useful implementation follow-on
 
-Recommended first end-to-end slice: add state and state-diff turns to the
-existing transcript/event log; support YAML and Markdown round-trip; offer full
-state-plus-diff and states-only projections; run one inference that accepts a
+Recommended first end-to-end slice: add typed state and state-diff records to
+the state-step working transcript/history; support YAML and Markdown round-trip;
+offer full state-plus-diff and states-only projections; run one inference that accepts a
 patch immediately; execute one validated `read_file` action explicitly; add
 the result as an observation turn; then continue inference. Use scripted model
 responses first. This proves branch identity, event-log replay, projection
@@ -560,8 +564,8 @@ unrelated suite coverage.
 
 - Exact state/state-diff turn syntax and how turns coexist with the existing
   role markers in `session.md`.
-- Whether state snapshots/diffs are message-event kinds or typed event-log
-  records that transcript projections render as turns.
+- Exact typed record schema and how user-facing transcript projections render
+  state-step records alongside conversation material.
 - Key-state criteria and whether users can pin key states, configure rules, or
   use computed significance.
 - Projection-selection controls and persistence scope (per request, session,
