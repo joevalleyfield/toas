@@ -45,6 +45,24 @@ def test_dispatch_defaults_to_step():
     assert calls == [("step", (), {})]
 
 
+def test_dispatch_state_seed_selects_requested_format():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = replace(_deps(calls), run_state_seed=lambda **kwargs: calls.append(("state_seed", (), kwargs)))
+    dispatch_main(["state-seed", "--markdown"], deps=deps)
+    assert calls == [("state_seed", (), {"format": "markdown"})]
+
+
+def test_dispatch_state_seed_defaults_and_rejects_bad_options():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = replace(_deps(calls), run_state_seed=lambda **kwargs: calls.append(("state_seed", (), kwargs)))
+    dispatch_main(["state-seed"], deps=deps)
+    assert calls == [("state_seed", (), {})]
+    with pytest.raises(SystemExit, match="usage: toas state-seed"):
+        dispatch_main(["state-seed", "--toml"], deps=deps)
+    with pytest.raises(SystemExit, match="state seeding is unavailable"):
+        dispatch_main(["state-seed"], deps=_deps([]))
+
+
 def test_dispatch_watch_parses_flags():
     calls: list[tuple[str, tuple, dict]] = []
     dispatch_main(["watch", "r1", "--offset", "5", "--follow"], deps=_deps(calls))

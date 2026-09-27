@@ -69,6 +69,15 @@ class StepOutcome:
     completed: bool = True
 
 
+def step_state_once(*, events_path: str | Path, state: dict, observation,
+                    generate: Callable[[dict], object], execute_call: Callable[[dict], object]) -> dict:
+    """Advance the independent, typed state-step runtime once."""
+    from .runtime.state_step import step_state
+
+    return step_state(events_path=events_path, state=state, observation=observation,
+                      generate=generate, execute_call=execute_call)
+
+
 @dataclass(frozen=True)
 class QueryLines:
     lines: list[str]

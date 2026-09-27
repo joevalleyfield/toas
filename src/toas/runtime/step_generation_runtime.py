@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from collections.abc import Callable
@@ -177,6 +178,29 @@ class GenerationRunner:
             secret_resolver=self.deps.resolve_secret,
             llm_stream_mode=self.llm_stream_mode,
         )
+
+    def prepare_state_request(self, packet: dict) -> ResolvedModelInvocation:
+        """Resolve provider settings for a state-only packet without transcript projection."""
+        return resolve_model_invocation(
+            working=[],
+            request_messages=[{"role": "user", "content": json.dumps(packet, ensure_ascii=False)}],
+            operator_config=self.operator_config,
+            base_settings=self.base_settings,
+            settings_sources=self.settings_sources,
+            policy=self.policy,
+            events_path=self.events_path,
+            project_messages=self.deps.project_llm_input_from_messages,
+            selected_endpoint=self.deps.resolve_selected_endpoint,
+            selected_model=self.deps.resolve_selected_model,
+            secret_resolver=self.deps.resolve_secret,
+            llm_stream_mode=self.llm_stream_mode,
+        )
+
+    def generate_state_packet(self, packet: dict) -> dict:
+        """Generate from state-only input through the normal provider/retry/audit path."""
+        plan = self.prepare_state_request(packet)
+        result = self.execute_with_retry(plan)
+        return self.build_artifacts(plan, result)
 
     def execute_with_retry(self, plan):
         last_error: Exception | None = None

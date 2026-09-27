@@ -131,6 +131,38 @@ Likely implication:
 - full forensic payload remains opt-in when deep tracing is needed
 - reasoning visibility and reasoning roundtrip are now separated by policy
 
+## Reconstructing A State-Step Request
+
+The state-step packet is assembled in `src/toas/runtime/state_step.py::step_state`.
+The TOAS-level request projection passed to model invocation is:
+
+```text
+packet = {
+  instructions: STATE_INSTRUCTIONS,
+  schema: {state_patch: object, tool_calls: array, outcome: [continue, complete]},
+  tools: {available: sorted(TOAS registry names), protocol: batch-tool timing rule},
+  state: selected editable state,
+  observation: {operator_observation: current observation,
+               tool_outcomes: results from the latest completed batch},
+}
+request_messages = [{role: "user", content: json.dumps(packet, ensure_ascii=False)}]
+```
+
+This is the projection before provider-specific request shaping. With
+`TOAS_LLM_TRACE=full`, the `llm_call.payload.messages` field captures those
+projected messages. State-step transitions also retain the model-call evidence;
+if response validation fails, the failed `state_transition` retains
+`request_packet`, raw `response_content` when available, and the validation
+error. This makes a rejected generation diagnosable without relying on a later
+reconstruction from mutable transcript text. Older failed state-step calls
+that predate this evidence cannot be reconstructed exactly from minimal trace
+records alone.
+
+To inspect the newest state-step failure, read the latest `state_transition`
+with `status=failed`; inspect `request_packet`, `response_content`, `error`, and
+`model_call`. For an exact provider-boundary capture on a future call, set
+`TOAS_LLM_TRACE=full` before invoking TOAS.
+
 ## What The 170 Series Established
 
 Observed:

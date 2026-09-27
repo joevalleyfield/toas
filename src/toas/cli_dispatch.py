@@ -50,6 +50,7 @@ class DispatchDeps:
     run_replay_script: Callable[..., None]
     run_debug_cancel_latency: Callable[..., None]
     run_session_continue: Callable[..., None] | None = None
+    run_state_seed: Callable[..., None] | None = None
 
 
 def require_arg(cmd: list[str], index: int, usage_line: str) -> str:
@@ -67,6 +68,15 @@ def dispatch_main(
 
     if argv[0] in {"help", "--help", "-h"}:
         deps.run_help()
+    elif argv[0] == "state-seed":
+        if deps.run_state_seed is None:
+            raise SystemExit("state seeding is unavailable")
+        if len(argv) == 1:
+            deps.run_state_seed()
+        elif argv[1] in {"--yaml", "--markdown"} and len(argv) == 2:
+            deps.run_state_seed(format=argv[1][2:])
+        else:
+            raise SystemExit("usage: toas state-seed [--yaml|--markdown]")
     elif argv[0] == "step":
         if len(argv) > 1 and argv[1] == "--async":
             session_path, surface_id = parse_step_async_options(argv)

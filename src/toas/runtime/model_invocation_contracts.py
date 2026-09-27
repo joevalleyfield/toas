@@ -128,14 +128,18 @@ def resolve_model_invocation(
     selected_model: Callable[[list[dict]], str | None] = resolve_selected_model,
     secret_resolver: Callable[..., str] = resolve_secret,
     llm_stream_mode: str | None = None,
+    request_messages: list[dict] | None = None,
 ) -> ResolvedModelInvocation:
     events = read_log(str(events_path))
-    packet = build_context_packet(
-        working=working,
-        project_messages_fn=project_messages,
-        events=events,
-    )
-    messages = shape_messages_for_packet(packet)
+    if request_messages is None:
+        packet = build_context_packet(
+            working=working,
+            project_messages_fn=project_messages,
+            events=events,
+        )
+        messages = shape_messages_for_packet(packet)
+    else:
+        messages = request_messages
     active_target_id = _branch_visible_target_selection(working=working, events=events)
     active_target = resolve_model_target(operator_config, active_target_id) if active_target_id else None
     target_invocation = (

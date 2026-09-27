@@ -9,8 +9,8 @@ Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; 
 
 # State-Transition Step: Requirements And Implementation Straw Man
 
-Status: ACTIVE requirements parent; integrated alpha direction recorded; exact
-record/response shapes and runtime ownership remain to define
+Status: ACTIVE requirements parent; integrated alpha direction and runtime
+ownership map recorded; focused implementation child is ready
 
 ## Objective
 
@@ -160,9 +160,17 @@ capability path, not a parallel experimental harness.
    multi-tool batch, user-controlled state/observation edits, pending batch
    execution, and results as compound-observation components. See
    [`tasks/planning/260926-state-step-contract.md`](../planning/260926-state-step-contract.md).
-2. **Next planning work:** map the user-facing loop onto runtime ownership and
-   define the minimal state/transition/tool-run record envelopes, JSON response
-   schema, and `step` phase behavior needed for the alpha vertical slice.
+2. **Runtime mapping:** the existing local entry is
+   `operator_api.step_once` -> `cli_session_commands.run_step`, which currently
+   parses message transcript, constructs message lineage, invokes generation,
+   and persists message plus message-linked tool records. State-step needs its
+   own typed transcript/runtime path and typed correlation for tool outcomes;
+   it can reuse model invocation and capability execution services. The
+   operator-edited transcript remains current-state authority. Minimal record
+   envelopes, JSON response validation, patch behavior, and phase transitions
+   can be refined at their implementation seams rather than blocking the first
+   integrated slice. See the ready child
+   [`260927-state-step-alpha-loop`](260927-state-step-alpha-loop.md).
 3. **Deferred follow-ons:** model-specific capability profiles, observation
    reference selector experiments, advanced projections, broader seeds and
    format configuration, expanded capability scope, and RPC/async support.
@@ -173,14 +181,20 @@ for this first slice.
 
 ## Parent Completion And Allowed Writes
 
-Keep this parent open while mapping the agreed alpha flow to runtime ownership
-and specifying the minimal records and response contract. Record decisions and
-follow-on links here; do not use roadmap updates as task threading.
+Keep this parent as the design reference while the alpha child refines and
+implements the minimal records and response contract. Record decisions and
+follow-on links here; do not use roadmap updates as task threading. Close this
+parent after the integrated alpha contract and any necessary follow-on task
+boundaries are reflected accurately.
 
 Planning writes: this task, its task-linked planning artifacts, child task
 metadata, and generated workboard sections. No source or test implementation
 is authorized by this planning task. The harness child separately authorizes
 its bounded experimental implementation surfaces.
+
+The integrated alpha implementation is authorized and scoped by the child
+[`260927-state-step-alpha-loop`](260927-state-step-alpha-loop.md), not by this
+requirements parent.
 
 ## Harness Handoff Progress
 
@@ -241,6 +255,26 @@ Created the straw man and ready investigation child after a read-only survey.
 No production behavior, parser grammar, or durable record format changed.
 The related roadmap/manual-board review was done during today's paper intake;
 this planning pivot does not reprioritize that strategic queue.
+
+## Alpha Implementation Follow-Through (2026-09-27)
+
+The integrated child now owns the first local production slice. It preserves
+this parent's contract: typed state/state-diff records remain separate from
+message events; edited state stays authoritative; inference uses a state-only
+packet; patches apply before external consequences; and pending tools run only
+on a later explicit `step` through the existing capability executor. The alpha
+settled its minimal turn grammar, graph records, JSON response fields, seed
+command, and interrupted-run behavior in
+[`260927-state-step-alpha-loop`](260927-state-step-alpha-loop.md).
+
+The child has focused local end-to-end evidence (3,299 passing tests in the
+latest suite run; 27 failures are recorded in the child, primarily sandbox
+restrictions plus two legacy experiment assertions). Full-suite closure remains
+pending because sandboxed subprocess/cache/socket tests cannot run in this
+workspace and the unrelated experiment harness has two existing assertion
+mismatches. Broader projection controls, observation addressing, model-fit
+tool profiles, and async/RPC transport remain follow-ons as already recorded
+above.
 
 ## Simulation State Delta
 

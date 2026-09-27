@@ -1021,6 +1021,20 @@ def write_tool_result_record(path: str, *, message_id: str, payload: dict) -> di
     return record
 
 
+def append_state_step_records(path: str, records: list[dict]) -> None:
+    """Append typed state-step facts without allocating message-event IDs."""
+    allowed = {"state_transition", "state_diff", "state_snapshot", "state_observation", "state_tool_request", "state_tool_result"}
+    if any(record.get("kind") not in allowed for record in records):
+        raise ValueError("state-step record batch contains an unsupported record kind")
+    append_nodes(path, records)
+
+
+def state_step_records(path: str) -> list[dict]:
+    """Return state-step facts in durable append order."""
+    allowed = {"state_transition", "state_diff", "state_snapshot", "state_observation", "state_tool_request", "state_tool_result"}
+    return [record for record in read_log(path) if record.get("kind") in allowed]
+
+
 def write_llm_call_record(
     path: str,
     *,

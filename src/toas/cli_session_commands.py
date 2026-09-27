@@ -182,6 +182,24 @@ def run_step(
         control=control,
         session_path=session_path,
     )
+    from .runtime.state_step import STATE_DIFF_MARKER, STATE_MARKER, parse_state_turn
+
+    transcript_markers = [
+        line.strip()
+        for line in normalized_transcript.splitlines()
+        if line.startswith("## TOAS:")
+    ]
+    if transcript_markers and transcript_markers[-1] in {STATE_MARKER, STATE_DIFF_MARKER}:
+        _run_state_step(
+            deps=deps,
+            events_path=events_path,
+            session_path=resolved_session_path,
+            normalized_transcript=normalized_transcript,
+            session_newline=session_newline,
+            events=events,
+            parsed_turn=parse_state_turn(normalized_transcript),
+        )
+        return
     runtime_ctx = _build_runtime_context(
         events=events,
         normalized_transcript=normalized_transcript,
@@ -245,3 +263,102 @@ def run_step(
         on_projection_nodes=on_projection_nodes,
         on_projection_delta=on_projection_delta,
     )
+
+
+def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> None:
+    """Create an editable state session with a blank goal for the operator."""
+    deps = _build_step_cli_deps()
+    events_path = deps.resolve_events_path()
+    deps.ensure_file(events_path)
+    target = Path(session_path) if session_path else deps.resolve_session_path(read_log(str(events_path)))
+    deps.ensure_file(target)
+    existing = deps.read_text_preserve_newlines(target)
+    from .runtime.state_step import seed_state_turn
+
+    if any(line.strip() in {"## TOAS:STATE/1", "## TOAS:STATE-DIFF/1"} for line in existing.splitlines()):
+        raise ValueError(f"state transcript already contains a typed state turn: {target}")
+
+    rendered = seed_state_turn(format=format)
+    if existing:
+        separator = "" if existing.endswith(("\n", "\r")) else "\n"
+        rendered = f"{existing}{separator}\n{rendered}"
+    _write_text_with_newline_style(
+        path=target,
+        text=rendered,
+        newline=deps.detect_newline_style(existing),
+        apply_newline_style_fn=deps.apply_newline_style,
+    )
+    print(f"seeded state transcript: {target}")
+
+
+def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_transcript: str,
+                    session_newline: str, events: list[dict], parsed_turn: dict) -> None:
+    """Adapt a typed state transcript to the independent state-step runtime."""
+    from . import step as step_mod
+    from .config import apply_overrides, config_from_discovered_paths
+    from .graph import active_config_overrides, state_step_records
+    from .runtime.state_step import ToolOutcomeError, _merge_patch, render_state_turn, step_state
+
+    if parsed_turn["turn_type"] == "state":
+        current_state = parsed_turn["state"]
+    else:
+        snapshots = [record for record in state_step_records(str(events_path)) if record.get("kind") == "state_snapshot"]
+        if not snapshots:
+            raise ValueError("state-diff turn has no earlier accepted state snapshot")
+        current_state = _merge_patch(snapshots[-1]["state"], parsed_turn["state_patch"])
+    runtime_ctx = _build_runtime_context(
+        events=events, normalized_transcript=normalized_transcript,
+        session_path=session_path, workdir=Path.cwd(),
+    )
+    operator_config = apply_overrides(
+        config_from_discovered_paths(workdir=Path.cwd()), active_config_overrides(events)
+    )
+    generation_runner = None
+
+    def generate_state_packet(packet: dict) -> dict:
+        nonlocal generation_runner
+        if generation_runner is None:
+            _, _, generation_runner, _ = _resolve_runtime_generation_context(
+                deps=deps, events_path=events_path, events=events
+            )
+        return generation_runner.generate_state_packet(packet)
+
+    def execute_call(call: dict) -> list[dict]:
+        results = step_mod._execute_plan(
+            [call], origin_role="assistant", command_cwd=runtime_ctx["command_cwd"],
+            workspace_mode=runtime_ctx["workspace_mode"], workspace_roots=runtime_ctx["workspace_roots"],
+            env_modifiers=step_mod.resolve_effective_env_modifiers([]),
+            shell_allowed_commands=step_mod.resolve_effective_shell_allowed([], operator_config, events),
+            assistant_timeout_s=operator_config.shell.assistant_timeout_s,
+            assistant_timeout_source="default",
+        )
+        for result in results:
+            payload = result.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            outcome = payload.get("outcome", payload.get("status"))
+            if outcome in {"cancelled", "indeterminate"}:
+                raise ToolOutcomeError(str(outcome), str(payload.get("summary", outcome)))
+            if payload.get("ok") is False:
+                raise ToolOutcomeError("failed", str(payload.get("summary", "tool call failed")))
+        return results
+
+    result = step_state(
+        events_path=events_path, state=current_state, observation=parsed_turn.get("observation"),
+        generate=generate_state_packet, execute_call=execute_call,
+    )
+    if result["phase"] == "infer":
+        rendered = render_state_turn(
+            result["state"], observation=parsed_turn.get("observation"),
+            format=parsed_turn.get("format", "yaml"),
+        )
+        rendered = (
+            parsed_turn.get("_transcript_prefix", "")
+            + rendered
+            + parsed_turn.get("_transcript_suffix", "")
+        )
+        _write_text_with_newline_style(
+            path=session_path, text=rendered, newline=session_newline,
+            apply_newline_style_fn=deps.apply_newline_style,
+        )
+    print(f"state-step {result['phase']}: {result['status']}")

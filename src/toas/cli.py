@@ -26,6 +26,7 @@ from .cli_host_commands import run_host as run_host_command
 from .cli_replay_script import ReplayScriptDeps
 from .cli_replay_script import run_replay_script as run_cli_replay_script
 from .cli_runtime_commands import run_daemon as run_runtime_daemon
+from .cli_session_commands import run_state_seed as _run_state_seed_impl
 from .cli_session_views import run_graph as _run_graph_impl
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
 from .config import config_from_discovered_paths, config_from_file  # noqa: F401
@@ -88,6 +89,7 @@ def run_session_continue(
 
 USAGE = """Usage:
   toas [step]
+  toas state-seed [--yaml|--markdown]
   toas step --async [--session <transcript_path>]
   toas watch <run_id> [--offset <n>] [--follow]
   toas cancel <run_id>
@@ -446,6 +448,10 @@ def run_help() -> None:
     print(render_session_help_full())
 
 
+def run_state_seed(*, format: str = "yaml") -> None:
+    _run_state_seed_impl(format=format)
+
+
 def run_replay_script(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
     session_path = resolve_session_path()
     run_cli_replay_script(
@@ -482,6 +488,7 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_help=run_help,
         run_step=run_step,
         run_step_async=run_step_async,
+        run_state_seed=run_state_seed,
         run_watch=run_watch,
         run_cancel=run_cancel,
         run_backend=run_backend,
