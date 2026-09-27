@@ -89,7 +89,7 @@ def run_session_continue(
 
 USAGE = """Usage:
   toas [step]
-  toas step --preview [--session <transcript_path>]
+  toas step [--preview-request] [--preview-response] [--session <transcript_path>]
   toas state-seed [--yaml|--markdown]
   toas step --async [--session <transcript_path>]
   toas watch <run_id> [--offset <n>] [--follow]
@@ -128,7 +128,8 @@ History surfaces (read-only; choose by inspection question; see `/help history`)
   llm-input --envelope     also show the packet/system shaping live generation adds
                            above that core projection (transport re-rendering such as
                            single_user_blob is not reflected)
-  step --preview           print state-step request messages without calling the model
+  step --preview-request   print state-step request messages without calling the model
+  step --preview-response  call the model and print its unaltered response content
 """
 
 
@@ -195,6 +196,8 @@ def _run_step(
     *,
     stdin_mode: bool = False,
     preview: bool = False,
+    preview_request: bool = False,
+    preview_response: bool = False,
     control: str | None = None,
     session_path: str | None = None,
     surface_id: str | None = None,
@@ -209,7 +212,8 @@ def _run_step(
         session_path = _session_path_for_surface_id(surface_id)
     run_operator_step_once(
         stdin_mode=stdin_mode,
-        preview=preview,
+        preview=preview or preview_request,
+        preview_response=preview_response,
         control=control,
         session_path=session_path,
         on_llm_answer_delta=on_llm_answer_delta,
@@ -223,14 +227,18 @@ def run_step(
     *,
     stdin_mode: bool = False,
     preview: bool = False,
+    preview_request: bool = False,
+    preview_response: bool = False,
     control: str | None = None,
     session_path: str | None = None,
     surface_id: str | None = None,
 ):
-    if preview or stdin_mode or control is not None or session_path is not None or surface_id is not None:
+    if preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None:
         kwargs = {
             "stdin_mode": stdin_mode,
             "preview": preview,
+            "preview_request": preview_request,
+            "preview_response": preview_response,
             "control": control,
             "session_path": session_path,
         }

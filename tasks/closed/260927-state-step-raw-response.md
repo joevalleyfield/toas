@@ -12,14 +12,18 @@ Depends on: `260927-state-step-request-preview`
 
 ## Objective
 
-Add the next read-only diagnostic step after `toas step --preview`: send the
-previewed state-step request through the configured model invocation and print
-the returned assistant content without accepting it as a state-step proposal.
+Add a model-response preview alongside the request preview. `toas step
+--preview-request` prints the request without calling the model; `toas step
+--preview-response` sends the same request through the configured invocation
+and prints the returned assistant content without accepting it as a
+state-step proposal. The flags compose, printing the request before the
+response when both are selected. Keep `--preview` as a compatibility alias
+for `--preview-request`.
 
 ## Desired Behavior
 
 - Reuse the same packet and request-message construction shown by
-  `toas step --preview`, plus TOAS's normal model, endpoint, transport, and
+  `toas step --preview-request`, plus TOAS's normal model, endpoint, transport, and
   retry resolution.
 - Print the model adapter's returned content string verbatim, preserving its
   whitespace, JSON formatting, and fences. Do not parse, validate, trim,
@@ -39,10 +43,16 @@ the returned assistant content without accepting it as a state-step proposal.
   content-string boundary, including leading/trailing whitespace and fences.
 - Malformed JSON is still printed unchanged; it is not treated as an error by
   the response-only operation.
-- The configured model path and request messages match `toas step --preview`.
+- The configured model path and request messages match `toas step --preview-request`.
 - No state-step or transcript mutation occurs, and proposed tool calls never
   execute.
 - Provider failures remain visible and auditable through existing model-call
   diagnostics.
 
-Status: Ready.
+Status: Complete.
+
+Implementation: Added composable `--preview-request` and `--preview-response`
+flags to `toas step`; retained `--preview` as a request-preview alias. Response
+preview writes the ordinary `llm_call` audit record, prints successful content
+without adding formatting, and returns before state acceptance or tool
+execution. Non-inference phases are reported without invoking the model.

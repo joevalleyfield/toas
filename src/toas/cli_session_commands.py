@@ -156,6 +156,7 @@ def run_step(
     *,
     generate_override: Callable[[list[dict]], dict] | None = None,
     preview: bool = False,
+    preview_response: bool = False,
     stdin_mode: bool = False,
     control: str | None = None,
     session_path: str | None = None,
@@ -201,9 +202,10 @@ def run_step(
             events=events,
             parsed_turn=parse_state_turn(normalized_transcript),
             preview=preview,
+            preview_response=preview_response,
         )
         return
-    if preview:
+    if preview or preview_response:
         raise SystemExit("step --preview currently requires a typed state turn at the transcript frontier")
     runtime_ctx = _build_runtime_context(
         events=events,
@@ -298,7 +300,7 @@ def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> 
 
 def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_transcript: str,
                     session_newline: str, events: list[dict], parsed_turn: dict,
-                    preview: bool = False) -> None:
+                    preview: bool = False, preview_response: bool = False) -> None:
     """Adapt a typed state transcript to the independent state-step runtime."""
     from . import step as step_mod
     from .config import apply_overrides, config_from_discovered_paths
@@ -318,14 +320,20 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         if not snapshots:
             raise ValueError("state-diff turn has no earlier accepted state snapshot")
         current_state = _merge_patch(snapshots[-1]["state"], parsed_turn["state_patch"])
-    if preview:
+    request = None
+    if preview or preview_response:
         request = preview_state_request(
             events_path=events_path,
             state=current_state,
             observation=parsed_turn.get("observation"),
         )
-        print(json.dumps(request, ensure_ascii=False, indent=2))
-        return
+        if request.get("phase") != "infer":
+            print(json.dumps(request, ensure_ascii=False, indent=2))
+            return
+        if preview:
+            print(json.dumps(request, ensure_ascii=False, indent=2))
+        if not preview_response:
+            return
     runtime_ctx = _build_runtime_context(
         events=events, normalized_transcript=normalized_transcript,
         session_path=session_path, workdir=Path.cwd(),
@@ -342,6 +350,18 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                 deps=deps, events_path=events_path, events=events
             )
         return generation_runner.generate_state_packet(packet)
+
+    if preview_response:
+        assert request is not None
+        packet = json.loads(request["request_messages"][0]["content"])
+        answer = generate_state_packet(packet)
+        model_call = answer.get("_llm_call")
+        if isinstance(model_call, dict):
+            write_llm_call_record(str(events_path), **model_call)
+        content = answer.get("content")
+        if isinstance(content, str):
+            print(content, end="")
+        return
 
     def execute_call(call: dict) -> list[dict]:
         results = step_mod._execute_plan(
