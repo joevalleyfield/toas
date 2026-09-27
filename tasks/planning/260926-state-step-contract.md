@@ -1,24 +1,34 @@
 # State-transition step contract spike
 
-Status: recommendation from bounded source investigation, updated with the
-user's input-boundary decision; production contract and exact envelope syntax
-remain unapproved.
+Status: recommendation updated with the user's transcript/projection
+refinement; durable record shape, turn grammar, and projection policies remain
+unapproved.
 
 Parent: [`260926-state-step-requirements`](../open/260926-state-step-requirements.md)
 Task: [`260926-state-step-contract-spike`](../closed/260926-state-step-contract-spike.md)
 
 ## Finding
 
-TOAS already has a clean conceptual split between transcript reconciliation,
-operator consequence selection, model invocation, capabilities, durable state,
-and transport. The same `step` operation should inspect its assembled session
-input and recognize state mode only when a self-identifying state envelope is
-at the beginning. This keeps one operator and makes the buffer itself reveal
-that it is not an ordinary transcript. The recognized envelope routes to a
-distinct typed input before transcript parsing. It should reuse model
-configuration and capability execution, while keeping state transitions and
-observations out of message numbering. State-shaped text later in an ordinary
-transcript remains ordinary content; it does not switch modes.
+Keep TOAS history transcript-oriented. Change the kinds of turns it can contain
+and how the event log is projected to the LLM. A state step can produce a full
+state turn, a state-diff turn, or a sequence alternating between them; the
+ordinary user/assistant turn pattern remains available. Do not make the whole
+session enter a separate state mode before transcript parsing.
+
+The durable event log remains canonical. State snapshots and diffs use its
+append-only machinery, and transcript projections can expose them in different
+views without changing stored history. The user can completely rewrite the
+current state by supplying a new state turn; this adds a new branch/snapshot
+and never edits an earlier event. A validated model patch is accepted and
+recorded immediately. Any proposed action remains separately executable under
+the existing capability and authority rules.
+
+Treat “full state plus every diff,” “states only,” “diffs only,” “key states,”
+and “key states plus cumulative diffs since the prior key” as candidate
+projections over the same log. Key-state selection is projection policy, not a
+mutation or compaction of canonical history. YAML and the Markdown state DSL
+are the initial configured human-facing formats; both parse to and render
+from canonical JSON. The model-facing request can remain a JSON projection.
 
 This is a recommended first contract, not an adopted parser grammar or approval
 to change production behavior.
@@ -29,15 +39,17 @@ to change production behavior.
 | --- | --- |
 | Local `step` reads and reconciles `session.md` before choosing a consequence | Existing behavior |
 | Existing generation projects message lineage, strips control/reasoning, may add lens artifacts, then invokes the provider | Existing behavior |
-| Transcript LCP, assistant callable extraction, and immediate consequence execution must not classify state input | Inferred boundary from current ownership and message semantics |
-| The same `step` operation detects an explicit versioned state marker at the start of assembled session input, then dispatches before transcript parsing | User decision; exact marker/envelope grammar remains a recommendation |
-| A missing state marker means existing ordinary transcript handling; unknown or malformed leading state markers fail closed | Recommended parser behavior |
+| State/state-diff turns participate in transcript projections without routing the whole session through a separate state-mode parser | User decision; exact turn representation remains open |
+| Keep the transcript/event log as the source; introduce state and state-diff turn kinds and selectable LLM-facing projections | User decision; whether these are message events or typed log records rendered as turns remains open |
+| The same `step` operation handles ordinary and state turns; no whole-document state-mode switch | User decision |
 | User-editable state supports YAML and a Markdown state DSL as initial configured formats, with parse/render round-tripping through canonical JSON | User decision; exact grammars and format setting remain open |
-| State inference receives one user-role message containing procedure, state, and latest observation | Deliberate TOAS adaptation informed by the isolated-context experiment; not a general paper requirement |
+| State inference can use an isolated user-role message projection | Deliberate TOAS adaptation informed by the isolated-context experiment; role-preserving transcript projection is another open option |
 | Apply a valid state patch before attempting its action | Paper-specified ordering; separate inference and execution calls are a TOAS interaction adaptation |
 | Accept and persist a valid state patch immediately; action execution remains a separate explicit decision | User decision; state edits are still append-only branches |
+| State snapshots, diffs, observations, and actions use append-only event-log machinery and can be projected as transcript turns | User decision; graph/event schema and message numbering remain open |
+| Offer full, states-only, diffs-only, key-state, and key-state-plus-cumulative-diff projections | User-proposed projection family; key-state criteria and selection controls remain open |
 | Identical resubmission is idempotent; interrupted external action is unknown and not retried automatically | Inferred safety contract for repeatability and non-duplicated side effects |
-| The first state slice is local-only until a typed transport contract exists | Deliberate TOAS adaptation to current RPC/async payload limits |
+| RPC/async preserve the same transcript turns and selected projection | Requirement; transport implementation details remain open |
 
 ## Current runtime trace — Existing behavior
 
@@ -72,11 +84,12 @@ Relevant owners: `operator_api.step_once`; `cli_session_commands.run_step`;
 `runtime/session_step_edges.py`; `runtime/step_result_runtime.py`; `graph.py`;
 `tools_cluster/`. See [runtime ownership](../../docs/runtime-ownership.md).
 
-## Input and request examples — Candidate TOAS adaptation
+## Transcript turns, state projections, and request examples — Candidate TOAS adaptation
 
 These are contract examples, not literal syntax. The normal transcript example
-is a fresh lineage; an established ordinary session keeps its existing
-projected history behavior.
+is a fresh lineage; an established session continues to be a transcript. The
+state examples below are typed turns within that transcript, not a separate
+whole-buffer input mode.
 
 Ordinary `session.md`:
 
@@ -92,9 +105,9 @@ Normal model input for this fresh lineage:
 [{"role":"user","content":"Inspect src/math.py and explain how add works."}]
 ```
 
-Candidate self-identifying state envelope in the same `session.md` buffer,
-shown in three equivalent illustrative encodings. The human-facing buffer
-syntax and the model-facing request format are separate choices.
+Candidate state turn in a transcript. It may occur between ordinary turns or
+other state turns. Its body is shown in equivalent illustrative encodings;
+the human-facing projection and model-facing request format are separate.
 
 YAML body:
 
@@ -216,15 +229,54 @@ this is a round-trip contract, not just a one-way display. The format is
 identified by the envelope/configuration so parsing never guesses from body
 content. Exact grammars and the setting that chooses the format remain open.
 
-The proposed marker is a single exact first nonblank line, followed by one
-versioned body encoding. The exact marker, whitespace rules, and whether stdin
-can supply the envelope are still for review. `step`
-reads and assembles its usual input first, then classifies it: an ordinary transcript proceeds
-unchanged; the exact supported state marker selects the state parser; an
-unknown or malformed leading `## TOAS:STATE...` marker is an error, never a
-fallback to transcript parsing. State input cannot be mixed with role-marked
-transcript blocks. Marker-like content later in ordinary content cannot
-select state mode and remains subject to the existing transcript marker rules.
+Here `## TOAS:STATE/1` illustrates a typed transcript-turn header, not a
+whole-document mode switch. A corresponding versioned state-diff turn carries
+a patch or transition delta. Ordinary user/assistant turns, state turns, and
+state-diff turns can coexist in one transcript. Exact turn markers and whether
+the durable records are message events or typed event-log records rendered as
+turns remain open. Unknown turn versions should fail clearly without
+reinterpreting prior history. `step` reads the same transcript and selects an
+LLM-facing projection over its durable events.
+
+Candidate projection choices over the same log:
+
+| Projection | Rendered sequence |
+| --- | --- |
+| Full states and diffs | `state0, diff0→1, state1, diff1→2, state2, ...` |
+| States only | `state0, state1, state2, ...` |
+| Diffs only | `diff0→1, diff1→2, ...` |
+| Key states | `state0, state4, state7, ...` |
+| Key states with cumulative diffs | `state0, diffs0→4, state4, diffs4→7, state7, ...` |
+
+The view can change without rewriting or compacting the event log. Key-state
+criteria, whether keys are explicit or computed, and how users select/switch
+projections remain open.
+
+Example state-diff turn in the Markdown DSL:
+
+```markdown
+## TOAS:STATE_DIFF/1
+
+### Transition
+- id: st8
+- parent: st7
+- base digest: `sha256:...`
+- status: accepted
+
+### Patch
+- progress:
+  - Read src/math.py; add returns a + b.
+- next_steps: (empty)
+
+### Consequence
+- kind: action
+- tool: read_file
+- path: src/math.py
+```
+
+The YAML DSL would carry the same transition, patch, and consequence fields.
+The accepted full state can be rendered as the next state turn or reconstructed
+from the prior state plus this diff; which form the durable log stores is open.
 
 ### Initial state seed — Candidate TOAS adaptation
 
@@ -256,8 +308,8 @@ observation supplies current goal and context. Missing, wrong-category, or
 invalid seed assets are hard errors. Prompt composition for model instructions
 can remain a separate prompt asset reference.
 
-For this example, the exact application-boundary request for isolated
-inference is one user message containing the selected procedure, schema
+One candidate isolated application-boundary projection for this example is
+one user message containing the selected procedure, schema
 guidance, current state, and latest observation:
 
 ```json
@@ -326,26 +378,29 @@ inference.
 
 ## Transition lifecycle and durable facts
 
-The user-controlled buffer is an editable projection. The append-only event
-history remains canonical. Use transition IDs and state digests that are
-independent of message IDs and message numbering.
+The user-controlled transcript is an editable projection. The append-only
+event log remains canonical. State snapshots and diffs carry stable IDs and
+digests; whether they are message-event variants or typed records projected as
+turns remains open. User edits that replace a full state append a new state
+turn/branch; they never rewrite prior history.
 
-1. **Infer:** validate the envelope, base identity/digest, instruction
-   revision, and observation identity. Build the isolated user-only request;
-   preserve the normal resolved provider/model settings and base-head policy.
-2. **Record proposal:** after validating the model output, append one
-   `state_transition` fact containing transition ID, parent transition/base
-   digest, submitted input digest, instruction ref/digest, accepted state
-   snapshot and patch, proposed normalized action or terminal outcome, and
-   inference-call reference. Persist the call independently with a
-   `transition_id` reference; do not fabricate an assistant message just to
-   satisfy current message-linked `llm_call` storage.
+1. **Infer:** select the latest state and observation turns under the active
+   projection, validate their schema/base/digests, and build the model request.
+   The projection may be a single isolated user message or a role-preserving
+   transcript; this is an explicit projection choice. Preserve normal
+   provider/model settings and effective authority.
+2. **Record accepted transition:** after validating model output, append the
+   state diff and resulting full state snapshot immediately, with stable IDs,
+   parent/base digest, input digest, seed/instruction refs and digests, and
+   inference-call reference. Append the proposed action/terminal consequence
+   as part of that result. Invalid output emits an error/observation and does
+   not advance accepted state. Exact record/event shape remains open.
 3. **Execute:** return the pending action for review. A separate explicit
-   execute operation names its `transition_id`; it runs that immutable,
-   validated action through existing capability validation, grants, workspace
-   restrictions, and executor. Record an append-only action-start fact before
-   invoking it, followed by success/failure result facts and the captured
-   observation. Do not execute arbitrary commands found in state text.
+   execute operation names its transition; it runs that immutable, validated
+   action through existing capability validation, grants, workspace
+   restrictions, and executor. Record append-only action-start and
+   success/failure outcome facts with the captured observation. Do not execute
+   arbitrary commands found in state text.
 4. **Continue:** the next inference names the action result as its latest
    observation. One call performs one inference or one explicit action
    execution, never a hidden execute-and-infer loop.
@@ -359,14 +414,13 @@ interaction adaptation that retains review time. Rejected/invalid proposals do
 not advance state. User edits make a new input branch from a named base; they do
 not rewrite prior transition facts.
 
-Minimum record family: `state_transition` for accepted snapshot/proposal;
-`state_action` (or equivalent start/result records) for explicit approval,
-execution identity, and outcome; and an `llm_call` linked by transition ID. A
-user observation must be captured in the submitted transition input; tool
-observations belong to the action outcome. Add typed append/query/replay helpers
-under `graph.py` and focused `graph_*_edges.py` modules. Do not overload message
-events or current message-linked `tool_request`/`tool_result` semantics with
-state transition IDs.
+Candidate record family: state snapshot/diff turns or equivalent typed log
+records; action-start/outcome records; and an `llm_call` linked to the
+transition. A user observation is a transcript turn; tool observations belong
+to the action outcome and can also be projected as turns. Extend append,
+query, replay, and projection helpers under `graph.py` and focused
+`graph_*_edges.py` modules. Keep the exact relationship to existing
+message-linked `tool_request`/`tool_result` records open for the contract spike.
 
 ## Continuation, edits, and interruption cases — Recommended TOAS adaptation
 
@@ -375,11 +429,11 @@ state transition IDs.
 | Empty continuation with pending proposal | Show/retain that proposal. It is not approval and does not execute or infer again. |
 | Empty continuation with no pending observation | No new inference; report that explicit input/operation is needed. |
 | Identical resubmission | Key by base transition/digest, observation ID and content digest, instruction digest, submitted input digest, and operation. Return the existing result instead of generating or executing a duplicate. A deliberate new inference requires a new explicit attempt identity. |
-| Edited prior state | Accept only against an explicit known base; append a new branch/input digest. Keep the earlier proposal immutable. An execute request names the exact proposal ID it approves. |
+| Edited prior state | Accept only against an explicit known base; append a new branch/input digest. Keep earlier transition facts immutable. The user's complete rewrite is a new state turn/snapshot, not a patch to old history. An execute request names the exact proposal ID it approves. |
 | Missing/invalid consequence (`no action`) | Reject as malformed; preserve accepted state and do not execute. A valid no-tool completion must be an explicit `finish` consequence. |
 | Tool failure with known result | Preserve accepted state; append failure outcome and expose it as a new observation. A retry requires a new explicit proposal/approval. |
 | Interruption after action-start, before result | Surface outcome as unknown and block automatic retry. Reconcile with the tool/workspace first; append a resolution fact. Exactly-once effects cannot be promised for arbitrary external tools. |
-| Malformed/mixed input | If an explicit state marker/mode is selected, invalid version, missing base, or mixed transcript/state content is a hard error. Never fall back to transcript parsing or callable extraction. |
+| Malformed state turn | Reject invalid version/schema/base clearly; preserve prior events and do not reinterpret the rest of the transcript as a different mode. |
 | Finish/no action | Append terminal transition with state snapshot and no pending action. |
 
 The identity rule prevents an unchanged buffer from ambiguously meaning “retry
@@ -391,56 +445,54 @@ from an empty submission.
 
 | Concern | Owner |
 | --- | --- |
-| Envelope parsing, state schema, patch merge/validation, request assembly | New focused `runtime/state_transition_input.py` (Model Invocation boundary supplies the isolated request) |
-| Select infer vs execute consequence and pending/terminal lifecycle | New focused `runtime/state_transition_runtime.py` (Operator Semantics) |
-| Append/query/replay transition and action facts | `graph.py` plus focused graph writer/query helpers (Durable State) |
+| State/state-diff turn parsing, canonical state normalization, YAML/Markdown round-trip | Focused transcript/projection owner, with durable type boundaries still to be located |
+| Select LLM-facing projection and assemble the request | Model Invocation boundary plus focused event-log projection helpers |
+| Select infer vs execute consequence and pending/terminal lifecycle | Focused state-transition runtime (Operator Semantics) |
+| Append/query/replay state and action facts | Existing event-log machinery in `graph.py` plus focused graph helpers |
 | Resolve tool/action, grants, scope, and execution | Existing Capabilities and Effective Policy/Authority; only pass normalized requests |
 | Provider selection/retries/audit | Existing Model Invocation; extend the call reference for transition identity |
-| CLI, operator, daemon/RPC adapters | Thin adapters only; same `step` operation carries/reads the buffer and performs identical detection, or refuses unsupported state input |
+| CLI, operator, daemon/RPC adapters | Thin adapters; same `step` operation reads the transcript and selects its configured projection |
 
-For a first slice, retain the `operator_api.step_once` / `toas step` entry
-point. After the normal input buffer is read and assembled, classify its
-leading discriminator before ordinary transcript parsing and branch to the
-state runtime. Leave ordinary transcript handling untouched. Do not route
-recognized state input through transcript LCP, assistant YAML extraction, or
-`_working_with_transcript_tail_frontier`.
+Retain the `operator_api.step_once` / `toas step` entry point. Parse state and
+state-diff turns as transcript content, then choose the configured LLM-facing
+projection from the event log. Do not switch the whole buffer into a separate
+state mode or route state turns through ordinary assistant callable extraction.
 
 The CLI currently routes ordinary unqualified `step` over RPC when configured;
 RPC exposes async step operations, while the in-process operator API wraps the
 local synchronous command. Async workers force `TOAS_RPC_MODE=off` internally
-but still run transcript semantics. Any route that can read the same buffer
-must use identical detection. Until RPC/async can do so, reject a detected
-state envelope explicitly; never silently pass it to ordinary transcript
-semantics. Existing default/auto/on/off transcript contracts remain unchanged.
+but still run transcript semantics. RPC and async routes must preserve the same
+turn parsing and projection selection. Existing default/auto/on/off transport
+contracts remain unchanged; add state projections through the same operation
+once their payload/event-log view is supported.
 
 ## Smallest useful implementation follow-on
 
-Recommended first end-to-end slice: local-only explicit state input; one model
-inference; one validated `read_file` action; explicit execute by transition
-ID; persisted action result as next observation; second explicit inference;
-terminal finish. Use a temporary workspace and scripted model responses first.
-This proves isolation, branch identity, durable proposal/result facts, and
-reuse of one existing capability without committing to arbitrary command
-execution or editor support.
+Recommended first end-to-end slice: add state and state-diff turns to the
+existing transcript/event log; support YAML and Markdown round-trip; offer full
+state-plus-diff and states-only projections; run one inference that accepts a
+patch immediately; execute one validated `read_file` action explicitly; add
+the result as an observation turn; then continue inference. Use scripted model
+responses first. This proves branch identity, event-log replay, projection
+selection, and reuse of an existing capability without arbitrary command
+execution.
 
 Focused test plan (not run in this investigation):
 
-- parser/version/base/digest, exact schema validation, nested merge/array
-  replacement/null deletion/required-field rejection;
-- exact one-user-message request with no prior transcript or event-derived
-  lens artifacts, while resolving the same configured target and authority
-  from the explicit base head;
-- existing transcript step request/output parity;
+- state/state-diff turn parse/render round-trip for YAML and Markdown;
+- full-state rewrites append snapshots/branches without mutating prior events;
+- each projection mode produces the expected sequence, including key states
+  with cumulative diffs;
+- model request captures the selected projection, and switching projections
+  does not mutate event history;
+- valid model patches append accepted state immediately; invalid patches do
+  not advance state;
 - inference does not execute; explicit action uses current capability
   validation and denial path;
-- success and failure produce observations; empty and identical submissions
-  are idempotent; edited input branches; interrupted action is unknown and is
-  not retried;
-- same-step detection selects only the leading supported state marker;
-- unknown/malformed leading state markers fail closed, while ordinary
-  transcript handling and marker-like content later in a message are preserved;
-- RPC modes and async entry points explicitly reject an unsupported detected
-  envelope rather than lowering it to transcript input.
+- success/failure produce observation turns; retries are idempotent;
+  interrupted actions remain unknown and are not retried;
+- existing ordinary transcript step request/output parity;
+- RPC modes and async entry points preserve typed-turn projection semantics.
 
 Candidate existing coverage anchors: `tests/test_operator_api.py`,
 `tests/test_runtime_context_assembly.py`,
@@ -452,18 +504,21 @@ unrelated suite coverage.
 
 ## Open decisions before user-facing adoption
 
-- Exact marker/body grammar, whitespace handling, and whether stdin can carry
-  the state envelope. The user has decided that the existing `step` operation
-  inspects its input; a separate operator or mode flag is not desired.
-- Whether state mode may call every currently advertised capability in the
+- Exact state/state-diff turn syntax and how turns coexist with the existing
+  role markers in `session.md`.
+- Whether state snapshots/diffs are message-event kinds or typed event-log
+  records that transcript projections render as turns.
+- Key-state criteria and whether users can pin key states, configure rules, or
+  use computed significance.
+- Projection-selection controls and persistence scope (per request, session,
+  or configuration).
+- Whether state workflows may call every currently advertised capability in the
   first slice or begins with the read-only subset.
-- How a durable inference/action record is surfaced in transcript, history,
-  `llm-input`, and rebuild projections without becoming a message event.
-- When the typed state operation becomes supported over RPC and async paths.
-- How state transition controls appear in the buffer or UI while retaining the
-  same `step` operation.
+- How inference/action records appear consistently in transcript, history,
+  `llm-input`, and rebuild projections across the candidate turn/log shapes.
+- How the projection choice is carried over RPC and async paths.
 
-No final `session.md` marker grammar, generic state ontology, automatic handoff
+No final `session.md` turn grammar, generic state ontology, automatic handoff
 authoring, multi-agent coordination, or production implementation is adopted by
 this spike. Use these examples to review the choices above before opening a
 production implementation task.

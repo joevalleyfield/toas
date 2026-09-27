@@ -61,26 +61,25 @@ live smoke run can check prompt adherence without claiming evaluation results.
 
 | Object | Straw-man responsibility | Decision still needed |
 | --- | --- | --- |
-| Buffer envelope | Explicit kind/version, selected instruction revision, base-state reference, state proposal, current observation | Marker grammar, escaping, mixed-shape handling, and round-trip rules |
+| Transcript turns | Ordinary turns plus typed state snapshots, state diffs, and observations in the same transcript/event log | Message-event versus typed-record representation; exact turn grammar |
 | Procedure | Generic repo-work instructions plus declared state shape | Inline versus referenced material, exact schema and role placement |
 | Current state | goal, progress, next_steps, artifacts, blockers, structured notes | Required fields, bounds, artifact shape, deletion rules |
-| Observation | Newly submitted user input or tool result; explicit continuation may be empty | Exact envelope, consumed-result identity, distinction between absent and empty |
+| Observation turn | Newly submitted user input or tool result; explicit continuation may be empty | Turn grammar, consumed-result identity, distinction between absent and empty |
 | Model proposal | Sparse state patch plus one action, or explicit terminal outcome | Response extraction, no-action/finish protocol, merge and validation details |
 | Transition | Identifies base, proposal, action, outcome, and accepted state | Durable record types, IDs, parentage, commit timing and interruption recovery |
-| Inspection view | Exact next inference input and state changes | Relation to llm-input, stdout insertion, and future editor diff affordances |
+| Projection | Full states/diffs, states only, diffs only, key states, or key states with cumulative diffs | Key-state criteria, selection controls, and persistence scope |
 
-The envelope is conceptual; these labels are not an adopted parser syntax.
-The notes structure is accepted for the experiment, not yet a complete validator
+The turn and projection labels are conceptual, not adopted parser syntax. The
+notes structure is accepted for the experiment, not yet a complete validator
 contract. Free-form YAML must not accidentally become executable tool intent.
 
 ### State Update And Action Timing
 
-The paper applies the patch before executing the action. A candidate TOAS design
-records the validated proposed state separately while the action remains pending,
-then records its outcome without losing the base state. Whether and when the
-proposal becomes current state is deliberately unresolved. Compare literal
-pre-action application with outcome-dependent promotion; document any departure
-from the paper and its effect on failure, cancellation, and user edits.
+The paper applies the patch before executing the action. The user has decided
+that a valid patch is accepted and recorded immediately, while action execution
+remains a separate consequence. An action failure does not roll back the state;
+it becomes a later observation. A user rewrite of state creates a new
+append-only state turn/branch rather than changing earlier history.
 
 Tentative merge semantics: recursive mapping merge, scalar/array replacement,
 null deletion, validation of the entire resulting state. These are proposed
@@ -96,21 +95,21 @@ must not ambiguously mean both retry the same submission and request another
 transition. Define identity and deduplication before side-effectful execution.
 If an action's outcome is unknown after interruption, do not silently retry it.
 
-Keep transition identity distinct from message numbering. Editing an already
-submitted proposal needs explicit predecessor/base semantics and append-only
-records, not mutation of an earlier state. Do not inherit transcript LCP rules
-for this representation without proving they preserve the intended behavior.
+Keep transition identity explicit. Whether state turns participate in message
+numbering and transcript LCP is an open representation choice; either design
+must preserve predecessor/base semantics and append-only history when the user
+rewrites state.
 
 ## Current Code Evidence And Candidate Owners
 
 | Observed seam | Implication for planning |
 | --- | --- |
-| `src/toas/runtime/step_runtime.py::_build_run_step_frontier_context` parses the transcript and constructs a `ReconciliationHandoff` | Proposal-kind dispatch must be settled before ordinary transcript reconciliation; a new focused owner is preferable to broad additions to this file |
-| `src/toas/runtime/context_assembly.py::shape_messages_for_packet` returns packet messages when no lens artifacts exist | Existing context shaping does not by itself establish state-only input; prove isolation at the actual model request boundary |
+| `src/toas/runtime/step_runtime.py::_build_run_step_frontier_context` parses the transcript and constructs a `ReconciliationHandoff` | Locate typed state-turn parsing/projection without adding a whole-document state-mode dispatch |
+| `src/toas/runtime/context_assembly.py::shape_messages_for_packet` returns packet messages when no lens artifacts exist | Capture the exact selected transcript/event-log projection at the model request boundary |
 | `src/toas/runtime/model_invocation_contracts.py::resolve_model_invocation` resolves provider settings from working context and events | Preserve model configuration/authority independently of omitted conversational context; record user-only versus other role packaging |
-| `src/toas/runtime/session_step_edges.py::persist_messages_and_llm_calls` associates model-call records with materialized messages | Decide how state-mode generation obtains durable call identity without disguising transition/control facts as messages |
+| `src/toas/runtime/session_step_edges.py::persist_messages_and_llm_calls` associates model-call records with materialized messages | Decide how model-call identity links to typed state turns or event-log records |
 | `src/toas/runtime/frontier_resolution.py` handles callable-plan extraction and source preservation | Reuse capability semantics through explicit normalized intent, not arbitrary state YAML scanning |
-| `src/toas/operator_api.py::step_once` is the operator-facing seam | Keep command adapters thin and surface kind selection explicit below transport |
+| `src/toas/operator_api.py::step_once` is the operator-facing seam | Keep command adapters thin; select the configured projection through the same `step` operation |
 
 Candidate ownership: representation parsing in a focused boundary module;
 transition selection in Operator Semantics; append/query and replay under Durable
@@ -128,15 +127,15 @@ must name capability detection, explicit refusal, or supported routing.
 | Scenario | Required observable result |
 | --- | --- |
 | Ordinary transcript input | Existing alignment, authority, history and stdout behavior preserved |
-| State-shaped input | Explicit classification; malformed/mixed envelopes do not trigger accidental execution |
-| Isolated inference | Captured request includes procedure/state/latest observation and declared packaging, with no prior transcript or reasoning leaked in |
+| State/state-diff turns | Parsed and projected alongside ordinary transcript turns; malformed turns do not trigger accidental execution |
+| Selected projection | Captured request exactly matches the chosen state/diff/key-state view and contains no unselected reasoning or history |
 | Sparse patch | Unchanged fields survive; nested merge, array replacement and deletion match the chosen contract |
 | Invalid output | Prior accepted state unchanged; actionable error; retries bounded and observable |
 | Proposed action | One action with preserved origin and existing authorization; generation does not auto-execute it |
-| Success/failure/cancellation | Durable outcome remains separate from model expectations; state promotion follows the selected contract |
+| Success/failure/cancellation | Durable outcome remains separate from model expectations; valid state patches stay accepted and outcomes become observations |
 | Re-step/restart/edited base | No duplicate side effect; recoverable state and explicit predecessor semantics |
 | Empty continuation | Can advance eligible next work; does not invent results or approve pending decisions |
-| User-only engine | Same logical content boundary, role placement recorded as an experimental variable |
+| User-only engine | Same logical projection content boundary; role placement recorded as an experimental variable |
 
 ## Sequence And Promotion Gates
 
@@ -152,13 +151,12 @@ before promoting any production contract.
    slice in [`tasks/planning/260926-state-step-contract.md`](../planning/260926-state-step-contract.md).
    Review the remaining adoption decisions before creating an implementation
    task.
-2. **Candidate follow-on:** pure parsing, state patch validation, and model-input
-   assembly with scripted fixtures. Open a task when grammar and patch semantics
-   have an owner and acceptance shape.
-3. **Candidate follow-on:** durable transition identity/replay and separate
-   inference/execution consequences; first local `step` integration.
-4. **Candidate follow-on:** editor successor projection and state-diff inspection,
-   followed by transport parity and an optional live-model trial.
+2. **Candidate follow-on:** define state/state-diff turn records, round-trip
+   parsers/renderers, projection variants, and key-state criteria.
+3. **Candidate follow-on:** scripted projection and inference slice; accept
+   valid patches immediately and keep action execution explicit.
+4. **Candidate follow-on:** event-log replay, editor projection switching,
+   transport parity, and an optional live-model trial.
 
 Steps 2–4 are draft slices, not ready implementation assignments. Do not require
 a general SWE schema, automatic handoff authoring, multi-agent coordination,
@@ -206,17 +204,17 @@ its bounded experimental implementation surfaces.
   5 to 3 inference calls; history-plus-state stayed at 4 but changed its
   action sequence. The inputs matched across repetitions. Raw usage is recorded
   without a cache-cost interpretation; see the repeatability task/runbook.
-- The contract spike recommends separate inference and action
-  approval/execution, and append-only non-message transition facts. The user
-  decided that the existing `step` operation should inspect its assembled
-  session input and recognize state mode only from a self-identifying leading
-  marker; there should be no separate operator. YAML and Markdown DSL are the
-  initial configured editable formats and must round-trip through canonical
-  JSON. A valid model patch is accepted immediately; action execution remains
-  separately controlled. Initial input should select a versioned state seed
-  through the prompt-asset system. Exact grammars, seed-asset contract,
-  capability scope, and transport support remain open. The human projection
-  can differ from normalized model-facing JSON. See the updated
+- The contract direction has since shifted from a leading whole-buffer state
+  marker to a transcript containing ordinary, state, and state-diff turns.
+  The event log remains canonical; selectable projections can show full
+  state/diff history, states, diffs, key states, or key states with cumulative
+  diffs. YAML and Markdown DSL are the initial configured human-facing formats
+  and round-trip through canonical JSON. Valid model patches are accepted
+  immediately; action execution remains separately controlled. Initial state
+  can select a versioned seed through the prompt-asset system. Whether state
+  turns are message events or typed records rendered as turns, projection
+  controls/key-state criteria, seed-asset details, capability scope, and
+  transport support remain open. See the updated
   [contract recommendation](../planning/260926-state-step-contract.md).
 
 ## Initial Evidence
@@ -237,8 +235,9 @@ progress_added:
   - Added equivalent illustrative YAML and Markdown state-DSL envelopes alongside normalized JSON, keeping editable-buffer and model-request formats as separate choices.
   - User wants both YAML and Markdown DSL as initial configured formats with bidirectional parse/render against canonical JSON; valid model patches are accepted immediately.
   - Recommended selecting initial state through a versioned prompt-asset seed reference recorded with its digest.
+  - User refined the source/projection model: keep transcript/event-log history canonical, represent state and diffs as turns, and switch among full, state-only, diff-only, key-state, and cumulative-diff projections. This supersedes the prior whole-buffer state-marker routing proposal.
 next_steps_prepend:
-  - Specify YAML/Markdown round-trip boundaries and the versioned state-seed prompt-asset contract before opening implementation.
+  - Locate state/state-diff turn ownership in the event log and define key-state/projection-selection behavior before opening implementation.
 accepted_decisions_added:
   - Treat the experiment as mechanics evidence only; do not promote its authored schema or patch rules into production by implication.
 ```
