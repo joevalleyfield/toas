@@ -163,6 +163,11 @@ with `status=failed`; inspect `request_packet`, `response_content`, `error`, and
 `model_call`. For an exact provider-boundary capture on a future call, set
 `TOAS_LLM_TRACE=full` before invoking TOAS.
 
+For a no-call preview of the current typed state turn, run `toas step --preview`.
+It prints the `request_messages` that would be handed to generation and does
+not invoke the model or advance state-step. If the next step would execute a
+pending batch or stop at a terminal state, it prints that phase instead.
+
 ## What The 170 Series Established
 
 Observed:

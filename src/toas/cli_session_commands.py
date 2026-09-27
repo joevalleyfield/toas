@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 import sys  # noqa: F401
 from collections.abc import Callable
 from pathlib import Path
@@ -154,6 +155,7 @@ def _persist_step_outputs(
 def run_step(
     *,
     generate_override: Callable[[list[dict]], dict] | None = None,
+    preview: bool = False,
     stdin_mode: bool = False,
     control: str | None = None,
     session_path: str | None = None,
@@ -198,8 +200,11 @@ def run_step(
             session_newline=session_newline,
             events=events,
             parsed_turn=parse_state_turn(normalized_transcript),
+            preview=preview,
         )
         return
+    if preview:
+        raise SystemExit("step --preview currently requires a typed state turn at the transcript frontier")
     runtime_ctx = _build_runtime_context(
         events=events,
         normalized_transcript=normalized_transcript,
@@ -292,12 +297,19 @@ def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> 
 
 
 def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_transcript: str,
-                    session_newline: str, events: list[dict], parsed_turn: dict) -> None:
+                    session_newline: str, events: list[dict], parsed_turn: dict,
+                    preview: bool = False) -> None:
     """Adapt a typed state transcript to the independent state-step runtime."""
     from . import step as step_mod
     from .config import apply_overrides, config_from_discovered_paths
     from .graph import active_config_overrides, state_step_records
-    from .runtime.state_step import ToolOutcomeError, _merge_patch, render_state_turn, step_state
+    from .runtime.state_step import (
+        ToolOutcomeError,
+        _merge_patch,
+        preview_state_request,
+        render_state_turn,
+        step_state,
+    )
 
     if parsed_turn["turn_type"] == "state":
         current_state = parsed_turn["state"]
@@ -306,6 +318,14 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         if not snapshots:
             raise ValueError("state-diff turn has no earlier accepted state snapshot")
         current_state = _merge_patch(snapshots[-1]["state"], parsed_turn["state_patch"])
+    if preview:
+        request = preview_state_request(
+            events_path=events_path,
+            state=current_state,
+            observation=parsed_turn.get("observation"),
+        )
+        print(json.dumps(request, ensure_ascii=False, indent=2))
+        return
     runtime_ctx = _build_runtime_context(
         events=events, normalized_transcript=normalized_transcript,
         session_path=session_path, workdir=Path.cwd(),

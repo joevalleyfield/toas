@@ -89,6 +89,7 @@ def run_session_continue(
 
 USAGE = """Usage:
   toas [step]
+  toas step --preview [--session <transcript_path>]
   toas state-seed [--yaml|--markdown]
   toas step --async [--session <transcript_path>]
   toas watch <run_id> [--offset <n>] [--follow]
@@ -127,6 +128,7 @@ History surfaces (read-only; choose by inspection question; see `/help history`)
   llm-input --envelope     also show the packet/system shaping live generation adds
                            above that core projection (transport re-rendering such as
                            single_user_blob is not reflected)
+  step --preview           print state-step request messages without calling the model
 """
 
 
@@ -192,6 +194,7 @@ def _make_async_deps():
 def _run_step(
     *,
     stdin_mode: bool = False,
+    preview: bool = False,
     control: str | None = None,
     session_path: str | None = None,
     surface_id: str | None = None,
@@ -206,6 +209,7 @@ def _run_step(
         session_path = _session_path_for_surface_id(surface_id)
     run_operator_step_once(
         stdin_mode=stdin_mode,
+        preview=preview,
         control=control,
         session_path=session_path,
         on_llm_answer_delta=on_llm_answer_delta,
@@ -218,12 +222,18 @@ def _run_step(
 def run_step(
     *,
     stdin_mode: bool = False,
+    preview: bool = False,
     control: str | None = None,
     session_path: str | None = None,
     surface_id: str | None = None,
 ):
-    if stdin_mode or control is not None or session_path is not None or surface_id is not None:
-        kwargs = {"stdin_mode": stdin_mode, "control": control, "session_path": session_path}
+    if preview or stdin_mode or control is not None or session_path is not None or surface_id is not None:
+        kwargs = {
+            "stdin_mode": stdin_mode,
+            "preview": preview,
+            "control": control,
+            "session_path": session_path,
+        }
         if surface_id is not None:
             kwargs["surface_id"] = surface_id
         _run_step(**kwargs)

@@ -90,16 +90,22 @@ def dispatch_main(
             else:
                 deps.run_step_async(session_path=session_path)
         else:
-            stdin_mode, control, session_path, surface_id = parse_step_options(argv)
+            stdin_mode, preview, control, session_path, surface_id = parse_step_options(argv)
             if session_path is not None and surface_id is not None:
                 raise SystemExit("step accepts only one of --session or --surface")
-            if not stdin_mode and control is None and session_path is None:
+            if not stdin_mode and not preview and control is None and session_path is None:
                 if surface_id is None:
                     deps.run_step()
                 else:
                     deps.run_step(surface_id=surface_id)
             else:
-                deps.run_step(stdin_mode=stdin_mode, control=control, session_path=session_path, surface_id=surface_id)
+                deps.run_step(
+                    stdin_mode=stdin_mode,
+                    preview=preview,
+                    control=control,
+                    session_path=session_path,
+                    surface_id=surface_id,
+                )
     elif argv[0] == "watch":
         run_id = require_arg(argv, 1, "toas watch <run_id> [--offset <n>] [--follow]")
         offset, follow = parse_watch_options(argv)

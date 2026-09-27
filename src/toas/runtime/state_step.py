@@ -153,6 +153,59 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
     return {"operator_observation": operator_observation, "tool_outcomes": outcomes}
 
 
+def build_state_step_packet(*, events_path: str | Path, state: dict, observation: Any) -> dict[str, Any]:
+    """Build the shared state-only packet used by preview and inference."""
+    records = read_log(str(events_path))
+    from ..tools import REGISTRY
+
+    return {
+        "instructions": STATE_INSTRUCTIONS,
+        "schema": {
+            "state_patch": "object",
+            "tool_calls": "array",
+            "outcome": ["continue", "complete"],
+        },
+        "tools": {
+            "available": sorted(REGISTRY),
+            "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
+        },
+        "state": state,
+        "observation": _compound_observation(records, observation),
+    }
+
+
+def preview_state_request(
+    *, events_path: str | Path, state: dict, observation: Any
+) -> dict[str, Any]:
+    """Return the request messages step would send, without generation or writes."""
+    records = read_log(str(events_path))
+    transitions = [record for record in records if record.get("kind") == "state_transition"]
+    if transitions:
+        latest = transitions[-1]
+        if (
+            latest.get("outcome") == "complete"
+            and latest.get("status") == "completed"
+            and state == latest.get("state_after")
+        ):
+            return {"phase": "terminal", "status": "completed"}
+    pending = _latest_pending(records)
+    if pending is not None:
+        return {
+            "phase": "execute_batch",
+            "status": pending.get("status"),
+            "transition_id": pending.get("transition_id"),
+        }
+    packet = build_state_step_packet(
+        events_path=events_path, state=state, observation=observation
+    )
+    return {
+        "phase": "infer",
+        "request_messages": [
+            {"role": "user", "content": json.dumps(packet, ensure_ascii=False)}
+        ],
+    }
+
+
 def step_state(
     *,
     events_path: str | Path,
@@ -255,23 +308,10 @@ def step_state(
         }
 
     transition_id = f"st_{uuid.uuid4().hex}"
-    compound_observation = _compound_observation(records, observation)
-    from ..tools import REGISTRY
-
-    packet = {
-        "instructions": STATE_INSTRUCTIONS,
-        "schema": {
-            "state_patch": "object",
-            "tool_calls": "array",
-            "outcome": ["continue", "complete"],
-        },
-        "tools": {
-            "available": sorted(REGISTRY),
-            "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
-        },
-        "state": state,
-        "observation": compound_observation,
-    }
+    packet = build_state_step_packet(
+        events_path=events_path, state=state, observation=observation
+    )
+    compound_observation = packet["observation"]
     answer = generate(packet)
     content = answer.get("content") if isinstance(answer, dict) else answer
     if not isinstance(content, str):
