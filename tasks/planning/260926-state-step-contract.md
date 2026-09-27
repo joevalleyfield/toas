@@ -1,7 +1,8 @@
 # State-transition step contract spike
 
-Status: recommendation from bounded source investigation; production contract
-and input syntax remain unapproved.
+Status: recommendation from bounded source investigation, updated with the
+user's input-boundary decision; production contract and exact envelope syntax
+remain unapproved.
 
 Parent: [`260926-state-step-requirements`](../open/260926-state-step-requirements.md)
 Task: [`260926-state-step-contract-spike`](../closed/260926-state-step-contract-spike.md)
@@ -10,11 +11,14 @@ Task: [`260926-state-step-contract-spike`](../closed/260926-state-step-contract-
 
 TOAS already has a clean conceptual split between transcript reconciliation,
 operator consequence selection, model invocation, capabilities, durable state,
-and transport. The state path should enter as a distinct typed input before
-transcript parsing. It should reuse model configuration and capability
-execution, while keeping state transitions and observations out of message
-numbering. Putting state YAML into an ordinary user turn would leave the old
-transcript frontier and callable extraction semantics in charge.
+and transport. The same `step` operation should inspect its assembled session
+input and recognize state mode only when a self-identifying state envelope is
+at the beginning. This keeps one operator and makes the buffer itself reveal
+that it is not an ordinary transcript. The recognized envelope routes to a
+distinct typed input before transcript parsing. It should reuse model
+configuration and capability execution, while keeping state transitions and
+observations out of message numbering. State-shaped text later in an ordinary
+transcript remains ordinary content; it does not switch modes.
 
 This is a recommended first contract, not an adopted parser grammar or approval
 to change production behavior.
@@ -26,7 +30,8 @@ to change production behavior.
 | Local `step` reads and reconciles `session.md` before choosing a consequence | Existing behavior |
 | Existing generation projects message lineage, strips control/reasoning, may add lens artifacts, then invokes the provider | Existing behavior |
 | Transcript LCP, assistant callable extraction, and immediate consequence execution must not classify state input | Inferred boundary from current ownership and message semantics |
-| State input has an explicit versioned type and dispatches before transcript parsing | Deliberate TOAS adaptation |
+| The same `step` operation detects an explicit versioned state marker at the start of assembled session input, then dispatches before transcript parsing | User decision; exact marker/envelope grammar remains a recommendation |
+| A missing state marker means existing ordinary transcript handling; unknown or malformed leading state markers fail closed | Recommended parser behavior |
 | State inference receives one user-role message containing procedure, state, and latest observation | Deliberate TOAS adaptation informed by the isolated-context experiment; not a general paper requirement |
 | Apply a valid state patch before attempting its action | Paper-specified ordering; separate inference and execution calls are a TOAS interaction adaptation |
 | Record state/action facts outside message-event numbering and use explicit action approval | Deliberate TOAS adaptation consistent with append-only history invariants |
@@ -86,7 +91,8 @@ Normal model input for this fresh lineage:
 [{"role":"user","content":"Inspect src/math.py and explain how add works."}]
 ```
 
-Candidate typed state input, explicitly selected by the caller:
+Candidate self-identifying state envelope in the same `session.md` buffer
+(illustrative syntax, not yet adopted):
 
 ```json
 {
@@ -114,6 +120,16 @@ Candidate typed state input, explicitly selected by the caller:
   }
 }
 ```
+
+The proposed marker is a single exact first nonblank line, followed by this
+versioned body. The exact marker, body grammar, whitespace rules, and whether
+stdin can supply the envelope are still for review. `step` reads and assembles
+its usual input first, then classifies it: an ordinary transcript proceeds
+unchanged; the exact supported state marker selects the state parser; an
+unknown or malformed leading `## TOAS:STATE...` marker is an error, never a
+fallback to transcript parsing. State input cannot be mixed with role-marked
+transcript blocks. Marker-like content later in ordinary content cannot
+select state mode and remains subject to the existing transcript marker rules.
 
 For this example, the exact application-boundary request for isolated
 inference is one user message containing the selected procedure, schema
@@ -253,22 +269,22 @@ from an empty submission.
 | Append/query/replay transition and action facts | `graph.py` plus focused graph writer/query helpers (Durable State) |
 | Resolve tool/action, grants, scope, and execution | Existing Capabilities and Effective Policy/Authority; only pass normalized requests |
 | Provider selection/retries/audit | Existing Model Invocation; extend the call reference for transition identity |
-| CLI, operator, daemon/RPC adapters | Thin adapters only; carry explicit mode or refuse unsupported mode |
+| CLI, operator, daemon/RPC adapters | Thin adapters only; same `step` operation carries/reads the buffer and performs identical detection, or refuses unsupported state input |
 
-For a first local slice, add an explicit state-buffer operation at the
-`operator_api.step_once` seam and branch to the state runtime before
-`prepare_session_transcript` or `_build_run_step_frontier_context`. Leave the
-ordinary `step` branch untouched. Do not route this through transcript LCP,
-assistant YAML extraction, or `_working_with_transcript_tail_frontier`.
+For a first slice, retain the `operator_api.step_once` / `toas step` entry
+point. After the normal input buffer is read and assembled, classify its
+leading discriminator before ordinary transcript parsing and branch to the
+state runtime. Leave ordinary transcript handling untouched. Do not route
+recognized state input through transcript LCP, assistant YAML extraction, or
+`_working_with_transcript_tail_frontier`.
 
 The CLI currently routes ordinary unqualified `step` over RPC when configured;
 RPC exposes async step operations, while the in-process operator API wraps the
 local synchronous command. Async workers force `TOAS_RPC_MODE=off` internally
-but still run transcript semantics. Make the first state operation explicitly
-local-only and reject async/RPC requests that cannot carry its typed buffer.
-Never silently strip the state envelope and invoke ordinary transcript `step`.
-Later transport work can add a versioned request kind after local semantics
-stabilize. Existing default/auto/on/off transcript contracts remain unchanged.
+but still run transcript semantics. Any route that can read the same buffer
+must use identical detection. Until RPC/async can do so, reject a detected
+state envelope explicitly; never silently pass it to ordinary transcript
+semantics. Existing default/auto/on/off transcript contracts remain unchanged.
 
 ## Smallest useful implementation follow-on
 
@@ -293,8 +309,11 @@ Focused test plan (not run in this investigation):
 - success and failure produce observations; empty and identical submissions
   are idempotent; edited input branches; interrupted action is unknown and is
   not retried;
-- RPC modes and async entry points explicitly reject the unsupported typed
-  request rather than lowering it to transcript input.
+- same-step detection selects only the leading supported state marker;
+- unknown/malformed leading state markers fail closed, while ordinary
+  transcript handling and marker-like content later in a message are preserved;
+- RPC modes and async entry points explicitly reject an unsupported detected
+  envelope rather than lowering it to transcript input.
 
 Candidate existing coverage anchors: `tests/test_operator_api.py`,
 `tests/test_runtime_context_assembly.py`,
@@ -306,9 +325,9 @@ unrelated suite coverage.
 
 ## Open decisions before user-facing adoption
 
-- Which explicit UI/CLI shape selects the editable state buffer: a typed
-  `step_once` argument first, or a path-backed `toas step --state-buffer` from
-  the first slice.
+- Exact marker/body grammar, whitespace handling, and whether stdin can carry
+  the state envelope. The user has decided that the existing `step` operation
+  inspects its input; a separate operator or mode flag is not desired.
 - Whether the model-produced patch becomes accepted immediately on recording
   or needs a separate user accept/reject operation. This recommendation favors
   immediate promotion of a validated patch, while action execution still
@@ -318,10 +337,10 @@ unrelated suite coverage.
 - How a durable inference/action record is surfaced in transcript, history,
   `llm-input`, and rebuild projections without becoming a message event.
 - When the typed state operation becomes supported over RPC and async paths.
-- Whether state transition controls live beside transcript controls or receive
-  a separate operator command family.
+- How state transition controls appear in the buffer or UI while retaining the
+  same `step` operation.
 
-No `session.md` marker grammar, generic state ontology, automatic handoff
+No final `session.md` marker grammar, generic state ontology, automatic handoff
 authoring, multi-agent coordination, or production implementation is adopted by
 this spike. Use these examples to review the choices above before opening a
 production implementation task.

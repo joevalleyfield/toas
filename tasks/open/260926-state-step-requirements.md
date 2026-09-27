@@ -206,11 +206,13 @@ its bounded experimental implementation surfaces.
   5 to 3 inference calls; history-plus-state stayed at 4 but changed its
   action sequence. The inputs matched across repetitions. Raw usage is recorded
   without a cache-cost interpretation; see the repeatability task/runbook.
-- The contract spike recommends explicit typed state ingress before transcript
-  reconciliation, separate inference and action approval/execution, and
-  append-only non-message transition facts. The choice of user-facing buffer
-  selector, patch approval, capability scope, and transport support remains
-  open for review.
+- The contract spike recommends separate inference and action
+  approval/execution, and append-only non-message transition facts. The user
+  decided that the existing `step` operation should inspect its assembled
+  session input and recognize state mode only from a self-identifying leading
+  marker; there should be no separate operator. Exact marker/body grammar,
+  patch approval, capability scope, and transport support remain open. See the
+  updated [contract recommendation](../planning/260926-state-step-contract.md).
 
 ## Initial Evidence
 
@@ -226,8 +228,9 @@ Readable edit notation for this turn; the dated checkpoint is not overwritten:
 ```yaml
 progress_added:
   - Built and verified the paired state-only/history-plus-state experiment harness.
+  - User selected same-step, leading-marker detection after seeing the assembled transcript input; no separate state operator.
 next_steps_prepend:
-  - Review the bounded contract recommendation and decide the remaining adoption choices before opening implementation.
+  - Refine the leading state-envelope grammar and remaining adoption choices in the bounded contract recommendation before opening implementation.
 accepted_decisions_added:
   - Treat the experiment as mechanics evidence only; do not promote its authored schema or patch rules into production by implication.
 ```
