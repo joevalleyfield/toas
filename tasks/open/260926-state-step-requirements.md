@@ -147,8 +147,11 @@ implemented and closed; its fixed experimental choices do not settle the
 production grammar or lifecycle below. See its completion evidence and runbook
 before promoting any production contract.
 
-1. **Ready now:** [contract spike](260926-state-step-contract-spike.md). Produce
-   concrete examples, a decision matrix, and a recommended first bounded slice.
+1. **Completed investigation:** [contract spike](../closed/260926-state-step-contract-spike.md)
+   produced concrete examples, a decision matrix, and a recommended local-first
+   slice in [`tasks/planning/260926-state-step-contract.md`](../planning/260926-state-step-contract.md).
+   Review the remaining adoption decisions before creating an implementation
+   task.
 2. **Candidate follow-on:** pure parsing, state patch validation, and model-input
    assembly with scripted fixtures. Open a task when grammar and patch semantics
    have an owner and acceptance shape.
@@ -199,6 +202,15 @@ its bounded experimental implementation surfaces.
   `Qwen3.8-27B-Q8_0.gguf`; the configured alias was
   `qwen3.5-35b-a3b`. See its closed task and runbook for the full trace and
   single-pair limitations.
+- A same-prompt live repetition also passed both arms. State-only varied from
+  5 to 3 inference calls; history-plus-state stayed at 4 but changed its
+  action sequence. The inputs matched across repetitions. Raw usage is recorded
+  without a cache-cost interpretation; see the repeatability task/runbook.
+- The contract spike recommends explicit typed state ingress before transcript
+  reconciliation, separate inference and action approval/execution, and
+  append-only non-message transition facts. The choice of user-facing buffer
+  selector, patch approval, capability scope, and transport support remains
+  open for review.
 
 ## Initial Evidence
 
@@ -215,7 +227,7 @@ Readable edit notation for this turn; the dated checkpoint is not overwritten:
 progress_added:
   - Built and verified the paired state-only/history-plus-state experiment harness.
 next_steps_prepend:
-  - Run the bounded state-step contract spike and review its recommended first slice.
+  - Review the bounded contract recommendation and decide the remaining adoption choices before opening implementation.
 accepted_decisions_added:
   - Treat the experiment as mechanics evidence only; do not promote its authored schema or patch rules into production by implication.
 ```

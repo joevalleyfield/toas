@@ -3,14 +3,14 @@ FKA:
 AKA: state buffer ingress and lifecycle spike
 Legacy index:
 
-keywords: runtime, investigation, active, contract, frontier, provenance
+keywords: runtime, investigation, historical, contract, frontier, provenance
 Parent: `260926-state-step-requirements`
 Depends on: `260926-state-simulation-checkpoint`
 Related: `260926-state-experiment-harness`
 
 # Specify The First State-Step Slice
 
-Status: READY for bounded investigation; no implementation handoff yet
+Status: CLOSED — bounded investigation and contract recommendation complete
 
 The separate experimental harness is ready for implementation and does not
 depend on this spike. This task concerns production `step` integration; use
@@ -18,7 +18,7 @@ later harness evidence to inform its recommendations.
 
 ## Objective
 
-Turn the [parent straw man](260926-state-step-requirements.md) into concrete
+Turn the [parent straw man](../open/260926-state-step-requirements.md) into concrete
 input/output examples and a recommended integration boundary. Make the first
 slice implementable without silently settling schema, parentage, or failure
 semantics by coding them into legacy transcript paths.
@@ -70,3 +70,24 @@ implementations as part of this investigation.
 - Update parent/task progress with findings and any follow-on links, then run
   the workboard sync. This task closes on a concrete recommendation, not on
   production implementation or proof of benchmark performance.
+
+## Completion
+
+- Recorded the current transcript step trace, explicit mode boundary,
+  isolated-request example, state patch rules, transition/action facts,
+  continuation cases, owner map, transport boundary, and focused test plan in
+  [`tasks/planning/260926-state-step-contract.md`](../planning/260926-state-step-contract.md).
+- Recommended an explicitly selected, local-only state input dispatched before
+  transcript parsing; one user-role inference request; append-only transition
+  records; and a separate explicit action execution by transition ID through
+  existing capability and authority checks.
+- Compared state-patch promotion order and recommend promoting a validated
+  patch before action execution, preserving it after action failure. This
+  follows paper ordering while retaining TOAS's explicit review/execute step.
+- Production choices still open are the user-facing buffer selector, whether
+  state patches need separate approval, initial capability breadth, projection
+  and history surfaces, and RPC/async support. No implementation task was
+  opened because those adoption choices remain unsettled; no source or test
+  files changed.
+- The required first-slice test plan is recorded in the contract artifact;
+  tests were not run during this documentation/investigation task.

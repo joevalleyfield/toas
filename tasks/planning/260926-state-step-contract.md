@@ -1,0 +1,327 @@
+# State-transition step contract spike
+
+Status: recommendation from bounded source investigation; production contract
+and input syntax remain unapproved.
+
+Parent: [`260926-state-step-requirements`](../open/260926-state-step-requirements.md)
+Task: [`260926-state-step-contract-spike`](../closed/260926-state-step-contract-spike.md)
+
+## Finding
+
+TOAS already has a clean conceptual split between transcript reconciliation,
+operator consequence selection, model invocation, capabilities, durable state,
+and transport. The state path should enter as a distinct typed input before
+transcript parsing. It should reuse model configuration and capability
+execution, while keeping state transitions and observations out of message
+numbering. Putting state YAML into an ordinary user turn would leave the old
+transcript frontier and callable extraction semantics in charge.
+
+This is a recommended first contract, not an adopted parser grammar or approval
+to change production behavior.
+
+## Status ledger
+
+| Behavior/claim | Status |
+| --- | --- |
+| Local `step` reads and reconciles `session.md` before choosing a consequence | Existing behavior |
+| Existing generation projects message lineage, strips control/reasoning, may add lens artifacts, then invokes the provider | Existing behavior |
+| Transcript LCP, assistant callable extraction, and immediate consequence execution must not classify state input | Inferred boundary from current ownership and message semantics |
+| State input has an explicit versioned type and dispatches before transcript parsing | Deliberate TOAS adaptation |
+| State inference receives one user-role message containing procedure, state, and latest observation | Deliberate TOAS adaptation informed by the isolated-context experiment; not a general paper requirement |
+| Apply a valid state patch before attempting its action | Paper-specified ordering; separate inference and execution calls are a TOAS interaction adaptation |
+| Record state/action facts outside message-event numbering and use explicit action approval | Deliberate TOAS adaptation consistent with append-only history invariants |
+| Identical resubmission is idempotent; interrupted external action is unknown and not retried automatically | Inferred safety contract for repeatability and non-duplicated side effects |
+| The first state slice is local-only until a typed transport contract exists | Deliberate TOAS adaptation to current RPC/async payload limits |
+
+## Current runtime trace — Existing behavior
+
+1. `cli.run_step` sends the ordinary unqualified step over RPC when configured
+   (`TOAS_RPC_MODE=auto|on`); argument-bearing forms and RPC failures fall back
+   to the local route. `operator_api.step_once` is an in-process facade over
+   `cli_session_commands.run_step`.
+2. The local command reads `session.md`, appends optional stdin/control text,
+   reconstructs lineage and the bound session successor in
+   `step_context_runtime.build_runtime_context`, then resolves config and
+   `GenerationRunner`.
+3. `step_runtime._build_run_step_frontier_context` aligns parsed transcript
+   nodes with message lineage using LCP/bind rules. `_execute_frontier_consequences`
+   classifies the last user/control/assistant frontier. User input normally
+   generates an assistant response; callable assistant content may execute in
+   that same invocation through the existing plan/execution path.
+4. `GenerationRunner.prepare_request` calls
+   `resolve_model_invocation`, which projects the working messages, builds a
+   context packet, and may add durable lens artifacts. It also resolves model,
+   endpoint, and target selection from config, events, and the current working
+   transcript. `graph_message_edges.project_llm_input_from_messages` removes
+   control-role messages, strips assistant reasoning blocks, and merges
+   adjacent user messages. `llm.py` may then lower the messages to
+   `single_user_blob`.
+5. `persist_step_outputs_runtime` writes message events and attached `llm_call`
+   records, then stitches message-linked `tool_request`/`tool_result` records,
+   applies result side effects, seals storage if configured, and projects output.
+
+Relevant owners: `operator_api.step_once`; `cli_session_commands.run_step`;
+`runtime/step_runtime.py`; `runtime/step_generation_runtime.py`;
+`runtime/model_invocation_contracts.py`; `runtime/context_assembly.py`;
+`runtime/session_step_edges.py`; `runtime/step_result_runtime.py`; `graph.py`;
+`tools_cluster/`. See [runtime ownership](../../docs/runtime-ownership.md).
+
+## Input and request examples — Candidate TOAS adaptation
+
+These are contract examples, not literal syntax. The normal transcript example
+is a fresh lineage; an established ordinary session keeps its existing
+projected history behavior.
+
+Ordinary `session.md`:
+
+```text
+## TOAS:USER
+
+Inspect src/math.py and explain how add works.
+```
+
+Normal model input for this fresh lineage:
+
+```json
+[{"role":"user","content":"Inspect src/math.py and explain how add works."}]
+```
+
+Candidate typed state input, explicitly selected by the caller:
+
+```json
+{
+  "kind": "toas.state-transition",
+  "version": 1,
+  "operation": "infer",
+  "base": {
+    "message_head_id": "m42",
+    "transition_id": "st7",
+    "state_digest": "sha256:..."
+  },
+  "instructions": {"ref": "repo-work/v1", "digest": "sha256:..."},
+  "state": {
+    "goal": "Understand the add implementation",
+    "progress": [],
+    "next_steps": ["Read src/math.py"],
+    "artifacts": [],
+    "blockers": [],
+    "notes": {"constraints": [], "accepted_decisions": [], "pending_proposals": [], "uncertainties": []}
+  },
+  "observation": {
+    "id": "obs8",
+    "kind": "user_input",
+    "content": "Inspect src/math.py and explain how add works."
+  }
+}
+```
+
+For this example, the exact application-boundary request for isolated
+inference is one user message containing the selected procedure, schema
+guidance, current state, and latest observation:
+
+```json
+[{"role":"user","content":"Procedure (repo-work/v1): Help inspect the requested repository file. Propose one read_file action, or finish if the goal is already met. Never claim a tool result before it is observed.\n\nResponse schema: Return exactly one JSON object with state_patch (sparse object) and consequence. consequence is either {kind: action, tool_name: read_file, arguments: {path: relative_path}} or {kind: finish}. Do not execute the action in this inference.\n\nCurrent state (base transition st7): {goal: Understand the add implementation, progress: [], next_steps: [Read src/math.py], artifacts: [], blockers: [], notes: {constraints: [], accepted_decisions: [], pending_proposals: [], uncertainties: []}}\n\nLatest observation obs8 (user_input): Inspect src/math.py and explain how add works."}]
+```
+
+For this state request, the builder must not add prior transcript messages or
+history-derived lens artifacts. Model/config selection, grants, workspace
+scope, and other authority inputs are resolved separately against the
+explicit base head and effective configuration. Capture this message list at
+the TOAS model-invocation boundary; provider-side injected prompts and any
+transport re-rendering are outside that boundary and must not be mistaken for
+the application request.
+
+Candidate model response:
+
+```json
+{
+  "state_patch": {"progress": ["Read src/math.py; add returns a + b."], "next_steps": []},
+  "consequence": {"kind": "action", "tool_name": "read_file", "arguments": {"path": "src/math.py"}}
+}
+```
+
+An alternative terminal response is
+`{"state_patch":{"progress":["Goal answered."],"next_steps":[]},"consequence":{"kind":"finish"}}`.
+The response is one validated JSON object: exactly one action or terminal
+consequence, never both. A patch alone must not cause execution.
+
+Expected durable facts for the action example, expressed as candidate records:
+
+```jsonl
+{"kind":"state_transition","payload":{"transition_id":"st8","parent_transition_id":"st7","base_state_digest":"sha256:...","input_digest":"sha256:...","observation_id":"obs8","instruction_ref":"repo-work/v1","instruction_digest":"sha256:...","state_patch":{"progress":["Read src/math.py; add returns a + b."],"next_steps":[]},"state_after":{"goal":"Understand the add implementation","progress":["Read src/math.py; add returns a + b."],"next_steps":[],"artifacts":[],"blockers":[],"notes":{"constraints":[],"accepted_decisions":[],"pending_proposals":[],"uncertainties":[]}},"consequence":{"kind":"action","tool_name":"read_file","arguments":{"path":"src/math.py"}},"status":"awaiting_approval"}}
+{"kind":"llm_call","payload":{"transition_id":"st8","requested_model":"...","response_model":"...","usage":{}}}
+{"kind":"state_action","payload":{"attempt_id":"act1","transition_id":"st8","status":"started","request_digest":"sha256:..."}}
+{"kind":"state_action","payload":{"attempt_id":"act1","transition_id":"st8","status":"succeeded","observation_id":"obs9","observation":{"kind":"tool_result","content":"def add(a, b): return a + b"}}}
+```
+
+These event kinds/shapes are proposed, not existing graph record contracts. The
+approval decision and action-start should be separate durable facts; the
+operation result is the next observation, not a message event.
+
+## State and patch semantics — Recommended TOAS adaptation
+
+Recommended first schema: required top-level `goal`, `progress`, `next_steps`,
+`artifacts`, `blockers`, and `notes`. `notes` has the experiment's four named
+arrays. Enforce object/array/string types and bounded serialized size before
+accepting a transition. Reject unknown top-level fields in version 1 so typos
+do not silently become state. This is deliberately smaller than a general SWE
+state schema.
+
+| Patch | Result |
+| --- | --- |
+| `{"notes":{"uncertainties":["Need inspect call sites"]}}` | Recursively merge the nested object; retain other note arrays |
+| `{"next_steps":["Read tests"]}` | Replace the complete array |
+| `{"artifacts":null}` | Attempt to delete a required field; full validation rejects the candidate |
+| `{"notes":{"accepted_decisions":null}}` | Attempt to delete a required nested array; full validation rejects the candidate |
+| `{"goal":17}` or malformed JSON | Reject; preserve the last accepted state and do not run the consequence |
+
+Adopt recursive mapping merge, scalar/array replacement, and null deletion;
+validate the whole candidate state after merge. Keep a patch and the resulting
+snapshot for replay/audit. Invalid output creates an error observation but does
+not mutate the accepted snapshot. Do not automatically ask the model to repair
+schema output inside the same operator call; a correction is a new explicit
+inference.
+
+## Transition lifecycle and durable facts
+
+The user-controlled buffer is an editable projection. The append-only event
+history remains canonical. Use transition IDs and state digests that are
+independent of message IDs and message numbering.
+
+1. **Infer:** validate the envelope, base identity/digest, instruction
+   revision, and observation identity. Build the isolated user-only request;
+   preserve the normal resolved provider/model settings and base-head policy.
+2. **Record proposal:** after validating the model output, append one
+   `state_transition` fact containing transition ID, parent transition/base
+   digest, submitted input digest, instruction ref/digest, accepted state
+   snapshot and patch, proposed normalized action or terminal outcome, and
+   inference-call reference. Persist the call independently with a
+   `transition_id` reference; do not fabricate an assistant message just to
+   satisfy current message-linked `llm_call` storage.
+3. **Execute:** return the pending action for review. A separate explicit
+   execute operation names its `transition_id`; it runs that immutable,
+   validated action through existing capability validation, grants, workspace
+   restrictions, and executor. Record an append-only action-start fact before
+   invoking it, followed by success/failure result facts and the captured
+   observation. Do not execute arbitrary commands found in state text.
+4. **Continue:** the next inference names the action result as its latest
+   observation. One call performs one inference or one explicit action
+   execution, never a hidden execute-and-infer loop.
+
+The proposed state patch is promoted when the validated proposal is recorded,
+before its action runs. A failed action does not roll back that state; its
+failure becomes the next observation. The paper specifies patch-before-action
+ordering; keeping inference and execution as separate explicit calls is a TOAS
+interaction adaptation that retains review time. Rejected/invalid proposals do
+not advance state. User edits make a new input branch from a named base; they do
+not rewrite prior transition facts.
+
+Minimum record family: `state_transition` for accepted snapshot/proposal;
+`state_action` (or equivalent start/result records) for explicit approval,
+execution identity, and outcome; and an `llm_call` linked by transition ID. A
+user observation must be captured in the submitted transition input; tool
+observations belong to the action outcome. Add typed append/query/replay helpers
+under `graph.py` and focused `graph_*_edges.py` modules. Do not overload message
+events or current message-linked `tool_request`/`tool_result` semantics with
+state transition IDs.
+
+## Continuation, edits, and interruption cases — Recommended TOAS adaptation
+
+| Case | Contract result |
+| --- | --- |
+| Empty continuation with pending proposal | Show/retain that proposal. It is not approval and does not execute or infer again. |
+| Empty continuation with no pending observation | No new inference; report that explicit input/operation is needed. |
+| Identical resubmission | Key by base transition/digest, observation ID and content digest, instruction digest, submitted input digest, and operation. Return the existing result instead of generating or executing a duplicate. A deliberate new inference requires a new explicit attempt identity. |
+| Edited prior state | Accept only against an explicit known base; append a new branch/input digest. Keep the earlier proposal immutable. An execute request names the exact proposal ID it approves. |
+| Missing/invalid consequence (`no action`) | Reject as malformed; preserve accepted state and do not execute. A valid no-tool completion must be an explicit `finish` consequence. |
+| Tool failure with known result | Preserve accepted state; append failure outcome and expose it as a new observation. A retry requires a new explicit proposal/approval. |
+| Interruption after action-start, before result | Surface outcome as unknown and block automatic retry. Reconcile with the tool/workspace first; append a resolution fact. Exactly-once effects cannot be promised for arbitrary external tools. |
+| Malformed/mixed input | If an explicit state marker/mode is selected, invalid version, missing base, or mixed transcript/state content is a hard error. Never fall back to transcript parsing or callable extraction. |
+| Finish/no action | Append terminal transition with state snapshot and no pending action. |
+
+The identity rule prevents an unchanged buffer from ambiguously meaning “retry
+the model,” “execute again,” or “continue.” The first slice should expose
+separate `infer` and `execute <transition_id>` operations. Do not infer approval
+from an empty submission.
+
+## Ownership and transport recommendation
+
+| Concern | Owner |
+| --- | --- |
+| Envelope parsing, state schema, patch merge/validation, request assembly | New focused `runtime/state_transition_input.py` (Model Invocation boundary supplies the isolated request) |
+| Select infer vs execute consequence and pending/terminal lifecycle | New focused `runtime/state_transition_runtime.py` (Operator Semantics) |
+| Append/query/replay transition and action facts | `graph.py` plus focused graph writer/query helpers (Durable State) |
+| Resolve tool/action, grants, scope, and execution | Existing Capabilities and Effective Policy/Authority; only pass normalized requests |
+| Provider selection/retries/audit | Existing Model Invocation; extend the call reference for transition identity |
+| CLI, operator, daemon/RPC adapters | Thin adapters only; carry explicit mode or refuse unsupported mode |
+
+For a first local slice, add an explicit state-buffer operation at the
+`operator_api.step_once` seam and branch to the state runtime before
+`prepare_session_transcript` or `_build_run_step_frontier_context`. Leave the
+ordinary `step` branch untouched. Do not route this through transcript LCP,
+assistant YAML extraction, or `_working_with_transcript_tail_frontier`.
+
+The CLI currently routes ordinary unqualified `step` over RPC when configured;
+RPC exposes async step operations, while the in-process operator API wraps the
+local synchronous command. Async workers force `TOAS_RPC_MODE=off` internally
+but still run transcript semantics. Make the first state operation explicitly
+local-only and reject async/RPC requests that cannot carry its typed buffer.
+Never silently strip the state envelope and invoke ordinary transcript `step`.
+Later transport work can add a versioned request kind after local semantics
+stabilize. Existing default/auto/on/off transcript contracts remain unchanged.
+
+## Smallest useful implementation follow-on
+
+Recommended first end-to-end slice: local-only explicit state input; one model
+inference; one validated `read_file` action; explicit execute by transition
+ID; persisted action result as next observation; second explicit inference;
+terminal finish. Use a temporary workspace and scripted model responses first.
+This proves isolation, branch identity, durable proposal/result facts, and
+reuse of one existing capability without committing to arbitrary command
+execution or editor support.
+
+Focused test plan (not run in this investigation):
+
+- parser/version/base/digest, exact schema validation, nested merge/array
+  replacement/null deletion/required-field rejection;
+- exact one-user-message request with no prior transcript or event-derived
+  lens artifacts, while resolving the same configured target and authority
+  from the explicit base head;
+- existing transcript step request/output parity;
+- inference does not execute; explicit action uses current capability
+  validation and denial path;
+- success and failure produce observations; empty and identical submissions
+  are idempotent; edited input branches; interrupted action is unknown and is
+  not retried;
+- RPC modes and async entry points explicitly reject the unsupported typed
+  request rather than lowering it to transcript input.
+
+Candidate existing coverage anchors: `tests/test_operator_api.py`,
+`tests/test_runtime_context_assembly.py`,
+`tests/test_model_invocation_contracts.py`,
+`tests/test_runtime_session_step_edges.py`,
+`tests/test_runtime_session_rotation.py`, and graph record tests. Add focused
+state-transition test modules when implementation begins; do not inflate
+unrelated suite coverage.
+
+## Open decisions before user-facing adoption
+
+- Which explicit UI/CLI shape selects the editable state buffer: a typed
+  `step_once` argument first, or a path-backed `toas step --state-buffer` from
+  the first slice.
+- Whether the model-produced patch becomes accepted immediately on recording
+  or needs a separate user accept/reject operation. This recommendation favors
+  immediate promotion of a validated patch, while action execution still
+  requires explicit approval.
+- Whether state mode may call every currently advertised capability in the
+  first slice or begins with the read-only subset.
+- How a durable inference/action record is surfaced in transcript, history,
+  `llm-input`, and rebuild projections without becoming a message event.
+- When the typed state operation becomes supported over RPC and async paths.
+- Whether state transition controls live beside transcript controls or receive
+  a separate operator command family.
+
+No `session.md` marker grammar, generic state ontology, automatic handoff
+authoring, multi-agent coordination, or production implementation is adopted by
+this spike. Use these examples to review the choices above before opening a
+production implementation task.
