@@ -44,6 +44,12 @@ but proposed no tools. Its patch added an uncertainty that repository and
 issue-tracker context were missing, and replaced the next steps with asking for
 that context and identifying the issue source.
 
+A further repeat again used fenced JSON and proposed one call with the earlier
+`tool`/`args` spelling, this time `code_survey` with empty arguments. Its patch
+recommended identifying the repository, inspecting its structure, and
+searching for issue-tracking references. No proposal was accepted and no call
+was executed.
+
 ## Next Evidence
 
 Use these samples to choose the next narrow normalization increment. Keep
