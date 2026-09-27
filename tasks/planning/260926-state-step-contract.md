@@ -91,8 +91,86 @@ Normal model input for this fresh lineage:
 [{"role":"user","content":"Inspect src/math.py and explain how add works."}]
 ```
 
-Candidate self-identifying state envelope in the same `session.md` buffer
-(illustrative syntax, not yet adopted):
+Candidate self-identifying state envelope in the same `session.md` buffer,
+shown in three equivalent illustrative encodings. The human-facing buffer
+syntax and the model-facing request format are separate choices.
+
+YAML body:
+
+```yaml
+## TOAS:STATE/1
+
+kind: toas.state-transition
+version: 1
+operation: infer
+base:
+  message_head_id: m42
+  transition_id: st7
+  state_digest: sha256:...
+instructions:
+  ref: repo-work/v1
+  digest: sha256:...
+state:
+  goal: Understand the add implementation
+  progress: []
+  next_steps:
+    - Read src/math.py
+  artifacts: []
+  blockers: []
+  notes:
+    constraints: []
+    accepted_decisions: []
+    pending_proposals: []
+    uncertainties: []
+observation:
+  id: obs8
+  kind: user_input
+  content: Inspect src/math.py and explain how add works.
+```
+
+Comparable Markdown-based state DSL:
+
+```markdown
+## TOAS:STATE/1
+
+### Request
+- kind: `toas.state-transition`
+- version: 1
+- operation: infer
+
+### Base
+- message head: `m42`
+- transition: `st7`
+- state digest: `sha256:...`
+
+### Instructions
+- ref: `repo-work/v1`
+- digest: `sha256:...`
+
+### State
+- goal: Understand the add implementation
+- progress: (empty)
+- next steps:
+  - Read `src/math.py`
+- artifacts: (empty)
+- blockers: (empty)
+
+#### Notes
+- constraints: (empty)
+- accepted decisions: (empty)
+- pending proposals: (empty)
+- uncertainties: (empty)
+
+### Observation `obs8` — `user_input`
+> Inspect src/math.py and explain how add works.
+```
+
+JSON can remain the normalized application/model request even if the editable
+buffer uses YAML or the Markdown DSL. Keeping those boundaries separate lets
+the user-facing projection favor readability without constraining the model's
+wire format.
+
+Equivalent normalized JSON body (not a requirement for the editable buffer):
 
 ```json
 {
@@ -111,7 +189,12 @@ Candidate self-identifying state envelope in the same `session.md` buffer
     "next_steps": ["Read src/math.py"],
     "artifacts": [],
     "blockers": [],
-    "notes": {"constraints": [], "accepted_decisions": [], "pending_proposals": [], "uncertainties": []}
+    "notes": {
+      "constraints": [],
+      "accepted_decisions": [],
+      "pending_proposals": [],
+      "uncertainties": []
+    }
   },
   "observation": {
     "id": "obs8",
@@ -121,10 +204,10 @@ Candidate self-identifying state envelope in the same `session.md` buffer
 }
 ```
 
-The proposed marker is a single exact first nonblank line, followed by this
-versioned body. The exact marker, body grammar, whitespace rules, and whether
-stdin can supply the envelope are still for review. `step` reads and assembles
-its usual input first, then classifies it: an ordinary transcript proceeds
+The proposed marker is a single exact first nonblank line, followed by one
+versioned body encoding. The exact marker, selected body grammar, whitespace
+rules, and whether stdin can supply the envelope are still for review. `step`
+reads and assembles its usual input first, then classifies it: an ordinary transcript proceeds
 unchanged; the exact supported state marker selects the state parser; an
 unknown or malformed leading `## TOAS:STATE...` marker is an error, never a
 fallback to transcript parsing. State input cannot be mixed with role-marked
