@@ -9,8 +9,7 @@ Task: [`260926-state-step-contract-spike`](../closed/260926-state-step-contract-
 
 ## Finding
 
-Keep TOAS history transcript-oriented. Change the kinds of turns it can contain
-and how the event log is projected to the LLM. A state step can produce a full
+Keep state-step history transcript-oriented. A state step can produce a full
 state turn, a state-diff turn, or a sequence alternating between them; the
 ordinary user/assistant turn pattern remains available. Do not make the whole
 session enter a separate state mode before transcript parsing.
@@ -34,9 +33,10 @@ The default LLM projection remains state-only: effective instructions/schema,
 the current state object, and one latest logical observation. The user-facing
 history projection does not change that packet. Historical observations remain
 available to the operator; the model does not automatically receive an
-unconsumed-observation queue. State-operation tools may let the model place
-selected observation content into a state field without reproducing the text
-in its output; the source observation remains retained.
+unconsumed-observation queue. A state operation can select exact text from the
+compound observation by reference, place it into a state diff, and have the
+runtime expand it so the next state packet contains the full text. The source
+observation remains retained.
 
 This is a recommended first contract, not an adopted parser grammar or approval
 to change production behavior.
@@ -295,15 +295,30 @@ before inference remains open.
 
 ### Observation-to-state operations — Candidate TOAS adaptation
 
-Expose agent-callable state operations that can copy a selected observation
-into a declared field in the current state object by observation identity and
-destination, without requiring the model to emit the payload text again. Keep
-the original observation available in transcript/history and preserve source
-provenance on the resulting state update. This can save completion/write
-tokens; it does not erase the cost of reading the observation, and copied
-content may still increase future state-packet input. Operation names, whether
-the copy is whole-observation or selected content, schema/path restrictions,
-and provenance shape remain open.
+Let the agent select any text in the compound observation and place it into a
+state diff by reference, without emitting the text again. The runtime resolves
+the reference while applying the diff, so the next state packet contains the
+full text. Keep the source observation available and retain provenance from
+the inserted state value back to its source. This saves completion/write
+tokens; it does not erase the cost of reading the text, and the full value may
+increase future state-packet input.
+
+The observation is addressable as a tree: a path selects a higher-level
+component, then a familiar text selector can identify a span within it. Paths,
+markers, word counts, and awk/sed-like selectors are candidates to explore;
+the exact addressing syntax and ambiguity behavior remain open. Runtime byte
+offsets are an implementation detail, not an agent-facing requirement.
+
+Keep state-local operations permission-free when they only transform state or
+material already supplied in the observation. Operations that inspect the
+external environment use existing observational/read capabilities and their
+permissions. Operations that change the environment use existing write or
+execution capabilities and their permissions. Model-fit profiles may narrow
+which available capabilities are advertised, but do not change authorization.
+
+The state operation's schema/path restrictions and provenance shape remain
+open. Whether it supports only exact spans initially or also more complex
+extraction is a follow-on question.
 
 Example state-diff turn in the Markdown DSL:
 
@@ -504,7 +519,7 @@ from an empty submission.
 | State/state-diff record parsing, canonical state normalization, YAML/Markdown round-trip | Focused state-step boundary; records stay separate from message events |
 | Select the state-step LLM packet and assemble the request | Model Invocation boundary plus a focused state-step input builder |
 | Select infer vs execute consequence and pending/terminal lifecycle | Focused state-transition runtime (Operator Semantics) |
-| Append/query/replay state and action facts | Existing event-log machinery in `graph.py` plus focused graph helpers |
+| Append/query state and action facts | Existing history machinery in `graph.py` plus focused graph helpers |
 | Resolve tool/action, grants, scope, and execution | Existing Capabilities and Effective Policy/Authority; only pass normalized requests |
 | Provider selection/retries/audit | Existing Model Invocation; extend the call reference for transition identity |
 | CLI, operator, daemon/RPC adapters | Thin adapters; expose state-step separately from conversation-step while reusing runtime and model services |
@@ -570,10 +585,29 @@ unrelated suite coverage.
 - Projection-selection controls and persistence scope (per request, session,
   or configuration).
 - Whether state workflows may call every currently advertised capability in the
-  first slice or begins with the read-only subset.
+  first slice or begins with a smaller subset of existing environment-facing
+  capabilities. State-local operations remain permission-free.
 - How inference/action records appear consistently in transcript, history,
   `llm-input`, and rebuild projections across the candidate turn/log shapes.
 - How the projection choice is carried over RPC and async paths.
+
+## Deferred follow-on fragments — not ready for implementation
+
+- **Observation addressing and state operations:** Experiment with observation
+  tree paths and familiar selectors such as markers, word counts, and
+  awk/sed-like addressing. The target behavior is exact text selection by
+  reference, runtime expansion into the state diff, and retained source
+  provenance. Decide the initial selector subset, failure behavior, and schema
+  constraints after experiments.
+- **Per-model capability profiles:** Build designed, on-demand benchmarks that
+  measure which runtime capability forms each actually returned model handles
+  best. Use results to advertise an evidence-backed subset; retain the full
+  runtime capability set and existing permission checks. Record model identity
+  and benchmark/runtime versions so profiles can be refreshed when they change.
+- **State-step adoption details:** Define key-state selection and projection
+  controls, YAML/Markdown grammar and format selection, seed assets, the initial
+  environment-facing capability subset, and RPC/async support. Keep state-step
+  semantically independent from conversation-step.
 
 No final `session.md` turn grammar, generic state ontology, automatic handoff
 authoring, multi-agent coordination, or production implementation is adopted by
