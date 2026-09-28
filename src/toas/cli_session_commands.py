@@ -392,11 +392,12 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             result["state"], observation=parsed_turn.get("observation"),
             format=parsed_turn.get("format", "yaml"),
         )
-        rendered = (
-            parsed_turn.get("_transcript_prefix", "")
-            + rendered
-            + parsed_turn.get("_transcript_suffix", "")
-        )
+        transcript = normalized_transcript
+        if transcript and not transcript.endswith(("\n", "\r")):
+            transcript += "\n"
+        if transcript and not transcript.endswith("\n\n"):
+            transcript += "\n"
+        rendered = transcript + rendered
         _write_text_with_newline_style(
             path=session_path, text=rendered, newline=session_newline,
             apply_newline_style_fn=deps.apply_newline_style,

@@ -6,7 +6,7 @@ Legacy index:
 keywords: runtime, implementation, active, contract, transcript, graph, capabilities, projection
 
 Parent: `260926-state-step-requirements`
-Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`
+Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260927-state-step-history-projections`
 
 # Implement The Integrated State-Step Alpha Loop
 
@@ -218,6 +218,11 @@ run only on a later explicit step through existing permissions.
   results.
 
 ## Verification Record
+
+- Follow-on `260927-state-step-history-projections` addresses the user-facing
+  state-history views considered by the contract. Its first slice appends
+  successive full state turns (states-only) instead of replacing the current
+  frontier; the other four selectable projections remain follow-on work.
 
 - The state runtime and CLI route have focused coverage for parser/render
   round-trips, record separation, sparse patching, state-only request

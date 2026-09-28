@@ -5,7 +5,7 @@ Legacy index:
 
 keywords: runtime, investigation, active, contract, projection, frontier, provenance
 Depends on: `260926-state-simulation-checkpoint`
-Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260803-session-rotation-lifecycle`
+Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260803-session-rotation-lifecycle`; `260927-state-step-history-projections`
 
 # State-Transition Step: Requirements And Implementation Straw Man
 
@@ -172,7 +172,8 @@ capability path, not a parallel experimental harness.
    integrated slice. See the ready child
    [`260927-state-step-alpha-loop`](260927-state-step-alpha-loop.md).
 3. **Deferred follow-ons:** model-specific capability profiles, observation
-   reference selector experiments, advanced projections, broader seeds and
+   reference selector experiments, the selectable state-history projections in
+   [`260927-state-step-history-projections`](260927-state-step-history-projections.md), broader seeds and
    format configuration, expanded capability scope, and RPC/async support.
 
 Do not create a parallel harness or require a general SWE schema, automatic
@@ -244,7 +245,9 @@ requirements parent.
   join the next compound observation. Users can edit state and observations
   between steps. State-step and conversation-step remain semantically
   independent while sharing runtime/model/capability services. Model-specific
-  tool profiles, observation-reference addressing, advanced projections,
+  tool profiles, observation-reference addressing, selectable transcript
+  projections (tracked by
+  [`260927-state-step-history-projections`](260927-state-step-history-projections.md)),
   complete grammar/seed details, expanded capability scope, and transport
   support are follow-ons. See the updated
   [contract recommendation](../planning/260926-state-step-contract.md).
