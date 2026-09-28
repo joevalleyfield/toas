@@ -150,6 +150,23 @@ def _latest_pending(records: list[dict]) -> dict | None:
     return latest if latest.get("status") in {"pending", "running"} else None
 
 
+def _operator_observation(value: Any) -> Any:
+    if isinstance(value, dict) and value.get("kind") == "toas.compound-observation/1":
+        return value.get("operator_observation")
+    return value
+
+
+def transcript_observation_with_tool_outcomes(
+    operator_observation: Any, outcomes: list[dict]
+) -> dict[str, Any]:
+    """Return the editable observation envelope shown after batch execution."""
+    return {
+        "kind": "toas.compound-observation/1",
+        "operator_observation": _operator_observation(operator_observation),
+        "tool_outcomes": outcomes,
+    }
+
+
 def _compound_observation(records: list[dict], operator_observation: Any) -> dict[str, Any]:
     prior_transitions = [record for record in records if record.get("kind") == "state_transition"]
     outcomes: list[dict] = []
@@ -167,7 +184,10 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
                 and record.get("transition_id") == transition_id
             ]
             break
-    return {"operator_observation": operator_observation, "tool_outcomes": outcomes}
+    return {
+        "operator_observation": _operator_observation(operator_observation),
+        "tool_outcomes": outcomes,
+    }
 
 
 def build_state_step_packet(*, events_path: str | Path, state: dict, observation: Any) -> dict[str, Any]:
@@ -397,7 +417,11 @@ def step_state(
     )
     append_state_step_records(
         path,
-        [{"kind": "state_observation", "transition_id": transition_id, "observation": observation}],
+        [{
+            "kind": "state_observation",
+            "transition_id": transition_id,
+            "observation": compound_observation,
+        }],
     )
     if calls:
         append_state_step_records(

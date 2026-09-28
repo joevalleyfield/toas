@@ -311,6 +311,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         preview_state_request,
         render_state_turn,
         step_state,
+        transcript_observation_with_tool_outcomes,
     )
 
     if parsed_turn["turn_type"] == "state":
@@ -398,6 +399,23 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         if transcript and not transcript.endswith("\n\n"):
             transcript += "\n"
         rendered = transcript + rendered
+        _write_text_with_newline_style(
+            path=session_path, text=rendered, newline=session_newline,
+            apply_newline_style_fn=deps.apply_newline_style,
+        )
+    elif result["phase"] == "execute_batch":
+        observation = transcript_observation_with_tool_outcomes(
+            parsed_turn.get("observation"), result.get("outcomes", [])
+        )
+        rendered = render_state_turn(
+            result["state"], observation=observation,
+            format=parsed_turn.get("format", "yaml"),
+        )
+        rendered = (
+            parsed_turn.get("_transcript_prefix", "")
+            + rendered
+            + parsed_turn.get("_transcript_suffix", "")
+        )
         _write_text_with_newline_style(
             path=session_path, text=rendered, newline=session_newline,
             apply_newline_style_fn=deps.apply_newline_style,

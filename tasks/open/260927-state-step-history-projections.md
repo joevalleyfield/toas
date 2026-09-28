@@ -81,7 +81,8 @@ transcript projection.
 - Editing the latest state remains authoritative and does not rewrite earlier
   transcript history or durable records.
 - A tool-execution step does not fabricate an inference state turn; its
-  results remain components of the next compound observation.
+  results are written into the current transcript turn's compound observation
+  and become components of the next inference packet.
 - No state turn consumes message-event numbering.
 
 ## Progress
@@ -90,5 +91,8 @@ transcript projection.
   alpha rewrote the latest state turn. This slice now appends each accepted
   full-state snapshot after the current transcript, preserving earlier turns.
   Selection and the other four projections remain open for Stage 2.
+- 2026-09-27: After the user clarified that execution results belong in the
+  session file, batch execution now adds its outcomes to the frontier state's
+  compound observation without fabricating a new accepted-state turn.
 
 Status: Active.
