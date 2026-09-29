@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from ..graph import append_state_step_records, normalize_tool_plan, read_log
+from ..graph import append_state_step_records, normalize_tool_plan, read_log, write_llm_call_record
 from ..graph import state_step_records as _state_step_records
 
 STATE_MARKER = "## TOAS:STATE/1"
@@ -850,6 +850,14 @@ def step_state(
     )
     compound_observation = packet["observation"]
     answer = generate(packet)
+    if isinstance(answer, dict) and isinstance(answer.get("_llm_call"), dict):
+        call_kwargs = dict(answer["_llm_call"])
+        call_kwargs.setdefault("request_messages", [{"role": "user", "content": json.dumps(packet)}])
+        call_kwargs.setdefault("requested_model", "model")
+        res_content = answer.get("content")
+        if isinstance(res_content, str) and "response_content" not in call_kwargs:
+            call_kwargs["response_content"] = res_content
+        write_llm_call_record(path, transition_id=transition_id, **call_kwargs)
     content = answer.get("content") if isinstance(answer, dict) else answer
     if not isinstance(content, str):
         error = "state-step model response must contain JSON text"

@@ -581,7 +581,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         prior_state_number = parsed_turn.get("state_number", 1)
         tool_calls = result.get("tool_calls") or None
         rendered = render_state_turn(
-            result["state"], observation=current_observation,
+            result["state"], observation=None,
             format=parsed_turn.get("format", "yaml"),
             instructions=parsed_turn.get("instructions"),
             pending_tools=tool_calls,

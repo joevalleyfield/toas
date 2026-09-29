@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from gzip import open as gzip_open
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -1053,6 +1054,8 @@ def write_llm_call_record(
     trace_mode: str = "minimal",
     transport_mode: str | None = None,
     message_id: str | None = None,
+    transition_id: str | None = None,
+    **_extra: Any,
 ) -> dict:
     payload: dict = {
         "requested_model": requested_model,
@@ -1089,6 +1092,8 @@ def write_llm_call_record(
         payload["transport_mode"] = transport_mode
     if message_id is not None:
         payload["message_id"] = message_id
+    if transition_id is not None:
+        payload["transition_id"] = transition_id
 
     record = {"kind": "llm_call", "payload": payload}
     append_nodes(path, [record])

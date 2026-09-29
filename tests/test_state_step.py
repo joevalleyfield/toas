@@ -351,6 +351,10 @@ def test_sparse_patch_deletes_keys_and_records_model_call_evidence(tmp_path):
     assert result["state"] == {"keep": 1}
     assert transition["model_call"] == {"requested_model": "model-a", "response_model": "model-b"}
     assert state_records(events) == state_step_records(str(events))
+    llm_calls = [r for r in read_log(str(events)) if r.get("kind") == "llm_call"]
+    assert len(llm_calls) == 1
+    assert llm_calls[0]["payload"]["requested_model"] == "model-a"
+    assert llm_calls[0]["payload"]["transition_id"] == transition["transition_id"]
 
 
 def test_terminal_outcome_prevents_implicit_followup_inference(tmp_path):

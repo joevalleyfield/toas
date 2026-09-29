@@ -106,5 +106,11 @@ transcript projection.
   - Forward observations condense inert fenced output blocks with `block_id`
     to unexpanded references (`(ref: <block_id>)`), which are dereferenced and
     expanded at packet build time for model inference.
+  - Omitted consumed observations from forward state snapshots (`STATE/n+1`)
+    so already-processed inputs are not duplicated into forward state views or
+    subsequent inference packets.
+  - Persisted explicit `llm_call` records linked by `transition_id` to durable
+    events log during state-step inference.
 
 Status: Active.
+

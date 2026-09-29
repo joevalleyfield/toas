@@ -148,9 +148,7 @@ def test_user_turn_after_state_is_inferred_directly_when_frontier_is_non_executa
 
     accepted = parse_state_turn(session.read_text())
     assert accepted["state"] == {"goal": "updated by model", "progress": []}
-    assert accepted["observation"]["user_inputs"] == [
-        {"content": "Read the project manifest."}
-    ]
+    assert accepted.get("observation") is None
     assert "## TOAS:USER\n\nRead the project manifest." in session.read_text()
 
     assert packets[0]["observation"]["user_inputs"] == [
@@ -531,6 +529,7 @@ def test_state_step_progresses_ordinal_and_preserves_unfolding_history(monkeypat
     assert "## TOAS:STATE/2" in session_after_step1
     assert "pending_tools:" in session_after_step1
     assert "read_file" in session_after_step1
+    assert "observation:" not in session_after_step1
 
     # Step 2: Execute batch -> appends result block without rewriting STATE/2
     cli_session_commands.run_step(session_path=str(session))
