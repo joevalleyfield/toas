@@ -6,7 +6,7 @@ Legacy index:
 keywords: runtime, implementation, active, contract, transcript, graph, capabilities, projection
 
 Parent: `260926-state-step-requirements`
-Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260927-state-step-history-projections`
+Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260927-state-step-history-projections`; `260928-state-user-control-turn-lifecycle`
 
 # Implement The Integrated State-Step Alpha Loop
 

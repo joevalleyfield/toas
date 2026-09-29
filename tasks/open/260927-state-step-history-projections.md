@@ -6,7 +6,7 @@ Legacy index:
 keywords: projection, implementation, active, transcript, state-step
 
 Parent: `260926-state-step-requirements`
-Related: `260927-state-step-alpha-loop`
+Related: `260927-state-step-alpha-loop`; `260928-state-user-control-turn-lifecycle`
 
 # Preserve And Project State-Step History
 

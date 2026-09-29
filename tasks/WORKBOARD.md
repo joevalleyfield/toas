@@ -280,6 +280,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260927-state-step-history-projections]** Preserve And Project State-Step History
 - **[T260928-readable-state-instructions]** Render State Instructions As A Readable Block
 - **[T260928-state-step-instruction-seed]** Carry State-Step Instructions In The Seed Transcript
+- **[T260928-state-user-control-turn-lifecycle]** Implement the state-step transcript lifecycle around ordinary `TOAS:USER` and `TOAS:CONTROL` turns, preserving the normal TOAS turn markers and defini...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
