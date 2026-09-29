@@ -6,6 +6,7 @@ import json
 import re
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -543,6 +544,7 @@ def step_state(
     generate: Callable[[dict], Any],
     execute_call: Callable[[dict], Any],
     execute_user_call: Callable[[dict], Any] | None = None,
+    message_id: str | None = None,
 ) -> dict[str, Any]:
     """Run one explicit phase: user consolidation, pending batch, or inference."""
     path = str(events_path)
@@ -910,6 +912,8 @@ def step_state(
         "tool_calls": calls,
         "outcome": outcome,
     }
+    if message_id is not None:
+        transition["message_id"] = message_id
     if isinstance(answer, dict) and isinstance(answer.get("_llm_call"), dict):
         transition["model_call"] = answer["_llm_call"]
     append_state_step_records(path, [transition])
@@ -917,8 +921,11 @@ def step_state(
         path,
         [{"kind": "state_diff", "transition_id": transition_id, "patch": patch}],
     )
+    snapshot: dict[str, Any] = {"kind": "state_snapshot", "transition_id": transition_id, "state": accepted}
+    if message_id is not None:
+        snapshot["message_id"] = message_id
     append_state_step_records(
-        path, [{"kind": "state_snapshot", "transition_id": transition_id, "state": accepted}]
+        path, [snapshot]
     )
     append_state_step_records(
         path,
@@ -975,3 +982,127 @@ def _record_invalid_response(
 
 def state_records(events_path: str | Path) -> list[dict]:
     return _state_step_records(str(events_path))
+
+
+@dataclass
+class StateLineageReconciliation:
+    best_head_id: str | None
+    lineage: list[dict[str, Any]]
+    lcp: int
+    unmaterialized_turns: list[dict[str, Any]]
+    parent_id: str | None
+
+
+def reconcile_state_lineage(
+    *,
+    events: list[dict[str, Any]],
+    transcript_turns: list[dict[str, Any]],
+    state_index: int,
+) -> StateLineageReconciliation:
+    """Reconcile parsed transcript turns against heads and message lineage."""
+    from ..graph import list_heads, message_lineage
+    from ..transcript import _lcp
+
+    candidates: list[str | None] = [None]
+    for head in list_heads(events):
+        head_id = head.get("id")
+        if isinstance(head_id, str) and head_id not in candidates:
+            candidates.append(head_id)
+
+    best_head: str | None = None
+    best_lcp = -1
+    best_len = -1
+    best_lineage: list[dict[str, Any]] = []
+
+    for head_id in candidates:
+        lineage = message_lineage(events, head_id=head_id)
+        log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
+        lcp = _lcp(transcript_turns, log)
+        if lcp > best_lcp or (lcp == best_lcp and len(log) > best_len):
+            best_head = head_id
+            best_lcp = lcp
+            best_len = len(log)
+            best_lineage = lineage
+
+    effective_lcp = max(0, best_lcp)
+    if effective_lcp <= state_index:
+        unmaterialized = transcript_turns[effective_lcp : state_index + 1]
+        parent_id = best_lineage[effective_lcp - 1]["id"] if effective_lcp > 0 and effective_lcp - 1 < len(best_lineage) else None
+    else:
+        unmaterialized = []
+        parent_id = best_lineage[state_index]["id"] if state_index < len(best_lineage) else None
+
+    return StateLineageReconciliation(
+        best_head_id=best_head,
+        lineage=best_lineage,
+        lcp=effective_lcp,
+        unmaterialized_turns=unmaterialized,
+        parent_id=parent_id,
+    )
+
+
+def materialize_state_turns(
+    *,
+    events_path: Path | str,
+    unmaterialized_turns: list[dict[str, Any]],
+    parent_id: str | None,
+) -> list[dict[str, Any]]:
+    """Persist unmaterialized state or surrounding turns as durable message events."""
+    from ..graph import write_message_events
+
+    if not unmaterialized_turns:
+        return []
+
+    to_persist = []
+    first = True
+    for turn in unmaterialized_turns:
+        node: dict[str, Any] = {
+            "role": turn.get("role", "state"),
+            "content": turn.get("content", ""),
+        }
+        if "id" in turn:
+            node["id"] = turn["id"]
+        if first:
+            node["parent"] = parent_id
+            first = False
+        metadata: dict[str, Any] = {}
+        if turn.get("marker"):
+            metadata["marker"] = turn["marker"]
+        if metadata:
+            node["metadata"] = metadata
+        to_persist.append(node)
+
+    return write_message_events(str(events_path), to_persist)
+
+
+def find_lineage_state_snapshot(
+    *,
+    events_path: Path | str | None = None,
+    events: list[dict[str, Any]] | None = None,
+    lineage: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    """Find the state snapshot corresponding to the active lineage branch, falling back to latest."""
+    from ..graph import read_log, state_step_records
+
+    all_events = events if events is not None else (read_log(str(events_path)) if events_path else [])
+    records = state_step_records(str(events_path)) if events_path and Path(events_path).exists() else [
+        e for e in all_events if e.get("kind") in {
+            "state_transition", "state_diff", "state_snapshot", "state_observation", "state_tool_request", "state_tool_result"
+        }
+    ]
+    snapshots = [r for r in records if r.get("kind") == "state_snapshot"]
+    if not snapshots:
+        return None
+
+    if lineage:
+        lineage_msg_ids = [
+            msg["id"] for msg in lineage
+            if isinstance(msg, dict) and msg.get("role") in {"state", "state-diff"} and "id" in msg
+        ]
+        for msg_id in reversed(lineage_msg_ids):
+            for snapshot in reversed(snapshots):
+                if snapshot.get("message_id") == msg_id:
+                    return snapshot
+
+    return snapshots[-1]
+

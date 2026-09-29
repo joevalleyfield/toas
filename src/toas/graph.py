@@ -1405,10 +1405,14 @@ def alignment_anchor_index(
 
 
 def project_transcript(events: list[dict], head_id: str | None = None) -> str:
-    return render_transcript(
-        [{"role": event["role"], "content": event["content"]} for event in _lineage(events, head_id=head_id)],
-        spaced=True,
-    )
+    messages = []
+    for event in _lineage(events, head_id=head_id):
+        msg: dict[str, Any] = {"role": event["role"], "content": event["content"]}
+        metadata = event.get("metadata")
+        if isinstance(metadata, dict) and "marker" in metadata:
+            msg["marker"] = metadata["marker"]
+        messages.append(msg)
+    return render_transcript(messages, spaced=True)
 
 
 def lineage_messages(events: list[dict], head_id: str | None = None) -> list[dict]:

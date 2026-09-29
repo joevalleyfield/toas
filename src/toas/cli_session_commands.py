@@ -407,13 +407,16 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
     """Adapt a typed state transcript to the independent state-step runtime."""
     from . import step as step_mod
     from .config import apply_overrides, config_from_discovered_paths
-    from .graph import active_config_overrides, state_step_records
+    from .graph import active_config_overrides, append_state_step_records, state_step_records
     from .runtime.state_step import (
         ToolOutcomeError,
         _merge_patch,
+        find_lineage_state_snapshot,
+        materialize_state_turns,
         partition_state_transcript,
         preview_state_request,
         parse_state_turn,
+        reconcile_state_lineage,
         render_state_turn,
         step_state,
         transcript_observation_with_tool_outcomes,
@@ -422,6 +425,8 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
 
     if turns is None or state_index is None:
         prefix_turns, state_turn, suffix_turns = partition_state_transcript(normalized_transcript)
+        turns = [*prefix_turns, state_turn, *suffix_turns]
+        state_index = len(prefix_turns)
     else:
         prefix_turns = turns[:state_index]
         state_turn = turns[state_index]
@@ -430,13 +435,46 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
     if parsed_turn is None:
         parsed_turn = parse_state_turn(state_turn)
 
-    snapshots = [record for record in state_step_records(str(events_path)) if record.get("kind") == "state_snapshot"]
+    current_events = read_log(str(events_path)) if events_path.exists() else events
+    reconciliation = reconcile_state_lineage(
+        events=current_events,
+        transcript_turns=turns,
+        state_index=state_index,
+    )
+    current_state_message_id = None
+    if not preview and not preview_response:
+        events_path.parent.mkdir(parents=True, exist_ok=True)
+        if not events_path.exists():
+            events_path.touch()
+        if reconciliation.unmaterialized_turns:
+            materialized = materialize_state_turns(
+                events_path=events_path,
+                unmaterialized_turns=reconciliation.unmaterialized_turns,
+                parent_id=reconciliation.parent_id,
+            )
+            if materialized:
+                current_state_message_id = materialized[-1]["id"]
+                current_events = read_log(str(events_path))
+        elif reconciliation.lineage and state_index < len(reconciliation.lineage):
+            current_state_message_id = reconciliation.lineage[state_index].get("id")
+
     if parsed_turn["turn_type"] == "state":
         current_state = parsed_turn["state"]
+        snapshots = [s for s in state_step_records(str(events_path)) if s.get("kind") == "state_snapshot"]
+        if not snapshots and current_state_message_id and not preview and not preview_response:
+            append_state_step_records(
+                str(events_path),
+                [{"kind": "state_snapshot", "transition_id": f"seed_{current_state_message_id}", "state": current_state, "message_id": current_state_message_id}],
+            )
     else:
-        if not snapshots:
+        snapshot = find_lineage_state_snapshot(
+            events_path=events_path,
+            events=current_events,
+            lineage=reconciliation.lineage[:state_index] if reconciliation else None,
+        )
+        if snapshot is None:
             raise ValueError("state-diff turn has no earlier accepted state snapshot")
-        current_state = _merge_patch(snapshots[-1]["state"], parsed_turn["state_patch"])
+        current_state = _merge_patch(snapshot["state"], parsed_turn["state_patch"])
     input_turns = [turn for turn in suffix_turns if turn.get("role") in {"user", "control"}]
     current_observation = observation_with_user_turns(
         parsed_turn.get("observation"), input_turns
@@ -553,12 +591,16 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                 raise ToolOutcomeError("failed", str(payload.get("summary", "tool call failed")))
         return results
 
+    from .graph import _next_message_id
+    inferred_message_id = _next_message_id(read_log(str(events_path))) if events_path.exists() else "n1"
+
     result = step_state(
         events_path=events_path, state=current_state, observation=current_observation,
         instructions=parsed_turn.get("instructions"),
         session_text=normalized_transcript,
         pending_tool_calls=parsed_turn.get("pending_tools"),
         generate=generate_state_packet, execute_call=execute_call,
+        message_id=inferred_message_id,
     )
     if result["phase"] == "infer":
         prior_state_number = parsed_turn.get("state_number", 1)
@@ -570,6 +612,16 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             pending_tools=tool_calls,
             state_number=prior_state_number + 1,
         )
+        if not preview and not preview_response:
+            inferred_parsed = parse_transcript(rendered)
+            if inferred_parsed:
+                inferred_turn = dict(inferred_parsed[0])
+                inferred_turn["id"] = inferred_message_id
+                materialize_state_turns(
+                    events_path=events_path,
+                    unmaterialized_turns=[inferred_turn],
+                    parent_id=current_state_message_id,
+                )
         transcript = normalized_transcript
         prefix = ""
         if transcript and not transcript.endswith(("\n", "\r")):

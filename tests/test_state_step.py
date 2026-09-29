@@ -18,11 +18,14 @@ from toas.runtime.state_step import (
     build_state_step_packet,
     condense_inert_blocks,
     expand_inert_blocks,
+    find_lineage_state_snapshot,
     initial_state,
     is_state_turn_marker,
+    materialize_state_turns,
     observation_with_user_turns,
     parse_state_turn,
     partition_state_transcript,
+    reconcile_state_lineage,
     render_state_turn,
     seed_state_turn,
     state_records,
@@ -546,4 +549,71 @@ def test_build_state_step_packet_expands_condensed_inert_references(tmp_path):
     assert "Line A" in projected_content
     assert "Line B" in projected_content
     assert "(ref: ib_testblock123456)" not in projected_content
+
+
+def test_reconcile_state_lineage_and_materialize(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    transcript_turns = [
+        {"role": "user", "content": "hello"},
+        {"role": "state", "content": "state: {goal: step1}"},
+    ]
+
+    # Empty history: everything up to state_index=1 is unmaterialized
+    recon = reconcile_state_lineage(
+        events=[],
+        transcript_turns=transcript_turns,
+        state_index=1,
+    )
+    assert recon.lcp == 0
+    assert recon.best_head_id is None
+    assert len(recon.unmaterialized_turns) == 2
+    assert recon.parent_id is None
+
+    # Materialize them
+    materialized = materialize_state_turns(
+        events_path=events_path,
+        unmaterialized_turns=recon.unmaterialized_turns,
+        parent_id=recon.parent_id,
+    )
+    assert len(materialized) == 2
+    assert materialized[0]["role"] == "user"
+    assert materialized[1]["role"] == "state"
+    assert materialized[1]["parent"] == materialized[0]["id"]
+
+    # Reconcile again with the newly written events: 100% LCP match
+    from toas.graph import read_log
+    new_events = read_log(str(events_path))
+    recon2 = reconcile_state_lineage(
+        events=new_events,
+        transcript_turns=transcript_turns,
+        state_index=1,
+    )
+    assert recon2.lcp == 2
+    assert recon2.unmaterialized_turns == []
+    assert recon2.parent_id == materialized[1]["id"]
+
+
+def test_find_lineage_state_snapshot_respects_branch_lineage(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    from toas.graph import append_state_step_records
+
+    # Branch A: state_snapshot st_a linked to message n1
+    # Branch B: state_snapshot st_b linked to message n2 (appended later)
+    records = [
+        {"kind": "state_snapshot", "transition_id": "st_a", "state": {"goal": "branch_a"}, "message_id": "n1"},
+        {"kind": "state_snapshot", "transition_id": "st_b", "state": {"goal": "branch_b"}, "message_id": "n2"},
+    ]
+    append_state_step_records(str(events_path), records)
+
+    # Lineage specifying branch A must find branch A's snapshot, not branch B
+    lineage_a = [{"id": "n1", "role": "state", "content": "state: {goal: branch_a}"}]
+    snap = find_lineage_state_snapshot(
+        events_path=events_path,
+        lineage=lineage_a,
+    )
+    assert snap is not None
+    assert snap["state"] == {"goal": "branch_a"}
+
 

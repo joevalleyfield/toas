@@ -366,10 +366,10 @@ continuation, and authority concerns without reopening completed slices.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260929-state-seed-stdout]** Emit State Seed To Stdout Without Assuming Session Path
+- **[T260929-state-lineage-and-lcp-alignment]** Integrate `STATE` and `STATE-DIFF` turns into the durable message DAG in `events.jsonl` so that state turns participate in graph lineage, head trackin...
 - **[T260929-align-state-execution-experiment-test-expectations]** Align State Execution Experiment Test Expectations
 - **[T260928-state-edit-and-user-tools]** User-Authored State Editing And Tool Calls
 - **[T260927-state-step-response-shapes]** Use unaltered response previews to learn which response forms the model naturally produces under the current lightweight instructions. Treat repeated ...
-- **[T260927-state-step-request-preview]** Provide a no-generation invocation of `step` that constructs and prints the request messages that state-step inference would hand to the model-generat...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

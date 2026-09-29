@@ -39,7 +39,7 @@ def lineage_or_message_events(
 def project_llm_input_from_messages(messages: list[dict]) -> list[dict]:
     projected: list[dict[str, str]] = []
     for message in messages:
-        if message["role"] == "control":
+        if message["role"] in {"control", "state", "state-diff"}:
             continue
         content = message["content"]
         if message["role"] == "assistant":

@@ -105,12 +105,14 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     out3 = capsys.readouterr().out
     session.write_text(session.read_text() + out3)
     records = read_log(str(events_path))
-    assert [record["kind"] for record in records[2:]] == [
+    state_kinds = [record["kind"] for record in records if "kind" in record]
+    assert state_kinds[2:] == [
         "state_transition", "state_diff", "state_snapshot", "state_observation", "state_tool_request",
         "state_transition", "state_tool_result", "state_transition",
         "state_transition", "state_diff", "state_snapshot", "state_observation",
     ]
-    assert not any("role" in record for record in records)
+    message_roles = [record["role"] for record in records if "role" in record]
+    assert "state" in message_roles
     assert packets[-1]["observation"]["tool_outcomes"][0]["status"] == "completed"
 
 
@@ -569,4 +571,239 @@ def test_state_step_progresses_ordinal_and_preserves_unfolding_history(monkeypat
     parsed3 = parse_state_turn(session_after_step3)
     assert parsed3["state_number"] == 3
     assert parsed3["state"]["progress"] == ["found task", "read task"]
+
+
+def test_state_step_materializes_state_turns_and_participates_in_heads_and_project_transcript(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    session.write_text(
+        "## TOAS:USER\n\nHello there\n\n"
+        "## TOAS:STATE/1\n\nstate:\n  goal: research\n  progress: []\n"
+    )
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        resolve_session_path=lambda _events: session,
+        read_text_preserve_newlines=lambda path: path.read_text() if path.exists() else "",
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+
+    def generate(packet):
+        return {
+            "content": json.dumps({
+                "state_patch": {"progress": ["reading"]},
+                "tool_calls": [],
+            })
+        }
+
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (config, {}, SimpleNamespace(generate_state_packet=generate), {}),
+    )
+
+    cli_session_commands.run_step(session_path=str(session))
+    out = capsys.readouterr().out
+    session.write_text(session.read_text() + "\n\n" + out)
+
+    records = read_log(str(events_path))
+    message_events = [r for r in records if "role" in r]
+    assert len(message_events) == 3
+    assert message_events[0]["id"] == "n1"
+    assert message_events[0]["role"] == "user"
+    assert message_events[0]["parent"] is None
+    assert message_events[0]["content"] == "Hello there"
+
+    assert message_events[1]["id"] == "n2"
+    assert message_events[1]["role"] == "state"
+    assert message_events[1]["parent"] == "n1"
+
+    assert message_events[2]["id"] == "n3"
+    assert message_events[2]["role"] == "state"
+    assert message_events[2]["parent"] == "n2"
+
+    from toas.graph import list_heads, project_transcript
+    heads = list_heads(records)
+    assert len(heads) == 1
+    assert heads[0]["id"] == "n3"
+
+    projected = project_transcript(records, head_id="n3")
+    assert "## TOAS:USER\n\nHello there" in projected
+    assert "## TOAS:STATE/1" in projected
+    assert "## TOAS:STATE/2" in projected
+
+    from toas.graph_message_edges import project_llm_input_from_messages
+    llm_input = project_llm_input_from_messages(message_events)
+    # State turns are excluded from conversational LLM inputs
+    assert [m["role"] for m in llm_input] == ["user"]
+    assert llm_input[0]["content"] == "Hello there"
+
+
+def test_state_diff_resolves_base_snapshot_from_branch_lineage(monkeypatch, tmp_path):
+    from toas.graph import write_message_events, append_state_step_records
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    # Pre-populate DAG in events.jsonl:
+    # Root n1 (user)
+    # Branch A: n2 (state, goal: A, count: 1)
+    # Branch B: n3 (state, goal: B, count: 10) diverging from n1
+    write_message_events(str(events_path), [
+        {"id": "n1", "parent": None, "role": "user", "content": "start"},
+        {"id": "n2", "parent": "n1", "role": "state", "content": "state: {goal: A, count: 1}", "metadata": {"marker": "TOAS:STATE/1"}},
+        {"id": "n3", "parent": "n1", "role": "state", "content": "state: {goal: B, count: 10}", "metadata": {"marker": "TOAS:STATE/1"}},
+    ])
+    append_state_step_records(str(events_path), [
+        {"kind": "state_snapshot", "transition_id": "st_a", "state": {"goal": "A", "count": 1}, "message_id": "n2"},
+        {"kind": "state_snapshot", "transition_id": "st_b", "state": {"goal": "B", "count": 10}, "message_id": "n3"},
+    ])
+
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:STATE/1\n\nstate: {goal: A, count: 1}\n\n"
+        "## TOAS:STATE-DIFF/2\n\nstate_patch:\n  count: 2\n"
+    )
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        resolve_session_path=lambda _events: session,
+        read_text_preserve_newlines=lambda path: path.read_text() if path.exists() else "",
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+
+    captured_packet = {}
+    def generate(packet):
+        captured_packet.update(packet)
+        return {"content": json.dumps({"state_patch": {}, "tool_calls": []})}
+
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (config, {}, SimpleNamespace(generate_state_packet=generate), {}),
+    )
+
+    cli_session_commands.run_step(session_path=str(session))
+
+    # Base snapshot was resolved from Branch A (n2: {"goal": "A", "count": 1}), NOT Branch B (n3: {"goal": "B", "count": 10})
+    assert captured_packet["state"] == {"goal": "A", "count": 2}
+
+
+def test_state_branching_from_prior_state_creates_dag_branch_without_mutation(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    session.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:STATE/1\n\nstate:\n  goal: original\n  progress: []\n"
+    )
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        resolve_session_path=lambda _events: session,
+        read_text_preserve_newlines=lambda path: path.read_text() if path.exists() else "",
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+
+    call_index = 0
+    def generate(packet):
+        nonlocal call_index
+        call_index += 1
+        goal = packet["state"]["goal"]
+        return {"content": json.dumps({"state_patch": {"progress": [f"step_{goal}"]}, "tool_calls": []})}
+
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (config, {}, SimpleNamespace(generate_state_packet=generate), {}),
+    )
+
+    # Step 1 on Branch A
+    cli_session_commands.run_step(session_path=str(session))
+    out1 = capsys.readouterr().out
+    session.write_text(session.read_text() + "\n\n" + out1)
+
+    from toas.graph import list_heads, project_transcript
+    heads1 = list_heads(read_log(str(events_path)))
+    assert len(heads1) == 1
+    branch_a_head = heads1[0]["id"]
+
+    # Now simulate user editing session.md back to STATE/1 with an alternative goal:
+    session.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:STATE/1\n\nstate:\n  goal: alternative\n  progress: []\n"
+    )
+
+    # Step 2 on Branch B
+    cli_session_commands.run_step(session_path=str(session))
+    out2 = capsys.readouterr().out
+    session.write_text(session.read_text() + "\n\n" + out2)
+
+    records = read_log(str(events_path))
+    heads2 = list_heads(records)
+    assert len(heads2) == 2
+    head_ids = {h["id"] for h in heads2}
+    assert branch_a_head in head_ids
+    branch_b_head = (head_ids - {branch_a_head}).pop()
+
+    # Project Branch A: intact and unchanged
+    proj_a = project_transcript(records, head_id=branch_a_head)
+    assert "goal: original" in proj_a
+    assert "step_original" in proj_a
+
+    # Project Branch B: has alternative branch content
+    proj_b = project_transcript(records, head_id=branch_b_head)
+    assert "goal: alternative" in proj_b
+    assert "step_alternative" in proj_b
+
 
