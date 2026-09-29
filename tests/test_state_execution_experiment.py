@@ -213,8 +213,8 @@ def test_invalid_response_retried_and_action_failure_is_observed(tmp_path):
     result = run_episode(root, fixture, adapter, mode="state_only", max_turns=3, max_retries=1)
     assert result["invalid_proposals"] == 1
     assert "Corrective observation" in adapter.captured[1]["messages"][0]["content"]
-    assert "Action failed" in adapter.captured[2]["messages"][0]["content"]
-    assert result["captures"][1]["action_error"].startswith("Action failed")
+    assert "Tool 1 (read) failed" in adapter.captured[2]["messages"][0]["content"]
+    assert result["captures"][1]["action_error"].startswith("ValueError: path escapes fixture root")
     assert result["captures"][1]["action_duration_ms"] >= 0
 
 
@@ -254,7 +254,8 @@ def test_empty_continuation_does_not_replay_previous_result(tmp_path):
     )
     run_episode(root, fixture, adapter, mode="state_only", max_turns=3)
     packet = json.loads(adapter.captured[2]["messages"][0]["content"])
-    assert packet["latest_observation"] == ""
+    assert packet["latest_observation"] == "Tool 1 (continue) result:\n"
+    assert "Working copy changes:" not in packet["latest_observation"]
 
 
 @pytest.mark.skipif(shutil.which("jj") is None, reason="real jj fixture requires jj executable")

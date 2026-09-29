@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-28
+> **Last Sync:** 2026-09-29
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -256,7 +256,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... ⚠️ Stale
-- **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin...
+- **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... ⚠️ Stale
 - **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri... ⚠️ Stale
 - **[T260811-activity-health-telemetry]** Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... ⚠️ Stale
 - **[T260813-transcript-highlighting-design]** Explore a role-aware syntax-highlighting model for TOAS transcripts in Vim. The transcript remains an ordinary Markdown document, but its role heading... ⚠️ Stale
@@ -265,7 +265,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ... ⚠️ Stale
 - **[T260825-visible-transcript-turn-ids]** Define a general transcript-facing way to display stable turn identifiers that are normally excluded from the LLM message projection, so users and edi... ⚠️ Stale
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context. ⚠️ Stale
-- **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered...
+- **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered... ⚠️ Stale
 - **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
@@ -363,11 +363,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260929-align-state-execution-experiment-test-expectations]** Align State Execution Experiment Test Expectations
 - **[T260928-state-edit-and-user-tools]** User-Authored State Editing And Tool Calls
 - **[T260927-state-step-response-shapes]** Use unaltered response previews to learn which response forms the model naturally produces under the current lightweight instructions. Treat repeated ...
 - **[T260927-state-step-request-preview]** Provide a no-generation invocation of `step` that constructs and prints the request messages that state-step inference would hand to the model-generat...
 - **[T260927-state-step-raw-response]** Add a model-response preview alongside the request preview. `toas step --preview-request` prints the request without calling the model; `toas step --p...
-- **[T260927-state-step-normalize-call-shapes]** Normalize tool-call shapes observed in raw state-step model responses through TOAS's shared tool-plan canonicalizer before accepting or executing the ...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
