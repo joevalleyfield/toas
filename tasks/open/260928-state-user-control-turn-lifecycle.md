@@ -116,3 +116,20 @@ user-intent authority regardless of whether they appear in `USER` or
 
 Status: Active; initial projection and frontier behavior are ready for
 implementation. Structured field mappings remain deferred.
+
+## Progress
+
+- State-step routing now recognizes typed states even when USER/CONTROL turns
+  follow them. Trailing role turns are parsed and retained as transcript text.
+- USER text is consolidated into separate `user_inputs` observation components
+  before inference. CONTROL text is omitted from the model-facing observation.
+- A later explicit inference step receives those observations through the
+  state-only packet and may update `goal` through its ordinary state patch.
+- Markdown state parsing now finds the outer YAML fence even when a serialized
+  tool result contains its own fenced output.
+- Focused state-step and CLI state-step coverage passes (33 tests). The
+  elevated full suite improved from 14 to 11 failures: the state-step failures
+  in the baseline are fixed; remaining failures are the existing CLI dispatch
+  expectations and state-execution experiment assertions.
+- Durable resolution of slash-command and other direct-action consequences
+  remains to be implemented; this task is still active.

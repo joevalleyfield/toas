@@ -92,7 +92,9 @@ def parse_state_turn(text: str) -> dict[str, Any]:
     body = "".join(lines[start + 1 : suffix_start]).strip()
     format_name = "markdown" if body.startswith("```yaml") else "yaml"
     if body.startswith("```yaml"):
-        body = body[len("```yaml") :].split("```", 1)[0]
+        closing_fence = body.rfind("\n```")
+        if closing_fence >= 0:
+            body = body[len("```yaml") : closing_fence]
     try:
         payload = yaml.safe_load(body) or {}
     except yaml.YAMLError as exc:
@@ -114,6 +116,19 @@ def parse_state_turn(text: str) -> dict[str, Any]:
     payload["format"] = format_name
     payload["_transcript_prefix"] = "".join(lines[:start])
     payload["_transcript_suffix"] = "".join(lines[suffix_start:])
+    suffix = payload["_transcript_suffix"]
+    if suffix.strip():
+        from ..transcript import parse_transcript
+
+        try:
+            payload["_input_turns"] = [
+                turn for turn in parse_transcript(suffix)
+                if turn["role"] in {"user", "control"}
+            ]
+        except ValueError as exc:
+            raise ValueError(f"invalid state-step input turn: {exc}") from exc
+    else:
+        payload["_input_turns"] = []
     return payload
 
 
@@ -229,15 +244,53 @@ def _operator_observation(value: Any) -> Any:
     return value
 
 
+def _user_observation_inputs(value: Any) -> list[dict[str, str]]:
+    if isinstance(value, dict) and value.get("kind") == "toas.compound-observation/1":
+        inputs = value.get("user_inputs")
+        if isinstance(inputs, list):
+            return [item for item in inputs if isinstance(item, dict)]
+    return []
+
+
+def observation_with_user_turns(
+    observation: Any, turns: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Project trailing USER turns into one observation envelope."""
+    inputs = [
+        {"content": turn["content"]}
+        for turn in turns
+        if turn.get("role") == "user" and isinstance(turn.get("content"), str)
+    ]
+    result = {
+        "kind": "toas.compound-observation/1",
+        "operator_observation": _operator_observation(observation),
+        "tool_outcomes": (
+            observation.get("tool_outcomes", [])
+            if isinstance(observation, dict)
+            and observation.get("kind") == "toas.compound-observation/1"
+            else []
+        ),
+    }
+    previous_inputs = _user_observation_inputs(observation)
+    combined_inputs = [*previous_inputs, *inputs]
+    if combined_inputs:
+        result["user_inputs"] = combined_inputs
+    return result
+
+
 def transcript_observation_with_tool_outcomes(
-    operator_observation: Any, outcomes: list[dict]
+    operator_observation: Any, outcomes: list[dict],
 ) -> dict[str, Any]:
     """Return the editable observation envelope shown after batch execution."""
-    return {
+    result = {
         "kind": "toas.compound-observation/1",
         "operator_observation": _operator_observation(operator_observation),
         "tool_outcomes": outcomes,
     }
+    user_inputs = _user_observation_inputs(operator_observation)
+    if user_inputs:
+        result["user_inputs"] = user_inputs
+    return result
 
 
 def _compound_observation(records: list[dict], operator_observation: Any) -> dict[str, Any]:
@@ -274,10 +327,14 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
                 and record.get("transition_id") == transition_id
             ]
             break
-    return {
+    result = {
         "operator_observation": _operator_observation(operator_observation),
         "tool_outcomes": outcomes,
     }
+    user_inputs = _user_observation_inputs(operator_observation)
+    if user_inputs:
+        result["user_inputs"] = user_inputs
+    return result
 
 
 def build_state_step_packet(
@@ -625,6 +682,9 @@ def step_state(
             "operator_observation": _operator_observation(observation),
             "tool_outcomes": [*carried["tool_outcomes"], *outcomes],
         }
+        user_inputs = _user_observation_inputs(observation)
+        if user_inputs:
+            compound["user_inputs"] = user_inputs
         append_state_step_records(
             path,
             [{"kind": "state_observation", "transition_id": transition_id, "observation": compound}],
@@ -672,12 +732,6 @@ def step_state(
         error = "state-step response requires an object state_patch and an array of tool_calls"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
         raise ValueError(error)
-    try:
-        calls = _normalize_tool_call_aliases(calls)
-    except ValueError as exc:
-        error = str(exc)
-        _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
-        raise ValueError(error) from exc
     if outcome not in {"continue", "complete"}:
         error = "state-step outcome must be 'continue' or 'complete'"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
@@ -686,6 +740,12 @@ def step_state(
         error = "terminal state-step response cannot request tool calls"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
         raise ValueError(error)
+    try:
+        calls = _normalize_tool_call_aliases(calls)
+    except ValueError as exc:
+        error = str(exc)
+        _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
+        raise ValueError(error) from exc
     accepted = _merge_patch(state, patch)
     status = "pending" if calls else "completed"
     transition = {

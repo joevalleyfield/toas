@@ -29,6 +29,22 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
         seeded["_transcript_prefix"]
         + render_state_turn(state, observation={"content": "begin"}, format="markdown")
     )
+    append_state_step_records(
+        str(events_path),
+        [
+            {"kind": "state_snapshot", "transition_id": "st0", "state": state},
+            {
+                "kind": "state_observation",
+                "transition_id": "st0",
+                "observation": {
+                    "kind": "toas.compound-observation/1",
+                    "operator_observation": {"content": "begin"},
+                    "tool_outcomes": [],
+                },
+            },
+        ],
+    )
+    (tmp_path / "later.txt").write_text("later", encoding="utf-8")
     monkeypatch.setattr(
         cli_session_commands,
         "_prepare_session_transcript",
@@ -47,7 +63,7 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     def generate(packet):
         packets.append(packet)
         if len(packets) == 1:
-            return {"content": '{"state_patch":{"progress":["started"]},"tool_calls":[{"tool_name":"echo","args":{"text":"later"}}]}'}
+            return {"content": '{"state_patch":{"progress":["started"]},"tool_calls":[{"tool_name":"read_file","args":{"path":"later.txt"}}]}'}
         return {"content": '{"state_patch":{},"tool_calls":[]}'}
 
     config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
@@ -65,13 +81,72 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     cli_session_commands.run_step(session_path=str(session))
     cli_session_commands.run_step(session_path=str(session))
     records = read_log(str(events_path))
-    assert [record["kind"] for record in records] == [
+    assert [record["kind"] for record in records[2:]] == [
         "state_transition", "state_diff", "state_snapshot", "state_observation", "state_tool_request",
         "state_transition", "state_tool_result", "state_transition",
         "state_transition", "state_diff", "state_snapshot", "state_observation",
     ]
     assert not any("role" in record for record in records)
     assert packets[-1]["observation"]["tool_outcomes"][0]["status"] == "completed"
+
+
+def test_user_turn_after_state_is_consolidated_as_observation_before_inference(monkeypatch, tmp_path):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate: {goal: inspect, progress: []}\n\n"
+        "## TOAS:USER\n\nRead the project manifest.\n"
+    )
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: [])
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+    packets = []
+
+    def generate(packet):
+        packets.append(packet)
+        return {"content": '{"state_patch":{"goal":"updated by model"},"tool_calls":[]}'}
+
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (config, {}, SimpleNamespace(generate_state_packet=generate), {}),
+    )
+
+    cli_session_commands.run_step(session_path=str(session))
+
+    accepted = parse_state_turn(session.read_text())
+    assert accepted["state"] == {"goal": "inspect", "progress": []}
+    assert accepted["observation"]["user_inputs"] == [
+        {"content": "Read the project manifest."}
+    ]
+    assert "## TOAS:USER\n\nRead the project manifest." in session.read_text()
+
+    cli_session_commands.run_step(session_path=str(session))
+
+    assert packets[0]["observation"]["user_inputs"] == [
+        {"content": "Read the project manifest."}
+    ]
+    assert parse_state_turn(session.read_text())["state"]["goal"] == "updated by model"
 
 
 @pytest.mark.parametrize(

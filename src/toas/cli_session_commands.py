@@ -197,7 +197,7 @@ def run_step(
         for line in normalized_transcript.splitlines()
         if line.startswith("## TOAS:")
     ]
-    if transcript_markers and transcript_markers[-1] in {STATE_MARKER, STATE_DIFF_MARKER}:
+    if any(marker in {STATE_MARKER, STATE_DIFF_MARKER} for marker in transcript_markers):
         _run_state_step(
             deps=deps,
             events_path=events_path,
@@ -317,6 +317,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         render_state_turn,
         step_state,
         transcript_observation_with_tool_outcomes,
+        observation_with_user_turns,
         user_state_edit_needed,
     )
 
@@ -327,12 +328,18 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         if not snapshots:
             raise ValueError("state-diff turn has no earlier accepted state snapshot")
         current_state = _merge_patch(snapshots[-1]["state"], parsed_turn["state_patch"])
+    input_turns = parsed_turn.get("_input_turns", [])
+    current_observation = observation_with_user_turns(
+        parsed_turn.get("observation"), input_turns
+    ) if input_turns else parsed_turn.get("observation")
     is_user_edit = user_state_edit_needed(
         events_path=events_path,
         state=current_state,
-        observation=parsed_turn.get("observation"),
-        has_user_tool_calls="user_tool_calls" in parsed_turn,
-    )
+        observation=current_observation,
+        has_user_tool_calls=(
+            "user_tool_calls" in parsed_turn or bool(input_turns)
+        ),
+    ) or bool(input_turns)
     request = None
     if preview or preview_response:
         if is_user_edit:
@@ -356,7 +363,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                 "phase": "consolidate_user",
                 "status": "would_accept_user_edits",
                 "state": current_state,
-                "observation": parsed_turn.get("observation"),
+                "observation": current_observation,
                 "user_tool_calls": parsed_turn.get("user_tool_calls", []),
                 "next_phase": "infer on the following explicit step",
             }, ensure_ascii=False, indent=2))
@@ -364,7 +371,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         request = preview_state_request(
             events_path=events_path,
             state=current_state,
-            observation=parsed_turn.get("observation"),
+            observation=current_observation,
             instructions=parsed_turn.get("instructions"),
         )
         if request.get("phase") != "infer":
@@ -435,16 +442,19 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         )
 
     result = step_state(
-        events_path=events_path, state=current_state, observation=parsed_turn.get("observation"),
+        events_path=events_path, state=current_state, observation=current_observation,
         instructions=parsed_turn.get("instructions"),
         user_tool_calls=parsed_turn.get("user_tool_calls"),
-        user_turn_digest=hashlib.sha256(normalized_transcript.encode("utf-8")).hexdigest() if is_user_edit else None,
+        user_turn_digest=(
+            hashlib.sha256(normalized_transcript.encode("utf-8")).hexdigest()
+            if is_user_edit else None
+        ),
         generate=generate_state_packet, execute_call=execute_call,
         execute_user_call=execute_user_call,
     )
     if result["phase"] == "infer":
         rendered = render_state_turn(
-            result["state"], observation=parsed_turn.get("observation"),
+            result["state"], observation=current_observation,
             format=parsed_turn.get("format", "yaml"),
             instructions=parsed_turn.get("instructions"),
             user_tool_calls=parsed_turn.get("user_tool_calls"),
@@ -461,7 +471,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         )
     elif result["phase"] == "execute_batch":
         observation = transcript_observation_with_tool_outcomes(
-            parsed_turn.get("observation"), result.get("outcomes", [])
+            current_observation, result.get("outcomes", [])
         )
         rendered = render_state_turn(
             result["state"], observation=observation,
@@ -480,7 +490,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         )
     elif result["phase"] == "consolidate_user":
         rendered = render_state_turn(
-            result["state"], observation=result.get("observation"),
+            result["state"], observation=result.get("observation", current_observation),
             format=parsed_turn.get("format", "yaml"),
             instructions=parsed_turn.get("instructions"),
         )

@@ -16,6 +16,7 @@ from toas.runtime.model_invocation_contracts import resolve_model_invocation
 from toas.runtime.state_step import (
     ToolOutcomeError,
     initial_state,
+    observation_with_user_turns,
     parse_state_turn,
     render_state_turn,
     seed_state_turn,
@@ -46,6 +47,24 @@ def test_parser_selects_latest_state_turn_and_preserves_surrounding_conversation
     assert parsed["state"] == {"goal": "current"}
     assert parsed["_transcript_prefix"].startswith("## TOAS:USER")
     assert parsed["_transcript_suffix"].strip().startswith("## TOAS:USER")
+
+
+def test_state_turn_collects_trailing_user_and_control_turns():
+    transcript = (
+        "## TOAS:STATE/1\n\nstate: {goal: inspect}\n\n"
+        "## TOAS:USER\n\nRead the manifest.\n\n"
+        "## TOAS:CONTROL\n\n/queue approve q1\n"
+    )
+
+    parsed = parse_state_turn(transcript)
+    observation = observation_with_user_turns(parsed.get("observation"), parsed["_input_turns"])
+
+    assert parsed["_input_turns"] == [
+        {"role": "user", "content": "Read the manifest."},
+        {"role": "control", "content": "/queue approve q1"},
+    ]
+    assert observation["user_inputs"] == [{"content": "Read the manifest."}]
+    assert "/queue approve q1" not in str(observation)
 
 
 def test_state_diff_turn_round_trips(format="markdown"):
@@ -345,7 +364,13 @@ def test_failed_tool_call_is_recorded_and_later_calls_are_not_started(tmp_path):
         events_path=events,
         state={},
         observation=None,
-        generate=lambda _p: {"content": '{"state_patch":{},"tool_calls":[{},{}]}'},
+        generate=lambda _p: {
+            "content": (
+                '{"state_patch":{},"tool_calls":['
+                '{"tool_name":"read_file","args":{"path":"first.txt"}},'
+                '{"tool_name":"read_file","args":{"path":"second.txt"}}]}'
+            )
+        },
         execute_call=lambda _c: None,
     )
     calls = []
