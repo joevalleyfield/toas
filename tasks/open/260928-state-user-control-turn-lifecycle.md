@@ -41,6 +41,11 @@ For the initial frontier rule, one explicit `step` resolves all contiguous
 and provenance while producing one next state. Separate USER contents remain
 separate observation components; control text itself is not projected.
 
+Slash-command extraction and dispatch happen while resolving the USER or
+CONTROL input turn that contains the command. A slash-looking line inside a
+STATE turn is state content; it must not be extracted or executed as an
+operator command.
+
 The effective instructions remain the procedure boundary. The model may
 propose changes to any mutable state field, including `goal`; accepting a goal
 update through the existing state-patch path is an intentional extension from
@@ -59,8 +64,10 @@ user-intent authority regardless of whether they appear in `USER` or
   message-only parser and reject `STATE/n` as an invalid role marker.
 - Define and implement how the frontier resolver handles a state followed by
   one or more user/control turns, including state edits, prose, slash commands,
-  and user-authored tool calls. Slash commands and authored calls in either
-  role remain direct user intent; ordinary prose is not executable intent.
+  and user-authored tool calls. Extract and dispatch slash commands only from
+  USER/CONTROL input turns; never scan STATE content for executable commands.
+  Slash commands and authored calls in either input role remain direct user
+  intent; ordinary prose is not executable intent.
   Keep the operation explicit and user-stepped;
   inference and tool execution must not become a hidden loop.
 - Preserve the original turns and append a resulting state turn with enough
@@ -92,6 +99,7 @@ user-intent authority regardless of whether they appear in `USER` or
 - `/` commands and authored tool calls can occur in either role and follow the
   same direct-user-intent execution authority. Other user-authored content can
   occur in either role without becoming executable merely because of its role.
+  A command-looking line in a STATE turn is never executed as a slash command.
   Command/tool consequences are recorded and correlated with the source turn.
 - `USER` content is included in the next state-only model request through its
   compound observation; it is not also replayed as a conversation message.
@@ -119,6 +127,9 @@ implementation. Structured field mappings remain deferred.
 
 ## Progress
 
+- Claimed for implementation on 2026-09-29; slash commands are being wired to
+  USER/CONTROL input-turn resolution, with STATE content excluded from command
+  extraction.
 - State-step routing now recognizes typed states even when USER/CONTROL turns
   follow them. Trailing role turns are parsed and retained as transcript text.
 - USER text is consolidated into separate `user_inputs` observation components
