@@ -6,7 +6,8 @@ import pytest
 from toas import cli_session_commands
 from toas.graph import append_state_step_records, read_log
 from toas.runtime.result_nodes import make_result_node
-from toas.runtime.state_step import parse_state_turn, render_state_turn
+from toas.runtime.state_step import parse_state_turn, render_state_turn, partition_state_transcript
+from toas.transcript import render_transcript
 
 
 def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch, tmp_path, capsys):
@@ -29,9 +30,10 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     seeded = parse_state_turn(session.read_text())
     state = dict(seeded["state"])
     state["goal"] = "inspect"
+    prefix_turns, _state_turn, _suffix = partition_state_transcript(session.read_text())
+    prefix = (render_transcript(prefix_turns, spaced=True) + "\n\n") if prefix_turns else ""
     session.write_text(
-        seeded["_transcript_prefix"]
-        + render_state_turn(state, observation={"content": "begin"}, format="markdown")
+        prefix + render_state_turn(state, observation={"content": "begin"}, format="markdown")
     )
     append_state_step_records(
         str(events_path),
@@ -158,7 +160,7 @@ def test_user_turn_after_state_is_inferred_directly_when_frontier_is_non_executa
         "_resolve_state_input_turns",
         lambda **kwargs: (
             kwargs["normalized_transcript"],
-            kwargs["parsed_turn"],
+            kwargs.get("input_turns", []),
             [],
             False,
         ),
@@ -230,19 +232,18 @@ def test_appended_user_and_control_intents_use_normal_frontier_and_embed_results
     monkeypatch.setattr(step_runtime, "_frontier_has_callable_intent", lambda **_kwargs: True)
     monkeypatch.setattr(cli_session_commands, "_persist_step_outputs", lambda **_kwargs: None)
 
-    updated, resolved_turn, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
+    updated, resolved_input_turns, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
         deps=deps,
         events_path=events_path,
         session_path=session,
         session_newline="\n",
         normalized_transcript=transcript,
-        parsed_turn=parsed,
     )
 
     assert intent_resolved is True
     assert [role for _text, role in calls] == ["user", "control"]
     assert "## TOAS:STATE/1" not in calls[0][0]
-    turns = resolved_turn["_input_turns"]
+    turns = resolved_input_turns
     assert len(turns) == 4
     assert turns[0]["role"] == "user" and turns[0]["content"] == "/help"
     assert turns[1]["role"] == "user" and "result from user" in turns[1]["content"]
@@ -290,18 +291,17 @@ def test_resolved_user_intent_does_not_reexecute_on_subsequent_step(monkeypatch,
         lambda **_kwargs: (object(), {}, SimpleNamespace(generate=lambda _messages: None), {}),
     )
 
-    updated, resolved_turn, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
+    updated, resolved_input_turns, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
         deps=deps,
         events_path=events_path,
         session_path=session,
         session_newline="\n",
         normalized_transcript=transcript,
-        parsed_turn=parsed,
     )
 
     assert intent_resolved is False
     assert updated == transcript
-    assert len(resolved_turn["_input_turns"]) == 2
+    assert len(resolved_input_turns) == 2
 
 
 def test_plain_user_observation_does_not_enter_conversation_step_runtime(monkeypatch, tmp_path):
@@ -315,7 +315,6 @@ def test_plain_user_observation_does_not_enter_conversation_step_runtime(monkeyp
         "## TOAS:USER\n\nRead the project manifest.\n"
     )
     session.write_text(transcript)
-    parsed = parse_state_turn(transcript)
     config = object()
     monkeypatch.setattr(
         cli_session_commands,
@@ -338,13 +337,12 @@ def test_plain_user_observation_does_not_enter_conversation_step_runtime(monkeyp
         raise AssertionError("plain state observation must not enter conversation inference")
 
     deps = SimpleNamespace(step_fn=unexpected_conversation_step)
-    _updated, _parsed, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
+    _updated, _resolved_inputs, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
         deps=deps,
         events_path=events_path,
         session_path=session,
         session_newline="\n",
         normalized_transcript=transcript,
-        parsed_turn=parsed,
     )
 
     assert intent_resolved is False
@@ -410,15 +408,9 @@ def test_state_diff_step_executes_pending_plan_through_existing_capability_adapt
         deps=deps,
         events_path=events_path,
         session_path=session,
-        normalized_transcript="state diff",
+        normalized_transcript="## TOAS:STATE-DIFF/1\n\n```yaml\nstate_patch:\n  progress:\n    - read\nobservation: run\n```\n",
         session_newline="\n",
         events=[],
-        parsed_turn={
-            "turn_type": "state_diff",
-            "state_patch": {"progress": ["read"]},
-            "observation": "run",
-            "format": "yaml",
-        },
     )
     assert calls[0][0] == [{"tool_name": "echo", "args": {"text": "go"}}]
     assert calls[0][1]["shell_allowed_commands"] == ("echo",)
@@ -432,10 +424,9 @@ def test_state_diff_requires_a_prior_accepted_snapshot(tmp_path):
             deps=SimpleNamespace(),
             events_path=events_path,
             session_path=tmp_path / "session.md",
-            normalized_transcript="state diff",
+            normalized_transcript="## TOAS:STATE-DIFF/1\n\n```yaml\nstate_patch: {}\n```\n",
             session_newline="\n",
             events=[],
-            parsed_turn={"turn_type": "state_diff", "state_patch": {}, "observation": None},
         )
 
 

@@ -67,9 +67,14 @@ turns as an isolated parallel universe.
   - `render_transcript` uses explicit `marker` when present to preserve exact authored decorations, falling back to canonical markers.
   - `parse_transcript` emits canonical `role: "state"` / `role: "state-diff"`, storing `marker` only when non-canonical decorations are present.
 - Updated `src/toas/runtime/state_step.py`:
-  - `parse_state_turn` delegates to `parse_transcript` and `render_transcript` rather than doing manual whole-buffer string slicing and regex scanning.
-- Verification:
+  - Added `partition_state_transcript` to partition document turn sequences into prefix turns, the target state turn, and trailing suffix turns.
+  - Refactored `parse_state_turn` to be strictly a turn-level schema decoder for state YAML/Markdown payloads (accepting a turn dict or state turn content), eliminating document-level metadata fields (`_transcript_prefix`, `_transcript_suffix`, `_input_turns`).
+- Updated `src/toas/cli_session_commands.py`:
+  - Removed `_state_free_transcript`.
+  - Refactored `run_step` and `_run_state_step` to handle document-level turn partitioning and pass turn lists to `_resolve_state_input_turns`.
+- Tests and verification:
   - 100% targeted test coverage on `toas.transcript`.
-  - All 42 state-step tests in `test_state_step.py` and `test_cli_session_commands_state_step.py` pass.
+  - All 42 state-step tests in `test_state_step.py` and `test_cli_session_commands_state_step.py` updated to adhere to the clean flow and passing.
   - Full repo test suite (3,362 tests) passes cleanly.
+
 

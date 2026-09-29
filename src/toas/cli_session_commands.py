@@ -185,17 +185,12 @@ def run_step(
         control=control,
         session_path=session_path,
     )
-    from .runtime.state_step import (
-        is_state_turn_marker,
-        parse_state_turn,
-    )
-
-    transcript_markers = [
-        line.strip()
-        for line in normalized_transcript.splitlines()
-        if line.startswith("## TOAS:")
+    turns = parse_transcript(normalized_transcript)
+    state_turn_indices = [
+        index for index, turn in enumerate(turns)
+        if turn.get("role") in {"state", "state-diff"}
     ]
-    if any(is_state_turn_marker(marker) for marker in transcript_markers):
+    if state_turn_indices:
         _run_state_step(
             deps=deps,
             events_path=events_path,
@@ -203,7 +198,8 @@ def run_step(
             normalized_transcript=normalized_transcript,
             session_newline=session_newline,
             events=events,
-            parsed_turn=parse_state_turn(normalized_transcript),
+            turns=turns,
+            state_index=state_turn_indices[-1],
             preview=preview,
             preview_response=preview_response,
             on_projection_nodes=on_projection_nodes,
@@ -285,58 +281,51 @@ def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> 
     print(rendered, end="")
 
 
-def _state_free_transcript(transcript: str) -> str:
-    """Project ordinary transcript turns while omitting typed state blocks."""
-    from .runtime.state_step import is_state_turn_marker
-
-    output: list[str] = []
-    keep = True
-    for line in transcript.splitlines(keepends=True):
-        if line.startswith("## TOAS:"):
-            keep = not is_state_turn_marker(line.strip())
-        if keep:
-            output.append(line)
-    return "".join(output)
-
-
 def _resolve_state_input_turns(
     *, deps, events_path: Path, session_path: Path, session_newline: str,
-    normalized_transcript: str, parsed_turn: dict,
+    normalized_transcript: str,
+    prefix_turns: list[dict] | None = None,
+    state_turn: dict | None = None,
+    input_turns: list[dict] | None = None,
+    parsed_turn: dict | None = None,
     on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
-) -> tuple[str, dict, list[dict], bool]:
+) -> tuple[str, list[dict], list[dict], bool]:
     """Resolve appended USER/CONTROL turns through the ordinary step runtime."""
     from . import step as step_mod
     from .graph import read_log as read_current_log
     from .runtime.rendering_edges import render_transcript_blocks
     from .runtime.step_runtime import _frontier_has_callable_intent
+    from .runtime.state_step import partition_state_transcript
 
-    from .runtime.state_step import parse_state_turn
+    if prefix_turns is None or state_turn is None or input_turns is None:
+        p_turns, s_turn, suf_turns = partition_state_transcript(normalized_transcript)
+        prefix_turns = prefix_turns if prefix_turns is not None else p_turns
+        state_turn = state_turn if state_turn is not None else s_turn
+        input_turns = input_turns if input_turns is not None else [
+            turn for turn in suf_turns if turn.get("role") in {"user", "control"}
+        ]
 
-    input_turns = [dict(turn) for turn in parsed_turn.get("_input_turns", [])]
-    if not input_turns:
-        return normalized_transcript, parsed_turn, read_current_log(str(events_path)), False
+    resolved_input_turns = [dict(turn) for turn in input_turns]
+    if not resolved_input_turns:
+        return normalized_transcript, resolved_input_turns, read_current_log(str(events_path)), False
 
-    suffix = parsed_turn.get("_transcript_suffix", "")
-    transcript_body = normalized_transcript[:-len(suffix)] if suffix else normalized_transcript
-    prior_messages = parse_transcript(
-        _state_free_transcript(parsed_turn.get("_transcript_prefix", ""))
-    )
+    prior_messages = [turn for turn in prefix_turns if turn.get("role") not in {"state", "state-diff"}]
     intent_resolved = False
 
     index = 0
-    while index < len(input_turns):
-        turn = input_turns[index]
+    while index < len(resolved_input_turns):
+        turn = resolved_input_turns[index]
         content_stripped = turn.get("content", "").lstrip()
         if content_stripped.startswith("## RESULT"):
             index += 1
             continue
-        if index + 1 < len(input_turns) and input_turns[index + 1].get("content", "").lstrip().startswith("## RESULT"):
+        if index + 1 < len(resolved_input_turns) and resolved_input_turns[index + 1].get("content", "").lstrip().startswith("## RESULT"):
             index += 1
             continue
 
         ordinary_transcript = render_transcript(
-            [*prior_messages, *input_turns[: index + 1]], spaced=True
+            [*prior_messages, *resolved_input_turns[: index + 1]], spaced=True
         )
         events = read_current_log(str(events_path))
         runtime_ctx = _build_runtime_context(
@@ -361,7 +350,7 @@ def _resolve_state_input_turns(
         was_callable = _frontier_has_callable_intent(
             step_mod=step_mod,
             frontier=turn,
-            working=[*prior_messages, *input_turns[: index + 1]],
+            working=[*prior_messages, *resolved_input_turns[: index + 1]],
             config=operator_config,
         )
         if not was_callable:
@@ -379,7 +368,7 @@ def _resolve_state_input_turns(
                 events_path=events_path,
                 session_path=session_path,
                 session_newline=session_newline,
-                normalized_transcript=normalized_transcript,
+                normalized_transcript=ordinary_transcript,
                 materialized_head_id=runtime_ctx["head_id"],
                 materialized_lineage=runtime_ctx["lineage"],
                 operator_config=operator_config,
@@ -393,26 +382,25 @@ def _resolve_state_input_turns(
         if result_nodes:
             rendered_results = render_transcript_blocks(result_nodes)
             result_turns = parse_transcript(rendered_results)
-            input_turns = (
-                input_turns[: index + 1]
+            resolved_input_turns = (
+                resolved_input_turns[: index + 1]
                 + [dict(item) for item in result_turns]
-                + input_turns[index + 1 :]
+                + resolved_input_turns[index + 1 :]
             )
-            transcript_suffix = render_transcript(input_turns, spaced=True)
-            normalized_transcript = transcript_body + transcript_suffix
-            parsed_turn = parse_state_turn(normalized_transcript)
-            input_turns = [dict(item) for item in parsed_turn.get("_input_turns", [])]
-            suffix = parsed_turn.get("_transcript_suffix", "")
-            transcript_body = normalized_transcript[:-len(suffix)] if suffix else normalized_transcript
+            normalized_transcript = render_transcript(
+                [*prefix_turns, state_turn, *resolved_input_turns], spaced=True
+            )
             index += len(result_turns) + 1
         else:
             index += 1
 
-    return normalized_transcript, parsed_turn, read_current_log(str(events_path)), intent_resolved
+    return normalized_transcript, resolved_input_turns, read_current_log(str(events_path)), intent_resolved
 
 
 def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_transcript: str,
-                    session_newline: str, events: list[dict], parsed_turn: dict,
+                    session_newline: str, events: list[dict],
+                    turns: list[dict] | None = None, state_index: int | None = None,
+                    parsed_turn: dict | None = None,
                     preview: bool = False, preview_response: bool = False,
                     on_projection_nodes: Callable[[list[dict]], None] | None = None,
                     on_projection_delta: Callable[[str], None] | None = None) -> None:
@@ -423,6 +411,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
     from .runtime.state_step import (
         ToolOutcomeError,
         _merge_patch,
+        partition_state_transcript,
         preview_state_request,
         parse_state_turn,
         render_state_turn,
@@ -431,6 +420,16 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         observation_with_user_turns,
     )
 
+    if turns is None or state_index is None:
+        prefix_turns, state_turn, suffix_turns = partition_state_transcript(normalized_transcript)
+    else:
+        prefix_turns = turns[:state_index]
+        state_turn = turns[state_index]
+        suffix_turns = turns[state_index + 1 :]
+
+    if parsed_turn is None:
+        parsed_turn = parse_state_turn(state_turn)
+
     snapshots = [record for record in state_step_records(str(events_path)) if record.get("kind") == "state_snapshot"]
     if parsed_turn["turn_type"] == "state":
         current_state = parsed_turn["state"]
@@ -438,7 +437,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         if not snapshots:
             raise ValueError("state-diff turn has no earlier accepted state snapshot")
         current_state = _merge_patch(snapshots[-1]["state"], parsed_turn["state_patch"])
-    input_turns = parsed_turn.get("_input_turns", [])
+    input_turns = [turn for turn in suffix_turns if turn.get("role") in {"user", "control"}]
     current_observation = observation_with_user_turns(
         parsed_turn.get("observation"), input_turns
     ) if input_turns else parsed_turn.get("observation")
@@ -451,9 +450,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                 config_from_discovered_paths(workdir=Path.cwd()),
                 active_config_overrides(events),
             )
-            prefix_messages = parse_transcript(
-                _state_free_transcript(parsed_turn.get("_transcript_prefix", ""))
-            )
+            prefix_messages = [turn for turn in prefix_turns if turn.get("role") not in {"state", "state-diff"}]
             has_unresolved = False
             for index, turn in enumerate(input_turns):
                 content_stripped = turn.get("content", "").lstrip()
@@ -490,19 +487,20 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         if not preview_response:
             return
     if input_turns and not preview and not preview_response:
-        normalized_transcript, parsed_turn, events, intent_resolved = _resolve_state_input_turns(
+        normalized_transcript, input_turns, events, intent_resolved = _resolve_state_input_turns(
             deps=deps,
             events_path=events_path,
             session_path=session_path,
             session_newline=session_newline,
             normalized_transcript=normalized_transcript,
-            parsed_turn=parsed_turn,
+            prefix_turns=prefix_turns,
+            state_turn=state_turn,
+            input_turns=input_turns,
             on_projection_nodes=on_projection_nodes,
             on_projection_delta=on_projection_delta,
         )
         if intent_resolved:
             return
-        input_turns = parsed_turn.get("_input_turns", [])
         current_observation = observation_with_user_turns(
             parsed_turn.get("observation"), input_turns
         ) if input_turns else parsed_turn.get("observation")

@@ -22,6 +22,7 @@ from toas.runtime.state_step import (
     is_state_turn_marker,
     observation_with_user_turns,
     parse_state_turn,
+    partition_state_transcript,
     render_state_turn,
     seed_state_turn,
     state_records,
@@ -40,30 +41,33 @@ def test_state_turn_round_trips_normalized_state_and_observation(format):
     assert parsed["observation"] == observation
 
 
-def test_parser_selects_latest_state_turn_and_preserves_surrounding_conversation():
+def test_partition_selects_latest_state_turn_and_preserves_surrounding_conversation():
     transcript = (
         "## TOAS:USER\n\nEarlier.\n\n"
         + render_state_turn({"goal": "old"})
         + "\n## TOAS:STATE/1\n\nstate: {goal: current}\n\n"
         + "## TOAS:USER\n\nLater conversation.\n"
     )
-    parsed = parse_state_turn(transcript)
+    prefix_turns, state_turn, suffix_turns = partition_state_transcript(transcript)
+    parsed = parse_state_turn(state_turn)
     assert parsed["state"] == {"goal": "current"}
-    assert parsed["_transcript_prefix"].startswith("## TOAS:USER")
-    assert parsed["_transcript_suffix"].strip().startswith("## TOAS:USER")
+    assert prefix_turns[0]["content"] == "Earlier."
+    assert suffix_turns[0]["content"] == "Later conversation."
 
 
-def test_state_turn_collects_trailing_user_and_control_turns():
+def test_partition_collects_trailing_user_and_control_turns():
     transcript = (
         "## TOAS:STATE/1\n\nstate: {goal: inspect}\n\n"
         "## TOAS:USER\n\nRead the manifest.\n\n"
         "## TOAS:CONTROL\n\n/queue approve q1\n"
     )
 
-    parsed = parse_state_turn(transcript)
-    observation = observation_with_user_turns(parsed.get("observation"), parsed["_input_turns"])
+    _prefix, state_turn, suffix_turns = partition_state_transcript(transcript)
+    parsed = parse_state_turn(state_turn)
+    input_turns = [turn for turn in suffix_turns if turn.get("role") in {"user", "control"}]
+    observation = observation_with_user_turns(parsed.get("observation"), input_turns)
 
-    assert parsed["_input_turns"] == [
+    assert input_turns == [
         {"role": "user", "content": "Read the manifest."},
         {"role": "control", "content": "/queue approve q1"},
     ]
