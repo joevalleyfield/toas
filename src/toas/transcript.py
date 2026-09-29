@@ -1,34 +1,47 @@
 import re
 
-_TRANSCRIPT_ROLE_MARKER_RE = re.compile(r"^## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL)$")
+_TRANSCRIPT_ROLE_MARKER_RE = re.compile(
+    r"^## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL|STATE|STATE-DIFF)(?:/([^ \t]+))?(?:[ \t]+(.*))?$"
+)
 _MARKER_PREFIX = "## TOAS:"
-_ESCAPED_ROLE_MARKER_RE = re.compile(r"(?m)^\\## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL)$")
-_ROLE_MARKER_LINE_RE = re.compile(r"(?m)^## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL)$")
+_ROLE_MARKER_LINE_RE = re.compile(
+    r"(?m)^## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL|STATE|STATE-DIFF)(?:/[^ \t\r\n]+)?(?:[ \t]+[^\r\n]*)?$"
+)
+_ESCAPED_ROLE_MARKER_RE = re.compile(
+    r"(?m)^\\(## TOAS:(?:SYSTEM|USER|ASSISTANT|CONTROL|STATE|STATE-DIFF)(?:/[^ \t\r\n]+)?(?:[ \t]+[^\r\n]*)?)$"
+)
 _THINKING_START_MARKER = "## TOAS:THINKING"
 _THINKING_END_MARKER = "## /TOAS:THINKING"
 
 
 def escape_transcript_content(content: str) -> str:
-    return _ROLE_MARKER_LINE_RE.sub(r"\\## TOAS:\1", content)
+    return _ROLE_MARKER_LINE_RE.sub(r"\\\g<0>", content)
 
 
 def unescape_transcript_content(content: str) -> str:
-    return _ESCAPED_ROLE_MARKER_RE.sub(r"## TOAS:\1", content)
+    return _ESCAPED_ROLE_MARKER_RE.sub(r"\1", content)
 
 
 def render_transcript_marker(role: str) -> str:
     upper_role = role.upper()
-    if upper_role not in {"SYSTEM", "USER", "ASSISTANT", "CONTROL"}:
-        raise ValueError(f"invalid transcript role: {role}")
-    return f"## TOAS:{upper_role}"
+    if upper_role in {"SYSTEM", "USER", "ASSISTANT", "CONTROL"}:
+        return f"## TOAS:{upper_role}"
+    if upper_role in {"STATE", "STATE/1"}:
+        return "## TOAS:STATE/1"
+    if upper_role in {"STATE-DIFF", "STATE-DIFF/1"}:
+        return "## TOAS:STATE-DIFF/1"
+    if re.match(r"^(STATE|STATE-DIFF)/\d+$", upper_role):
+        return f"## TOAS:{upper_role}"
+    raise ValueError(f"invalid transcript role: {role}")
 
 
 def render_transcript(messages: list[dict], *, spaced: bool = False) -> str:
     blocks = []
     for message in messages:
         separator = "\n\n" if spaced else "\n"
+        marker = message.get("marker") or render_transcript_marker(message["role"])
         blocks.append(
-            f"{render_transcript_marker(message['role'])}{separator}"
+            f"{marker}{separator}"
             f"{escape_transcript_content(message['content'])}\n"
         )
     return "\n".join(blocks)
@@ -37,23 +50,26 @@ def render_transcript(messages: list[dict], *, spaced: bool = False) -> str:
 def parse_transcript(text: str) -> list[dict]:
     messages: list[dict[str, str]] = []
     current_role = None
+    current_marker = None
     current_lines: list[str] = []
     seen_system = False
     in_projection_thinking = False
 
     def flush() -> None:
-        nonlocal current_role, current_lines
+        nonlocal current_role, current_marker, current_lines
         if not current_role:
             current_lines = []
             return
 
-        messages.append(
-            {
-                "role": current_role,
-                "content": unescape_transcript_content("\n".join(current_lines).strip()),
-            }
-        )
+        msg: dict[str, str] = {
+            "role": current_role,
+            "content": unescape_transcript_content("\n".join(current_lines).strip()),
+        }
+        if current_marker:
+            msg["marker"] = current_marker
+        messages.append(msg)
         current_lines = []
+        current_marker = None
 
     for line_number, line in enumerate(text.splitlines(), start=1):
         if in_projection_thinking:
@@ -72,6 +88,8 @@ def parse_transcript(text: str) -> list[dict]:
                     raise ValueError("SYSTEM block must appear only once at the top of transcript")
                 seen_system = True
             current_role = role
+            canonical = render_transcript_marker(role)
+            current_marker = line if line != canonical else None
             continue
         if line.startswith(_MARKER_PREFIX):
             raise ValueError(

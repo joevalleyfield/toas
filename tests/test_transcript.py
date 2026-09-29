@@ -196,14 +196,118 @@ def test_normalize_anchor_index_out_of_range():
     assert _normalize_anchor_index(1, nodes, log) == 1
 
 
+def test_parse_transcript_accepts_valid_system_block():
+    transcript = """\
+## TOAS:SYSTEM
+You are an assistant.
+
+## TOAS:USER
+hello
+"""
+    assert parse_transcript(transcript) == [
+        {"role": "system", "content": "You are an assistant."},
+        {"role": "user", "content": "hello"},
+    ]
+
+
+def test_normalize_indices_none_fallback():
+    from toas.transcript import _normalize_anchor_index, _normalize_bind_index
+
+    assert _normalize_bind_index(None, []) == 0
+    assert _normalize_anchor_index(None, [], []) == 0
+
+
 def test_lcp_and_eq_unit_tests():
     from toas.transcript import _eq, _lcp
-    
+
     assert _eq({"role": "user", "content": "hello"}, {"role": "user", "content": "  hello  "})
     assert not _eq({"role": "user", "content": "hello"}, {"role": "assistant", "content": "hello"})
     assert not _eq({"role": "user", "content": "hello"}, {"role": "user", "content": "hello2"})
-    
+
     a = [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi"}]
     b = [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi"}, {"role": "user", "content": "next"}]
     assert _lcp(a, b) == 2
+
+    # LCP breaks early on mismatch
+    assert _lcp([{"role": "user", "content": "a"}], [{"role": "user", "content": "b"}]) == 0
+
+
+def test_parse_transcript_accepts_state_and_state_diff_blocks():
+    transcript = """\
+## TOAS:STATE/1
+state:
+  goal: explore
+
+## TOAS:USER
+continue
+
+## TOAS:STATE-DIFF/1
+state_patch:
+  goal: finish
+"""
+    parsed = parse_transcript(transcript)
+    assert parsed == [
+        {"role": "state", "content": "state:\n  goal: explore"},
+        {"role": "user", "content": "continue"},
+        {"role": "state-diff", "content": "state_patch:\n  goal: finish"},
+    ]
+
+
+def test_parse_transcript_preserves_non_canonical_marker_decorations():
+    transcript = """\
+## TOAS:STATE/2 [turn=2]
+state:
+  goal: explore
+"""
+    parsed = parse_transcript(transcript)
+    assert parsed == [
+        {"role": "state", "content": "state:\n  goal: explore", "marker": "## TOAS:STATE/2 [turn=2]"},
+    ]
+    # Lossless round-trip preserves custom decoration
+    assert render_transcript(parsed) == "## TOAS:STATE/2 [turn=2]\nstate:\n  goal: explore\n"
+
+
+def test_render_transcript_state_canonical_markers():
+    messages = [
+        {"role": "state", "content": "state: {goal: a}"},
+        {"role": "state-diff", "content": "state_patch: {goal: b}"},
+        {"role": "state/2", "content": "state: {goal: c}"},
+    ]
+    rendered = render_transcript(messages)
+    assert rendered == (
+        "## TOAS:STATE/1\nstate: {goal: a}\n\n"
+        "## TOAS:STATE-DIFF/1\nstate_patch: {goal: b}\n\n"
+        "## TOAS:STATE/2\nstate: {goal: c}\n"
+    )
+
+
+def test_state_turn_escaping_and_unescaping_round_trip():
+    messages = [
+        {
+            "role": "assistant",
+            "content": "example:\n## TOAS:STATE/1\nstate: {goal: inner}\n## TOAS:STATE-DIFF/1\nend",
+        }
+    ]
+    rendered = render_transcript(messages)
+    assert "\\## TOAS:STATE/1" in rendered
+    assert "\\## TOAS:STATE-DIFF/1" in rendered
+    parsed = parse_transcript(rendered)
+    assert parsed == messages
+
+
+def test_lcp_and_eq_with_state_turns():
+    from toas.transcript import _eq, _lcp
+
+    a_state = {"role": "state", "content": "state: {goal: a}"}
+    b_state = {"role": "state", "content": "state: {goal: a}", "marker": "## TOAS:STATE/2 [turn=2]"}
+    c_state = {"role": "state", "content": "state: {goal: diff}"}
+
+    # Equality and LCP are invariant to presentation decorations
+    assert _eq(a_state, b_state)
+    assert not _eq(a_state, c_state)
+
+    lineage_a = [a_state, {"role": "user", "content": "run"}]
+    lineage_b = [b_state, {"role": "user", "content": "run"}, {"role": "assistant", "content": "done"}]
+    assert _lcp(lineage_a, lineage_b) == 2
+
 

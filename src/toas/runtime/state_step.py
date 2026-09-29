@@ -80,23 +80,29 @@ def _normalize_tool_call_aliases(calls: list[dict[str, Any]]) -> list[dict[str, 
 
 def parse_state_turn(text: str) -> dict[str, Any]:
     """Parse a YAML state turn or its Markdown-fenced YAML equivalent."""
-    lines = text.splitlines(keepends=True)
-    starts = []
-    for index, line in enumerate(lines):
-        m = STATE_TURN_PATTERN.match(line.strip())
-        if m:
-            starts.append((index, line.strip(), m.group(1), int(m.group(2))))
-    if not starts:
+    from ..transcript import parse_transcript, render_transcript
+
+    try:
+        messages = parse_transcript(text)
+    except ValueError as exc:
+        raise ValueError(f"invalid state-step input turn: {exc}") from exc
+
+    state_indices = [
+        index for index, msg in enumerate(messages)
+        if msg["role"] in {"state", "state-diff"}
+    ]
+    if not state_indices:
         raise ValueError("state turn must begin with ## TOAS:STATE/1 or ## TOAS:STATE-DIFF/1")
-    start, marker, kind, state_number = starts[-1]
-    end = next(
-        (index for index in range(start + 1, len(lines)) if lines[index].startswith("## TOAS:")),
-        len(lines),
-    )
-    suffix_start = end
-    while suffix_start > start + 1 and not lines[suffix_start - 1].strip():
-        suffix_start -= 1
-    body = "".join(lines[start + 1 : suffix_start]).strip()
+
+    last_idx = state_indices[-1]
+    turn = messages[last_idx]
+    role = turn["role"]
+    kind = "STATE" if role == "state" else "STATE-DIFF"
+    marker = turn.get("marker") or f"## TOAS:{role.upper()}/1"
+    m = re.match(r"^## TOAS:(STATE|STATE-DIFF)/(\d+)", marker.strip())
+    state_number = int(m.group(2)) if m else 1
+
+    body = turn["content"].strip()
     format_name = "markdown" if body.startswith("```yaml") else "yaml"
     if body.startswith("```yaml"):
         closing_fence = body.rfind("\n```")
@@ -138,21 +144,12 @@ def parse_state_turn(text: str) -> dict[str, Any]:
     payload["turn_type"] = "state" if kind == "STATE" else "state_diff"
     payload["state_number"] = state_number
     payload["format"] = format_name
-    payload["_transcript_prefix"] = "".join(lines[:start])
-    payload["_transcript_suffix"] = "".join(lines[suffix_start:])
-    suffix = payload["_transcript_suffix"]
-    if suffix.strip():
-        from ..transcript import parse_transcript
 
-        try:
-            payload["_input_turns"] = [
-                turn for turn in parse_transcript(suffix)
-                if turn["role"] in {"user", "control"}
-            ]
-        except ValueError as exc:
-            raise ValueError(f"invalid state-step input turn: {exc}") from exc
-    else:
-        payload["_input_turns"] = []
+    prefix_turns = messages[:last_idx]
+    suffix_turns = messages[last_idx + 1 :]
+    payload["_transcript_prefix"] = (render_transcript(prefix_turns, spaced=True) + "\n\n") if prefix_turns else ""
+    payload["_transcript_suffix"] = render_transcript(suffix_turns, spaced=True) if suffix_turns else ""
+    payload["_input_turns"] = [turn for turn in suffix_turns if turn["role"] in {"user", "control"}]
     return payload
 
 
