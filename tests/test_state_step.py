@@ -15,7 +15,11 @@ from toas.operator_api import step_state_once
 from toas.runtime.model_invocation_contracts import resolve_model_invocation
 from toas.runtime.state_step import (
     ToolOutcomeError,
+    build_state_step_packet,
+    condense_inert_blocks,
+    expand_inert_blocks,
     initial_state,
+    is_state_turn_marker,
     observation_with_user_turns,
     parse_state_turn,
     render_state_turn,
@@ -442,3 +446,96 @@ def test_generation_runner_resolves_and_executes_explicit_state_packet(monkeypat
         lambda _self, _plan, _result: {"content": "answer"},
     )
     assert runner.generate_state_packet({"state": {}}) == {"content": "answer"}
+
+
+def test_state_turn_parses_and_renders_state_ordinal():
+    assert is_state_turn_marker("## TOAS:STATE/1")
+    assert is_state_turn_marker("## TOAS:STATE/42")
+    assert is_state_turn_marker("## TOAS:STATE-DIFF/3")
+    assert not is_state_turn_marker("## TOAS:USER")
+
+    rendered = render_state_turn({"goal": "step 3"}, state_number=3)
+    assert rendered.startswith("## TOAS:STATE/3\n")
+    parsed = parse_state_turn(rendered)
+    assert parsed["state_number"] == 3
+    assert parsed["state"] == {"goal": "step 3"}
+
+    diff_rendered = render_state_turn({}, state_patch={"goal": "patched"}, state_number=4)
+    assert diff_rendered.startswith("## TOAS:STATE-DIFF/4\n")
+    parsed_diff = parse_state_turn(diff_rendered)
+    assert parsed_diff["state_number"] == 4
+    assert parsed_diff["state_patch"] == {"goal": "patched"}
+
+
+def test_state_turn_renders_and_parses_pending_tools():
+    tools = [{"tool_name": "get_structure", "args": {"path": "tasks/open"}}]
+    rendered = render_state_turn({"goal": "explore"}, pending_tools=tools, state_number=2)
+    assert "pending_tools:" in rendered
+    assert "get_structure" in rendered
+    parsed = parse_state_turn(rendered)
+    assert parsed["pending_tools"] == tools
+    assert parsed["tool_calls"] == tools
+
+    # Empty tools are omitted
+    rendered_empty = render_state_turn({"goal": "explore"}, pending_tools=[], state_number=2)
+    assert "pending_tools:" not in rendered_empty
+
+
+def test_condense_and_expand_inert_blocks_with_block_id():
+    full_output = (
+        "## RESULT\n\n"
+        "[OK] shell: exit=0\n"
+        "stdout:\n"
+        '````markdown toas-output kind=file source="cat file.txt" potency=inert path=file.txt block_id=ib_1234567890abcdef\n'
+        "first line\n"
+        "second line\n"
+        "````"
+    )
+    condensed = condense_inert_blocks(full_output)
+    assert "(ref: ib_1234567890abcdef)" in condensed
+    assert "first line" not in condensed
+
+    # Expanding restores original content
+    blocks_by_id = {"ib_1234567890abcdef": "first line\nsecond line"}
+    expanded = expand_inert_blocks(condensed, blocks_by_id)
+    assert expanded == full_output
+
+
+def test_build_state_step_packet_expands_condensed_inert_references(tmp_path):
+    events = tmp_path / "events.jsonl"
+    events.touch()
+    session_text = (
+        "## TOAS:USER\n\n"
+        "## RESULT\n\n"
+        "[OK] shell: exit=0\n"
+        '````markdown toas-output kind=file source="cat doc.txt" potency=inert path=doc.txt block_id=ib_testblock123456\n'
+        "Line A\n"
+        "Line B\n"
+        "````\n\n"
+        "## TOAS:STATE/1\n\nstate: {goal: read}\n"
+    )
+    obs = {
+        "kind": "toas.compound-observation/1",
+        "user_inputs": [
+            {
+                "content": (
+                    "## RESULT\n\n"
+                    "[OK] shell: exit=0\n"
+                    '````markdown toas-output kind=file source="cat doc.txt" potency=inert path=doc.txt block_id=ib_testblock123456\n'
+                    "(ref: ib_testblock123456)\n"
+                    "````"
+                )
+            }
+        ],
+    }
+    packet = build_state_step_packet(
+        events_path=events,
+        state={"goal": "read"},
+        observation=obs,
+        session_text=session_text,
+    )
+    projected_content = packet["observation"]["user_inputs"][0]["content"]
+    assert "Line A" in projected_content
+    assert "Line B" in projected_content
+    assert "(ref: ib_testblock123456)" not in projected_content
+

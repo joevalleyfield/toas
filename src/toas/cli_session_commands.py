@@ -186,8 +186,7 @@ def run_step(
         session_path=session_path,
     )
     from .runtime.state_step import (
-        STATE_DIFF_MARKER,
-        STATE_MARKER,
+        is_state_turn_marker,
         parse_state_turn,
     )
 
@@ -196,7 +195,7 @@ def run_step(
         for line in normalized_transcript.splitlines()
         if line.startswith("## TOAS:")
     ]
-    if any(marker in {STATE_MARKER, STATE_DIFF_MARKER} for marker in transcript_markers):
+    if any(is_state_turn_marker(marker) for marker in transcript_markers):
         _run_state_step(
             deps=deps,
             events_path=events_path,
@@ -284,9 +283,9 @@ def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> 
     target = Path(session_path) if session_path else deps.resolve_session_path(read_log(str(events_path)))
     deps.ensure_file(target)
     existing = deps.read_text_preserve_newlines(target)
-    from .runtime.state_step import seed_state_turn
+    from .runtime.state_step import is_state_turn_marker, seed_state_turn
 
-    if any(line.strip() in {"## TOAS:STATE/1", "## TOAS:STATE-DIFF/1"} for line in existing.splitlines()):
+    if any(is_state_turn_marker(line.strip()) for line in existing.splitlines()):
         raise ValueError(f"state transcript already contains a typed state turn: {target}")
 
     rendered = seed_state_turn(format=format)
@@ -304,13 +303,13 @@ def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> 
 
 def _state_free_transcript(transcript: str) -> str:
     """Project ordinary transcript turns while omitting typed state blocks."""
-    from .runtime.state_step import STATE_DIFF_MARKER, STATE_MARKER
+    from .runtime.state_step import is_state_turn_marker
 
     output: list[str] = []
     keep = True
     for line in transcript.splitlines(keepends=True):
         if line.startswith("## TOAS:"):
-            keep = line.strip() not in {STATE_MARKER, STATE_DIFF_MARKER}
+            keep = not is_state_turn_marker(line.strip())
         if keep:
             output.append(line)
     return "".join(output)
@@ -497,6 +496,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             state=current_state,
             observation=current_observation,
             instructions=parsed_turn.get("instructions"),
+            session_text=normalized_transcript,
         )
         if request.get("phase") != "infer":
             print(json.dumps(request, ensure_ascii=False, indent=2))
@@ -573,13 +573,19 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
     result = step_state(
         events_path=events_path, state=current_state, observation=current_observation,
         instructions=parsed_turn.get("instructions"),
+        session_text=normalized_transcript,
+        pending_tool_calls=parsed_turn.get("pending_tools"),
         generate=generate_state_packet, execute_call=execute_call,
     )
     if result["phase"] == "infer":
+        prior_state_number = parsed_turn.get("state_number", 1)
+        tool_calls = result.get("tool_calls") or None
         rendered = render_state_turn(
             result["state"], observation=current_observation,
             format=parsed_turn.get("format", "yaml"),
             instructions=parsed_turn.get("instructions"),
+            pending_tools=tool_calls,
+            state_number=prior_state_number + 1,
         )
         transcript = normalized_transcript
         if transcript and not transcript.endswith(("\n", "\r")):
@@ -592,19 +598,32 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             apply_newline_style_fn=deps.apply_newline_style,
         )
     elif result["phase"] == "execute_batch":
-        observation = transcript_observation_with_tool_outcomes(
-            current_observation, result.get("outcomes", [])
-        )
-        rendered = render_state_turn(
-            result["state"], observation=observation,
-            format=parsed_turn.get("format", "yaml"),
-            instructions=parsed_turn.get("instructions"),
-        )
-        rendered = (
-            parsed_turn.get("_transcript_prefix", "")
-            + rendered
-            + parsed_turn.get("_transcript_suffix", "")
-        )
+        result_nodes = [
+            node for outcome in result.get("outcomes", [])
+            for node in (outcome.get("result") or [])
+            if isinstance(node, dict) and node.get("role") == "result"
+        ]
+        if result_nodes:
+            from .runtime.rendering_edges import render_transcript_blocks
+            rendered_results = render_transcript_blocks(result_nodes).strip()
+        else:
+            outcome_lines = []
+            for outcome in result.get("outcomes", []):
+                idx = outcome.get("index", 0)
+                st = outcome.get("status", "failed")
+                err = outcome.get("error")
+                summary = err or f"status={st}"
+                outcome_lines.append(f"[{st.upper()}] tool {idx}: {summary}")
+            if not outcome_lines:
+                outcome_lines = [f"[{result.get('status', 'completed').upper()}] batch execution completed"]
+            rendered_results = "## TOAS:CONTROL\n\n## RESULT\n\n" + "\n".join(outcome_lines)
+
+        transcript = normalized_transcript
+        if transcript and not transcript.endswith(("\n", "\r")):
+            transcript += "\n"
+        if transcript and not transcript.endswith("\n\n"):
+            transcript += "\n"
+        rendered = transcript + rendered_results + "\n"
         _write_text_with_newline_style(
             path=session_path, text=rendered, newline=session_newline,
             apply_newline_style_fn=deps.apply_newline_style,

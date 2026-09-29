@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -448,3 +449,104 @@ def test_cli_seed_wrapper_forwards_format(monkeypatch):
     monkeypatch.setattr(cli, "_run_state_seed_impl", lambda **kwargs: seen.append(kwargs))
     cli.run_state_seed(format="markdown")
     assert seen == [{"format": "markdown"}]
+
+
+def test_state_step_progresses_ordinal_and_preserves_unfolding_history(monkeypatch, tmp_path):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    initial_transcript = (
+        "## TOAS:STATE/1\n\n"
+        "state:\n"
+        "  goal: check tasks\n"
+        "  progress: []\n"
+    )
+    session.write_text(initial_transcript)
+    append_state_step_records(
+        str(events_path),
+        [
+            {"kind": "state_snapshot", "transition_id": "st0", "state": {"goal": "check tasks", "progress": []}},
+        ],
+    )
+    (tmp_path / "task.txt").write_text("task content", encoding="utf-8")
+
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: read_log(str(events_path)))
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+
+    call_count = 0
+
+    def generate(packet):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "content": json.dumps({
+                    "state_patch": {"progress": ["found task"]},
+                    "tool_calls": [{"tool_name": "read_file", "args": {"path": "task.txt"}}],
+                })
+            }
+        return {
+            "content": json.dumps({
+                "state_patch": {"progress": ["found task", "read task"]},
+                "tool_calls": [],
+            })
+        }
+
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (config, {}, SimpleNamespace(generate_state_packet=generate), {}),
+    )
+
+    from toas import step as step_mod
+
+    monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _working: {})
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda *_args: ())
+
+    # Step 1: Infer -> appends STATE/2 with pending_tools
+    cli_session_commands.run_step(session_path=str(session))
+    session_after_step1 = session.read_text()
+    assert "## TOAS:STATE/1" in session_after_step1
+    assert "## TOAS:STATE/2" in session_after_step1
+    assert "pending_tools:" in session_after_step1
+    assert "read_file" in session_after_step1
+
+    # Step 2: Execute batch -> appends result block without rewriting STATE/2
+    cli_session_commands.run_step(session_path=str(session))
+    session_after_step2 = session.read_text()
+    assert "## TOAS:STATE/1" in session_after_step2
+    assert "## TOAS:STATE/2" in session_after_step2
+    assert "## TOAS:USER\n\n## RESULT" in session_after_step2
+    assert "task content" in session_after_step2
+
+    # Step 3: Infer next -> appends STATE/3
+    cli_session_commands.run_step(session_path=str(session))
+    session_after_step3 = session.read_text()
+    assert "## TOAS:STATE/1" in session_after_step3
+    assert "## TOAS:STATE/2" in session_after_step3
+    assert "## TOAS:STATE/3" in session_after_step3
+    parsed3 = parse_state_turn(session_after_step3)
+    assert parsed3["state_number"] == 3
+    assert parsed3["state"]["progress"] == ["found task", "read task"]
+

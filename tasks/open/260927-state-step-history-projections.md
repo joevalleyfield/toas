@@ -96,5 +96,15 @@ transcript projection.
 - 2026-09-27: After the user clarified that execution results belong in the
   session file, batch execution now adds its outcomes to the frontier state's
   compound observation without fabricating a new accepted-state turn.
+- 2026-09-29: Reconciled unfolding history and snapshot-centric projection:
+  - `STATE/n` markers now progress monotonically on inference (`STATE/1` ->
+    `STATE/2` -> `STATE/3`), capturing state generation sequence.
+  - Proposed model tool calls are surfaced directly in the forward snapshot as
+    `pending_tools:` so the operator inspects them without querying durable logs.
+  - Batch tool execution appends standard result blocks rather than mutating
+    prior state observations in place.
+  - Forward observations condense inert fenced output blocks with `block_id`
+    to unexpanded references (`(ref: <block_id>)`), which are dereferenced and
+    expanded at packet build time for model inference.
 
 Status: Active.

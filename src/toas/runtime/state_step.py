@@ -16,6 +16,7 @@ from ..graph import state_step_records as _state_step_records
 
 STATE_MARKER = "## TOAS:STATE/1"
 STATE_DIFF_MARKER = "## TOAS:STATE-DIFF/1"
+STATE_TURN_PATTERN = re.compile(r"^## TOAS:(STATE|STATE-DIFF)/(\d+)$")
 STATE_INSTRUCTIONS = """Advance the supplied TOAS state using the latest observation.
 
 Return one JSON object with these fields:
@@ -29,6 +30,11 @@ Return one JSON object with these fields:
 Available tools and the tool protocol are supplied alongside the state. Propose
 tool calls only; TOAS validates and executes them on a later explicit step.
 Inference and tool execution are separate operations. Return JSON only."""
+
+
+def is_state_turn_marker(line: str) -> bool:
+    """Return True if the line is any typed state or state-diff turn marker."""
+    return bool(STATE_TURN_PATTERN.match(line.strip()))
 
 
 class _LiteralString(str):
@@ -75,14 +81,14 @@ def _normalize_tool_call_aliases(calls: list[dict[str, Any]]) -> list[dict[str, 
 def parse_state_turn(text: str) -> dict[str, Any]:
     """Parse a YAML state turn or its Markdown-fenced YAML equivalent."""
     lines = text.splitlines(keepends=True)
-    starts = [
-        (index, line.strip())
-        for index, line in enumerate(lines)
-        if line.strip() in {STATE_MARKER, STATE_DIFF_MARKER}
-    ]
+    starts = []
+    for index, line in enumerate(lines):
+        m = STATE_TURN_PATTERN.match(line.strip())
+        if m:
+            starts.append((index, line.strip(), m.group(1), int(m.group(2))))
     if not starts:
         raise ValueError("state turn must begin with ## TOAS:STATE/1 or ## TOAS:STATE-DIFF/1")
-    start, marker = starts[-1]
+    start, marker, kind, state_number = starts[-1]
     end = next(
         (index for index in range(start + 1, len(lines)) if lines[index].startswith("## TOAS:")),
         len(lines),
@@ -109,11 +115,28 @@ def parse_state_turn(text: str) -> dict[str, Any]:
         or not all(isinstance(call, dict) for call in payload["user_tool_calls"])
     ):
         raise ValueError("state turn user_tool_calls must be an array of objects")
-    if marker == STATE_MARKER and not isinstance(payload.get("state"), dict):
+    if "pending_tools" in payload and (
+        not isinstance(payload["pending_tools"], list)
+        or not all(isinstance(call, dict) for call in payload["pending_tools"])
+    ):
+        raise ValueError("state turn pending_tools must be an array of objects")
+    if "tool_calls" in payload and (
+        not isinstance(payload["tool_calls"], list)
+        or not all(isinstance(call, dict) for call in payload["tool_calls"])
+    ):
+        raise ValueError("state turn tool_calls must be an array of objects")
+
+    calls = payload.get("pending_tools") or payload.get("tool_calls")
+    if calls is not None:
+        payload["pending_tools"] = calls
+        payload["tool_calls"] = calls
+
+    if kind == "STATE" and not isinstance(payload.get("state"), dict):
         raise ValueError("state turn must contain a state mapping")
-    if marker == STATE_DIFF_MARKER and not isinstance(payload.get("state_patch"), dict):
+    if kind == "STATE-DIFF" and not isinstance(payload.get("state_patch"), dict):
         raise ValueError("state-diff turn must contain a state_patch mapping")
-    payload["turn_type"] = "state" if marker == STATE_MARKER else "state_diff"
+    payload["turn_type"] = "state" if kind == "STATE" else "state_diff"
+    payload["state_number"] = state_number
     payload["format"] = format_name
     payload["_transcript_prefix"] = "".join(lines[:start])
     payload["_transcript_suffix"] = "".join(lines[suffix_start:])
@@ -141,6 +164,9 @@ def render_state_turn(
     state_patch: dict[str, Any] | None = None,
     instructions: str | None = None,
     user_tool_calls: list[dict[str, Any]] | None = None,
+    pending_tools: list[dict[str, Any]] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
+    state_number: int = 1,
 ) -> str:
     if format not in {"yaml", "markdown"}:
         raise ValueError("state format must be 'yaml' or 'markdown'")
@@ -151,13 +177,18 @@ def render_state_turn(
     payload["state_patch" if is_diff else "state"] = state_patch if is_diff else state
     if user_tool_calls is not None:
         payload["user_tool_calls"] = user_tool_calls
+    calls = pending_tools if pending_tools is not None else tool_calls
+    if calls:
+        payload["pending_tools"] = calls
     if observation is not None:
         payload["observation"] = observation
+    marker_name = "STATE-DIFF" if is_diff else "STATE"
+    marker = f"## TOAS:{marker_name}/{state_number}"
     if format == "yaml":
         body = yaml.dump(payload, Dumper=_StateYamlDumper, sort_keys=False, allow_unicode=True).rstrip()
-        return f"{STATE_DIFF_MARKER if is_diff else STATE_MARKER}\n\n{body}\n"
+        return f"{marker}\n\n{body}\n"
     body = yaml.dump(payload, Dumper=_StateYamlDumper, sort_keys=False, allow_unicode=True).rstrip()
-    return f"{STATE_DIFF_MARKER if is_diff else STATE_MARKER}\n\n```yaml\n{body}\n```\n"
+    return f"{marker}\n\n```yaml\n{body}\n```\n"
 
 
 def initial_state() -> dict[str, Any]:
@@ -253,6 +284,67 @@ def _user_observation_inputs(value: Any) -> list[dict[str, str]]:
     return []
 
 
+def condense_inert_blocks(content: str) -> str:
+    """Condense inert fenced output blocks that have a block_id to an unexpanded reference."""
+    pattern = re.compile(r'(?ms)^(`{3,})([^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*)\n(.*?)\n\1$')
+
+    def repl(m: re.Match) -> str:
+        fence, header, block_id, body = m.group(1), m.group(2), m.group(3), m.group(4)
+        if body.strip() == f"(ref: {block_id})":
+            return m.group(0)
+        return f"{fence}{header}\n(ref: {block_id})\n{fence}"
+
+    return pattern.sub(repl, content)
+
+
+def expand_inert_blocks(content: str, blocks_by_id: dict[str, str]) -> str:
+    """Expand unexpanded block references when the full block body is available."""
+    pattern = re.compile(r'(?ms)^(`{3,})([^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*)\n\(ref: \3\)\n\1$')
+
+    def repl(m: re.Match) -> str:
+        fence, header, block_id = m.group(1), m.group(2), m.group(3)
+        body = blocks_by_id.get(block_id)
+        if body is not None:
+            return f"{fence}{header}\n{body}\n{fence}"
+        return m.group(0)
+
+    return pattern.sub(repl, content)
+
+
+def extract_inert_blocks_by_id(text_or_records: str | list[dict]) -> dict[str, str]:
+    """Index non-reference inert block bodies by block_id from text or event records."""
+    blocks: dict[str, str] = {}
+    if isinstance(text_or_records, str):
+        pattern = re.compile(r'(?ms)^(`{3,})[^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*\n(.*?)\n\1$')
+        for m in pattern.finditer(text_or_records):
+            block_id, body = m.group(2), m.group(3)
+            if not body.strip().startswith(f"(ref: {block_id})"):
+                blocks[block_id] = body
+    elif isinstance(text_or_records, list):
+        for record in text_or_records:
+            payload = record.get("payload")
+            if isinstance(payload, dict):
+                stdout = payload.get("stdout")
+                if isinstance(stdout, str):
+                    for m in re.finditer(r'(?ms)^(`{3,})[^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*\n(.*?)\n\1$', stdout):
+                        blocks[m.group(2)] = m.group(3)
+            content = record.get("content")
+            if isinstance(content, str):
+                for m in re.finditer(r'(?ms)^(`{3,})[^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*\n(.*?)\n\1$', content):
+                    blocks[m.group(2)] = m.group(3)
+    return blocks
+
+
+def _expand_compound_observation(observation: Any, blocks_by_id: dict[str, str]) -> Any:
+    if isinstance(observation, dict):
+        return {k: _expand_compound_observation(v, blocks_by_id) for k, v in observation.items()}
+    if isinstance(observation, list):
+        return [_expand_compound_observation(item, blocks_by_id) for item in observation]
+    if isinstance(observation, str):
+        return expand_inert_blocks(observation, blocks_by_id)
+    return observation
+
+
 def _control_result_observations(turns: list[dict[str, str]]) -> list[dict[str, str]]:
     """Expose CONTROL turn results without projecting the control text."""
     results: list[dict[str, str]] = []
@@ -263,7 +355,7 @@ def _control_result_observations(turns: list[dict[str, str]]) -> list[dict[str, 
         for block in blocks[1:]:
             content = block.strip()
             if content:
-                results.append({"content": content, "source": "control"})
+                results.append({"content": condense_inert_blocks(content), "source": "control"})
     return results
 
 
@@ -272,7 +364,7 @@ def observation_with_user_turns(
 ) -> dict[str, Any]:
     """Project trailing USER turns into one observation envelope."""
     inputs = [
-        {"content": turn["content"]}
+        {"content": condense_inert_blocks(turn["content"])}
         for turn in turns
         if turn.get("role") == "user" and isinstance(turn.get("content"), str)
     ]
@@ -303,7 +395,7 @@ def observation_with_user_turns(
     if control_results:
         result["control_results"] = control_results
     else:
-        result.pop("control_results")
+        result.pop("control_results", None)
     return result
 
 
@@ -377,10 +469,18 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
 def build_state_step_packet(
     *, events_path: str | Path, state: dict, observation: Any,
     instructions: str | None = None,
+    session_text: str | None = None,
 ) -> dict[str, Any]:
     """Build the shared state-only packet used by preview and inference."""
     records = read_log(str(events_path))
     from ..tools import REGISTRY
+
+    compound = _compound_observation(records, observation)
+    blocks_by_id = extract_inert_blocks_by_id(records)
+    if session_text:
+        blocks_by_id.update(extract_inert_blocks_by_id(session_text))
+    if blocks_by_id:
+        compound = _expand_compound_observation(compound, blocks_by_id)
 
     return {
         "instructions": STATE_INSTRUCTIONS if instructions is None else instructions,
@@ -394,13 +494,14 @@ def build_state_step_packet(
             "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
         },
         "state": state,
-        "observation": _compound_observation(records, observation),
+        "observation": compound,
     }
 
 
 def preview_state_request(
     *, events_path: str | Path, state: dict, observation: Any,
     instructions: str | None = None,
+    session_text: str | None = None,
 ) -> dict[str, Any]:
     """Return the request messages step would send, without generation or writes."""
     records = read_log(str(events_path))
@@ -422,7 +523,7 @@ def preview_state_request(
         }
     packet = build_state_step_packet(
         events_path=events_path, state=state, observation=observation,
-        instructions=instructions,
+        instructions=instructions, session_text=session_text,
     )
     return {
         "phase": "infer",
@@ -438,7 +539,9 @@ def step_state(
     state: dict[str, Any],
     observation: Any,
     instructions: str | None = None,
+    session_text: str | None = None,
     user_tool_calls: list[dict[str, Any]] | None = None,
+    pending_tool_calls: list[dict[str, Any]] | None = None,
     user_turn_digest: str | None = None,
     generate: Callable[[dict], Any],
     execute_call: Callable[[dict], Any],
@@ -590,7 +693,12 @@ def step_state(
             ],
         )
         outcomes = []
-        for index, call in enumerate(pending["tool_calls"]):
+        calls_to_execute = (
+            pending_tool_calls
+            if pending_tool_calls is not None
+            else pending["tool_calls"]
+        )
+        for index, call in enumerate(calls_to_execute):
             call_source = pending.get("source", "model")
             try:
                 normalized_call = _normalize_tool_call_aliases([call])[0]
@@ -615,7 +723,7 @@ def step_state(
                 break
         status = (
             "completed"
-            if len(outcomes) == len(pending["tool_calls"])
+            if len(outcomes) == len(calls_to_execute)
             and all(x["status"] == "completed" for x in outcomes)
             else next((x["status"] for x in outcomes if x["status"] != "completed"), "failed")
         )
@@ -738,7 +846,7 @@ def step_state(
     transition_id = f"st_{uuid.uuid4().hex}"
     packet = build_state_step_packet(
         events_path=events_path, state=state, observation=observation,
-        instructions=instructions,
+        instructions=instructions, session_text=session_text,
     )
     compound_observation = packet["observation"]
     answer = generate(packet)
