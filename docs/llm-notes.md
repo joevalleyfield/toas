@@ -165,6 +165,15 @@ string forward. Preview and inference put it into the request packet unchanged;
 the runtime does not summarize or regenerate it. The schema and live tool
 advertisement remain separate packet fields.
 
+In the current typed state turn, an operator may edit `state` and optionally
+add a top-level `user_tool_calls` array using `{tool_name, args}` entries. If
+the state or observation differs from the last accepted snapshot, or the field
+is present, `step` records the user-authored delta and executes those calls
+through the direct user-intent path. It then appends a clean state turn with
+the resulting observations and stops. A later `step` performs inference. User
+calls and model-proposed calls retain separate source provenance; a model batch
+continues to execute on its own later step.
+
 To inspect the newest state-step failure, read the latest `state_transition`
 with `status=failed`; inspect `request_packet`, `response_content`, `error`, and
 `model_call`. For an exact provider-boundary capture on a future call, set

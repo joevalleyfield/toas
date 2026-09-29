@@ -3,14 +3,14 @@ FKA:
 AKA: user-authored state turn; state editing with user tool calls
 Legacy index:
 
-keywords: runtime, exploration, inception, state-step, user-intent, tools
+keywords: runtime, implementation, historical, state-step, user-intent, tools
 
 Parent: `260926-state-step-requirements`
 Related: `260927-state-step-alpha-loop`; `260927-state-step-history-projections`
 
 # User-Authored State Editing And Tool Calls
 
-## Proposal
+## Intent
 
 Give state-step a user-authored editing affordance analogous to a user turn in
 a conversation. The operator can edit state and author tool calls in the
@@ -87,22 +87,39 @@ consistent and gives the operator a chance to inspect the consolidated state.
 - Repeated steps, restart, and transcript editing do not duplicate already
   recorded user calls or rewrite prior accepted states.
 
-## Decisions Deferred To Implementation
+## Decisions Made For Implementation
 
-- Exact typed-turn marker and field names.
-- Whether edits are expressed as a complete state or sparse patch; choose the
-  form that best matches current editable state behavior while recording the
-  actual delta durably.
-- Whether one user turn may hold multiple tool calls; default to the existing
-  batch shape unless a concrete constraint appears.
-- Precise display shape for outcome blocks, provided they remain readable and
-  import-safe in the session transcript.
+- Reuse the editable full `state` mapping in the current `TOAS:STATE/1` turn;
+  compare it with the latest accepted snapshot and persist the actual sparse
+  delta.
+- Author direct calls under a distinct top-level `user_tool_calls` array with
+  the existing `{tool_name, args}` batch shape.
+- Keep the current state turn as the edit surface. After consolidation, append
+  a clean full state turn with the compound observation and no pending
+  `user_tool_calls` field.
+- Use the existing direct user-intent execution adapter and its authority
+  semantics; record the source as user-authored in state-step history.
+- Execute a whole call batch within this explicit step, stopping after the
+  first failed call as the existing batch path does.
+
+## Completion Evidence
+
+- Typed state turns accept a top-level `user_tool_calls` array. Editing the
+  current state or observation, or adding that field, routes `step` through a
+  user-consolidation phase before inference.
+- The phase records a sparse state delta and full accepted snapshot, executes
+  direct calls with the existing user-intent adapter, records each result and
+  source, and appends an observation-bearing state turn.
+- The next explicit step performs inference with the consolidated observation.
+  Model-originated batches retain their pending execution phase.
+- User-turn digests prevent duplicate execution after interruption; an
+  interrupted in-progress call is marked indeterminate rather than retried.
+- CLI help and `docs/llm-notes.md` describe the new input field and phase order.
+- Python syntax parsing passed. Tests were not run in this turn.
 
 ## Elaboration Status
 
-The phase sequence, provenance boundary, and failure behavior are sufficiently
-clear to begin implementation. Exact transcript grammar and record schema are
-delegated to the implementation task using existing TOAS state-step and
-user-intent conventions.
+The phase sequence, transcript affordance, provenance boundary, and failure
+behavior are sufficiently clear for implementation.
 
-Status: Ready.
+Status: Complete.

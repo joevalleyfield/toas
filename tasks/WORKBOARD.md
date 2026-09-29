@@ -279,7 +279,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260927-state-step-alpha-loop]** Implement a local, user-stepped state workflow through TOAS's normal runtime, durable history, model invocation, and capability paths, while keeping s...
 - **[T260927-state-step-history-projections]** Preserve And Project State-Step History
 - **[T260928-readable-state-instructions]** Render State Instructions As A Readable Block
-- **[T260928-state-edit-and-user-tools]** User-Authored State Editing And Tool Calls
 - **[T260928-state-step-instruction-seed]** Carry State-Step Instructions In The Seed Transcript
 <!-- WORKBOARD:NOW:END -->
 
@@ -363,11 +362,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260928-state-edit-and-user-tools]** User-Authored State Editing And Tool Calls
 - **[T260927-state-step-response-shapes]** Use unaltered response previews to learn which response forms the model naturally produces under the current lightweight instructions. Treat repeated ...
 - **[T260927-state-step-request-preview]** Provide a no-generation invocation of `step` that constructs and prints the request messages that state-step inference would hand to the model-generat...
 - **[T260927-state-step-raw-response]** Add a model-response preview alongside the request preview. `toas step --preview-request` prints the request without calling the model; `toas step --p...
 - **[T260927-state-step-normalize-call-shapes]** Normalize tool-call shapes observed in raw state-step model responses through TOAS's shared tool-plan canonicalizer before accepting or executing the ...
-- **[T260927-state-step-lenient-response]** Accept common, unambiguous response forms produced by the configured model without weakening state-patch or capability validation. Use the captured ra...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

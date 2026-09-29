@@ -130,6 +130,11 @@ History surfaces (read-only; choose by inspection question; see `/help history`)
                            single_user_blob is not reflected)
   step --preview-request   print state-step request messages without calling the model
   step --preview-response  call the model and print its unaltered response content
+
+In a typed state transcript, edit `state` and optionally add a top-level
+`user_tool_calls` array using `{tool_name, args}` entries. `step` consolidates
+those edits and executes those calls as user intent; a later `step` sends the
+resulting state and observations to the model.
 """
 
 

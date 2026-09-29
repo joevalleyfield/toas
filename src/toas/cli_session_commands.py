@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 import sys  # noqa: F401
@@ -185,7 +186,11 @@ def run_step(
         control=control,
         session_path=session_path,
     )
-    from .runtime.state_step import STATE_DIFF_MARKER, STATE_MARKER, parse_state_turn
+    from .runtime.state_step import (
+        STATE_DIFF_MARKER,
+        STATE_MARKER,
+        parse_state_turn,
+    )
 
     transcript_markers = [
         line.strip()
@@ -312,17 +317,50 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         render_state_turn,
         step_state,
         transcript_observation_with_tool_outcomes,
+        user_state_edit_needed,
     )
 
+    snapshots = [record for record in state_step_records(str(events_path)) if record.get("kind") == "state_snapshot"]
     if parsed_turn["turn_type"] == "state":
         current_state = parsed_turn["state"]
     else:
-        snapshots = [record for record in state_step_records(str(events_path)) if record.get("kind") == "state_snapshot"]
         if not snapshots:
             raise ValueError("state-diff turn has no earlier accepted state snapshot")
         current_state = _merge_patch(snapshots[-1]["state"], parsed_turn["state_patch"])
+    is_user_edit = user_state_edit_needed(
+        events_path=events_path,
+        state=current_state,
+        observation=parsed_turn.get("observation"),
+        has_user_tool_calls="user_tool_calls" in parsed_turn,
+    )
     request = None
     if preview or preview_response:
+        if is_user_edit:
+            pending = next(
+                (
+                    record for record in reversed(state_step_records(str(events_path)))
+                    if record.get("kind") == "state_transition"
+                    and record.get("status") in {"pending", "running"}
+                ),
+                None,
+            )
+            if pending is not None:
+                print(json.dumps({
+                    "phase": "execute_batch",
+                    "status": pending.get("status"),
+                    "transition_id": pending.get("transition_id"),
+                    "user_edit_waiting": True,
+                }, ensure_ascii=False, indent=2))
+                return
+            print(json.dumps({
+                "phase": "consolidate_user",
+                "status": "would_accept_user_edits",
+                "state": current_state,
+                "observation": parsed_turn.get("observation"),
+                "user_tool_calls": parsed_turn.get("user_tool_calls", []),
+                "next_phase": "infer on the following explicit step",
+            }, ensure_ascii=False, indent=2))
+            return
         request = preview_state_request(
             events_path=events_path,
             state=current_state,
@@ -385,16 +423,31 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                 raise ToolOutcomeError("failed", str(payload.get("summary", "tool call failed")))
         return results
 
+    def execute_user_call(call: dict) -> list[dict]:
+        return step_mod._execute_plan_user_context(
+            [call],
+            origin_role="user",
+            command_cwd=runtime_ctx["command_cwd"],
+            workspace_mode=runtime_ctx["workspace_mode"],
+            workspace_roots=runtime_ctx["workspace_roots"],
+            env_modifiers=step_mod.resolve_effective_env_modifiers([]),
+            stream_stdout_enabled=True,
+        )
+
     result = step_state(
         events_path=events_path, state=current_state, observation=parsed_turn.get("observation"),
         instructions=parsed_turn.get("instructions"),
+        user_tool_calls=parsed_turn.get("user_tool_calls"),
+        user_turn_digest=hashlib.sha256(normalized_transcript.encode("utf-8")).hexdigest() if is_user_edit else None,
         generate=generate_state_packet, execute_call=execute_call,
+        execute_user_call=execute_user_call,
     )
     if result["phase"] == "infer":
         rendered = render_state_turn(
             result["state"], observation=parsed_turn.get("observation"),
             format=parsed_turn.get("format", "yaml"),
             instructions=parsed_turn.get("instructions"),
+            user_tool_calls=parsed_turn.get("user_tool_calls"),
         )
         transcript = normalized_transcript
         if transcript and not transcript.endswith(("\n", "\r")):
@@ -414,6 +467,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             result["state"], observation=observation,
             format=parsed_turn.get("format", "yaml"),
             instructions=parsed_turn.get("instructions"),
+            user_tool_calls=parsed_turn.get("user_tool_calls"),
         )
         rendered = (
             parsed_turn.get("_transcript_prefix", "")
@@ -422,6 +476,21 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         )
         _write_text_with_newline_style(
             path=session_path, text=rendered, newline=session_newline,
+            apply_newline_style_fn=deps.apply_newline_style,
+        )
+    elif result["phase"] == "consolidate_user":
+        rendered = render_state_turn(
+            result["state"], observation=result.get("observation"),
+            format=parsed_turn.get("format", "yaml"),
+            instructions=parsed_turn.get("instructions"),
+        )
+        transcript = normalized_transcript
+        if transcript and not transcript.endswith(("\n", "\r")):
+            transcript += "\n"
+        if transcript and not transcript.endswith("\n\n"):
+            transcript += "\n"
+        _write_text_with_newline_style(
+            path=session_path, text=transcript + rendered, newline=session_newline,
             apply_newline_style_fn=deps.apply_newline_style,
         )
     print(f"state-step {result['phase']}: {result['status']}")

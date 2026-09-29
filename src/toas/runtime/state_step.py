@@ -101,6 +101,11 @@ def parse_state_turn(text: str) -> dict[str, Any]:
         raise ValueError("state turn body must be a mapping")
     if "instructions" in payload and not isinstance(payload["instructions"], str):
         raise ValueError("state turn instructions must be a string")
+    if "user_tool_calls" in payload and (
+        not isinstance(payload["user_tool_calls"], list)
+        or not all(isinstance(call, dict) for call in payload["user_tool_calls"])
+    ):
+        raise ValueError("state turn user_tool_calls must be an array of objects")
     if marker == STATE_MARKER and not isinstance(payload.get("state"), dict):
         raise ValueError("state turn must contain a state mapping")
     if marker == STATE_DIFF_MARKER and not isinstance(payload.get("state_patch"), dict):
@@ -119,6 +124,7 @@ def render_state_turn(
     format: str = "yaml",
     state_patch: dict[str, Any] | None = None,
     instructions: str | None = None,
+    user_tool_calls: list[dict[str, Any]] | None = None,
 ) -> str:
     if format not in {"yaml", "markdown"}:
         raise ValueError("state format must be 'yaml' or 'markdown'")
@@ -127,6 +133,8 @@ def render_state_turn(
     if instructions is not None:
         payload["instructions"] = _LiteralString(instructions)
     payload["state_patch" if is_diff else "state"] = state_patch if is_diff else state
+    if user_tool_calls is not None:
+        payload["user_tool_calls"] = user_tool_calls
     if observation is not None:
         payload["observation"] = observation
     if format == "yaml":
@@ -173,6 +181,40 @@ def _merge_patch(state: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]
     return merged
 
 
+def state_delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """Describe the actual sparse change from one full state to another."""
+    delta: dict[str, Any] = {}
+    for key in sorted(before.keys() | after.keys(), key=str):
+        if key not in after:
+            delta[key] = None
+        elif key not in before:
+            delta[key] = after[key]
+        elif isinstance(before[key], dict) and isinstance(after[key], dict):
+            nested = state_delta(before[key], after[key])
+            if nested:
+                delta[key] = nested
+        elif before[key] != after[key]:
+            delta[key] = after[key]
+    return delta
+
+
+def user_state_edit_needed(
+    *, events_path: str | Path, state: dict[str, Any], observation: Any,
+    has_user_tool_calls: bool,
+) -> bool:
+    """Detect editable frontier changes that need consolidation before inference."""
+    records = state_records(str(events_path))
+    snapshots = [record for record in records if record.get("kind") == "state_snapshot"]
+    baseline = snapshots[-1].get("state", initial_state()) if snapshots else initial_state()
+    if state_delta(baseline, state) or has_user_tool_calls:
+        return True
+    observations = [record for record in records if record.get("kind") == "state_observation"]
+    prior = observations[-1].get("observation") if observations else None
+    prior_operator = prior.get("operator_observation") if isinstance(prior, dict) else prior
+    current_operator = _operator_observation(observation)
+    return current_operator != prior_operator
+
+
 def _latest_pending(records: list[dict]) -> dict | None:
     transitions = [r for r in records if r.get("kind") == "state_transition"]
     if not transitions:
@@ -204,6 +246,23 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
     for transition in reversed(prior_transitions):
         if transition.get("status") in {"completed", "failed", "cancelled", "indeterminate"}:
             transition_id = transition.get("transition_id")
+            origin = next(
+                (
+                    record for record in reversed(records)
+                    if record.get("kind") == "state_transition"
+                    and record.get("transition_id") == transition_id
+                    and record.get("source") == "user"
+                ),
+                None,
+            )
+            if origin is not None:
+                observations = [
+                    record for record in records
+                    if record.get("kind") == "state_observation"
+                    and record.get("transition_id") == transition_id
+                ]
+                if observations and isinstance(observations[-1].get("observation"), dict):
+                    return observations[-1]["observation"]
             outcomes = [
                 {
                     key: value
@@ -285,18 +344,119 @@ def step_state(
     state: dict[str, Any],
     observation: Any,
     instructions: str | None = None,
+    user_tool_calls: list[dict[str, Any]] | None = None,
+    user_turn_digest: str | None = None,
     generate: Callable[[dict], Any],
     execute_call: Callable[[dict], Any],
+    execute_user_call: Callable[[dict], Any] | None = None,
 ) -> dict[str, Any]:
-    """Advance inference or one pending batch, never both in a single call."""
+    """Run one explicit phase: user consolidation, pending batch, or inference."""
     path = str(events_path)
     records = read_log(path)
     transitions = [record for record in records if record.get("kind") == "state_transition"]
+    user_origin = next(
+        (
+            record for record in reversed(records)
+            if record.get("kind") == "state_transition"
+            and record.get("source") == "user"
+            and record.get("user_turn_digest") == user_turn_digest
+        ),
+        None,
+    ) if user_turn_digest is not None else None
+    if user_origin is not None:
+        transition_id = user_origin["transition_id"]
+        latest_status = next(
+            (
+                record for record in reversed(records)
+                if record.get("kind") == "state_transition"
+                and record.get("transition_id") == transition_id
+            ),
+            user_origin,
+        )
+        existing = {**user_origin, **latest_status}
+        outcomes = [
+            {key: value for key, value in record.items() if key not in {"kind", "transition_id"}}
+            for record in records
+            if record.get("kind") == "state_tool_result"
+            and record.get("transition_id") == transition_id
+        ]
+        if existing.get("status") == "running":
+            calls = existing.get("tool_calls", [])
+            if outcomes and outcomes[-1].get("status") != "completed":
+                existing["status"] = outcomes[-1].get("status", "failed")
+            elif len(outcomes) < len(calls):
+                outcome = {
+                    "index": len(outcomes),
+                    "status": "indeterminate",
+                    "error": "state-step stopped while executing this user-authored tool batch; it was not retried",
+                    "source": "user",
+                }
+                append_state_step_records(
+                    path,
+                    [{"kind": "state_tool_result", "transition_id": transition_id, **outcome}],
+                )
+                outcomes.append(outcome)
+                existing["status"] = "indeterminate"
+            else:
+                existing["status"] = (
+                    "completed" if all(item.get("status") == "completed" for item in outcomes)
+                    else next((item.get("status", "failed") for item in outcomes if item.get("status") != "completed"), "failed")
+                )
+            append_state_step_records(
+                path,
+                [{"kind": "state_transition", "transition_id": transition_id, "status": existing["status"]}],
+            )
+            carried = existing.get("observation", {})
+            compound = {
+                "kind": "toas.compound-observation/1",
+                "operator_observation": carried.get("operator_observation") if isinstance(carried, dict) else observation,
+                "tool_outcomes": [
+                    *(carried.get("tool_outcomes", []) if isinstance(carried, dict) else []),
+                    *outcomes,
+                ],
+            }
+            append_state_step_records(
+                path,
+                [{"kind": "state_observation", "transition_id": transition_id, "observation": compound}],
+            )
+        observation_record = next(
+            (
+                record for record in reversed(state_records(path))
+                if record.get("kind") == "state_observation"
+                and record.get("transition_id") == transition_id
+            ),
+            None,
+        )
+        if observation_record is None:
+            carried = existing.get("observation", {})
+            compound = {
+                "kind": "toas.compound-observation/1",
+                "operator_observation": carried.get("operator_observation") if isinstance(carried, dict) else observation,
+                "tool_outcomes": [
+                    *(carried.get("tool_outcomes", []) if isinstance(carried, dict) else []),
+                    *outcomes,
+                ],
+            }
+            append_state_step_records(
+                path,
+                [{"kind": "state_observation", "transition_id": transition_id, "observation": compound}],
+            )
+        else:
+            compound = observation_record.get("observation")
+        return {
+            "phase": "consolidate_user",
+            "transition_id": transition_id,
+            "state": existing.get("state_after", state),
+            "outcomes": outcomes,
+            "observation": compound,
+            "status": existing.get("status", "completed"),
+        }
     if (
         transitions
         and transitions[-1].get("outcome") == "complete"
         and transitions[-1].get("status") == "completed"
         and state == transitions[-1].get("state_after")
+        and user_turn_digest is None
     ):
         return {
             "phase": "terminal",
@@ -337,14 +497,15 @@ def step_state(
         )
         outcomes = []
         for index, call in enumerate(pending["tool_calls"]):
+            call_source = pending.get("source", "model")
             try:
                 normalized_call = _normalize_tool_call_aliases([call])[0]
                 result = execute_call(normalized_call)
-                outcome = {"index": index, "status": "completed", "result": result}
+                outcome = {"index": index, "status": "completed", "result": result, "source": call_source}
             except ToolOutcomeError as exc:
-                outcome = {"index": index, "status": exc.status, "error": str(exc)}
+                outcome = {"index": index, "status": exc.status, "error": str(exc), "source": call_source}
             except Exception as exc:
-                outcome = {"index": index, "status": "failed", "error": str(exc)}
+                outcome = {"index": index, "status": "failed", "error": str(exc), "source": call_source}
             append_state_step_records(
                 path,
                 [
@@ -379,6 +540,101 @@ def step_state(
             "transition_id": pending["transition_id"],
             "state": state,
             "outcomes": outcomes,
+            "status": status,
+        }
+
+    if user_turn_digest is not None:
+        calls = _normalize_tool_call_aliases(user_tool_calls or [])
+        snapshots = [record for record in records if record.get("kind") == "state_snapshot"]
+        before = snapshots[-1].get("state", initial_state()) if snapshots else initial_state()
+        accepted = state
+        patch = state_delta(before, accepted)
+        carried = _compound_observation(records, observation)
+        outcomes: list[dict[str, Any]] = []
+        transition_id = f"st_{uuid.uuid4().hex}"
+        status = "running" if calls else "completed"
+        transition = {
+            "kind": "state_transition",
+            "transition_id": transition_id,
+            "source": "user",
+            "user_turn_digest": user_turn_digest,
+            "status": status,
+            "state_before": before,
+            "state_after": accepted,
+            "state_patch": patch,
+            "observation": carried,
+            "tool_calls": calls,
+        }
+        append_state_step_records(
+            path,
+            [
+                transition,
+                {"kind": "state_diff", "transition_id": transition_id, "patch": patch},
+                {"kind": "state_snapshot", "transition_id": transition_id, "state": accepted},
+            ],
+        )
+        if calls:
+            append_state_step_records(
+                path,
+                [{"kind": "state_tool_request", "transition_id": transition_id, "source": "user", "tool_calls": calls}],
+            )
+        for index, call in enumerate(calls):
+            try:
+                if execute_user_call is None:
+                    raise ValueError("user-intent tool execution is unavailable")
+                result = execute_user_call(call)
+                outcome = {"index": index, "status": "completed", "result": result, "source": "user"}
+                if isinstance(result, list) and any(
+                    isinstance(item, dict)
+                    and isinstance(item.get("payload"), dict)
+                    and item["payload"].get("ok") is False
+                    for item in result
+                ):
+                    failed_payload = next(
+                        item["payload"] for item in result
+                        if isinstance(item, dict)
+                        and isinstance(item.get("payload"), dict)
+                        and item["payload"].get("ok") is False
+                    )
+                    outcome["status"] = str(failed_payload.get("outcome", "failed"))
+                    if outcome["status"] not in {"failed", "cancelled", "indeterminate"}:
+                        outcome["status"] = "failed"
+                    outcome["error"] = str(failed_payload.get("summary", "tool call failed"))
+            except ToolOutcomeError as exc:
+                outcome = {"index": index, "status": exc.status, "error": str(exc), "source": "user"}
+            except Exception as exc:
+                outcome = {"index": index, "status": "failed", "error": str(exc), "source": "user"}
+            append_state_step_records(
+                path,
+                [{"kind": "state_tool_result", "transition_id": transition_id, **outcome}],
+            )
+            outcomes.append(outcome)
+            if outcome["status"] != "completed":
+                break
+        if calls:
+            status = (
+                "completed" if len(outcomes) == len(calls) and all(x["status"] == "completed" for x in outcomes)
+                else next((x["status"] for x in outcomes if x["status"] != "completed"), "failed")
+            )
+            append_state_step_records(
+                path,
+                [{"kind": "state_transition", "transition_id": transition_id, "status": status}],
+            )
+        compound = {
+            "kind": "toas.compound-observation/1",
+            "operator_observation": _operator_observation(observation),
+            "tool_outcomes": [*carried["tool_outcomes"], *outcomes],
+        }
+        append_state_step_records(
+            path,
+            [{"kind": "state_observation", "transition_id": transition_id, "observation": compound}],
+        )
+        return {
+            "phase": "consolidate_user",
+            "transition_id": transition_id,
+            "state": accepted,
+            "outcomes": outcomes,
+            "observation": compound,
             "status": status,
         }
 
@@ -435,6 +691,7 @@ def step_state(
     transition = {
         "kind": "state_transition",
         "transition_id": transition_id,
+        "source": "model",
         "status": status,
         "state_before": state,
         "state_after": accepted,
@@ -464,7 +721,7 @@ def step_state(
     if calls:
         append_state_step_records(
             path,
-            [{"kind": "state_tool_request", "transition_id": transition_id, "tool_calls": calls}],
+            [{"kind": "state_tool_request", "transition_id": transition_id, "source": "model", "tool_calls": calls}],
         )
     return {
         "phase": "infer",
