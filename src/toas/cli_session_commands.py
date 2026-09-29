@@ -278,29 +278,11 @@ def run_step(
 
 
 def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> None:
-    """Create an editable state session with a blank goal for the operator."""
-    deps = _build_step_cli_deps()
-    events_path = deps.resolve_events_path()
-    deps.ensure_file(events_path)
-    target = Path(session_path) if session_path else deps.resolve_session_path(read_log(str(events_path)))
-    deps.ensure_file(target)
-    existing = deps.read_text_preserve_newlines(target)
-    from .runtime.state_step import is_state_turn_marker, seed_state_turn
-
-    if any(is_state_turn_marker(line.strip()) for line in existing.splitlines()):
-        raise ValueError(f"state transcript already contains a typed state turn: {target}")
+    """Output a fresh editable state turn with instructions and blank goal to stdout."""
+    from .runtime.state_step import seed_state_turn
 
     rendered = seed_state_turn(format=format)
-    if existing:
-        separator = "" if existing.endswith(("\n", "\r")) else "\n"
-        rendered = f"{existing}{separator}\n{rendered}"
-    _write_text_with_newline_style(
-        path=target,
-        text=rendered,
-        newline=deps.detect_newline_style(existing),
-        apply_newline_style_fn=deps.apply_newline_style,
-    )
-    print(f"seeded state transcript: {target}")
+    print(rendered, end="")
 
 
 def _state_free_transcript(transcript: str) -> str:

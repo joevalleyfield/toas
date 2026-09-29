@@ -363,11 +363,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260929-state-seed-stdout]** Emit State Seed To Stdout Without Assuming Session Path
 - **[T260929-align-state-execution-experiment-test-expectations]** Align State Execution Experiment Test Expectations
 - **[T260928-state-edit-and-user-tools]** User-Authored State Editing And Tool Calls
 - **[T260927-state-step-response-shapes]** Use unaltered response previews to learn which response forms the model naturally produces under the current lightweight instructions. Treat repeated ...
 - **[T260927-state-step-request-preview]** Provide a no-generation invocation of `step` that constructs and prints the request messages that state-step inference would hand to the model-generat...
-- **[T260927-state-step-raw-response]** Add a model-response preview alongside the request preview. `toas step --preview-request` prints the request without calling the model; `toas step --p...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

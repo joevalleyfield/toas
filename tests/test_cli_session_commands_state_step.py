@@ -24,6 +24,8 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
     monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: [])
     cli_session_commands.run_state_seed(format="markdown")
+    seed_out = capsys.readouterr().out
+    session.write_text(session.read_text() + "\n\n" + seed_out)
     seeded = parse_state_turn(session.read_text())
     state = dict(seeded["state"])
     state["goal"] = "inspect"
@@ -437,24 +439,20 @@ def test_state_diff_requires_a_prior_accepted_snapshot(tmp_path):
         )
 
 
-def test_state_seed_creates_blank_goal_and_refuses_overwriting_operator_content(monkeypatch, tmp_path):
-    session = tmp_path / "session.md"
-    events = tmp_path / "events.jsonl"
-    deps = SimpleNamespace(
-        resolve_events_path=lambda: events,
-        ensure_file=lambda path: path.touch(exist_ok=True),
-        resolve_session_path=lambda _records: session,
-        read_text_preserve_newlines=lambda path: path.read_text() if path.exists() else "",
-        detect_newline_style=lambda _text: "\n",
-        apply_newline_style=lambda text, _newline: text,
-    )
-    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
-    session.write_text("## TOAS:USER\n\nExisting work")
+def test_state_seed_emits_to_stdout_with_blank_goal_and_instructions(capsys):
     cli_session_commands.run_state_seed(format="markdown")
-    assert session.read_text().startswith("## TOAS:USER\n\nExisting work\n\n")
-    assert parse_state_turn(session.read_text())["state"]["goal"] == ""
-    with pytest.raises(ValueError, match="already contains a typed state turn"):
-        cli_session_commands.run_state_seed(format="yaml")
+    out_md = capsys.readouterr().out
+    assert out_md.startswith("## TOAS:STATE/1\n\n```yaml\n")
+    parsed_md = parse_state_turn(out_md)
+    assert parsed_md["state"]["goal"] == ""
+    assert "instructions" in parsed_md
+
+    cli_session_commands.run_state_seed(format="yaml")
+    out_yaml = capsys.readouterr().out
+    assert out_yaml.startswith("## TOAS:STATE/1\n\ninstructions:")
+    parsed_yaml = parse_state_turn(out_yaml)
+    assert parsed_yaml["state"]["goal"] == ""
+    assert "instructions" in parsed_yaml
 
 
 def test_cli_seed_wrapper_forwards_format(monkeypatch):
