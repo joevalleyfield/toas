@@ -117,6 +117,12 @@ transcript projection.
   - Forwarded projection callbacks (`on_projection_delta`, `on_projection_nodes`)
     in state-step execution so editors (such as Vim) and host listeners receive
     batch result blocks and new state turns in real time without buffer drift.
+  - Aligned state-step execution with the core `toas step` contract: stopped mutating
+    `session.md` directly on disk; emitted newly produced consequence chunks
+    (`STATE/n` turns and batch result blocks) to `stdout` (or streamed via
+    `on_projection_delta`), preserving editor buffer authority and Unix append
+    redirection (`toas step >> session.md`); removed spurious status prints on
+    completed phases; forwarded projection sinks through state input turn resolution.
 
 Status: Active.
 

@@ -320,6 +320,8 @@ def _state_free_transcript(transcript: str) -> str:
 def _resolve_state_input_turns(
     *, deps, events_path: Path, session_path: Path, session_newline: str,
     normalized_transcript: str, parsed_turn: dict,
+    on_projection_nodes: Callable[[list[dict]], None] | None = None,
+    on_projection_delta: Callable[[str], None] | None = None,
 ) -> tuple[str, dict, list[dict], bool]:
     """Resolve appended USER/CONTROL turns through the ordinary step runtime."""
     from . import step as step_mod
@@ -402,6 +404,8 @@ def _resolve_state_input_turns(
                 append_set=append_set,
                 stdout_set=stdout_set,
                 stream_state=stream_state,
+                on_projection_nodes=on_projection_nodes,
+                on_projection_delta=on_projection_delta,
             )
 
         if result_nodes:
@@ -418,12 +422,6 @@ def _resolve_state_input_turns(
             input_turns = [dict(item) for item in parsed_turn.get("_input_turns", [])]
             suffix = parsed_turn.get("_transcript_suffix", "")
             transcript_body = normalized_transcript[:-len(suffix)] if suffix else normalized_transcript
-            _write_text_with_newline_style(
-                path=session_path,
-                text=normalized_transcript,
-                newline=session_newline,
-                apply_newline_style_fn=deps.apply_newline_style,
-            )
             index += len(result_turns) + 1
         else:
             index += 1
@@ -517,9 +515,10 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             session_newline=session_newline,
             normalized_transcript=normalized_transcript,
             parsed_turn=parsed_turn,
+            on_projection_nodes=on_projection_nodes,
+            on_projection_delta=on_projection_delta,
         )
         if intent_resolved:
-            print("state-step resolve_input: completed")
             return
         input_turns = parsed_turn.get("_input_turns", [])
         current_observation = observation_with_user_turns(
@@ -597,13 +596,11 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             prefix += "\n"
         if transcript and not (transcript + prefix).endswith("\n\n"):
             prefix += "\n"
-        full_text = transcript + prefix + rendered
-        _write_text_with_newline_style(
-            path=session_path, text=full_text, newline=session_newline,
-            apply_newline_style_fn=deps.apply_newline_style,
-        )
+        output_chunk = prefix + rendered
         if on_projection_delta is not None:
-            on_projection_delta(prefix + rendered)
+            on_projection_delta(output_chunk)
+        else:
+            print(output_chunk, end="")
     elif result["phase"] == "execute_batch":
         result_nodes = [
             node for outcome in result.get("outcomes", [])
@@ -633,12 +630,8 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             prefix += "\n"
         if transcript and not (transcript + prefix).endswith("\n\n"):
             prefix += "\n"
-        full_text = transcript + prefix + rendered_results + "\n"
-        _write_text_with_newline_style(
-            path=session_path, text=full_text, newline=session_newline,
-            apply_newline_style_fn=deps.apply_newline_style,
-        )
+        output_chunk = prefix + rendered_results + "\n"
         if on_projection_delta is not None:
-            on_projection_delta(prefix + rendered_results + "\n")
-    if on_projection_delta is None:
-        print(f"state-step {result['phase']}: {result['status']}")
+            on_projection_delta(output_chunk)
+        else:
+            print(output_chunk, end="")

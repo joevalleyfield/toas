@@ -9,7 +9,7 @@ from toas.runtime.result_nodes import make_result_node
 from toas.runtime.state_step import parse_state_turn, render_state_turn
 
 
-def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch, tmp_path):
+def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch, tmp_path, capsys):
     session = tmp_path / "session.md"
     session.write_text("## TOAS:USER\n\nEarlier conversation.")
     events_path = tmp_path / "events.jsonl"
@@ -77,11 +77,29 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
 
     monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _working: {})
     monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda *_args: ())
+
+    # Step 1: infer
+    initial_text = session.read_text()
     cli_session_commands.run_step(session_path=str(session))
-    assert "progress:\n  - started" in session.read_text()
+    assert session.read_text() == initial_text  # disk is not mutated by run_step
+    out1 = capsys.readouterr().out
+    assert "progress:\n  - started" in out1
+    session.write_text(session.read_text() + out1)  # simulate >> session.md
     assert "Earlier conversation." in session.read_text()
+
+    # Step 2: batch execution
+    before_step2 = session.read_text()
     cli_session_commands.run_step(session_path=str(session))
+    assert session.read_text() == before_step2
+    out2 = capsys.readouterr().out
+    session.write_text(session.read_text() + out2)
+
+    # Step 3: next infer
+    before_step3 = session.read_text()
     cli_session_commands.run_step(session_path=str(session))
+    assert session.read_text() == before_step3
+    out3 = capsys.readouterr().out
+    session.write_text(session.read_text() + out3)
     records = read_log(str(events_path))
     assert [record["kind"] for record in records[2:]] == [
         "state_transition", "state_diff", "state_snapshot", "state_observation", "state_tool_request",
@@ -92,7 +110,7 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     assert packets[-1]["observation"]["tool_outcomes"][0]["status"] == "completed"
 
 
-def test_user_turn_after_state_is_inferred_directly_when_frontier_is_non_executable(monkeypatch, tmp_path):
+def test_user_turn_after_state_is_inferred_directly_when_frontier_is_non_executable(monkeypatch, tmp_path, capsys):
     session = tmp_path / "session.md"
     events_path = tmp_path / "events.jsonl"
     events_path.touch()
@@ -144,12 +162,16 @@ def test_user_turn_after_state_is_inferred_directly_when_frontier_is_non_executa
         ),
     )
 
+    initial_text = session.read_text()
     cli_session_commands.run_step(session_path=str(session))
+    assert session.read_text() == initial_text  # disk unmodified
 
-    accepted = parse_state_turn(session.read_text())
+    out = capsys.readouterr().out
+    combined = initial_text + out
+    accepted = parse_state_turn(combined)
     assert accepted["state"] == {"goal": "updated by model", "progress": []}
     assert accepted.get("observation") is None
-    assert "## TOAS:USER\n\nRead the project manifest." in session.read_text()
+    assert "## TOAS:USER\n\nRead the project manifest." in combined
 
     assert packets[0]["observation"]["user_inputs"] == [
         {"content": "Read the project manifest."}
@@ -205,11 +227,6 @@ def test_appended_user_and_control_intents_use_normal_frontier_and_embed_results
     )
     monkeypatch.setattr(step_runtime, "_frontier_has_callable_intent", lambda **_kwargs: True)
     monkeypatch.setattr(cli_session_commands, "_persist_step_outputs", lambda **_kwargs: None)
-    monkeypatch.setattr(
-        cli_session_commands,
-        "_write_text_with_newline_style",
-        lambda *, path, text, **_kwargs: path.write_text(text),
-    )
 
     updated, resolved_turn, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
         deps=deps,
@@ -229,9 +246,9 @@ def test_appended_user_and_control_intents_use_normal_frontier_and_embed_results
     assert turns[1]["role"] == "user" and "result from user" in turns[1]["content"]
     assert turns[2]["role"] == "control" and turns[2]["content"] == "/pwd"
     assert turns[3]["role"] == "control" and "result from control" in turns[3]["content"]
-    assert "## TOAS:USER\n\n/help\n\n## TOAS:USER\n\n## RESULT" in session.read_text()
-    assert "## TOAS:CONTROL\n\n/pwd\n\n## TOAS:CONTROL\n\n## RESULT" in session.read_text()
-    assert updated == session.read_text()
+    assert session.read_text() == transcript  # session file on disk is not mutated
+    assert "## TOAS:USER\n\n/help\n\n## TOAS:USER\n\n## RESULT" in updated
+    assert "## TOAS:CONTROL\n\n/pwd\n\n## TOAS:CONTROL\n\n## RESULT" in updated
 
 
 def test_resolved_user_intent_does_not_reexecute_on_subsequent_step(monkeypatch, tmp_path):
@@ -524,27 +541,36 @@ def test_state_step_progresses_ordinal_and_preserves_unfolding_history(monkeypat
 
     deltas = []
 
-    # Step 1: Infer -> appends STATE/2 with pending_tools
+    # Step 1: Infer -> streams STATE/2; disk is not mutated
     cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
+    assert session.read_text() == initial_transcript  # disk is not mutated
+    assert any("## TOAS:STATE/2" in d for d in deltas)
+    session.write_text(session.read_text() + deltas[-1])  # editor sink applies delta to buffer
     session_after_step1 = session.read_text()
     assert "## TOAS:STATE/1" in session_after_step1
     assert "## TOAS:STATE/2" in session_after_step1
     assert "pending_tools:" in session_after_step1
     assert "read_file" in session_after_step1
     assert "observation:" not in session_after_step1
-    assert any("## TOAS:STATE/2" in d for d in deltas)
 
-    # Step 2: Execute batch -> appends result block without rewriting STATE/2
+    # Step 2: Execute batch -> streams result block without rewriting STATE/2; disk is not mutated
+    before_step2 = session.read_text()
     cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
+    assert session.read_text() == before_step2  # disk is not mutated
+    assert any("## RESULT" in d for d in deltas)
+    session.write_text(session.read_text() + deltas[-1])  # editor sink applies delta to buffer
     session_after_step2 = session.read_text()
     assert "## TOAS:STATE/1" in session_after_step2
     assert "## TOAS:STATE/2" in session_after_step2
     assert "## TOAS:USER\n\n## RESULT" in session_after_step2
     assert "task content" in session_after_step2
-    assert any("## RESULT" in d for d in deltas)
 
-    # Step 3: Infer next -> appends STATE/3 while keeping RESULT block intact
+    # Step 3: Infer next -> streams STATE/3 while keeping RESULT block intact; disk is not mutated
+    before_step3 = session.read_text()
     cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
+    assert session.read_text() == before_step3  # disk is not mutated
+    assert any("## TOAS:STATE/3" in d for d in deltas)
+    session.write_text(session.read_text() + deltas[-1])  # editor sink applies delta to buffer
     session_after_step3 = session.read_text()
     assert "## TOAS:STATE/1" in session_after_step3
     assert "## TOAS:STATE/2" in session_after_step3
@@ -554,5 +580,4 @@ def test_state_step_progresses_ordinal_and_preserves_unfolding_history(monkeypat
     parsed3 = parse_state_turn(session_after_step3)
     assert parsed3["state_number"] == 3
     assert parsed3["state"]["progress"] == ["found task", "read task"]
-    assert any("## TOAS:STATE/3" in d for d in deltas)
 
