@@ -46,8 +46,11 @@ state-step workflow:
 3. A subsequent explicit `step` advances the pending batch through existing
    TOAS capability and permission checks. Tool outcomes are recorded and become
    components of the next compound observation.
-4. The operator can edit the state and observation before the next step. The
-   workflow then repeats without a hidden execute-and-infer loop.
+4. USER/CONTROL turns retain their normal editable transcript and execution
+   lifecycle. With a state horizon, eligible user material and embedded
+   results enter the next state inference as observations; the state packet
+   replaces transcript projection only at inference time. The workflow then
+   repeats without a hidden execute-and-infer loop.
 
 The initial human-facing state formats are configured YAML and Markdown state
 DSL, both parsing to and rendering from a normalized JSON state representation.

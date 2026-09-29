@@ -67,6 +67,25 @@ def test_state_turn_collects_trailing_user_and_control_turns():
     assert "/queue approve q1" not in str(observation)
 
 
+def test_control_results_are_observed_without_projecting_control_text():
+    observation = observation_with_user_turns(
+        "existing note",
+        [
+            {"role": "user", "content": "Inspect this."},
+            {
+                "role": "control",
+                "content": "/pwd\n\n## RESULT\n\n/work/project",
+            },
+        ],
+    )
+
+    assert observation["user_inputs"] == [{"content": "Inspect this."}]
+    assert observation["control_results"] == [
+        {"content": "/work/project", "source": "control"}
+    ]
+    assert "/pwd" not in json.dumps(observation)
+
+
 def test_state_diff_turn_round_trips(format="markdown"):
     patch = {"progress": ["read source"]}
     assert (

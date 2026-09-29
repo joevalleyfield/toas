@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import inspect
 import json
 import sys  # noqa: F401
@@ -28,7 +27,7 @@ from .runtime.step_context_runtime import (
 )
 from .runtime.step_generation_runtime import StepCliDeps, build_step_cli_deps
 from .runtime.step_result_runtime import persist_step_outputs_runtime
-from .transcript import _lcp
+from .transcript import _lcp, parse_transcript, render_transcript
 
 write_text_with_newline_style = _write_text_with_newline_style
 
@@ -303,6 +302,125 @@ def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> 
     print(f"seeded state transcript: {target}")
 
 
+def _state_free_transcript(transcript: str) -> str:
+    """Project ordinary transcript turns while omitting typed state blocks."""
+    from .runtime.state_step import STATE_DIFF_MARKER, STATE_MARKER
+
+    output: list[str] = []
+    keep = True
+    for line in transcript.splitlines(keepends=True):
+        if line.startswith("## TOAS:"):
+            keep = line.strip() not in {STATE_MARKER, STATE_DIFF_MARKER}
+        if keep:
+            output.append(line)
+    return "".join(output)
+
+
+def _resolve_state_input_turns(
+    *, deps, events_path: Path, session_path: Path, session_newline: str,
+    normalized_transcript: str, parsed_turn: dict,
+) -> tuple[str, dict, list[dict], bool]:
+    """Resolve appended USER/CONTROL turns through the ordinary step runtime."""
+    from . import step as step_mod
+    from .graph import read_log as read_current_log
+    from .runtime.rendering_edges import render_transcript_blocks
+    from .runtime.step_runtime import _frontier_has_callable_intent
+
+    from .runtime.state_step import parse_state_turn
+
+    input_turns = [dict(turn) for turn in parsed_turn.get("_input_turns", [])]
+    if not input_turns:
+        return normalized_transcript, parsed_turn, read_current_log(str(events_path)), False
+
+    suffix = parsed_turn.get("_transcript_suffix", "")
+    transcript_body = normalized_transcript[:-len(suffix)] if suffix else normalized_transcript
+    prior_messages = parse_transcript(
+        _state_free_transcript(parsed_turn.get("_transcript_prefix", ""))
+    )
+    intent_resolved = False
+
+    input_turn_count = len(input_turns)
+    for index in range(input_turn_count):
+        turn = input_turns[index]
+        ordinary_transcript = render_transcript(
+            [*prior_messages, *input_turns[: index + 1]], spaced=True
+        )
+        events = read_current_log(str(events_path))
+        runtime_ctx = _build_runtime_context(
+            events=events,
+            normalized_transcript=ordinary_transcript,
+            session_path=session_path,
+            workdir=Path.cwd(),
+        )
+        runtime_ctx["events"] = events
+        operator_config, config_sources, generation_runner, stream_state = (
+            _resolve_runtime_generation_context(
+                deps=deps, events_path=events_path, events=events
+            )
+        )
+        step_kwargs = _build_step_kwargs(
+            deps=deps,
+            runtime_ctx=runtime_ctx,
+            operator_config=operator_config,
+            config_sources=config_sources,
+            generation_fn=getattr(generation_runner, "generate", None),
+        )
+        was_callable = _frontier_has_callable_intent(
+            step_mod=step_mod,
+            frontier=turn,
+            working=[*prior_messages, *input_turns[: index + 1]],
+            config=operator_config,
+        )
+        if not was_callable:
+            continue
+        append_set, stdout_set = deps.step_fn(
+            ordinary_transcript, runtime_ctx["log"], **step_kwargs
+        )
+        result_nodes = [node for node in append_set if node.get("role") == "result"]
+        intent_resolved = intent_resolved or was_callable or bool(result_nodes) or bool(stdout_set)
+
+        if append_set or stdout_set:
+            _persist_step_outputs(
+                deps=deps,
+                events_path=events_path,
+                session_path=session_path,
+                session_newline=session_newline,
+                normalized_transcript=normalized_transcript,
+                materialized_head_id=runtime_ctx["head_id"],
+                materialized_lineage=runtime_ctx["lineage"],
+                operator_config=operator_config,
+                append_set=append_set,
+                stdout_set=stdout_set,
+                stream_state=stream_state,
+            )
+
+        if result_nodes:
+            rendered_results = render_transcript_blocks(result_nodes)
+            result_turns = parse_transcript(rendered_results)
+            for result_turn in result_turns:
+                if result_turn["role"] == turn["role"]:
+                    content = result_turn["content"]
+                    turn["content"] = (
+                        f'{turn["content"].rstrip()}\n\n{content}'
+                        if turn["content"].strip()
+                        else content
+                    )
+            transcript_suffix = render_transcript(input_turns, spaced=True)
+            normalized_transcript = transcript_body + transcript_suffix
+            parsed_turn = parse_state_turn(normalized_transcript)
+            input_turns = [dict(item) for item in parsed_turn.get("_input_turns", [])]
+            suffix = parsed_turn.get("_transcript_suffix", "")
+            transcript_body = normalized_transcript[:-len(suffix)] if suffix else normalized_transcript
+            _write_text_with_newline_style(
+                path=session_path,
+                text=normalized_transcript,
+                newline=session_newline,
+                apply_newline_style_fn=deps.apply_newline_style,
+            )
+
+    return normalized_transcript, parsed_turn, read_current_log(str(events_path)), intent_resolved
+
+
 def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_transcript: str,
                     session_newline: str, events: list[dict], parsed_turn: dict,
                     preview: bool = False, preview_response: bool = False) -> None:
@@ -314,11 +432,11 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         ToolOutcomeError,
         _merge_patch,
         preview_state_request,
+        parse_state_turn,
         render_state_turn,
         step_state,
         transcript_observation_with_tool_outcomes,
         observation_with_user_turns,
-        user_state_edit_needed,
     )
 
     snapshots = [record for record in state_step_records(str(events_path)) if record.get("kind") == "state_snapshot"]
@@ -332,42 +450,32 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
     current_observation = observation_with_user_turns(
         parsed_turn.get("observation"), input_turns
     ) if input_turns else parsed_turn.get("observation")
-    is_user_edit = user_state_edit_needed(
-        events_path=events_path,
-        state=current_state,
-        observation=current_observation,
-        has_user_tool_calls=(
-            "user_tool_calls" in parsed_turn or bool(input_turns)
-        ),
-    ) or bool(input_turns)
     request = None
     if preview or preview_response:
-        if is_user_edit:
-            pending = next(
-                (
-                    record for record in reversed(state_step_records(str(events_path)))
-                    if record.get("kind") == "state_transition"
-                    and record.get("status") in {"pending", "running"}
-                ),
-                None,
+        if input_turns:
+            from .runtime.step_runtime import _frontier_has_callable_intent
+
+            preview_config = apply_overrides(
+                config_from_discovered_paths(workdir=Path.cwd()),
+                active_config_overrides(events),
             )
-            if pending is not None:
+            prefix_messages = parse_transcript(
+                _state_free_transcript(parsed_turn.get("_transcript_prefix", ""))
+            )
+            if any(
+                _frontier_has_callable_intent(
+                    step_mod=step_mod,
+                    frontier=turn,
+                    working=[*prefix_messages, *input_turns[: index + 1]],
+                    config=preview_config,
+                )
+                for index, turn in enumerate(input_turns)
+            ):
                 print(json.dumps({
-                    "phase": "execute_batch",
-                    "status": pending.get("status"),
-                    "transition_id": pending.get("transition_id"),
-                    "user_edit_waiting": True,
+                    "phase": "resolve_user_intent",
+                    "status": "input_turns_have_unresolved_executable_intent",
                 }, ensure_ascii=False, indent=2))
                 return
-            print(json.dumps({
-                "phase": "consolidate_user",
-                "status": "would_accept_user_edits",
-                "state": current_state,
-                "observation": current_observation,
-                "user_tool_calls": parsed_turn.get("user_tool_calls", []),
-                "next_phase": "infer on the following explicit step",
-            }, ensure_ascii=False, indent=2))
-            return
         request = preview_state_request(
             events_path=events_path,
             state=current_state,
@@ -381,6 +489,22 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             print(json.dumps(request, ensure_ascii=False, indent=2))
         if not preview_response:
             return
+    if input_turns and not preview and not preview_response:
+        normalized_transcript, parsed_turn, events, intent_resolved = _resolve_state_input_turns(
+            deps=deps,
+            events_path=events_path,
+            session_path=session_path,
+            session_newline=session_newline,
+            normalized_transcript=normalized_transcript,
+            parsed_turn=parsed_turn,
+        )
+        if intent_resolved:
+            print("state-step resolve_input: completed")
+            return
+        input_turns = parsed_turn.get("_input_turns", [])
+        current_observation = observation_with_user_turns(
+            parsed_turn.get("observation"), input_turns
+        ) if input_turns else parsed_turn.get("observation")
     runtime_ctx = _build_runtime_context(
         events=events, normalized_transcript=normalized_transcript,
         session_path=session_path, workdir=Path.cwd(),
@@ -430,34 +554,16 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                 raise ToolOutcomeError("failed", str(payload.get("summary", "tool call failed")))
         return results
 
-    def execute_user_call(call: dict) -> list[dict]:
-        return step_mod._execute_plan_user_context(
-            [call],
-            origin_role="user",
-            command_cwd=runtime_ctx["command_cwd"],
-            workspace_mode=runtime_ctx["workspace_mode"],
-            workspace_roots=runtime_ctx["workspace_roots"],
-            env_modifiers=step_mod.resolve_effective_env_modifiers([]),
-            stream_stdout_enabled=True,
-        )
-
     result = step_state(
         events_path=events_path, state=current_state, observation=current_observation,
         instructions=parsed_turn.get("instructions"),
-        user_tool_calls=parsed_turn.get("user_tool_calls"),
-        user_turn_digest=(
-            hashlib.sha256(normalized_transcript.encode("utf-8")).hexdigest()
-            if is_user_edit else None
-        ),
         generate=generate_state_packet, execute_call=execute_call,
-        execute_user_call=execute_user_call,
     )
     if result["phase"] == "infer":
         rendered = render_state_turn(
             result["state"], observation=current_observation,
             format=parsed_turn.get("format", "yaml"),
             instructions=parsed_turn.get("instructions"),
-            user_tool_calls=parsed_turn.get("user_tool_calls"),
         )
         transcript = normalized_transcript
         if transcript and not transcript.endswith(("\n", "\r")):
@@ -477,7 +583,6 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             result["state"], observation=observation,
             format=parsed_turn.get("format", "yaml"),
             instructions=parsed_turn.get("instructions"),
-            user_tool_calls=parsed_turn.get("user_tool_calls"),
         )
         rendered = (
             parsed_turn.get("_transcript_prefix", "")
@@ -486,21 +591,6 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         )
         _write_text_with_newline_style(
             path=session_path, text=rendered, newline=session_newline,
-            apply_newline_style_fn=deps.apply_newline_style,
-        )
-    elif result["phase"] == "consolidate_user":
-        rendered = render_state_turn(
-            result["state"], observation=result.get("observation", current_observation),
-            format=parsed_turn.get("format", "yaml"),
-            instructions=parsed_turn.get("instructions"),
-        )
-        transcript = normalized_transcript
-        if transcript and not transcript.endswith(("\n", "\r")):
-            transcript += "\n"
-        if transcript and not transcript.endswith("\n\n"):
-            transcript += "\n"
-        _write_text_with_newline_style(
-            path=session_path, text=transcript + rendered, newline=session_newline,
             apply_newline_style_fn=deps.apply_newline_style,
         )
     print(f"state-step {result['phase']}: {result['status']}")

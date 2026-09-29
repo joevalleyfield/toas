@@ -105,8 +105,10 @@ authoritative, while the model may patch other mutable state fields, including
   `step --preview` for the intermediate consolidated-state view and plain
   `step` for direct consolidation and inference.
 
-Status: Active; initial projection and frontier behavior are ready for
-implementation. Structured field mappings remain deferred.
+Status: Active; shared USER/CONTROL frontier routing and state observation
+projection are implemented for the initial slice. Broader execution recovery
+and hostio/RPC parity coverage remain in progress. Structured field mappings
+remain deferred.
 
 ## Progress
 
@@ -122,6 +124,17 @@ implementation. Structured field mappings remain deferred.
   state horizon only to change the inference projection. Previous
   `consolidate_user` implementation is exploratory and must be reconciled
   against this direction before implementation continues.
+- 2026-09-29: State input turns now use the ordinary USER/CONTROL frontier
+  runtime only when the turn contains executable intent. Results are embedded
+  back into their source role turn; ordinary text proceeds directly to state
+  inference as observation input, without invoking conversation inference.
+  CONTROL text is omitted from the state packet while embedded CONTROL results
+  are retained as observations.
+- 2026-09-29: Focused state-step and CLI coverage passes (299 tests). The full
+  suite passes 3346 tests and retains two failures in
+  `tests/test_state_execution_experiment.py`, outside this implementation
+  slice: expected experiment wording for failed actions and empty continuation
+  observations.
 - Inference is eligible only after no executable intent remains unresolved.
   The operator may preview the consolidated state before a later inference
   step, or proceed directly to inference; selection mechanics remain open.

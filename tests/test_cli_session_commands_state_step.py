@@ -4,6 +4,7 @@ import pytest
 
 from toas import cli_session_commands
 from toas.graph import append_state_step_records, read_log
+from toas.runtime.result_nodes import make_result_node
 from toas.runtime.state_step import parse_state_turn, render_state_turn
 
 
@@ -90,7 +91,7 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     assert packets[-1]["observation"]["tool_outcomes"][0]["status"] == "completed"
 
 
-def test_user_turn_after_state_is_consolidated_as_observation_before_inference(monkeypatch, tmp_path):
+def test_user_turn_after_state_is_inferred_directly_when_frontier_is_non_executable(monkeypatch, tmp_path):
     session = tmp_path / "session.md"
     events_path = tmp_path / "events.jsonl"
     events_path.touch()
@@ -131,22 +132,148 @@ def test_user_turn_after_state_is_consolidated_as_observation_before_inference(m
         "_resolve_runtime_generation_context",
         lambda **_kwargs: (config, {}, SimpleNamespace(generate_state_packet=generate), {}),
     )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_state_input_turns",
+        lambda **kwargs: (
+            kwargs["normalized_transcript"],
+            kwargs["parsed_turn"],
+            [],
+            False,
+        ),
+    )
 
     cli_session_commands.run_step(session_path=str(session))
 
     accepted = parse_state_turn(session.read_text())
-    assert accepted["state"] == {"goal": "inspect", "progress": []}
+    assert accepted["state"] == {"goal": "updated by model", "progress": []}
     assert accepted["observation"]["user_inputs"] == [
         {"content": "Read the project manifest."}
     ]
     assert "## TOAS:USER\n\nRead the project manifest." in session.read_text()
 
-    cli_session_commands.run_step(session_path=str(session))
-
     assert packets[0]["observation"]["user_inputs"] == [
         {"content": "Read the project manifest."}
     ]
-    assert parse_state_turn(session.read_text())["state"]["goal"] == "updated by model"
+
+
+def test_appended_user_and_control_intents_use_normal_frontier_and_embed_results(monkeypatch, tmp_path):
+    from toas.runtime import step_runtime
+    from toas.transcript import parse_transcript
+
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+    transcript = (
+        "## TOAS:STATE/1\n\nstate: {goal: inspect}\n\n"
+        "## TOAS:USER\n\n/help\n\n"
+        "## TOAS:CONTROL\n\n/pwd\n"
+    )
+    session.write_text(transcript)
+    parsed = parse_state_turn(transcript)
+    calls = []
+
+    def resolve_frontier(transcript, _log, **_kwargs):
+        frontier = parse_transcript(transcript)[-1]
+        calls.append((transcript, frontier["role"]))
+        return [make_result_node(
+            f"result from {frontier['role']}",
+            origin_role=frontier["role"],
+            origin_kind="slash_command",
+        )], []
+
+    deps = SimpleNamespace(
+        step_fn=resolve_frontier,
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "head_id": None,
+            "lineage": [],
+            "log": [],
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+            "bind_index": 0,
+        },
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (object(), {}, SimpleNamespace(generate=lambda _messages: None), {}),
+    )
+    monkeypatch.setattr(step_runtime, "_frontier_has_callable_intent", lambda **_kwargs: True)
+    monkeypatch.setattr(cli_session_commands, "_persist_step_outputs", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_write_text_with_newline_style",
+        lambda *, path, text, **_kwargs: path.write_text(text),
+    )
+
+    updated, resolved_turn, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
+        deps=deps,
+        events_path=events_path,
+        session_path=session,
+        session_newline="\n",
+        normalized_transcript=transcript,
+        parsed_turn=parsed,
+    )
+
+    assert intent_resolved is True
+    assert [role for _text, role in calls] == ["user", "control"]
+    assert "## TOAS:STATE/1" not in calls[0][0]
+    turns = resolved_turn["_input_turns"]
+    assert "result from user" in turns[0]["content"]
+    assert "result from control" in turns[1]["content"]
+    assert updated == session.read_text()
+
+
+def test_plain_user_observation_does_not_enter_conversation_step_runtime(monkeypatch, tmp_path):
+    from toas.runtime import step_runtime
+
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+    transcript = (
+        "## TOAS:STATE/1\n\nstate: {goal: inspect}\n\n"
+        "## TOAS:USER\n\nRead the project manifest.\n"
+    )
+    session.write_text(transcript)
+    parsed = parse_state_turn(transcript)
+    config = object()
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {"head_id": None, "lineage": [], "log": []},
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (config, {}, SimpleNamespace(generate=lambda _messages: None), {}),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_step_kwargs",
+        lambda **_kwargs: {},
+    )
+    monkeypatch.setattr(step_runtime, "_frontier_has_callable_intent", lambda **_kwargs: False)
+
+    def unexpected_conversation_step(*_args, **_kwargs):
+        raise AssertionError("plain state observation must not enter conversation inference")
+
+    deps = SimpleNamespace(step_fn=unexpected_conversation_step)
+    _updated, _parsed, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
+        deps=deps,
+        events_path=events_path,
+        session_path=session,
+        session_newline="\n",
+        normalized_transcript=transcript,
+        parsed_turn=parsed,
+    )
+
+    assert intent_resolved is False
 
 
 @pytest.mark.parametrize(

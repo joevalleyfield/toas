@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -252,6 +253,20 @@ def _user_observation_inputs(value: Any) -> list[dict[str, str]]:
     return []
 
 
+def _control_result_observations(turns: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Expose CONTROL turn results without projecting the control text."""
+    results: list[dict[str, str]] = []
+    for turn in turns:
+        if turn.get("role") != "control" or not isinstance(turn.get("content"), str):
+            continue
+        blocks = re.split(r"(?m)^## RESULT\s*$", turn["content"])
+        for block in blocks[1:]:
+            content = block.strip()
+            if content:
+                results.append({"content": content, "source": "control"})
+    return results
+
+
 def observation_with_user_turns(
     observation: Any, turns: list[dict[str, str]],
 ) -> dict[str, Any]:
@@ -270,11 +285,25 @@ def observation_with_user_turns(
             and observation.get("kind") == "toas.compound-observation/1"
             else []
         ),
+        "control_results": (
+            observation.get("control_results", [])
+            if isinstance(observation, dict)
+            and observation.get("kind") == "toas.compound-observation/1"
+            else []
+        ),
     }
     previous_inputs = _user_observation_inputs(observation)
     combined_inputs = [*previous_inputs, *inputs]
     if combined_inputs:
         result["user_inputs"] = combined_inputs
+    control_results = [
+        *result["control_results"],
+        *_control_result_observations(turns),
+    ]
+    if control_results:
+        result["control_results"] = control_results
+    else:
+        result.pop("control_results")
     return result
 
 
@@ -290,6 +319,10 @@ def transcript_observation_with_tool_outcomes(
     user_inputs = _user_observation_inputs(operator_observation)
     if user_inputs:
         result["user_inputs"] = user_inputs
+    if isinstance(operator_observation, dict):
+        control_results = operator_observation.get("control_results")
+        if isinstance(control_results, list) and control_results:
+            result["control_results"] = control_results
     return result
 
 
@@ -334,6 +367,10 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
     user_inputs = _user_observation_inputs(operator_observation)
     if user_inputs:
         result["user_inputs"] = user_inputs
+    if isinstance(operator_observation, dict):
+        control_results = operator_observation.get("control_results")
+        if isinstance(control_results, list) and control_results:
+            result["control_results"] = control_results
     return result
 
 

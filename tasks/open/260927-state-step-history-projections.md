@@ -80,9 +80,11 @@ transcript projection.
   states/diffs/key anchors.
 - Editing the latest state remains authoritative and does not rewrite earlier
   transcript history or durable records.
-- A tool-execution step does not fabricate an inference state turn; its
-  results are written into the current transcript turn's compound observation
-  and become components of the next inference packet.
+- USER/CONTROL tool execution preserves ordinary role turns and embeds results
+  into the source turn. In a state horizon, eligible USER content and embedded
+  results become components of the next inference packet's compound
+  observation; CONTROL text remains excluded while CONTROL results may be
+  projected.
 - No state turn consumes message-event numbering.
 
 ## Progress

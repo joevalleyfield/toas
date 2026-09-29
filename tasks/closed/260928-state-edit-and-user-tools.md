@@ -123,3 +123,10 @@ The phase sequence, transcript affordance, provenance boundary, and failure
 behavior are sufficiently clear for implementation.
 
 Status: Complete.
+
+Superseded on 2026-09-29 by
+[`260928-state-user-control-turn-lifecycle`](../open/260928-state-user-control-turn-lifecycle.md).
+The accepted direction keeps USER/CONTROL turns and direct-action execution in
+the ordinary transcript lifecycle; state horizons change only the inference
+projection. State-authored edit syntax and a parallel `user_tool_calls` lane
+are no longer the selected design.
