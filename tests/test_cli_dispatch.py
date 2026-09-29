@@ -164,7 +164,7 @@ def test_dispatch_step_parses_surface_override():
 
 
 def test_dispatch_step_control_requires_value():
-    with pytest.raises(SystemExit, match="usage: toas step \\[--stdin\\] \\[--control <slash_command>\\] \\[--session <transcript_path>\\]"):
+    with pytest.raises(SystemExit, match="usage: toas step \\[--preview-request\\] \\[--preview-response\\] \\[--stdin\\] \\[--control <slash_command>\\] \\[--session <transcript_path>\\] \\[--surface <surface_id>\\]"):
         dispatch_main(["step", "--control"], deps=_deps([]))
 
 

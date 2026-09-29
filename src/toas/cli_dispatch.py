@@ -99,14 +99,17 @@ def dispatch_main(
                 else:
                     deps.run_step(surface_id=surface_id)
             else:
-                deps.run_step(
-                    stdin_mode=stdin_mode,
-                    preview_request=preview_request,
-                    preview_response=preview_response,
-                    control=control,
-                    session_path=session_path,
-                    surface_id=surface_id,
-                )
+                step_kwargs = {
+                    "stdin_mode": stdin_mode,
+                    "control": control,
+                    "session_path": session_path,
+                    "surface_id": surface_id,
+                }
+                if preview_request:
+                    step_kwargs["preview_request"] = True
+                if preview_response:
+                    step_kwargs["preview_response"] = True
+                deps.run_step(**step_kwargs)
     elif argv[0] == "watch":
         run_id = require_arg(argv, 1, "toas watch <run_id> [--offset <n>] [--follow]")
         offset, follow = parse_watch_options(argv)
