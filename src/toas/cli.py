@@ -215,17 +215,20 @@ def _run_step(
         raise SystemExit("step accepts only one of session_path or surface_id")
     if surface_id is not None:
         session_path = _session_path_for_surface_id(surface_id)
-    run_operator_step_once(
-        stdin_mode=stdin_mode,
-        preview=preview or preview_request,
-        preview_response=preview_response,
-        control=control,
-        session_path=session_path,
-        on_llm_answer_delta=on_llm_answer_delta,
-        on_llm_reasoning_delta=on_llm_reasoning_delta,
-        on_llm_prompt_progress=on_llm_prompt_progress,
-        on_projection_delta=on_projection_delta,
-    )
+    kwargs = {
+        "stdin_mode": stdin_mode,
+        "control": control,
+        "session_path": session_path,
+        "on_llm_answer_delta": on_llm_answer_delta,
+        "on_llm_reasoning_delta": on_llm_reasoning_delta,
+        "on_llm_prompt_progress": on_llm_prompt_progress,
+        "on_projection_delta": on_projection_delta,
+    }
+    if preview or preview_request:
+        kwargs["preview"] = True
+    if preview_response:
+        kwargs["preview_response"] = True
+    run_operator_step_once(**kwargs)
 
 
 def run_step(
@@ -241,12 +244,15 @@ def run_step(
     if preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None:
         kwargs = {
             "stdin_mode": stdin_mode,
-            "preview": preview,
-            "preview_request": preview_request,
-            "preview_response": preview_response,
             "control": control,
             "session_path": session_path,
         }
+        if preview:
+            kwargs["preview"] = True
+        if preview_request:
+            kwargs["preview_request"] = True
+        if preview_response:
+            kwargs["preview_response"] = True
         if surface_id is not None:
             kwargs["surface_id"] = surface_id
         _run_step(**kwargs)

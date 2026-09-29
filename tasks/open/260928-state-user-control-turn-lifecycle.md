@@ -110,6 +110,9 @@ implementation. Structured field mappings remain deferred.
 
 ## Progress
 
+- Preserved the local `toas step` call contract by omitting inactive preview
+  options from local/operator dispatch. The no-argument default and RPC
+  preference/fallback tests pass; the full CLI module now passes (226 tests).
 - Claimed for implementation on 2026-09-29 under the revised shared-turn
   contract. The existing preview switch selects the intermediate state view;
   plain step proceeds to inference after executable intent is resolved.
