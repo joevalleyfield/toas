@@ -327,6 +327,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             events_path=events_path,
             state=current_state,
             observation=parsed_turn.get("observation"),
+            instructions=parsed_turn.get("instructions"),
         )
         if request.get("phase") != "infer":
             print(json.dumps(request, ensure_ascii=False, indent=2))
@@ -386,12 +387,14 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
 
     result = step_state(
         events_path=events_path, state=current_state, observation=parsed_turn.get("observation"),
+        instructions=parsed_turn.get("instructions"),
         generate=generate_state_packet, execute_call=execute_call,
     )
     if result["phase"] == "infer":
         rendered = render_state_turn(
             result["state"], observation=parsed_turn.get("observation"),
             format=parsed_turn.get("format", "yaml"),
+            instructions=parsed_turn.get("instructions"),
         )
         transcript = normalized_transcript
         if transcript and not transcript.endswith(("\n", "\r")):
@@ -410,6 +413,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         rendered = render_state_turn(
             result["state"], observation=observation,
             format=parsed_turn.get("format", "yaml"),
+            instructions=parsed_turn.get("instructions"),
         )
         rendered = (
             parsed_turn.get("_transcript_prefix", "")

@@ -138,7 +138,8 @@ The TOAS-level request projection passed to model invocation is:
 
 ```text
 packet = {
-  instructions: STATE_INSTRUCTIONS,
+  instructions: exact instructions text from the latest state turn
+                (seeded from STATE_INSTRUCTIONS; legacy turns use the default),
   schema: {state_patch: object, tool_calls: array, outcome: [continue, complete]},
   tools: {available: sorted(TOAS registry names), protocol: batch-tool timing rule},
   state: selected editable state,
@@ -157,6 +158,12 @@ error. This makes a rejected generation diagnosable without relying on a later
 reconstruction from mutable transcript text. Older failed state-step calls
 that predate this evidence cannot be reconstructed exactly from minimal trace
 records alone.
+
+`toas state-seed` includes the complete editable `instructions` string in its
+state YAML. Each accepted state turn and tool-outcome update carries that same
+string forward. Preview and inference put it into the request packet unchanged;
+the runtime does not summarize or regenerate it. The schema and live tool
+advertisement remain separate packet fields.
 
 To inspect the newest state-step failure, read the latest `state_transition`
 with `status=failed`; inspect `request_packet`, `response_content`, `error`, and

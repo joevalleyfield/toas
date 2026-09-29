@@ -15,11 +15,19 @@ from ..graph import state_step_records as _state_step_records
 
 STATE_MARKER = "## TOAS:STATE/1"
 STATE_DIFF_MARKER = "## TOAS:STATE-DIFF/1"
-STATE_INSTRUCTIONS = (
-    "Use the supplied state and latest observation. Return JSON with state_patch, "
-    "tool_calls, and optional outcome. TOAS executes the advertised batch tools "
-    "only on a later explicit step; state-step keeps inference and tool execution separate."
-)
+STATE_INSTRUCTIONS = """Advance the supplied TOAS state using the latest observation.
+
+Return one JSON object with these fields:
+- state_patch: an object containing the changes to the current state. Use null to
+  remove a key.
+- tool_calls: an array of batch tool calls, each with tool_name and args. Use an
+  empty array when no tools are needed.
+- outcome: optional; use continue or complete. A complete outcome means the
+  goal is done and cannot include tool calls.
+
+Available tools and the tool protocol are supplied alongside the state. Propose
+tool calls only; TOAS validates and executes them on a later explicit step.
+Inference and tool execution are separate operations. Return JSON only."""
 
 
 class ToolOutcomeError(RuntimeError):
@@ -77,6 +85,8 @@ def parse_state_turn(text: str) -> dict[str, Any]:
         raise ValueError(f"invalid YAML in state turn: {exc}") from exc
     if not isinstance(payload, dict):
         raise ValueError("state turn body must be a mapping")
+    if "instructions" in payload and not isinstance(payload["instructions"], str):
+        raise ValueError("state turn instructions must be a string")
     if marker == STATE_MARKER and not isinstance(payload.get("state"), dict):
         raise ValueError("state turn must contain a state mapping")
     if marker == STATE_DIFF_MARKER and not isinstance(payload.get("state_patch"), dict):
@@ -94,11 +104,14 @@ def render_state_turn(
     observation: Any = None,
     format: str = "yaml",
     state_patch: dict[str, Any] | None = None,
+    instructions: str | None = None,
 ) -> str:
     if format not in {"yaml", "markdown"}:
         raise ValueError("state format must be 'yaml' or 'markdown'")
     is_diff = state_patch is not None
     payload: dict[str, Any] = {"state_patch": state_patch} if is_diff else {"state": state}
+    if instructions is not None:
+        payload["instructions"] = instructions
     if observation is not None:
         payload["observation"] = observation
     if format == "yaml":
@@ -127,7 +140,10 @@ def initial_state() -> dict[str, Any]:
 
 def seed_state_turn(*, format: str = "yaml", observation: Any = None) -> str:
     """Render a fresh state turn with an intentionally blank operator goal."""
-    return render_state_turn(initial_state(), observation=observation, format=format)
+    return render_state_turn(
+        initial_state(), observation=observation, format=format,
+        instructions=STATE_INSTRUCTIONS,
+    )
 
 
 def _merge_patch(state: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
@@ -190,13 +206,16 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
     }
 
 
-def build_state_step_packet(*, events_path: str | Path, state: dict, observation: Any) -> dict[str, Any]:
+def build_state_step_packet(
+    *, events_path: str | Path, state: dict, observation: Any,
+    instructions: str | None = None,
+) -> dict[str, Any]:
     """Build the shared state-only packet used by preview and inference."""
     records = read_log(str(events_path))
     from ..tools import REGISTRY
 
     return {
-        "instructions": STATE_INSTRUCTIONS,
+        "instructions": STATE_INSTRUCTIONS if instructions is None else instructions,
         "schema": {
             "state_patch": "object",
             "tool_calls": "array",
@@ -212,7 +231,8 @@ def build_state_step_packet(*, events_path: str | Path, state: dict, observation
 
 
 def preview_state_request(
-    *, events_path: str | Path, state: dict, observation: Any
+    *, events_path: str | Path, state: dict, observation: Any,
+    instructions: str | None = None,
 ) -> dict[str, Any]:
     """Return the request messages step would send, without generation or writes."""
     records = read_log(str(events_path))
@@ -233,7 +253,8 @@ def preview_state_request(
             "transition_id": pending.get("transition_id"),
         }
     packet = build_state_step_packet(
-        events_path=events_path, state=state, observation=observation
+        events_path=events_path, state=state, observation=observation,
+        instructions=instructions,
     )
     return {
         "phase": "infer",
@@ -248,6 +269,7 @@ def step_state(
     events_path: str | Path,
     state: dict[str, Any],
     observation: Any,
+    instructions: str | None = None,
     generate: Callable[[dict], Any],
     execute_call: Callable[[dict], Any],
 ) -> dict[str, Any]:
@@ -347,7 +369,8 @@ def step_state(
 
     transition_id = f"st_{uuid.uuid4().hex}"
     packet = build_state_step_packet(
-        events_path=events_path, state=state, observation=observation
+        events_path=events_path, state=state, observation=observation,
+        instructions=instructions,
     )
     compound_observation = packet["observation"]
     answer = generate(packet)
