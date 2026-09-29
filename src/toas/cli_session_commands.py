@@ -339,9 +339,17 @@ def _resolve_state_input_turns(
     )
     intent_resolved = False
 
-    input_turn_count = len(input_turns)
-    for index in range(input_turn_count):
+    index = 0
+    while index < len(input_turns):
         turn = input_turns[index]
+        content_stripped = turn.get("content", "").lstrip()
+        if content_stripped.startswith("## RESULT"):
+            index += 1
+            continue
+        if index + 1 < len(input_turns) and input_turns[index + 1].get("content", "").lstrip().startswith("## RESULT"):
+            index += 1
+            continue
+
         ordinary_transcript = render_transcript(
             [*prior_messages, *input_turns[: index + 1]], spaced=True
         )
@@ -372,6 +380,7 @@ def _resolve_state_input_turns(
             config=operator_config,
         )
         if not was_callable:
+            index += 1
             continue
         append_set, stdout_set = deps.step_fn(
             ordinary_transcript, runtime_ctx["log"], **step_kwargs
@@ -397,14 +406,11 @@ def _resolve_state_input_turns(
         if result_nodes:
             rendered_results = render_transcript_blocks(result_nodes)
             result_turns = parse_transcript(rendered_results)
-            for result_turn in result_turns:
-                if result_turn["role"] == turn["role"]:
-                    content = result_turn["content"]
-                    turn["content"] = (
-                        f'{turn["content"].rstrip()}\n\n{content}'
-                        if turn["content"].strip()
-                        else content
-                    )
+            input_turns = (
+                input_turns[: index + 1]
+                + [dict(item) for item in result_turns]
+                + input_turns[index + 1 :]
+            )
             transcript_suffix = render_transcript(input_turns, spaced=True)
             normalized_transcript = transcript_body + transcript_suffix
             parsed_turn = parse_state_turn(normalized_transcript)
@@ -417,6 +423,9 @@ def _resolve_state_input_turns(
                 newline=session_newline,
                 apply_newline_style_fn=deps.apply_newline_style,
             )
+            index += len(result_turns) + 1
+        else:
+            index += 1
 
     return normalized_transcript, parsed_turn, read_current_log(str(events_path)), intent_resolved
 
@@ -462,15 +471,22 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             prefix_messages = parse_transcript(
                 _state_free_transcript(parsed_turn.get("_transcript_prefix", ""))
             )
-            if any(
-                _frontier_has_callable_intent(
+            has_unresolved = False
+            for index, turn in enumerate(input_turns):
+                content_stripped = turn.get("content", "").lstrip()
+                if content_stripped.startswith("## RESULT"):
+                    continue
+                if index + 1 < len(input_turns) and input_turns[index + 1].get("content", "").lstrip().startswith("## RESULT"):
+                    continue
+                if _frontier_has_callable_intent(
                     step_mod=step_mod,
                     frontier=turn,
                     working=[*prefix_messages, *input_turns[: index + 1]],
                     config=preview_config,
-                )
-                for index, turn in enumerate(input_turns)
-            ):
+                ):
+                    has_unresolved = True
+                    break
+            if has_unresolved:
                 print(json.dumps({
                     "phase": "resolve_user_intent",
                     "status": "input_turns_have_unresolved_executable_intent",

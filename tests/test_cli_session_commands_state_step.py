@@ -225,9 +225,65 @@ def test_appended_user_and_control_intents_use_normal_frontier_and_embed_results
     assert [role for _text, role in calls] == ["user", "control"]
     assert "## TOAS:STATE/1" not in calls[0][0]
     turns = resolved_turn["_input_turns"]
-    assert "result from user" in turns[0]["content"]
-    assert "result from control" in turns[1]["content"]
+    assert len(turns) == 4
+    assert turns[0]["role"] == "user" and turns[0]["content"] == "/help"
+    assert turns[1]["role"] == "user" and "result from user" in turns[1]["content"]
+    assert turns[2]["role"] == "control" and turns[2]["content"] == "/pwd"
+    assert turns[3]["role"] == "control" and "result from control" in turns[3]["content"]
+    assert "## TOAS:USER\n\n/help\n\n## TOAS:USER\n\n## RESULT" in session.read_text()
+    assert "## TOAS:CONTROL\n\n/pwd\n\n## TOAS:CONTROL\n\n## RESULT" in session.read_text()
     assert updated == session.read_text()
+
+
+def test_resolved_user_intent_does_not_reexecute_on_subsequent_step(monkeypatch, tmp_path):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+    transcript = (
+        "## TOAS:STATE/1\n\nstate: {goal: inspect}\n\n"
+        "## TOAS:USER\n\n$ cat AGENTS.md\n\n"
+        "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\nnotes\n"
+    )
+    session.write_text(transcript)
+    parsed = parse_state_turn(transcript)
+
+    def unexpected_step(*_args, **_kwargs):
+        raise AssertionError("already resolved user command must not re-execute")
+
+    deps = SimpleNamespace(
+        step_fn=unexpected_step,
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "head_id": None,
+            "lineage": [],
+            "log": [],
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (object(), {}, SimpleNamespace(generate=lambda _messages: None), {}),
+    )
+
+    updated, resolved_turn, _events, intent_resolved = cli_session_commands._resolve_state_input_turns(
+        deps=deps,
+        events_path=events_path,
+        session_path=session,
+        session_newline="\n",
+        normalized_transcript=transcript,
+        parsed_turn=parsed,
+    )
+
+    assert intent_resolved is False
+    assert updated == transcript
+    assert len(resolved_turn["_input_turns"]) == 2
 
 
 def test_plain_user_observation_does_not_enter_conversation_step_runtime(monkeypatch, tmp_path):

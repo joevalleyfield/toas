@@ -126,10 +126,16 @@ remain deferred.
   against this direction before implementation continues.
 - 2026-09-29: State input turns now use the ordinary USER/CONTROL frontier
   runtime only when the turn contains executable intent. Results are embedded
-  back into their source role turn; ordinary text proceeds directly to state
+  back into their source role turn with standard `## TOAS:USER` or
+  `## TOAS:CONTROL` turn breaks before `## RESULT`, preserving the frontier
+  boundary and preventing prior commands from re-executing.
+  Ordinary text and resolved results proceed directly to state
   inference as observation input, without invoking conversation inference.
   CONTROL text is omitted from the state packet while embedded CONTROL results
   are retained as observations.
+- 2026-09-29: State-step CLI and preview resolution verified: already-resolved
+  input turns with subsequent result turns are skipped during intent execution,
+  leaving the turn sequence intact and advancing directly to state inference.
 - 2026-09-29: Focused state-step and CLI coverage passes (299 tests). The full
   suite passes 3346 tests and retains two failures in
   `tests/test_state_execution_experiment.py`, outside this implementation
