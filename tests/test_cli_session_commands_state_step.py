@@ -522,30 +522,37 @@ def test_state_step_progresses_ordinal_and_preserves_unfolding_history(monkeypat
     monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _working: {})
     monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda *_args: ())
 
+    deltas = []
+
     # Step 1: Infer -> appends STATE/2 with pending_tools
-    cli_session_commands.run_step(session_path=str(session))
+    cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
     session_after_step1 = session.read_text()
     assert "## TOAS:STATE/1" in session_after_step1
     assert "## TOAS:STATE/2" in session_after_step1
     assert "pending_tools:" in session_after_step1
     assert "read_file" in session_after_step1
     assert "observation:" not in session_after_step1
+    assert any("## TOAS:STATE/2" in d for d in deltas)
 
     # Step 2: Execute batch -> appends result block without rewriting STATE/2
-    cli_session_commands.run_step(session_path=str(session))
+    cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
     session_after_step2 = session.read_text()
     assert "## TOAS:STATE/1" in session_after_step2
     assert "## TOAS:STATE/2" in session_after_step2
     assert "## TOAS:USER\n\n## RESULT" in session_after_step2
     assert "task content" in session_after_step2
+    assert any("## RESULT" in d for d in deltas)
 
-    # Step 3: Infer next -> appends STATE/3
-    cli_session_commands.run_step(session_path=str(session))
+    # Step 3: Infer next -> appends STATE/3 while keeping RESULT block intact
+    cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
     session_after_step3 = session.read_text()
     assert "## TOAS:STATE/1" in session_after_step3
     assert "## TOAS:STATE/2" in session_after_step3
+    assert "## TOAS:USER\n\n## RESULT" in session_after_step3
+    assert "task content" in session_after_step3
     assert "## TOAS:STATE/3" in session_after_step3
     parsed3 = parse_state_turn(session_after_step3)
     assert parsed3["state_number"] == 3
     assert parsed3["state"]["progress"] == ["found task", "read task"]
+    assert any("## TOAS:STATE/3" in d for d in deltas)
 

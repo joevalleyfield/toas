@@ -35,6 +35,7 @@ from toas.graph import (
     list_heads,
     message_lineage,
     message_view,
+    normalize_tool_plan,
     project_llm_input,
     project_llm_input_from_messages,
     project_transcript,
@@ -2027,17 +2028,26 @@ def test_extract_plan_normalizes_shell_command_inside_args():
     assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"], "command": "pwd"}}]
 
 
-def test_extract_plan_rejects_shell_argv_and_command_mix():
+def test_extract_plan_rejects_conflicting_shell_argv_and_command():
     content = (
         "```yaml\n"
         "- tool_name: shell\n"
         "  args:\n"
         "    argv: [\"pwd\"]\n"
-        "    command: pwd\n"
+        "    command: whoami\n"
         "```"
     )
 
     assert extract_plan(content) is None
+
+
+def test_normalize_tool_plan_is_idempotent_for_shell():
+    plan, err = normalize_tool_plan({"tool_name": "shell", "args": {"command": "ls tasks/open"}})
+    assert err is None
+    assert plan is not None
+    plan2, err2 = normalize_tool_plan(plan[0])
+    assert err2 is None
+    assert plan2 == plan
 
 
 def test_extract_plan_rejects_conflicting_callable_keys():

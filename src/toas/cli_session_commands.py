@@ -206,6 +206,8 @@ def run_step(
             parsed_turn=parse_state_turn(normalized_transcript),
             preview=preview,
             preview_response=preview_response,
+            on_projection_nodes=on_projection_nodes,
+            on_projection_delta=on_projection_delta,
         )
         return
     if preview or preview_response:
@@ -431,7 +433,9 @@ def _resolve_state_input_turns(
 
 def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_transcript: str,
                     session_newline: str, events: list[dict], parsed_turn: dict,
-                    preview: bool = False, preview_response: bool = False) -> None:
+                    preview: bool = False, preview_response: bool = False,
+                    on_projection_nodes: Callable[[list[dict]], None] | None = None,
+                    on_projection_delta: Callable[[str], None] | None = None) -> None:
     """Adapt a typed state transcript to the independent state-step runtime."""
     from . import step as step_mod
     from .config import apply_overrides, config_from_discovered_paths
@@ -588,15 +592,18 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             state_number=prior_state_number + 1,
         )
         transcript = normalized_transcript
+        prefix = ""
         if transcript and not transcript.endswith(("\n", "\r")):
-            transcript += "\n"
-        if transcript and not transcript.endswith("\n\n"):
-            transcript += "\n"
-        rendered = transcript + rendered
+            prefix += "\n"
+        if transcript and not (transcript + prefix).endswith("\n\n"):
+            prefix += "\n"
+        full_text = transcript + prefix + rendered
         _write_text_with_newline_style(
-            path=session_path, text=rendered, newline=session_newline,
+            path=session_path, text=full_text, newline=session_newline,
             apply_newline_style_fn=deps.apply_newline_style,
         )
+        if on_projection_delta is not None:
+            on_projection_delta(prefix + rendered)
     elif result["phase"] == "execute_batch":
         result_nodes = [
             node for outcome in result.get("outcomes", [])
@@ -606,6 +613,8 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         if result_nodes:
             from .runtime.rendering_edges import render_transcript_blocks
             rendered_results = render_transcript_blocks(result_nodes).strip()
+            if on_projection_nodes is not None:
+                on_projection_nodes(result_nodes)
         else:
             outcome_lines = []
             for outcome in result.get("outcomes", []):
@@ -616,16 +625,20 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                 outcome_lines.append(f"[{st.upper()}] tool {idx}: {summary}")
             if not outcome_lines:
                 outcome_lines = [f"[{result.get('status', 'completed').upper()}] batch execution completed"]
-            rendered_results = "## TOAS:CONTROL\n\n## RESULT\n\n" + "\n".join(outcome_lines)
+            rendered_results = "## TOAS:USER\n\n## RESULT\n\n" + "\n".join(outcome_lines)
 
         transcript = normalized_transcript
+        prefix = ""
         if transcript and not transcript.endswith(("\n", "\r")):
-            transcript += "\n"
-        if transcript and not transcript.endswith("\n\n"):
-            transcript += "\n"
-        rendered = transcript + rendered_results + "\n"
+            prefix += "\n"
+        if transcript and not (transcript + prefix).endswith("\n\n"):
+            prefix += "\n"
+        full_text = transcript + prefix + rendered_results + "\n"
         _write_text_with_newline_style(
-            path=session_path, text=rendered, newline=session_newline,
+            path=session_path, text=full_text, newline=session_newline,
             apply_newline_style_fn=deps.apply_newline_style,
         )
-    print(f"state-step {result['phase']}: {result['status']}")
+        if on_projection_delta is not None:
+            on_projection_delta(prefix + rendered_results + "\n")
+    if on_projection_delta is None:
+        print(f"state-step {result['phase']}: {result['status']}")

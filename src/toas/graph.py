@@ -1498,14 +1498,21 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
             return None, "conflicting shell command keys: command and cmd"
         command_text = command if command is not None else cmd
         if argv is not None and command_text is not None:
-            return None, "conflicting shell payload keys: argv with command/cmd"
-        if argv is None and command_text is not None:
+            normalized_shell, _ = _normalize_shell_call_from_command(command_text)
+            if normalized_shell is None or normalized_shell["args"]["argv"] != argv:
+                return None, "conflicting shell payload keys: argv with command/cmd"
+            normalized_args.pop("cmd", None)
+            normalized_args["command"] = normalized_shell["args"]["command"]
+            normalized_args["argv"] = normalized_shell["args"]["argv"]
+        elif argv is None and command_text is not None:
             if not isinstance(command_text, str) or not command_text.strip():
                 return None, "invalid shell command: command/cmd must be a non-empty string"
             normalized_shell, shell_error = _normalize_shell_call_from_command(command_text)
             if normalized_shell is None:
                 return None, shell_error
-            normalized_args = normalized_shell["args"]
+            normalized_args.pop("cmd", None)
+            normalized_args["command"] = normalized_shell["args"]["command"]
+            normalized_args["argv"] = normalized_shell["args"]["argv"]
 
     normalized: dict = {"tool_name": name.strip(), "args": normalized_args}
     intent = item.get("intent")

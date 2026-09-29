@@ -111,6 +111,12 @@ transcript projection.
     subsequent inference packets.
   - Persisted explicit `llm_call` records linked by `transition_id` to durable
     events log during state-step inference.
+  - Made shell tool call normalization idempotent when `argv` and `command`
+    are consistent, preventing false conflicting payload key rejections during
+    batch tool execution.
+  - Forwarded projection callbacks (`on_projection_delta`, `on_projection_nodes`)
+    in state-step execution so editors (such as Vim) and host listeners receive
+    batch result blocks and new state turns in real time without buffer drift.
 
 Status: Active.
 
