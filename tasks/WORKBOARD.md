@@ -255,7 +255,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics ⚠️ Stale
 - **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
-- **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ...
+- **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... ⚠️ Stale
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin...
 - **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri... ⚠️ Stale
 - **[T260811-activity-health-telemetry]** Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... ⚠️ Stale
@@ -279,6 +279,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260927-state-step-alpha-loop]** Implement a local, user-stepped state workflow through TOAS's normal runtime, durable history, model invocation, and capability paths, while keeping s...
 - **[T260927-state-step-history-projections]** Preserve And Project State-Step History
 - **[T260928-readable-state-instructions]** Render State Instructions As A Readable Block
+- **[T260928-state-edit-and-user-tools]** User-Authored State Editing And Tool Calls
 - **[T260928-state-step-instruction-seed]** Carry State-Step Instructions In The Seed Transcript
 <!-- WORKBOARD:NOW:END -->
 
