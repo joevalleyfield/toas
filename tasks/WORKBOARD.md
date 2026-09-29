@@ -278,6 +278,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T260927-state-step-alpha-loop]** Implement a local, user-stepped state workflow through TOAS's normal runtime, durable history, model invocation, and capability paths, while keeping s...
 - **[T260927-state-step-history-projections]** Preserve And Project State-Step History
+- **[T260928-readable-state-instructions]** Render State Instructions As A Readable Block
 - **[T260928-state-step-instruction-seed]** Carry State-Step Instructions In The Seed Transcript
 <!-- WORKBOARD:NOW:END -->
 

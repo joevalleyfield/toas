@@ -30,6 +30,20 @@ tool calls only; TOAS validates and executes them on a later explicit step.
 Inference and tool execution are separate operations. Return JSON only."""
 
 
+class _LiteralString(str):
+    pass
+
+
+class _StateYamlDumper(yaml.SafeDumper):
+    """Keep multiline operator instructions readable as YAML block scalars."""
+
+
+_StateYamlDumper.add_representer(
+    _LiteralString,
+    lambda dumper, value: dumper.represent_scalar("tag:yaml.org,2002:str", value, style="|"),
+)
+
+
 class ToolOutcomeError(RuntimeError):
     """A TOAS execution result that did not complete successfully."""
 
@@ -109,15 +123,16 @@ def render_state_turn(
     if format not in {"yaml", "markdown"}:
         raise ValueError("state format must be 'yaml' or 'markdown'")
     is_diff = state_patch is not None
-    payload: dict[str, Any] = {"state_patch": state_patch} if is_diff else {"state": state}
+    payload: dict[str, Any] = {}
     if instructions is not None:
-        payload["instructions"] = instructions
+        payload["instructions"] = _LiteralString(instructions)
+    payload["state_patch" if is_diff else "state"] = state_patch if is_diff else state
     if observation is not None:
         payload["observation"] = observation
     if format == "yaml":
-        body = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True).rstrip()
+        body = yaml.dump(payload, Dumper=_StateYamlDumper, sort_keys=False, allow_unicode=True).rstrip()
         return f"{STATE_DIFF_MARKER if is_diff else STATE_MARKER}\n\n{body}\n"
-    body = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True).rstrip()
+    body = yaml.dump(payload, Dumper=_StateYamlDumper, sort_keys=False, allow_unicode=True).rstrip()
     return f"{STATE_DIFF_MARKER if is_diff else STATE_MARKER}\n\n```yaml\n{body}\n```\n"
 
 
