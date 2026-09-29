@@ -15,70 +15,51 @@ Implement the state-step transcript lifecycle around ordinary `TOAS:USER` and
 `TOAS:CONTROL` turns, preserving the normal TOAS turn markers and defining how
 those turns advance one state frontier.
 
-## Agreed Direction
+## Current Direction (Revised)
 
-The working transcript can progress as `STATE/n → USER or CONTROL → STATE/n+1`.
-Here `n` names a position in the progression; it is not a proposal to change
-the current `## TOAS:STATE/1` format-version marker.
+Keep normal USER/CONTROL turn resolution regardless of whether the transcript
+also has a state horizon. Executable USER turns execute through the existing
+user-intent path and return as USER turns with their results embedded;
+executable CONTROL turns behave correspondingly as CONTROL turns. Slash
+commands are resolved from USER/CONTROL input turns, never from STATE content.
+Adjacent user/control turns keep their ordinary transcript consolidation
+behavior instead of acquiring a separate state-only intent-resolution phase.
 
-For the first slice, each `USER` turn's content becomes an observation on the
-next editable state. `step` appends that state without calling the model. A
-later explicit `step` sends the state and its compound observation through the
-existing state-only request path. The raw user turn remains in the operator's
-transcript history; it is represented to the model through the observation,
-not replayed as a conversation message. Structured mappings from user text
-directly into state fields can follow later.
+The state-specific difference is the inference projection: when a state
+horizon is present, consolidated user/control material and eligible embedded
+results are represented as additional observations on the state object sent
+for inference, instead of sending a conversation transcript. Existing
+USER/CONTROL projection visibility rules still apply. This removes the
+state-specific `consolidate_user` phase and its parallel user-action lifecycle.
 
-`USER` and `CONTROL` may both contain slash commands and other user-authored
-content. Their distinction is projection visibility: `USER` content becomes a
-model-visible observation; `CONTROL` content is consumed by operator/runtime
-resolution but omitted from both the LLM-facing transcript and state
-projection. Consequences of a control, such as a tool result, may appear in
-the next model-visible observation.
+Inference is eligible only after the frontier has no unresolved executable
+intent. Once eligible, the operator may either preview the consolidated state
+in one step and infer on a later step, or consolidate and infer in one step
+without the intermediate preview.
 
-For the initial frontier rule, one explicit `step` resolves all contiguous
-`USER` and `CONTROL` turns following the latest state, preserving their order
-and provenance while producing one next state. Separate USER contents remain
-separate observation components; control text itself is not projected.
-
-Slash-command extraction and dispatch happen while resolving the USER or
-CONTROL input turn that contains the command. A slash-looking line inside a
-STATE turn is state content; it must not be extracted or executed as an
-operator command.
-
-The effective instructions remain the procedure boundary. The model may
-propose changes to any mutable state field, including `goal`; accepting a goal
-update through the existing state-patch path is an intentional extension from
-the initial user-authored-goal setup, not a change to the instructions.
-
-The turns remain durable transcript history. Resolving a turn appends its
-resulting state and records an explicit relationship to the input; it does not
-erase or silently replay the input. User-originated commands retain direct
-user-intent authority regardless of whether they appear in `USER` or
-`CONTROL`.
+The working progression may still be described as `STATE/n → USER or CONTROL
+→ STATE/n+1`; `n` names a progression position, not a change to the current
+`## TOAS:STATE/1` format-version marker. Effective instructions remain
+authoritative, while the model may patch other mutable state fields, including
+`goal`.
 
 ## Scope
 
 - Route a transcript containing typed state markers through state-step parsing
   even when its frontier is `USER` or `CONTROL`; do not fall through to the
   message-only parser and reject `STATE/n` as an invalid role marker.
-- Define and implement how the frontier resolver handles a state followed by
-  one or more user/control turns, including state edits, prose, slash commands,
-  and user-authored tool calls. Extract and dispatch slash commands only from
-  USER/CONTROL input turns; never scan STATE content for executable commands.
-  Slash commands and authored calls in either input role remain direct user
-  intent; ordinary prose is not executable intent.
-  Keep the operation explicit and user-stepped;
-  inference and tool execution must not become a hidden loop.
-- Preserve the original turns and append a resulting state turn with enough
-  provenance to identify which input turn(s) it resolved.
-- Project `USER` content as an observation in the next state-only model packet,
-  not as a conversation message. Exclude `CONTROL` content from both
-  transcript and state projections. Include eligible derived state and
-  tool-result observations without leaking the control text that caused them.
-- Make frontier selection, consumption, and interruption/re-step behavior
-  explicit so resolved user actions are not replayed and unresolved ones are
-  not skipped.
+- Keep ordinary USER/CONTROL command and tool execution, result embedding,
+  adjacent-turn consolidation, and replay semantics shared by conversation
+  and state modes. Do not create a state-specific user-intent lifecycle.
+- When a state horizon is present and no executable intent remains unresolved,
+  project consolidated eligible user material and embedded results as
+  additional state observations for inference, instead of constructing a
+  conversation-transcript request.
+- Support both an intermediate consolidated-state preview followed by a later
+  inference step and direct consolidation plus inference without the preview.
+- Preserve the original turn/result transcript and its existing provenance.
+- Resolve executable intent only from USER/CONTROL turns; STATE content is
+  never scanned as a slash-command source.
 - Preserve ordinary conversation parsing and message-event numbering; typed
   state turns remain outside message-event space.
 - Reconcile task documentation: mark the closed
@@ -91,24 +72,23 @@ user-intent authority regardless of whether they appear in `USER` or
 - A transcript with `STATE/n` followed by `USER` or `CONTROL` is recognized as
   a state-step transcript and reaches state frontier resolution without the
   invalid-marker error.
-- A resolved input produces an appended `STATE/n+1`; original state and input
-  turns remain intact and the resolved input is not acted on again after a
-  restart or repeated `step`.
-- One step resolves the contiguous trailing USER/CONTROL group after the
-  latest state into one next state, preserving input order and provenance.
+- USER/CONTROL actions retain ordinary execution and embedded-result behavior
+  in state transcripts as well as conversation transcripts.
+- One step follows ordinary USER/CONTROL turn consolidation semantics. When a
+  state horizon is present, inference occurs only after executable intents are
+  resolved and receives consolidated eligible turn content and results as
+  state observations rather than conversation messages.
 - `/` commands and authored tool calls can occur in either role and follow the
   same direct-user-intent execution authority. Other user-authored content can
   occur in either role without becoming executable merely because of its role.
   A command-looking line in a STATE turn is never executed as a slash command.
-  Command/tool consequences are recorded and correlated with the source turn.
-- `USER` content is included in the next state-only model request through its
-  compound observation; it is not also replayed as a conversation message.
-  `CONTROL` content appears in neither the LLM-facing transcript nor the
-  LLM-facing state projection, while derived results can be observed.
+- USER/CONTROL text and embedded results follow their normal transcript
+  behavior; state inference consumes their eligible content through state
+  observations rather than replaying a conversation transcript.
 - The model can update `goal` through its ordinary validated state patch while
   the effective instructions remain unchanged and authoritative.
 - User-tool outcomes become model-visible observations at the agreed state
-  boundary; execution and inference remain separate explicit steps.
+  boundary before inference.
 - Existing conversation transcripts and ordinary `USER`/`CONTROL` parsing
   retain their current behavior.
 - The closed predecessor and active connecting task files describe the
@@ -117,25 +97,35 @@ user-intent authority regardless of whether they appear in `USER` or
   projection, state advancement, command/tool provenance, replay recovery, and
   conversation compatibility.
 
-## Open Contract Details To Set Before The Implementation Slice
+## Open Contract Details
 
 - How users may later request structured field mappings instead of recording
   their content as an observation.
+- Deferred choice of structured mappings; the initial surface uses existing
+  `step --preview` for the intermediate consolidated-state view and plain
+  `step` for direct consolidation and inference.
 
 Status: Active; initial projection and frontier behavior are ready for
 implementation. Structured field mappings remain deferred.
 
 ## Progress
 
-- Claimed for implementation on 2026-09-29; slash commands are being wired to
-  USER/CONTROL input-turn resolution, with STATE content excluded from command
-  extraction.
+- Claimed for implementation on 2026-09-29 under the revised shared-turn
+  contract. The existing preview switch selects the intermediate state view;
+  plain step proceeds to inference after executable intent is resolved.
+- 2026-09-29: The initial state-specific user-intent consolidation direction
+  was revised. Keep ordinary turn execution/result embedding shared; use the
+  state horizon only to change the inference projection. Previous
+  `consolidate_user` implementation is exploratory and must be reconciled
+  against this direction before implementation continues.
+- Inference is eligible only after no executable intent remains unresolved.
+  The operator may preview the consolidated state before a later inference
+  step, or proceed directly to inference; selection mechanics remain open.
 - State-step routing now recognizes typed states even when USER/CONTROL turns
   follow them. Trailing role turns are parsed and retained as transcript text.
-- USER text is consolidated into separate `user_inputs` observation components
-  before inference. CONTROL text is omitted from the model-facing observation.
-- A later explicit inference step receives those observations through the
-  state-only packet and may update `goal` through its ordinary state patch.
+- The current implementation puts USER text in `user_inputs`, omits CONTROL
+  text, and handles inference on a later explicit step. This projection and
+  phase boundary need to be reconciled with the revised shared-turn model.
 - Markdown state parsing now finds the outer YAML fence even when a serialized
   tool result contains its own fenced output.
 - Focused state-step and CLI state-step coverage passes (33 tests). The
