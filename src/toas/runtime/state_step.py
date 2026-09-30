@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import uuid
@@ -357,15 +358,39 @@ def _control_result_observations(turns: list[dict[str, str]]) -> list[dict[str, 
     return results
 
 
+def _user_result_observations(turns: list[dict[str, str]]) -> list[str]:
+    """Extract tool result contents from trailing USER turns."""
+    results: list[str] = []
+    for turn in turns:
+        if turn.get("role") != "user" or not isinstance(turn.get("content"), str):
+            continue
+        blocks = re.split(r"(?m)^## RESULT\s*$", turn["content"])
+        for block in blocks[1:]:
+            content = block.strip()
+            if content:
+                results.append(condense_inert_blocks(content))
+    return results
+
+
+def _user_input_observations(turns: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Extract user prompt prose from trailing USER turns, ignoring RESULT blocks."""
+    inputs: list[dict[str, str]] = []
+    for turn in turns:
+        if turn.get("role") != "user" or not isinstance(turn.get("content"), str):
+            continue
+        blocks = re.split(r"(?m)^## RESULT\s*$", turn["content"])
+        prose = blocks[0].strip()
+        if prose:
+            inputs.append({"content": condense_inert_blocks(prose)})
+    return inputs
+
+
 def observation_with_user_turns(
     observation: Any, turns: list[dict[str, str]],
 ) -> dict[str, Any]:
     """Project trailing USER turns into one observation envelope."""
-    inputs = [
-        {"content": condense_inert_blocks(turn["content"])}
-        for turn in turns
-        if turn.get("role") == "user" and isinstance(turn.get("content"), str)
-    ]
+    inputs = _user_input_observations(turns)
+    user_results = _user_result_observations(turns)
     result = {
         "kind": "toas.compound-observation/1",
         "operator_observation": _operator_observation(observation),
@@ -381,6 +406,15 @@ def observation_with_user_turns(
             and observation.get("kind") == "toas.compound-observation/1"
             else []
         ),
+        "user_results": [
+            *(
+                observation.get("user_results", [])
+                if isinstance(observation, dict)
+                and observation.get("kind") == "toas.compound-observation/1"
+                else []
+            ),
+            *user_results,
+        ],
     }
     previous_inputs = _user_observation_inputs(observation)
     combined_inputs = [*previous_inputs, *inputs]
@@ -416,9 +450,75 @@ def transcript_observation_with_tool_outcomes(
     return result
 
 
-def _compound_observation(records: list[dict], operator_observation: Any) -> dict[str, Any]:
+def _reconcile_tool_outcomes(
+    prior_outcomes: list[dict[str, Any]],
+    user_results: list[str],
+) -> list[dict[str, Any]]:
+    """Reconcile prior tool results against authoritative transcript results."""
+    if not user_results:
+        return []
+
+    reconciled: list[dict[str, Any]] = []
+    res_idx = 0
+
+    for outcome in prior_outcomes:
+        if res_idx >= len(user_results):
+            break
+        outcome_copy = copy.deepcopy(outcome)
+        outcome_copy["index"] = len(reconciled)
+        result_val = outcome_copy.get("result")
+        if isinstance(result_val, list) and result_val:
+            kept_nodes = []
+            for node in result_val:
+                if res_idx < len(user_results):
+                    if isinstance(node, dict):
+                        node_copy = dict(node)
+                        node_copy["content"] = user_results[res_idx]
+                        kept_nodes.append(node_copy)
+                    else:
+                        kept_nodes.append(
+                            {"role": "result", "content": user_results[res_idx], "projection_lane": "user"}
+                        )
+                    res_idx += 1
+                else:
+                    break
+            outcome_copy["result"] = kept_nodes
+        elif isinstance(result_val, dict):
+            node_copy = dict(result_val)
+            node_copy["content"] = user_results[res_idx]
+            outcome_copy["result"] = [node_copy]
+            res_idx += 1
+        else:
+            outcome_copy["result"] = [
+                {"role": "result", "content": user_results[res_idx], "projection_lane": "user"}
+            ]
+            res_idx += 1
+
+        reconciled.append(outcome_copy)
+
+    while res_idx < len(user_results):
+        reconciled.append(
+            {
+                "index": len(reconciled),
+                "status": "completed",
+                "result": [
+                    {"role": "result", "content": user_results[res_idx], "projection_lane": "user"}
+                ],
+                "source": "user",
+            }
+        )
+        res_idx += 1
+
+    return reconciled
+
+
+def _compound_observation(
+    records: list[dict],
+    operator_observation: Any,
+    session_text: str | None = None,
+) -> dict[str, Any]:
     prior_transitions = [record for record in records if record.get("kind") == "state_transition"]
-    outcomes: list[dict] = []
+    prior_outcomes: list[dict] = []
     for transition in reversed(prior_transitions):
         if transition.get("status") in {"completed", "failed", "cancelled", "indeterminate"}:
             transition_id = transition.get("transition_id")
@@ -439,7 +539,7 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
                 ]
                 if observations and isinstance(observations[-1].get("observation"), dict):
                     return observations[-1]["observation"]
-            outcomes = [
+            prior_outcomes = [
                 {
                     key: value
                     for key, value in record.items()
@@ -450,6 +550,34 @@ def _compound_observation(records: list[dict], operator_observation: Any) -> dic
                 and record.get("transition_id") == transition_id
             ]
             break
+
+    has_transcript = False
+    user_results: list[str] | None = None
+
+    if session_text is not None:
+        try:
+            _prefix, _state, suffix_turns = partition_state_transcript(session_text)
+            user_results = _user_result_observations(suffix_turns)
+            has_transcript = True
+        except Exception:
+            pass
+
+    if not has_transcript and isinstance(operator_observation, dict) and "user_results" in operator_observation:
+        user_results = operator_observation["user_results"]
+        has_transcript = True
+
+    if user_results:
+        outcomes = _reconcile_tool_outcomes(prior_outcomes, user_results)
+    elif has_transcript:
+        if isinstance(operator_observation, dict) and operator_observation.get("tool_outcomes"):
+            outcomes = operator_observation["tool_outcomes"]
+        else:
+            outcomes = []
+    elif isinstance(operator_observation, dict) and "tool_outcomes" in operator_observation:
+        outcomes = operator_observation["tool_outcomes"]
+    else:
+        outcomes = prior_outcomes
+
     result = {
         "operator_observation": _operator_observation(operator_observation),
         "tool_outcomes": outcomes,
@@ -473,10 +601,11 @@ def build_state_step_packet(
     records = read_log(str(events_path))
     from ..tools import REGISTRY
 
-    compound = _compound_observation(records, observation)
-    blocks_by_id = extract_inert_blocks_by_id(records)
+    compound = _compound_observation(records, observation, session_text=session_text)
     if session_text:
-        blocks_by_id.update(extract_inert_blocks_by_id(session_text))
+        blocks_by_id = extract_inert_blocks_by_id(session_text)
+    else:
+        blocks_by_id = extract_inert_blocks_by_id(records)
     if blocks_by_id:
         compound = _expand_compound_observation(compound, blocks_by_id)
 
@@ -750,7 +879,7 @@ def step_state(
         before = snapshots[-1].get("state", initial_state()) if snapshots else initial_state()
         accepted = state
         patch = state_delta(before, accepted)
-        carried = _compound_observation(records, observation)
+        carried = _compound_observation(records, observation, session_text=session_text)
         outcomes: list[dict[str, Any]] = []
         transition_id = f"st_{uuid.uuid4().hex}"
         status = "running" if calls else "completed"

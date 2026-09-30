@@ -15,6 +15,9 @@ from toas.operator_api import step_state_once
 from toas.runtime.model_invocation_contracts import resolve_model_invocation
 from toas.runtime.state_step import (
     ToolOutcomeError,
+    _reconcile_tool_outcomes,
+    _user_input_observations,
+    _user_result_observations,
     build_state_step_packet,
     condense_inert_blocks,
     expand_inert_blocks,
@@ -615,5 +618,167 @@ def test_find_lineage_state_snapshot_respects_branch_lineage(tmp_path):
     )
     assert snap is not None
     assert snap["state"] == {"goal": "branch_a"}
+
+
+def test_user_result_and_input_observations_separation():
+    turns = [
+        {"role": "user", "content": "Here is my request.\n\n## RESULT\n\noutput block 1"},
+        {"role": "user", "content": "## RESULT\n\noutput block 2\n\n## RESULT\n\noutput block 3"},
+        {"role": "user", "content": "Just a user message."},
+    ]
+    inputs = _user_input_observations(turns)
+    results = _user_result_observations(turns)
+
+    assert inputs == [
+        {"content": "Here is my request."},
+        {"content": "Just a user message."},
+    ]
+    assert results == [
+        "output block 1",
+        "output block 2",
+        "output block 3",
+    ]
+
+
+def test_reconcile_tool_outcomes_truncation_and_deletion():
+    prior_outcomes = [
+        {
+            "index": 0,
+            "status": "completed",
+            "result": [{"role": "result", "content": "original 5000 lines", "projection_lane": "user"}],
+            "source": "model",
+        },
+        {
+            "index": 1,
+            "status": "completed",
+            "result": [{"role": "result", "content": "second tool result", "projection_lane": "user"}],
+            "source": "model",
+        },
+    ]
+
+    # Truncate first result, keep second
+    reconciled = _reconcile_tool_outcomes(prior_outcomes, ["[TRUNCATED]", "second tool result"])
+    assert len(reconciled) == 2
+    assert reconciled[0]["result"][0]["content"] == "[TRUNCATED]"
+    assert reconciled[0]["status"] == "completed"
+    assert reconciled[1]["result"][0]["content"] == "second tool result"
+
+    # Delete second result (only 1 result in transcript)
+    reconciled_deleted_second = _reconcile_tool_outcomes(prior_outcomes, ["[TRUNCATED]"])
+    assert len(reconciled_deleted_second) == 1
+    assert reconciled_deleted_second[0]["result"][0]["content"] == "[TRUNCATED]"
+
+    # Delete all results
+    assert _reconcile_tool_outcomes(prior_outcomes, []) == []
+
+
+def test_build_state_step_packet_transcript_supremacy_over_history(tmp_path):
+    events = tmp_path / "events.jsonl"
+    events.touch()
+    # Write completed transition and tool result in events.jsonl
+    append_state_step_records(
+        str(events),
+        [
+            {"kind": "state_transition", "transition_id": "st_test1", "status": "completed", "source": "model"},
+            {
+                "kind": "state_tool_result",
+                "transition_id": "st_test1",
+                "index": 0,
+                "status": "completed",
+                "result": [{"role": "result", "content": "untruncated original 1000 lines", "projection_lane": "user"}],
+                "source": "model",
+            },
+        ],
+    )
+
+    # 1. Transcript has truncated result
+    session_text_truncated = (
+        "## TOAS:STATE/1\n\nstate: {goal: test}\n\n"
+        "## TOAS:USER\n\n## RESULT\n\n[TRUNCATED BY OPERATOR]\n"
+    )
+    packet_truncated = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+        session_text=session_text_truncated,
+    )
+    outcomes = packet_truncated["observation"]["tool_outcomes"]
+    assert len(outcomes) == 1
+    assert outcomes[0]["result"][0]["content"] == "[TRUNCATED BY OPERATOR]"
+    assert "1000 lines" not in outcomes[0]["result"][0]["content"]
+
+    # 2. Transcript has deleted result (no RESULT blocks after STATE)
+    session_text_deleted = (
+        "## TOAS:STATE/1\n\nstate: {goal: test}\n\n"
+        "## TOAS:USER\n\nI removed the tool output.\n"
+    )
+    packet_deleted = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+        session_text=session_text_deleted,
+    )
+    assert packet_deleted["observation"]["tool_outcomes"] == []
+
+    # 3. Fallback when session_text is None (programmatic test mode)
+    packet_fallback = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+        session_text=None,
+    )
+    fallback_outcomes = packet_fallback["observation"]["tool_outcomes"]
+    assert len(fallback_outcomes) == 1
+    assert fallback_outcomes[0]["result"][0]["content"] == "untruncated original 1000 lines"
+
+
+def test_build_state_step_packet_inert_blocks_prefer_session_text(tmp_path):
+    events = tmp_path / "events.jsonl"
+    events.touch()
+    # Write old inert block in events.jsonl
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_tool_result",
+                "transition_id": "st_old",
+                "index": 0,
+                "status": "completed",
+                "result": [
+                    {
+                        "role": "result",
+                        "content": (
+                            '````markdown toas-output kind=file block_id=ib_mod123\n'
+                            'OLD 5000 LINES\n'
+                            '````'
+                        ),
+                        "projection_lane": "user",
+                    }
+                ],
+            }
+        ],
+    )
+
+    # In session_text, the operator modified the inert block body
+    session_text = (
+        "## TOAS:STATE/1\n\nstate: {goal: test}\n\n"
+        "## TOAS:USER\n\n"
+        "## RESULT\n\n"
+        '````markdown toas-output kind=file block_id=ib_mod123\n'
+        'EDITED 2 LINES\n'
+        '````\n'
+    )
+    packet = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+        session_text=session_text,
+    )
+    outcomes = packet["observation"]["tool_outcomes"]
+    assert len(outcomes) == 1
+    content = outcomes[0]["result"][0]["content"]
+    assert "EDITED 2 LINES" in content
+    assert "OLD 5000 LINES" not in content
+
 
 

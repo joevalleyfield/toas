@@ -116,6 +116,147 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     assert packets[-1]["observation"]["tool_outcomes"][0]["status"] == "completed"
 
 
+def test_state_step_cli_truncated_tool_result_in_transcript_takes_precedence(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate: {goal: inspect, progress: []}\n"
+    )
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    (tmp_path / "huge.txt").write_text("line 1\nline 2\nline 3\nline 4\nline 5", encoding="utf-8")
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+    packets = []
+
+    def generate(packet):
+        packets.append(packet)
+        if len(packets) == 1:
+            return {"content": '{"state_patch":{"progress":["reading"]},"tool_calls":[{"tool_name":"read_file","args":{"path":"huge.txt"}}]}'}
+        return {"content": '{"state_patch":{},"tool_calls":[]}'}
+
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    monkeypatch.setattr(cli_session_commands, "_resolve_runtime_generation_context", lambda **_kwargs: (
+        config, {}, SimpleNamespace(generate_state_packet=generate), {}
+    ))
+
+    # Step 1: infer
+    cli_session_commands.run_step(session_path=str(session))
+    out1 = capsys.readouterr().out
+    session.write_text(session.read_text() + out1)
+
+    # Step 2: batch execution
+    cli_session_commands.run_step(session_path=str(session))
+    out2 = capsys.readouterr().out
+    assert "line 1" in out2
+    session.write_text(session.read_text() + out2)
+
+    # Operator truncates the result in session.md
+    transcript_before_truncation = session.read_text()
+    assert "line 5" in transcript_before_truncation
+    truncated_transcript = transcript_before_truncation.replace("line 5", "[TRUNCATED AFTER LINE 4]")
+    session.write_text(truncated_transcript)
+
+    # Step 3: next infer
+    cli_session_commands.run_step(session_path=str(session))
+    _out3 = capsys.readouterr().out
+
+    # Verify inference packet received operator's truncated result
+    step3_packet = packets[-1]
+    outcome = step3_packet["observation"]["tool_outcomes"][0]
+    assert outcome["status"] == "completed"
+    outcome_content = outcome["result"][0]["content"]
+    assert "[TRUNCATED AFTER LINE 4]" in outcome_content
+    assert "line 5" not in outcome_content
+
+    # Verify durable history in events.jsonl still retains untruncated result
+    records = read_log(str(events_path))
+    tool_results = [r for r in records if r.get("kind") == "state_tool_result"]
+    assert len(tool_results) == 1
+    assert "line 5" in tool_results[0]["result"][0]["content"]
+
+
+def test_state_step_cli_deleted_tool_result_in_transcript_is_not_resurrected(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate: {goal: inspect, progress: []}\n"
+    )
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    (tmp_path / "data.txt").write_text("some data", encoding="utf-8")
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+    packets = []
+
+    def generate(packet):
+        packets.append(packet)
+        if len(packets) == 1:
+            return {"content": '{"state_patch":{"progress":["reading"]},"tool_calls":[{"tool_name":"read_file","args":{"path":"data.txt"}}]}'}
+        return {"content": '{"state_patch":{},"tool_calls":[]}'}
+
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    monkeypatch.setattr(cli_session_commands, "_resolve_runtime_generation_context", lambda **_kwargs: (
+        config, {}, SimpleNamespace(generate_state_packet=generate), {}
+    ))
+
+    # Step 1: infer
+    cli_session_commands.run_step(session_path=str(session))
+    out1 = capsys.readouterr().out
+    session.write_text(session.read_text() + out1)
+
+    # Step 2: batch execution
+    cli_session_commands.run_step(session_path=str(session))
+    out2 = capsys.readouterr().out
+    assert "some data" in out2
+    session.write_text(session.read_text() + out2)
+
+    # Operator deletes the batch execution result from session.md completely
+    session.write_text(session.read_text().split("## TOAS:USER")[0])
+
+    # Step 3: next infer
+    cli_session_commands.run_step(session_path=str(session))
+    _out3 = capsys.readouterr().out
+
+    # Verify inference packet has empty tool_outcomes (no resurrection from events.jsonl)
+    step3_packet = packets[-1]
+    assert step3_packet["observation"]["tool_outcomes"] == []
+
+
 def test_user_turn_after_state_is_inferred_directly_when_frontier_is_non_executable(monkeypatch, tmp_path, capsys):
     session = tmp_path / "session.md"
     events_path = tmp_path / "events.jsonl"
