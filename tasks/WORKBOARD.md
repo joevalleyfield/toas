@@ -254,7 +254,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging ⚠️ Stale
 - **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics ⚠️ Stale
 - **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
-- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
+- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane ⚠️ Stale
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... ⚠️ Stale
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... ⚠️ Stale
 - **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri... ⚠️ Stale
@@ -281,6 +281,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260928-readable-state-instructions]** Render State Instructions As A Readable Block
 - **[T260928-state-step-instruction-seed]** Carry State-Step Instructions In The Seed Transcript
 - **[T260928-state-user-control-turn-lifecycle]** Implement the state-step transcript lifecycle around ordinary `TOAS:USER` and `TOAS:CONTROL` turns, preserving the normal TOAS turn markers and defini...
+- **[T260929-state-sequence-inference-affordance]** Explore and add an explicit affordance that lets state inference consider an ordered sequence of state turns and their observations together. This sho...
 - **[T260929-state-transcript-parsing-alignment]** Bring `STATE` and `STATE-DIFF` turn parsing natively into `toas.transcript` so that state turns are first-class transcript blocks instead of requiring...
 - **[T260929-transcript-turn-decorations]** Allow transcript role marker lines (`## TOAS:ROLE ...`) to carry trailing decorations, identifiers, progression counters, timestamps, or non-semantic ...
 - **[T260929-vim-state-turn-projection-header]** Prevent Vim plugin from inserting `## TOAS:ASSISTANT` when finalizing state turns post-inference.
