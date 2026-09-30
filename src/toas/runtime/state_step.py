@@ -472,7 +472,7 @@ def _reconcile_tool_outcomes(
             for node in result_val:
                 if res_idx < len(user_results):
                     if isinstance(node, dict):
-                        node_copy = dict(node)
+                        node_copy = {k: v for k, v in node.items() if k != "payload"}
                         node_copy["content"] = user_results[res_idx]
                         kept_nodes.append(node_copy)
                     else:
@@ -484,7 +484,7 @@ def _reconcile_tool_outcomes(
                     break
             outcome_copy["result"] = kept_nodes
         elif isinstance(result_val, dict):
-            node_copy = dict(result_val)
+            node_copy = {k: v for k, v in result_val.items() if k != "payload"}
             node_copy["content"] = user_results[res_idx]
             outcome_copy["result"] = [node_copy]
             res_idx += 1
@@ -592,6 +592,26 @@ def _compound_observation(
     return result
 
 
+def _sanitize_projected_tool_outcomes(tool_outcomes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Strip internal tool execution payloads from projected tool outcomes."""
+    sanitized: list[dict[str, Any]] = []
+    for outcome in tool_outcomes:
+        outcome_copy = dict(outcome)
+        results = outcome_copy.get("result")
+        if isinstance(results, list):
+            clean_results = []
+            for node in results:
+                if isinstance(node, dict):
+                    clean_results.append({k: v for k, v in node.items() if k != "payload"})
+                else:
+                    clean_results.append(node)
+            outcome_copy["result"] = clean_results
+        elif isinstance(results, dict):
+            outcome_copy["result"] = {k: v for k, v in results.items() if k != "payload"}
+        sanitized.append(outcome_copy)
+    return sanitized
+
+
 def build_state_step_packet(
     *, events_path: str | Path, state: dict, observation: Any,
     instructions: str | None = None,
@@ -608,6 +628,10 @@ def build_state_step_packet(
         blocks_by_id = extract_inert_blocks_by_id(records)
     if blocks_by_id:
         compound = _expand_compound_observation(compound, blocks_by_id)
+
+    if isinstance(compound, dict) and "tool_outcomes" in compound:
+        compound = dict(compound)
+        compound["tool_outcomes"] = _sanitize_projected_tool_outcomes(compound["tool_outcomes"])
 
     return {
         "instructions": STATE_INSTRUCTIONS if instructions is None else instructions,

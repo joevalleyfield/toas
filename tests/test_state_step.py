@@ -781,4 +781,69 @@ def test_build_state_step_packet_inert_blocks_prefer_session_text(tmp_path):
     assert "OLD 5000 LINES" not in content
 
 
+def test_build_state_step_packet_strips_internal_payload_from_result_nodes(tmp_path):
+    events = tmp_path / "events.jsonl"
+    events.touch()
+    # Write a tool result with a large internal payload into events.jsonl
+    raw_payload = {"structure": [{"symbol": f"sym_{i}"} for i in range(500)], "ok": True}
+    append_state_step_records(
+        str(events),
+        [
+            {"kind": "state_transition", "transition_id": "st_p1", "status": "completed", "source": "model"},
+            {
+                "kind": "state_tool_result",
+                "transition_id": "st_p1",
+                "index": 0,
+                "status": "completed",
+                "result": [
+                    {
+                        "role": "result",
+                        "content": "Rendered summary text.",
+                        "projection_lane": "user",
+                        "origin_role": "tool",
+                        "origin_kind": "tool",
+                        "payload": raw_payload,
+                    }
+                ],
+                "source": "model",
+            },
+        ],
+    )
+
+    # 1. Direct packet build without transcript (fallback)
+    packet_direct = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+    )
+    node_direct = packet_direct["observation"]["tool_outcomes"][0]["result"][0]
+    assert "payload" not in node_direct
+    assert node_direct["content"] == "Rendered summary text."
+    assert node_direct["role"] == "result"
+    assert node_direct["projection_lane"] == "user"
+
+    # 2. Packet build with operator-truncated transcript
+    session_text = (
+        "## TOAS:STATE/1\n\nstate: {goal: test}\n\n"
+        "## TOAS:USER\n\n## RESULT\n\nTruncated operator text.\n"
+    )
+    packet_transcript = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+        session_text=session_text,
+    )
+    node_transcript = packet_transcript["observation"]["tool_outcomes"][0]["result"][0]
+    assert "payload" not in node_transcript
+    assert node_transcript["content"] == "Truncated operator text."
+
+    # 3. Durable records in events.jsonl still retain the full payload
+    records = read_log(str(events))
+    tool_results = [r for r in records if r.get("kind") == "state_tool_result"]
+    assert len(tool_results) == 1
+    assert "payload" in tool_results[0]["result"][0]
+    assert len(tool_results[0]["result"][0]["payload"]["structure"]) == 500
+
+
+
 

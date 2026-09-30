@@ -285,6 +285,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260929-state-transcript-parsing-alignment]** Bring `STATE` and `STATE-DIFF` turn parsing natively into `toas.transcript` so that state turns are first-class transcript blocks instead of requiring...
 - **[T260929-transcript-turn-decorations]** Allow transcript role marker lines (`## TOAS:ROLE ...`) to carry trailing decorations, identifiers, progression counters, timestamps, or non-semantic ...
 - **[T260929-vim-state-turn-projection-header]** Prevent Vim plugin from inserting `## TOAS:ASSISTANT` when finalizing state turns post-inference.
+- **[T260930-paged-inert-tool-spillover]** Bound oversized tool outputs in transcripts and state observations using durable inert blocks with pagination affordances so models and operators can ...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -367,11 +368,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260930-strip-payload-from-state-packet]** Ensure internal tool execution payloads stored in `state_tool_result` records in durable history are not serialized into model inference packets durin...
 - **[T260930-state-step-transcript-supremacy]** Ensure operator edits or truncations to tool results in `session.md` are authoritative during state-mode step evaluation rather than being overridden ...
 - **[T260929-state-seed-stdout]** Emit State Seed To Stdout Without Assuming Session Path
 - **[T260929-state-lineage-and-lcp-alignment]** Integrate `STATE` and `STATE-DIFF` turns into the durable message DAG in `events.jsonl` so that state turns participate in graph lineage, head trackin...
 - **[T260929-align-state-execution-experiment-test-expectations]** Align State Execution Experiment Test Expectations
-- **[T260928-state-edit-and-user-tools]** User-Authored State Editing And Tool Calls
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
