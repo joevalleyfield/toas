@@ -1262,7 +1262,7 @@ function! s:toas_extract_frontier_tool_name_from_lines(lines) abort
   let l:i = len(a:lines) - 1
   while l:i >= 0
     let l:line = trim(a:lines[l:i])
-    if l:line =~# '^## TOAS:\(USER\|ASSISTANT\|CONTROL\)$'
+    if l:line =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>'
       let l:start = l:i + 1
       break
     endif
@@ -1330,7 +1330,7 @@ endfunction
 
 function! s:toas_render_run_body_lines(text) abort
   let l:text = substitute(a:text, '\r', '', 'g')
-  if l:text =~# '^## RESULT\>' && l:text !~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)\>'
+  if l:text =~# '^## RESULT\>' && l:text !~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>'
     let l:text = "## TOAS:USER\n\n" . l:text
   endif
   let l:lines = split(l:text, "\n", 1)
@@ -1350,7 +1350,7 @@ function! s:toas_extract_final_projection(text) abort
   if l:start >= len(l:lines)
     return l:text
   endif
-  if l:lines[l:start] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:lines[l:start] ==# '## RESULT'
+  if l:lines[l:start] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>' || l:lines[l:start] =~# '^## RESULT\>'
     return join(l:lines[l:start:], "\n")
   endif
   return l:text
@@ -1371,7 +1371,7 @@ function! s:toas_trim_streamed_tool_prefix(text, lane) abort
   endif
   let l:i = l:start + 1
   while l:i < len(l:lines)
-    if l:lines[l:i] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:lines[l:i] ==# '## RESULT'
+    if l:lines[l:i] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>' || l:lines[l:i] =~# '^## RESULT\>'
       return join(l:lines[l:i :], "\n")
     endif
     let l:i += 1
@@ -1389,12 +1389,12 @@ function! s:toas_trim_hallucinated_follow_on_turns(text, lane) abort
   while l:start < len(l:lines) && l:lines[l:start] =~# '^\s*$'
     let l:start += 1
   endwhile
-  if l:start < len(l:lines) && (l:lines[l:start] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:lines[l:start] ==# '## RESULT')
+  if l:start < len(l:lines) && (l:lines[l:start] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>' || l:lines[l:start] =~# '^## RESULT\>')
     return l:text
   endif
   let l:i = l:start + 1
   while l:i < len(l:lines)
-    if l:lines[l:i] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$'
+    if l:lines[l:i] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>'
       return join(l:lines[: l:i - 1], "\n")
     endif
     let l:i += 1
@@ -1416,11 +1416,18 @@ endfunction
 
 function! s:toas_ensure_projection_for_lane(text, lane) abort
   let l:text = substitute(a:text, '\r', '', 'g')
-  if l:text =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)\>'
-    return l:text
-  endif
-  if l:text =~# '^## RESULT\>'
-    return "## TOAS:USER\n\n" . l:text
+  let l:lines = split(l:text, "\n", 1)
+  let l:start = 0
+  while l:start < len(l:lines) && l:lines[l:start] =~# '^\s*$'
+    let l:start += 1
+  endwhile
+  if l:start < len(l:lines)
+    if l:lines[l:start] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>'
+      return join(l:lines[l:start:], "\n")
+    endif
+    if l:lines[l:start] =~# '^## RESULT\>'
+      return "## TOAS:USER\n\n" . join(l:lines[l:start:], "\n")
+    endif
   endif
   if a:lane ==# 'tool'
     return "## TOAS:USER\n\n## RESULT\n\n" . l:text
@@ -1639,7 +1646,7 @@ function! s:toas_finalize_terminal_run_region(run_id, status, error_summary, ...
     endif
     let l:projection_text = get(s:toas_run_projection_text, a:run_id, '')
     if l:projection_text !=# ''
-      let l:final_text = s:toas_ensure_projection_for_lane(l:projection_text, 'projection')
+      let l:final_text = s:toas_finalize_success_text(l:projection_text, 'projection')
     else
       let l:final_text = s:toas_finalize_success_text(
             \ get(s:toas_run_text, a:run_id, ''),

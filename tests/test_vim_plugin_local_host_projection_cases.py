@@ -89,3 +89,15 @@ def test_local_host_projection_lane_stays_projection_not_assistant_fallback():
     assert "## RESULT" in result["text"]
     assert "repo_discovery_triage_v1" in result["text"]
     assert "## TOAS:ASSISTANT" not in result["text"]
+
+
+def test_local_host_state_projection_lane_preserves_state_header_without_assistant():
+    result = _run("state_projection_lane")
+    assert result["run_id"] == "rstateprojection1"
+    assert result["status"] == "succeeded"
+    assert result["run_kind"] == "run"
+    assert result["transport"] == "local_host_async"
+    assert "## TOAS:STATE/1" in result["text"]
+    assert "## TOAS:STATE/2" in result["text"]
+    assert "## TOAS:ASSISTANT" not in result["text"]
+

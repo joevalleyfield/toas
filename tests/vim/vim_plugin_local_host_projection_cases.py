@@ -78,6 +78,18 @@ def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
             event,
             "repo_discovery_triage_v1",
         )
+    if scenario == "state_projection_lane":
+        event = (
+            "{'type': 'projection_delta', 'lane': 'projection', 'phase': 'delta', 'seq': 1, "
+            "'payload': {'text': \"\\n\\n## TOAS:STATE/2\\n\\nstate:\\n  goal: step2\\n\", "
+            "'projection': {'source': 'runtime_step', 'target': 'transcript', 'format': 'rendered_transcript', 'mode': 'append'}}}"
+        )
+        return (
+            "rstateprojection1",
+            "## TOAS:USER\n\nstart\n\n## TOAS:STATE/1\n\ninstructions: test\nstate:\n  goal: step1\n",
+            event,
+            "## TOAS:STATE/2",
+        )
     raise ValueError(f"unknown scenario: {scenario}")
 
 
@@ -389,6 +401,14 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
             ok = result.get("text", '') == ''
         if scenario == "projection_lane":
             ok = ok and "## TOAS:ASSISTANT" not in result.get("text", "")
+        if scenario == "state_projection_lane":
+            ok = (
+                result.get("run_id", "") == run_id
+                and result.get("status") == "succeeded"
+                and "## TOAS:STATE/1" in result.get("text", "")
+                and required_text in result.get("text", "")
+                and "## TOAS:ASSISTANT" not in result.get("text", "")
+            )
         return {"ok": ok, "result": result}
 
 

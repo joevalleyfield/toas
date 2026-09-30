@@ -21,7 +21,11 @@ Execute (TOAS role and flat subregion identities are visible to Vim):
         \ '## TOAS:ASSISTANT',
         \ 'The setting is enabled.',
         \ '## TOAS:CONTROL',
-        \ '/history 5'])
+        \ '/history 5',
+        \ '## TOAS:STATE/1',
+        \ 'state: {}',
+        \ '## TOAS:STATE-DIFF/1',
+        \ 'state_patch: {}'])
   execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
   syntax sync fromstart
   redraw!
@@ -32,6 +36,8 @@ Execute (TOAS role and flat subregion identities are visible to Vim):
   Assert SyntaxAt(9, 4) ==# 'toasResultHeading'
   Assert SyntaxAt(11, 4) ==# 'toasRoleAssistant'
   Assert SyntaxAt(13, 4) ==# 'toasRoleControl'
+  Assert SyntaxAt(15, 4) ==# 'toasRoleState'
+  Assert SyntaxAt(17, 4) ==# 'toasRoleStateDiff'
 
 Execute (recognized fences delegate and unknown fences remain ordinary):
   call setline(1, [
@@ -80,6 +86,8 @@ Execute (semantic groups have restrained theme-owned visual links):
   Assert execute('highlight toasRoleUser') =~# 'links to Title'
   Assert execute('highlight toasRoleSystem') =~# 'links to Title'
   Assert execute('highlight toasRoleControl') =~# 'links to Title'
+  Assert execute('highlight toasRoleState') =~# 'links to Title'
+  Assert execute('highlight toasRoleStateDiff') =~# 'links to Title'
   Assert execute('highlight toasRoleAssistant') =~# 'links to Statement'
   Assert execute('highlight toasResultHeading') =~# 'links to PreProc'
   Assert execute('highlight toasSubregionAssistantHeading') =~# 'links to Special'

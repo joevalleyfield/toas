@@ -247,7 +247,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more... ⚠️ Stale
 - **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination ⚠️ Stale
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
-- **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
+- **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution ⚠️ Stale
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures ⚠️ Stale
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening ⚠️ Stale
@@ -283,6 +283,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260928-state-user-control-turn-lifecycle]** Implement the state-step transcript lifecycle around ordinary `TOAS:USER` and `TOAS:CONTROL` turns, preserving the normal TOAS turn markers and defini...
 - **[T260929-state-transcript-parsing-alignment]** Bring `STATE` and `STATE-DIFF` turn parsing natively into `toas.transcript` so that state turns are first-class transcript blocks instead of requiring...
 - **[T260929-transcript-turn-decorations]** Allow transcript role marker lines (`## TOAS:ROLE ...`) to carry trailing decorations, identifiers, progression counters, timestamps, or non-semantic ...
+- **[T260929-vim-state-turn-projection-header]** Prevent Vim plugin from inserting `## TOAS:ASSISTANT` when finalizing state turns post-inference.
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
