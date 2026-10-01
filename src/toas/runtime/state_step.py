@@ -291,6 +291,8 @@ def condense_inert_blocks(content: str) -> str:
         fence, header, block_id, body = m.group(1), m.group(2), m.group(3), m.group(4)
         if body.strip() == f"(ref: {block_id})":
             return m.group(0)
+        if "lines=" in header or ".toas/scratch/" in header:
+            return m.group(0)
         return f"{fence}{header}\n(ref: {block_id})\n{fence}"
 
     return pattern.sub(repl, content)
@@ -302,6 +304,8 @@ def expand_inert_blocks(content: str, blocks_by_id: dict[str, str]) -> str:
 
     def repl(m: re.Match) -> str:
         fence, header, block_id = m.group(1), m.group(2), m.group(3)
+        if "lines=" in header or ".toas/scratch/" in header:
+            return m.group(0)
         body = blocks_by_id.get(block_id)
         if body is not None:
             return f"{fence}{header}\n{body}\n{fence}"

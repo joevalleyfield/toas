@@ -844,6 +844,81 @@ def test_build_state_step_packet_strips_internal_payload_from_result_nodes(tmp_p
     assert "payload" in tool_results[0]["result"][0]
     assert len(tool_results[0]["result"][0]["payload"]["structure"]) == 500
 
+def test_spilled_tool_result_in_state_step_packet_projection(tmp_path):
+    events = tmp_path / "events.jsonl"
+    preview_body = "\n".join(f"symbol_{i}" for i in range(1, 31))
+    spilled_content = (
+        "[OK] get_structure: found 100 symbols\n"
+        "Output exceeded threshold (10 KB, 100 lines); spilled to `.toas/scratch/ib_12345.txt`.\n\n"
+        '```text toas-output kind=result block_id=ib_12345 path=".toas/scratch/ib_12345.txt" lines=1..30 of 100\n'
+        f"{preview_body}\n"
+        "```\n"
+        '[70 lines remaining. Inspect with `read_file`, `grep`, or script via path=".toas/scratch/ib_12345.txt"]'
+    )
+    raw_payload = {"tool_name": "get_structure", "ok": True, "symbols": [f"symbol_{i}" for i in range(1, 101)]}
 
+    append_state_step_records(
+        str(events),
+        [
+            {"kind": "state_transition", "transition_id": "st_spill", "status": "completed", "source": "model"},
+            {
+                "kind": "state_tool_result",
+                "transition_id": "st_spill",
+                "index": 0,
+                "status": "completed",
+                "result": [
+                    {
+                        "role": "result",
+                        "content": spilled_content,
+                        "projection_lane": "user",
+                        "origin_role": "tool",
+                        "origin_kind": "tool",
+                        "payload": raw_payload,
+                    }
+                ],
+                "source": "model",
+            },
+        ],
+    )
 
+    # 1. Direct packet build without transcript preserves bounded preview without re-expansion
+    packet_direct = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+    )
+    node_direct = packet_direct["observation"]["tool_outcomes"][0]["result"][0]
+    assert "payload" not in node_direct
+    assert node_direct["content"] == spilled_content
+    assert "lines=1..30 of 100" in node_direct["content"]
+    assert "symbol_31" not in node_direct["content"]
 
+    # 2. Transcript with spilled preview preserves bounded preview in packet
+    session_text = (
+        "## TOAS:STATE/1\n\nstate: {goal: test}\n\n"
+        f"## TOAS:USER\n\n## RESULT\n\n{spilled_content}\n"
+    )
+    packet_transcript = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+        session_text=session_text,
+    )
+    node_transcript = packet_transcript["observation"]["tool_outcomes"][0]["result"][0]
+    assert "payload" not in node_transcript
+    assert node_transcript["content"] == spilled_content
+    assert "symbol_31" not in node_transcript["content"]
+
+    # 3. Operator edits to the preview are authoritative
+    edited_session_text = (
+        "## TOAS:STATE/1\n\nstate: {goal: test}\n\n"
+        "## TOAS:USER\n\n## RESULT\n\n[OK] get_structure: manually narrowed to symbol_1\n"
+    )
+    packet_edited = build_state_step_packet(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+        session_text=edited_session_text,
+    )
+    node_edited = packet_edited["observation"]["tool_outcomes"][0]["result"][0]
+    assert node_edited["content"] == "[OK] get_structure: manually narrowed to symbol_1"

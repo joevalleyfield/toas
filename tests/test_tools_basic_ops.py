@@ -278,6 +278,28 @@ def test_run_read_file_max_lines_and_numbered_output_preserve_raw_content(tmp_pa
         run_read_file({"path": "x.txt", "end_line": 4}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
 
 
+def test_run_read_file_line_start_end_aliases_and_scratch_path(tmp_path):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    scratch_dir.mkdir(parents=True)
+    scratch_file = scratch_dir / "ib_abc123.txt"
+    lines = [f"line {i}" for i in range(1, 101)]
+    scratch_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    out = run_read_file(
+        {
+            "path": ".toas/scratch/ib_abc123.txt",
+            "line_start": 31,
+            "line_end": 60,
+        },
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out["ok"] is True
+    assert out["summary"] == ".toas/scratch/ib_abc123.txt:31-60"
+    assert out["content"].startswith("line 31\n")
+    assert out["content"].endswith("line 60\n")
+    assert len(out["content"].splitlines()) == 30
+
+
 def test_run_search_validates_and_runs(tmp_path):
     path = tmp_path / "x.txt"
     path.write_text("alpha\nbeta\n", encoding="utf-8")

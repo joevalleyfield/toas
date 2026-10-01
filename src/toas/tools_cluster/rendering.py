@@ -3,7 +3,7 @@ import re
 import shlex
 from collections.abc import Callable
 from hashlib import sha256
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 _LANGUAGE_BY_EXTENSION = {
     ".bash": "bash",
@@ -99,11 +99,88 @@ def infer_fence_language(path: str | None) -> str:
     return _LANGUAGE_BY_EXTENSION.get(PurePosixPath(path).suffix.lower(), "text")
 
 
+DEFAULT_SPILL_THRESHOLD_LINES = 40
+DEFAULT_SPILL_THRESHOLD_BYTES = 4000
+DEFAULT_SPILL_PREVIEW_LINES = 30
+
+
+def _format_size(byte_count: int) -> str:
+    if byte_count >= 1024 * 1024:
+        return f"{byte_count / (1024 * 1024):.1f} MB"
+    if byte_count >= 1024:
+        return f"{round(byte_count / 1024)} KB"
+    return f"{byte_count} B"
+
+
+def default_scratch_dir() -> Path:
+    return Path(".toas/scratch")
+
+
+def spill_inert_block(
+    content: str,
+    *,
+    kind: str,
+    language: str = "text",
+    scratch_dir: Path | None = None,
+    threshold_lines: int = DEFAULT_SPILL_THRESHOLD_LINES,
+    threshold_bytes: int = DEFAULT_SPILL_THRESHOLD_BYTES,
+    preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
+    block_id: str | None = None,
+) -> tuple[str, str, str]:
+    """Spill an oversized inert block to a scratch file and return (spilled_text, rel_path, block_id)."""
+    effective_block_id = block_id or f"ib_{sha256(content.encode('utf-8')).hexdigest()[:16]}"
+    target_dir = scratch_dir or default_scratch_dir()
+    try:
+        scratch_rel_path = str(target_dir.resolve().relative_to(Path.cwd().resolve()) / f"{effective_block_id}.txt")
+    except Exception:
+        scratch_rel_path = f".toas/scratch/{effective_block_id}.txt"
+
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        (target_dir / f"{effective_block_id}.txt").write_text(content, encoding="utf-8")
+    except OSError:
+        pass
+
+    lines = content.splitlines()
+    total_lines = len(lines)
+    total_bytes = len(content.encode("utf-8"))
+    size_str = _format_size(total_bytes)
+
+    preview_slice = lines[:preview_lines]
+    preview_body = "\n".join(preview_slice) + "\n" if preview_slice else ""
+    preview_count = len(preview_slice)
+    remaining_lines = max(0, total_lines - preview_count)
+
+    banner = f"Output exceeded threshold ({size_str}, {total_lines} lines); spilled to `{scratch_rel_path}`."
+    fence = _sized_backtick_fence(preview_body)
+    info_parts = [
+        language,
+        "toas-output",
+        f"kind={kind}",
+        f"block_id={effective_block_id}",
+        f'path="{scratch_rel_path}"',
+        f"lines=1..{preview_count} of {total_lines}",
+    ]
+    if remaining_lines > 0:
+        trailer = (
+            f"[{remaining_lines} lines remaining. "
+            f"Inspect with `read_file`, `grep`, or script via path=\"{scratch_rel_path}\"]"
+        )
+    else:
+        trailer = (
+            f"[Output truncated by byte size ({size_str}). "
+            f"Inspect with `read_file`, `grep`, or script via path=\"{scratch_rel_path}\"]"
+        )
+
+    spilled_text = f"{banner}\n\n{fence}{' '.join(info_parts)}\n{preview_body}{fence}\n{trailer}"
+    return spilled_text, scratch_rel_path, effective_block_id
+
+
 def render_fenced_output(
     *,
     content: str,
     kind: str,
-    source: str,
+    source: str = "",
     potency: str = "inert",
     language: str = "text",
     path: str | None = None,
@@ -111,7 +188,29 @@ def render_fenced_output(
     line_start: int | None = None,
     line_end: int | None = None,
     block_id: str | None = None,
+    allow_spill: bool | None = None,
+    scratch_dir: Path | None = None,
+    threshold_lines: int = DEFAULT_SPILL_THRESHOLD_LINES,
+    threshold_bytes: int = DEFAULT_SPILL_THRESHOLD_BYTES,
+    preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
 ) -> str:
+    lines = content.splitlines()
+    total_lines = len(lines)
+    total_bytes = len(content.encode("utf-8"))
+    should_allow_spill = (kind in {"result", "stdout", "stderr"} and not source.startswith("command.")) if allow_spill is None else allow_spill
+    if should_allow_spill and (total_lines > threshold_lines or total_bytes > threshold_bytes):
+        spilled_text, _, _ = spill_inert_block(
+            content,
+            kind=kind,
+            language=language,
+            scratch_dir=scratch_dir,
+            threshold_lines=threshold_lines,
+            threshold_bytes=threshold_bytes,
+            preview_lines=preview_lines,
+            block_id=block_id,
+        )
+        return spilled_text
+
     fence = _sized_backtick_fence(content)
     info_parts = [
         language,

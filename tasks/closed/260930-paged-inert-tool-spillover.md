@@ -53,3 +53,12 @@ Rather than inventing bespoke query tools (`search_block`, `sample_block`), over
 - `build_state_step_packet` preserves bounded previews in the LLM packet without re-expanding spilled contents.
 - Operator edits to spilled previews in `session.md` are authoritative.
 - All existing tests pass without regressions.
+
+## Completion Log
+- **2026-10-01**: Implemented paged inert tool result spillover:
+  - Added `spill_inert_block` and auto-spillover logic to `src/toas/tools_cluster/rendering.py` for tool result, stdout, and stderr blocks when exceeding line (>40) or byte (>4000) thresholds.
+  - Spilled outputs write the raw full output to `.toas/scratch/<block_id>.txt` and render a bounded 30-line preview with banner, header annotations (`block_id`, `path`, `lines=1..30 of N`), and remaining-line trailer hints.
+  - Supported `line_start` and `line_end` as parameter aliases in `run_read_file` (`src/toas/tools_cluster/basic_ops.py`), enabling standard bounded slice reads against `.toas/scratch/` paths.
+  - Protected spilled preview blocks in `condense_inert_blocks` and `expand_inert_blocks` (`src/toas/runtime/state_step.py`) to prevent premature condensation into references and unspilled re-expansion in state packets.
+  - Verified full test suite passes (3382 tests). Closed task.
+

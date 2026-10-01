@@ -152,24 +152,30 @@ def run_echo_block(args: dict) -> dict:
 
 
 def run_read_file(args: dict, *, workspace_path_fn) -> dict:
+    normalized_args = dict(args)
+    if "line_start" in normalized_args and "start_line" not in normalized_args:
+        normalized_args["start_line"] = normalized_args.pop("line_start")
+    if "line_end" in normalized_args and "end_line" not in normalized_args:
+        normalized_args["end_line"] = normalized_args.pop("line_end")
+
     allowed_args = {"path", "start_line", "end_line", "max_lines", "show_line_numbers"}
-    unknown_args = sorted(set(args) - allowed_args)
+    unknown_args = sorted(set(normalized_args) - allowed_args)
     if unknown_args:
         raise RuntimeError(
             f"invalid arguments for tool read_file: unknown argument(s): {', '.join(unknown_args)}"
         )
 
-    path_arg = args["path"]
+    path_arg = normalized_args["path"]
     if not isinstance(path_arg, str) or not path_arg:
         raise RuntimeError("invalid arguments for tool read_file: path must be a non-empty string")
 
-    show_line_numbers = args.get("show_line_numbers", False)
+    show_line_numbers = normalized_args.get("show_line_numbers", False)
     if not isinstance(show_line_numbers, bool):
         raise RuntimeError("invalid arguments for tool read_file: show_line_numbers must be a bool")
 
-    start_line = args.get("start_line")
-    end_line = args.get("end_line")
-    max_lines = args.get("max_lines")
+    start_line = normalized_args.get("start_line")
+    end_line = normalized_args.get("end_line")
+    max_lines = normalized_args.get("max_lines")
     if start_line is not None and not isinstance(start_line, int):
         raise RuntimeError("invalid arguments for tool read_file: start_line must be a positive int")
     if end_line is not None and not isinstance(end_line, int):

@@ -10,6 +10,7 @@ from toas.tools_cluster.rendering import (
     render_search_success,
     render_shell_stdout_import_block,
     shape_result_content,
+    spill_inert_block,
     stable_import_block_id,
 )
 
@@ -693,3 +694,124 @@ def test_render_search_excerpt_blocks_handles_empty_and_all_invalid_inputs(monke
             return iter(())
 
     assert render_search_excerpt_blocks({"matches": TruthyEmptyList()}) == []
+
+
+def test_spill_inert_block_lines_threshold(tmp_path):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    content = "\n".join(f"symbol_{i}" for i in range(1, 101))
+    spilled, rel_path, block_id = spill_inert_block(
+        content,
+        kind="result",
+        scratch_dir=scratch_dir,
+        threshold_lines=40,
+        preview_lines=30,
+    )
+    assert block_id.startswith("ib_")
+    assert (scratch_dir / f"{block_id}.txt").is_file()
+    assert (scratch_dir / f"{block_id}.txt").read_text(encoding="utf-8") == content
+
+    assert f"Output exceeded threshold (" in spilled
+    assert f"100 lines); spilled to `{rel_path}`." in spilled
+    assert f'```text toas-output kind=result block_id={block_id} path="{rel_path}" lines=1..30 of 100' in spilled
+    assert "symbol_1\n" in spilled
+    assert "symbol_30\n" in spilled
+    assert "symbol_31" not in spilled
+    assert f'[70 lines remaining. Inspect with `read_file`, `grep`, or script via path="{rel_path}"]' in spilled
+
+
+def test_spill_inert_block_bytes_threshold(tmp_path):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    # 5 lines, but 5000 characters total (> 4000 threshold)
+    long_line = "x" * 1000
+    content = "\n".join([long_line] * 5)
+    spilled, rel_path, block_id = spill_inert_block(
+        content,
+        kind="stdout",
+        scratch_dir=scratch_dir,
+        threshold_lines=40,
+        threshold_bytes=4000,
+        preview_lines=30,
+    )
+    assert block_id.startswith("ib_")
+    assert (scratch_dir / f"{block_id}.txt").read_text(encoding="utf-8") == content
+    assert "5 lines); spilled to" in spilled
+    assert f'```text toas-output kind=stdout block_id={block_id} path="{rel_path}" lines=1..5 of 5' in spilled
+    assert f'[Output truncated by byte size (5 KB). Inspect with `read_file`, `grep`, or script via path="{rel_path}"]' in spilled
+
+
+def test_render_fenced_output_spillover_and_opt_out(tmp_path):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    content = "\n".join(f"item_{i}" for i in range(1, 50))
+
+    # Spills by default for kind="result"
+    spilled = render_fenced_output(
+        content=content,
+        kind="result",
+        source="tool.test",
+        scratch_dir=scratch_dir,
+    )
+    assert "Output exceeded threshold" in spilled
+    assert "lines=1..30 of 49" in spilled
+
+    # Opt-out via allow_spill=False
+    not_spilled = render_fenced_output(
+        content=content,
+        kind="result",
+        source="tool.test",
+        allow_spill=False,
+        scratch_dir=scratch_dir,
+    )
+    assert "Output exceeded threshold" not in not_spilled
+    assert "item_49" in not_spilled
+
+    # kind="file" does not spill by default
+    file_block = render_fenced_output(
+        content=content,
+        kind="file",
+        source="workspace",
+        path="doc.txt",
+        scratch_dir=scratch_dir,
+    )
+    assert "Output exceeded threshold" not in file_block
+
+
+def test_shape_result_content_get_structure_spills_oversized(tmp_path, monkeypatch):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    monkeypatch.setattr("toas.tools_cluster.rendering.default_scratch_dir", lambda: scratch_dir)
+
+    symbols = [
+        {"kind": "def", "name": f"func_{i}", "start_line": i * 10, "end_line": i * 10 + 5, "path": "mod.py"}
+        for i in range(1, 101)
+    ]
+    result = {
+        "tool_name": "get_structure",
+        "ok": True,
+        "summary": "found 100 symbols",
+        "structure": symbols,
+    }
+    rendered = shape_result_content(result)
+    assert rendered.startswith("[OK] get_structure: found 100 symbols\nOutput exceeded threshold (")
+    assert "100 lines); spilled to `.toas/scratch/ib_" in rendered
+    assert "lines=1..30 of 100" in rendered
+    assert "[70 lines remaining. Inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
+    assert "def.func_1 (10-15) mod.py" in rendered
+    assert "def.func_30 (300-305) mod.py" in rendered
+    assert "def.func_31" not in rendered
+
+
+def test_shape_result_content_shell_stdout_spills_oversized(tmp_path, monkeypatch):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    monkeypatch.setattr("toas.tools_cluster.rendering.default_scratch_dir", lambda: scratch_dir)
+
+    result = {
+        "tool_name": "shell",
+        "ok": True,
+        "summary": "exit=0",
+        "stdout": "\n".join(f"stdout_line_{i}" for i in range(1, 80)),
+        "stderr": "",
+    }
+    rendered = shape_result_content(result)
+    assert "[OK] shell: exit=0\nstdout:\nOutput exceeded threshold (" in rendered
+    assert "lines=1..30 of 79" in rendered
+    assert "[49 lines remaining. Inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
+
