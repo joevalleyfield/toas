@@ -300,3 +300,16 @@ def test_execute_plan_calls_does_not_swallow_cancellation_or_dispatch_suffix():
         )
 
     assert seen == ["cancelled"]
+
+
+def test_execute_plan_calls_captures_unexpected_exception_with_traceback():
+    def _execute(_call):
+        raise SyntaxError("unexpected syntax error in file.py", ("file.py", 10, 1, "bad"))
+
+    result = execute_plan_calls([{"tool_name": "custom_tool", "args": {}}], execute_call=_execute)[0]
+
+    assert result["ok"] is False
+    assert result["tool_name"] == "custom_tool"
+    assert "unexpected syntax error in file.py" in result["error"]
+    assert "Traceback" in result["traceback"]
+

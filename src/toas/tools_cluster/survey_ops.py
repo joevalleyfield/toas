@@ -49,7 +49,8 @@ class CodeSurveyVisitor(ast.NodeVisitor):
 
 def collect_code_survey_entries(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     content = path.read_text(encoding="utf-8")
-    tree = ast.parse(content)
+    tree = ast.parse(content, filename=str(path))
+
     visitor = CodeSurveyVisitor()
     visitor.visit(tree)
     return visitor.functions, visitor.classes

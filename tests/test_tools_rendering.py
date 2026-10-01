@@ -710,7 +710,7 @@ def test_spill_inert_block_lines_threshold(tmp_path):
     assert (scratch_dir / f"{block_id}.txt").is_file()
     assert (scratch_dir / f"{block_id}.txt").read_text(encoding="utf-8") == content
 
-    assert f"Output exceeded threshold (" in spilled
+    assert "Output exceeded threshold (" in spilled
     assert f"100 lines); spilled to `{rel_path}`." in spilled
     assert f'```text toas-output kind=result block_id={block_id} path="{rel_path}" lines=1..30 of 100' in spilled
     assert "symbol_1\n" in spilled
@@ -814,4 +814,43 @@ def test_shape_result_content_shell_stdout_spills_oversized(tmp_path, monkeypatc
     assert "[OK] shell: exit=0\nstdout:\nOutput exceeded threshold (" in rendered
     assert "lines=1..30 of 79" in rendered
     assert "[49 lines remaining. Inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
+
+
+def test_spill_inert_block_size_mb_and_default_dir_and_oserror(tmp_path):
+    from pathlib import Path
+
+    from toas.tools_cluster.rendering import _format_size, default_scratch_dir
+
+    assert "MB" in _format_size(1024 * 1024 * 2)
+    assert default_scratch_dir() == Path(".toas/scratch")
+
+
+    unwritable = tmp_path / "file_exists"
+    unwritable.write_text("blocker")
+    spilled, _, _ = spill_inert_block(
+        "x\n" * 50,
+        kind="result",
+        scratch_dir=unwritable / "sub",
+    )
+    assert "Output exceeded threshold" in spilled
+
+
+def test_shape_result_content_search_error():
+    rendered_no_excerpts = shape_result_content(
+        {"tool_name": "search", "ok": False, "summary": "pattern error"}
+    )
+    assert rendered_no_excerpts == "[ERROR] search: pattern error"
+
+    rendered_with_excerpts = shape_result_content(
+        {
+            "tool_name": "search",
+            "ok": False,
+            "summary": "timed out with partial",
+            "matches": ["path.py:10:match"],
+        }
+    )
+    assert "[ERROR] search: timed out with partial\npartial matches:\n" in rendered_with_excerpts
+    assert "path.py" in rendered_with_excerpts
+
+
 

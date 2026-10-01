@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import re
+import traceback
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -56,11 +57,54 @@ _StateYamlDumper.add_representer(
 class ToolOutcomeError(RuntimeError):
     """A TOAS execution result that did not complete successfully."""
 
-    def __init__(self, status: str, message: str) -> None:
+    def __init__(
+        self,
+        status: str,
+        message: str,
+        *,
+        tool_name: str | None = None,
+        traceback: str | None = None,
+    ) -> None:
         super().__init__(message)
         if status not in {"failed", "cancelled", "indeterminate"}:
             raise ValueError("invalid tool outcome status")
         self.status = status
+        self.tool_name = tool_name
+        self.traceback = traceback
+
+
+def _log_tool_failure(
+    *,
+    path: str | Path,
+    transition_id: str | None,
+    index: int,
+    tool_name: str,
+    call: dict,
+    status: str,
+    error: str,
+    traceback: str | None,
+) -> None:
+    try:
+        from .async_activity_store_impl import error_log
+
+        events_file = Path(path)
+        workdir = str(events_file.parent.parent) if events_file.parent.name == ".toas" else str(Path.cwd())
+        error_log(
+            {
+                "event": "tool_execution_failed",
+                "transition_id": transition_id,
+                "index": index,
+                "tool_name": tool_name,
+                "call": call,
+                "status": status,
+                "error": error,
+                "traceback": traceback or "",
+            },
+            workdir=workdir,
+        )
+    except Exception:
+        pass
+
 
 
 def _parse_state_response(content: str) -> Any:
@@ -856,14 +900,60 @@ def step_state(
         )
         for index, call in enumerate(calls_to_execute):
             call_source = pending.get("source", "model")
+            tool_name = call.get("tool_name") or call.get("operation") or "unknown"
             try:
                 normalized_call = _normalize_tool_call_aliases([call])[0]
+                tool_name = normalized_call.get("tool_name", tool_name)
                 result = execute_call(normalized_call)
-                outcome = {"index": index, "status": "completed", "result": result, "source": call_source}
+                outcome = {
+                    "index": index,
+                    "tool_name": tool_name,
+                    "status": "completed",
+                    "result": result,
+                    "source": call_source,
+                }
             except ToolOutcomeError as exc:
-                outcome = {"index": index, "status": exc.status, "error": str(exc), "source": call_source}
+                tname = exc.tool_name or tool_name
+                tb = exc.traceback or traceback.format_exc().strip()
+                outcome = {
+                    "index": index,
+                    "tool_name": tname,
+                    "status": exc.status,
+                    "error": str(exc),
+                    "source": call_source,
+                }
+                if tb and tb != "NoneType: None":
+                    outcome["traceback"] = tb
+                _log_tool_failure(
+                    path=path,
+                    transition_id=pending["transition_id"],
+                    index=index,
+                    tool_name=tname,
+                    call=call,
+                    status=exc.status,
+                    error=str(exc),
+                    traceback=tb,
+                )
             except Exception as exc:
-                outcome = {"index": index, "status": "failed", "error": str(exc), "source": call_source}
+                tb = traceback.format_exc().strip()
+                outcome = {
+                    "index": index,
+                    "tool_name": tool_name,
+                    "status": "failed",
+                    "error": str(exc),
+                    "traceback": tb,
+                    "source": call_source,
+                }
+                _log_tool_failure(
+                    path=path,
+                    transition_id=pending["transition_id"],
+                    index=index,
+                    tool_name=tool_name,
+                    call=call,
+                    status="failed",
+                    error=str(exc),
+                    traceback=tb,
+                )
             append_state_step_records(
                 path,
                 [
@@ -877,6 +967,7 @@ def step_state(
             outcomes.append(outcome)
             if outcome["status"] != "completed":
                 break
+
         status = (
             "completed"
             if len(outcomes) == len(calls_to_execute)
@@ -937,11 +1028,18 @@ def step_state(
                 [{"kind": "state_tool_request", "transition_id": transition_id, "source": "user", "tool_calls": calls}],
             )
         for index, call in enumerate(calls):
+            tool_name = call.get("tool_name") or call.get("operation") or "unknown"
             try:
                 if execute_user_call is None:
                     raise ValueError("user-intent tool execution is unavailable")
                 result = execute_user_call(call)
-                outcome = {"index": index, "status": "completed", "result": result, "source": "user"}
+                outcome = {
+                    "index": index,
+                    "tool_name": tool_name,
+                    "status": "completed",
+                    "result": result,
+                    "source": "user",
+                }
                 if isinstance(result, list) and any(
                     isinstance(item, dict)
                     and isinstance(item.get("payload"), dict)
@@ -958,10 +1056,62 @@ def step_state(
                     if outcome["status"] not in {"failed", "cancelled", "indeterminate"}:
                         outcome["status"] = "failed"
                     outcome["error"] = str(failed_payload.get("summary", "tool call failed"))
+                    if failed_payload.get("tool_name"):
+                        outcome["tool_name"] = failed_payload["tool_name"]
+                    if failed_payload.get("traceback"):
+                        outcome["traceback"] = failed_payload["traceback"]
+                    _log_tool_failure(
+                        path=path,
+                        transition_id=transition_id,
+                        index=index,
+                        tool_name=outcome["tool_name"],
+                        call=call,
+                        status=outcome["status"],
+                        error=outcome["error"],
+                        traceback=outcome.get("traceback"),
+                    )
             except ToolOutcomeError as exc:
-                outcome = {"index": index, "status": exc.status, "error": str(exc), "source": "user"}
+                tname = exc.tool_name or tool_name
+                tb = exc.traceback or traceback.format_exc().strip()
+                outcome = {
+                    "index": index,
+                    "tool_name": tname,
+                    "status": exc.status,
+                    "error": str(exc),
+                    "source": "user",
+                }
+                if tb and tb != "NoneType: None":
+                    outcome["traceback"] = tb
+                _log_tool_failure(
+                    path=path,
+                    transition_id=transition_id,
+                    index=index,
+                    tool_name=tname,
+                    call=call,
+                    status=exc.status,
+                    error=str(exc),
+                    traceback=tb,
+                )
             except Exception as exc:
-                outcome = {"index": index, "status": "failed", "error": str(exc), "source": "user"}
+                tb = traceback.format_exc().strip()
+                outcome = {
+                    "index": index,
+                    "tool_name": tool_name,
+                    "status": "failed",
+                    "error": str(exc),
+                    "traceback": tb,
+                    "source": "user",
+                }
+                _log_tool_failure(
+                    path=path,
+                    transition_id=transition_id,
+                    index=index,
+                    tool_name=tool_name,
+                    call=call,
+                    status="failed",
+                    error=str(exc),
+                    traceback=tb,
+                )
             append_state_step_records(
                 path,
                 [{"kind": "state_tool_result", "transition_id": transition_id, **outcome}],
@@ -969,6 +1119,7 @@ def step_state(
             outcomes.append(outcome)
             if outcome["status"] != "completed":
                 break
+
         if calls:
             status = (
                 "completed" if len(outcomes) == len(calls) and all(x["status"] == "completed" for x in outcomes)

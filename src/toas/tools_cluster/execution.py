@@ -1,3 +1,4 @@
+import traceback
 from pathlib import Path
 
 from ..runtime.environment_policy import active_environment_overrides
@@ -88,8 +89,10 @@ def _annotate_returned_failure(result: dict) -> dict:
     return annotated
 
 
-def _raised_failure_result(*, call: dict, exc: BaseException, failure_kind: str, outcome: str) -> dict:
-    return {
+def _raised_failure_result(
+    *, call: dict, exc: BaseException, failure_kind: str, outcome: str, include_traceback: bool = False
+) -> dict:
+    result = {
         "tool_name": call.get("tool_name"),
         "ok": False,
         "summary": str(exc),
@@ -97,6 +100,11 @@ def _raised_failure_result(*, call: dict, exc: BaseException, failure_kind: str,
         "failure_kind": failure_kind,
         "outcome": outcome,
     }
+    if include_traceback:
+        tb = traceback.format_exc().strip()
+        if tb and tb != "NoneType: None":
+            result["traceback"] = tb
+    return result
 
 
 def execute_plan_calls(
@@ -175,8 +183,21 @@ def execute_plan_calls(
                     error_result["repair_suggestion"] = repair_suggestion
                 results.append(_apply_intention(error_result, raw_call))
                 break
+            except Exception as exc:
+                failure_kind, outcome = _classify_runtime_failure(str(exc))
+                error_result = _raised_failure_result(
+                    call=call,
+                    exc=exc,
+                    failure_kind=failure_kind,
+                    outcome=outcome,
+                    include_traceback=True,
+                )
+                results.append(_apply_intention(error_result, raw_call))
+                break
             projected = _apply_intention(_annotate_returned_failure(output), raw_call)
             results.append(projected)
             if projected.get("ok") is False:
                 break
         return results
+
+

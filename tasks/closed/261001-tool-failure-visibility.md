@@ -58,3 +58,14 @@ Before implementing graceful recovery (such as skipping unparseable files or ign
 - Unit tests verify that syntax errors and unhandled tool exceptions in batch execution surface the tool name, target path, error details, and accessible tracebacks without concealment.
 - Full test suite passes without regressions.
 
+## Completion Log
+
+- **2026-10-01**: Implemented tool failure visibility and error bubbling:
+  - Updated `collect_python_structure` (`src/toas/tools_cluster/basic_ops.py`) and `collect_code_survey_entries` (`src/toas/tools_cluster/survey_ops.py`) to pass `filename=str(path)` to `ast.parse` and wrap `SyntaxError` and `(UnicodeDecodeError, OSError)` so the offending file path and line number are surfaced directly in error messages instead of `<unknown>`.
+  - Added optional `tool_name` and `traceback` attributes to `ToolOutcomeError` in `src/toas/runtime/state_step.py`.
+  - Added `_log_tool_failure` logging to `.toas/error.log` in `src/toas/runtime/state_step.py` for both batch tool execution and user tool execution loops, persisting `tool_name` and `traceback` on outcome dictionaries and durable `state_tool_result` event records.
+  - Enhanced tool execution in `src/toas/tools_cluster/execution.py` to capture unexpected tool exceptions with full tracebacks.
+  - Updated CLI outcome rendering in `src/toas/cli_session_commands.py` to format failure lines as `[FAILED] tool {idx} ({tool_name}): {summary}` and render failure lines even alongside partial successful results.
+  - Added comprehensive test coverage in `tests/test_tools_basic_ops.py`, `tests/test_state_step.py`, `tests/test_cli_session_commands_state_step.py`, and `tests/test_tools_execution.py`.
+  - Verified 100% targeted coverage on affected modules and clean `ruff` and `mypy` checks.
+

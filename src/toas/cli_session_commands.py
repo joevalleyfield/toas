@@ -295,8 +295,8 @@ def _resolve_state_input_turns(
     from . import step as step_mod
     from .graph import read_log as read_current_log
     from .runtime.rendering_edges import render_transcript_blocks
-    from .runtime.step_runtime import _frontier_has_callable_intent
     from .runtime.state_step import partition_state_transcript
+    from .runtime.step_runtime import _frontier_has_callable_intent
 
     if prefix_turns is None or state_turn is None or input_turns is None:
         p_turns, s_turn, suf_turns = partition_state_transcript(normalized_transcript)
@@ -413,14 +413,13 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         _merge_patch,
         find_lineage_state_snapshot,
         materialize_state_turns,
+        observation_with_user_turns,
+        parse_state_turn,
         partition_state_transcript,
         preview_state_request,
-        parse_state_turn,
         reconcile_state_lineage,
         render_state_turn,
         step_state,
-        transcript_observation_with_tool_outcomes,
-        observation_with_user_turns,
     )
 
     if turns is None or state_index is None:
@@ -586,10 +585,21 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                 continue
             outcome = payload.get("outcome", payload.get("status"))
             if outcome in {"cancelled", "indeterminate"}:
-                raise ToolOutcomeError(str(outcome), str(payload.get("summary", outcome)))
+                raise ToolOutcomeError(
+                    str(outcome),
+                    str(payload.get("summary", outcome)),
+                    tool_name=payload.get("tool_name"),
+                    traceback=payload.get("traceback"),
+                )
             if payload.get("ok") is False:
-                raise ToolOutcomeError("failed", str(payload.get("summary", "tool call failed")))
+                raise ToolOutcomeError(
+                    "failed",
+                    str(payload.get("summary", "tool call failed")),
+                    tool_name=payload.get("tool_name"),
+                    traceback=payload.get("traceback"),
+                )
         return results
+
 
     from .graph import _next_message_id
     inferred_message_id = _next_message_id(read_log(str(events_path))) if events_path.exists() else "n1"
@@ -639,9 +649,22 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             for node in (outcome.get("result") or [])
             if isinstance(node, dict) and node.get("role") == "result"
         ]
+        outcome_failure_lines = []
+        for outcome in result.get("outcomes", []):
+            if outcome.get("status") != "completed":
+                idx = outcome.get("index", 0)
+                st = outcome.get("status", "failed")
+                tname = outcome.get("tool_name")
+                tool_label = f"tool {idx} ({tname})" if tname else f"tool {idx}"
+                err = outcome.get("error")
+                summary = err or f"status={st}"
+                outcome_failure_lines.append(f"[{st.upper()}] {tool_label}: {summary}")
+
         if result_nodes:
             from .runtime.rendering_edges import render_transcript_blocks
             rendered_results = render_transcript_blocks(result_nodes).strip()
+            if outcome_failure_lines:
+                rendered_results += "\n\n" + "\n".join(outcome_failure_lines)
             if on_projection_nodes is not None:
                 on_projection_nodes(result_nodes)
         else:
@@ -649,12 +672,15 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             for outcome in result.get("outcomes", []):
                 idx = outcome.get("index", 0)
                 st = outcome.get("status", "failed")
+                tname = outcome.get("tool_name")
+                tool_label = f"tool {idx} ({tname})" if tname else f"tool {idx}"
                 err = outcome.get("error")
                 summary = err or f"status={st}"
-                outcome_lines.append(f"[{st.upper()}] tool {idx}: {summary}")
+                outcome_lines.append(f"[{st.upper()}] {tool_label}: {summary}")
             if not outcome_lines:
                 outcome_lines = [f"[{result.get('status', 'completed').upper()}] batch execution completed"]
             rendered_results = "## TOAS:USER\n\n## RESULT\n\n" + "\n".join(outcome_lines)
+
 
         transcript = normalized_transcript
         prefix = ""

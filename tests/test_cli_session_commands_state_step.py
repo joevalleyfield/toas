@@ -6,7 +6,7 @@ import pytest
 from toas import cli_session_commands
 from toas.graph import append_state_step_records, read_log
 from toas.runtime.result_nodes import make_result_node
-from toas.runtime.state_step import parse_state_turn, render_state_turn, partition_state_transcript
+from toas.runtime.state_step import parse_state_turn, partition_state_transcript, render_state_turn
 from toas.transcript import render_transcript
 
 
@@ -338,8 +338,9 @@ def test_appended_user_and_control_intents_use_normal_frontier_and_embed_results
         "## TOAS:CONTROL\n\n/pwd\n"
     )
     session.write_text(transcript)
-    parsed = parse_state_turn(transcript)
+    _ = parse_state_turn(transcript)
     calls = []
+
 
     def resolve_frontier(transcript, _log, **_kwargs):
         frontier = parse_transcript(transcript)[-1]
@@ -407,9 +408,10 @@ def test_resolved_user_intent_does_not_reexecute_on_subsequent_step(monkeypatch,
         "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\nnotes\n"
     )
     session.write_text(transcript)
-    parsed = parse_state_turn(transcript)
+    _ = parse_state_turn(transcript)
 
     def unexpected_step(*_args, **_kwargs):
+
         raise AssertionError("already resolved user command must not re-execute")
 
     deps = SimpleNamespace(
@@ -798,7 +800,7 @@ def test_state_step_materializes_state_turns_and_participates_in_heads_and_proje
 
 
 def test_state_diff_resolves_base_snapshot_from_branch_lineage(monkeypatch, tmp_path):
-    from toas.graph import write_message_events, append_state_step_records
+    from toas.graph import append_state_step_records, write_message_events
     events_path = tmp_path / "events.jsonl"
     events_path.touch()
 
@@ -946,5 +948,138 @@ def test_state_branching_from_prior_state_creates_dag_branch_without_mutation(mo
     proj_b = project_transcript(records, head_id=branch_b_head)
     assert "goal: alternative" in proj_b
     assert "step_alternative" in proj_b
+
+
+def test_state_step_cli_renders_failed_tool_with_name_and_detail(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    session.write_text(
+        "## TOAS:STATE/1\n\n"
+        "state:\n  goal: inspect\n  progress: []\n"
+    )
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (
+            config,
+            {},
+            SimpleNamespace(
+                generate_state_packet=lambda _p: {
+                    "content": json.dumps({
+                        "state_patch": {"progress": ["inspecting"]},
+                        "tool_calls": [{"tool_name": "get_structure", "args": {"path": str(tmp_path)}}],
+                    })
+                }
+            ),
+            {},
+        ),
+    )
+
+    bad_py = tmp_path / "broken.py"
+    bad_py.write_text("def syntax_err(\n", encoding="utf-8")
+
+    # Step 1: infer
+    cli_session_commands.run_step(session_path=str(session))
+    out1 = capsys.readouterr().out
+    session.write_text(session.read_text() + out1)
+
+    # Step 2: batch execution
+    cli_session_commands.run_step(session_path=str(session))
+    out2 = capsys.readouterr().out
+    assert "[FAILED] tool 0 (get_structure):" in out2
+    assert "broken.py" in out2
+
+
+def test_state_step_cli_renders_partial_success_with_failure_lines(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    session.write_text(
+        "## TOAS:STATE/1\n\n"
+        "state:\n  goal: inspect\n  progress: []\n"
+    )
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    good_file = tmp_path / "good.txt"
+    good_file.write_text("good content", encoding="utf-8")
+    bad_py = tmp_path / "broken.py"
+    bad_py.write_text("def syntax_err(\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (
+            config,
+            {},
+            SimpleNamespace(
+                generate_state_packet=lambda _p: {
+                    "content": json.dumps({
+                        "state_patch": {"progress": ["inspecting"]},
+                        "tool_calls": [
+                            {"tool_name": "read_file", "args": {"path": "good.txt"}},
+                            {"tool_name": "get_structure", "args": {"path": str(tmp_path)}},
+                        ],
+                    })
+                }
+            ),
+            {},
+        ),
+    )
+
+    # Step 1: infer
+    cli_session_commands.run_step(session_path=str(session))
+    out1 = capsys.readouterr().out
+    session.write_text(session.read_text() + out1)
+
+    # Step 2: batch execution
+    cli_session_commands.run_step(session_path=str(session))
+    out2 = capsys.readouterr().out
+    assert "good content" in out2
+    assert "[FAILED] tool 1 (get_structure):" in out2
+    assert "broken.py" in out2
+
+
+
 
 

@@ -424,6 +424,45 @@ def test_failed_tool_call_is_recorded_and_later_calls_are_not_started(tmp_path):
     assert state_step_records(str(events))[-2]["error"] == "denied"
 
 
+def test_step_state_tool_failure_retains_tool_name_traceback_and_logs(tmp_path):
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True, exist_ok=True)
+    step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        generate=lambda _p: {
+            "content": '{"state_patch":{},"tool_calls":[{"tool_name":"get_structure","args":{"path":"."}}]}'
+        },
+        execute_call=lambda _c: None,
+    )
+
+    def fail_with_syntax_error(call):
+        raise SyntaxError("invalid syntax in test.py", ("test.py", 3, 1, "bad syntax"))
+
+    result = step_state(
+        events_path=events, state={}, observation=None, generate=lambda _p: None, execute_call=fail_with_syntax_error
+    )
+    assert result["status"] == "failed"
+    outcomes = result["outcomes"]
+    assert len(outcomes) == 1
+    assert outcomes[0]["tool_name"] == "get_structure"
+    assert "test.py" in outcomes[0]["error"]
+    assert "Traceback" in outcomes[0]["traceback"]
+
+    records = state_step_records(str(events))
+    tool_result_record = [r for r in records if r.get("kind") == "state_tool_result"][0]
+    assert tool_result_record["tool_name"] == "get_structure"
+    assert "test.py" in tool_result_record["error"]
+    assert "Traceback" in tool_result_record["traceback"]
+
+    error_log_file = tmp_path / ".toas" / "error.log"
+    assert error_log_file.exists()
+    logged_lines = error_log_file.read_text(encoding="utf-8").strip().splitlines()
+    assert any("tool_execution_failed" in line and "get_structure" in line for line in logged_lines)
+
+
+
 def test_generation_runner_resolves_and_executes_explicit_state_packet(monkeypatch, tmp_path):
     from toas.runtime import step_generation_runtime
 

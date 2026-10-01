@@ -360,8 +360,18 @@ def _fallback_search_matches(*, path: Path, query: str, regex: bool, limit: int)
 
 
 def collect_python_structure(path: Path) -> list[dict]:
-    content = path.read_text(encoding="utf-8")
-    tree = ast.parse(content)
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError) as exc:
+        raise RuntimeError(f"failed reading {path}: {exc}") from exc
+    try:
+        tree = ast.parse(content, filename=str(path))
+    except SyntaxError as exc:
+        raise SyntaxError(
+            f"{path}:{exc.lineno}: {exc.msg}",
+            (str(path), exc.lineno or 1, exc.offset or 1, exc.text or ""),
+        ) from exc
+
     entries: list[dict] = []
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):

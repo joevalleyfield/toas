@@ -502,3 +502,27 @@ def test_collect_and_run_get_structure(tmp_path):
         run_get_structure({"path": str(tmp_path / 'missing')}, workspace_path_fn=lambda p: Path(p))
     with pytest.raises(RuntimeError, match="path must be a non-empty string"):
         run_get_structure({"path": ""}, workspace_path_fn=lambda p: Path(p))
+
+
+def test_get_structure_syntax_error_surfaces_file_path(tmp_path):
+    sub = tmp_path / "nested"
+    sub.mkdir()
+    bad = sub / "broken.py"
+    bad.write_text("def syntax_error(\n", encoding="utf-8")
+
+    with pytest.raises(SyntaxError) as exc_info:
+        run_get_structure({"path": str(tmp_path)}, workspace_path_fn=lambda p: Path(p))
+
+    assert str(bad) in str(exc_info.value) or "nested/broken.py" in str(exc_info.value)
+
+
+def test_get_structure_read_error_surfaces_file_path(tmp_path):
+    sub = tmp_path / "nested"
+    sub.mkdir()
+    bad = sub / "binary.py"
+    bad.write_bytes(b"\x80\x81\x82")
+
+    with pytest.raises(RuntimeError, match=f"failed reading {bad}"):
+        run_get_structure({"path": str(tmp_path)}, workspace_path_fn=lambda p: Path(p))
+
+

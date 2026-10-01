@@ -176,9 +176,10 @@ def spill_inert_block(
     return spilled_text, scratch_rel_path, effective_block_id
 
 
-def render_fenced_output(
+def render_fenced_output(  # noqa: PLR0913
     *,
     content: str,
+
     kind: str,
     source: str = "",
     potency: str = "inert",

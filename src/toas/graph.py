@@ -599,7 +599,7 @@ def branch_policy_records(events: list[dict], *, head_id: str | None = None) -> 
 def branch_policy_provenance(events: list[dict], *, head_id: str | None = None) -> dict[str, object]:
     """Present selected branch policy evidence by domain without reducing fallback."""
     records = branch_policy_records(events, head_id=head_id)
-    domain_for_kind = {
+    domain_for_kind: dict[object, str] = {
         "config_override": "config",
         "config_load_resolution": "config",
         "shell_scope_grant": "shell_grants",
