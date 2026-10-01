@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-09-30
+> **Last Sync:** 2026-10-01
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -266,7 +266,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260825-visible-transcript-turn-ids]** Define a general transcript-facing way to display stable turn identifiers that are normally excluded from the LLM message projection, so users and edi... ⚠️ Stale
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context. ⚠️ Stale
 - **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered... ⚠️ Stale
-- **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences
+- **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences ⚠️ Stale
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
@@ -285,7 +285,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260929-state-transcript-parsing-alignment]** Bring `STATE` and `STATE-DIFF` turn parsing natively into `toas.transcript` so that state turns are first-class transcript blocks instead of requiring...
 - **[T260929-transcript-turn-decorations]** Allow transcript role marker lines (`## TOAS:ROLE ...`) to carry trailing decorations, identifiers, progression counters, timestamps, or non-semantic ...
 - **[T260929-vim-state-turn-projection-header]** Prevent Vim plugin from inserting `## TOAS:ASSISTANT` when finalizing state turns post-inference.
-- **[T260930-paged-inert-tool-spillover]** Bound oversized tool outputs in transcripts and state observations using durable inert blocks with pagination affordances so models and operators can ...
+- **[T260930-paged-inert-tool-spillover]** Bound oversized tool outputs in transcripts and state observations by spilling to addressable scratch buffers with compact previews, enabling models a...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
