@@ -173,6 +173,7 @@ def run_step(
     on_llm_completion: Callable[[GenerationCompletion], None] | None = None,
     on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
+    infer_from: str | None = None,
 ) -> None:
     deps = _build_step_cli_deps()
     events_path = deps.resolve_events_path()
@@ -202,10 +203,13 @@ def run_step(
             state_index=state_turn_indices[-1],
             preview=preview,
             preview_response=preview_response,
+            infer_from=infer_from,
             on_projection_nodes=on_projection_nodes,
             on_projection_delta=on_projection_delta,
         )
         return
+    if infer_from is not None:
+        raise ValueError("--infer-from is only supported in state-oriented transcripts")
     if preview or preview_response:
         raise SystemExit("step --preview currently requires a typed state turn at the transcript frontier")
     runtime_ctx = _build_runtime_context(
@@ -424,6 +428,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                     turns: list[dict] | None = None, state_index: int | None = None,
                     parsed_turn: dict | None = None,
                     preview: bool = False, preview_response: bool = False,
+                    infer_from: str | None = None,
                     on_projection_nodes: Callable[[list[dict]], None] | None = None,
                     on_projection_delta: Callable[[str], None] | None = None) -> None:
     """Adapt a typed state transcript to the independent state-step runtime."""
@@ -434,8 +439,10 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         ToolOutcomeError,
         _merge_patch,
         find_lineage_state_snapshot,
+        find_state_turn_index_by_label,
         materialize_state_turns,
         observation_with_user_turns,
+        parse_infer_from_directive,
         parse_state_turn,
         partition_state_transcript,
         preview_state_request,
@@ -504,12 +511,19 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             raise ValueError("state-diff turn has no earlier accepted state snapshot")
         current_state = _merge_patch(snapshot["state"], parsed_turn["state_patch"])
     input_turns = [turn for turn in suffix_turns if turn.get("role") in {"user", "control"}]
+    directive_infer_from, cleaned_input_turns = (
+        parse_infer_from_directive(input_turns) if input_turns else (None, input_turns)
+    )
+    effective_infer_from = infer_from or directive_infer_from
+    cleaned_all_turns = [*prefix_turns, state_turn, *(cleaned_input_turns or [])]
+    if effective_infer_from:
+        find_state_turn_index_by_label(cleaned_all_turns, effective_infer_from)
     current_observation = observation_with_user_turns(
-        parsed_turn.get("observation"), input_turns
-    ) if input_turns else parsed_turn.get("observation")
+        parsed_turn.get("observation"), cleaned_input_turns
+    ) if cleaned_input_turns else parsed_turn.get("observation")
     request = None
     if preview or preview_response:
-        if input_turns:
+        if cleaned_input_turns:
             from .runtime.step_runtime import _frontier_has_callable_intent
 
             preview_config = apply_overrides(
@@ -518,16 +532,16 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             )
             prefix_messages = [turn for turn in prefix_turns if turn.get("role") not in {"state", "state-diff"}]
             has_unresolved = False
-            for index, turn in enumerate(input_turns):
+            for index, turn in enumerate(cleaned_input_turns):
                 content_stripped = turn.get("content", "").lstrip()
                 if content_stripped.startswith("## RESULT"):
                     continue
-                if index + 1 < len(input_turns) and input_turns[index + 1].get("content", "").lstrip().startswith("## RESULT"):
+                if index + 1 < len(cleaned_input_turns) and cleaned_input_turns[index + 1].get("content", "").lstrip().startswith("## RESULT"):
                     continue
                 if _frontier_has_callable_intent(
                     step_mod=step_mod,
                     frontier=turn,
-                    working=[*prefix_messages, *input_turns[: index + 1]],
+                    working=[*prefix_messages, *cleaned_input_turns[: index + 1]],
                     config=preview_config,
                 ):
                     has_unresolved = True
@@ -544,6 +558,8 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             observation=current_observation,
             instructions=parsed_turn.get("instructions"),
             session_text=normalized_transcript,
+            infer_from=effective_infer_from,
+            transcript_turns=cleaned_all_turns if effective_infer_from else None,
         )
         if request.get("phase") != "infer":
             print(json.dumps(request, ensure_ascii=False, indent=2))
@@ -552,8 +568,8 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             print(json.dumps(request, ensure_ascii=False, indent=2))
         if not preview_response:
             return
-    if input_turns and not preview and not preview_response:
-        normalized_transcript, input_turns, events, intent_resolved = _resolve_state_input_turns(
+    if cleaned_input_turns and not preview and not preview_response:
+        normalized_transcript, cleaned_input_turns, events, intent_resolved = _resolve_state_input_turns(
             deps=deps,
             events_path=events_path,
             session_path=session_path,
@@ -561,15 +577,16 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             normalized_transcript=normalized_transcript,
             prefix_turns=prefix_turns,
             state_turn=state_turn,
-            input_turns=input_turns,
+            input_turns=cleaned_input_turns,
             on_projection_nodes=on_projection_nodes,
             on_projection_delta=on_projection_delta,
         )
         if intent_resolved:
             return
+        cleaned_all_turns = [*prefix_turns, state_turn, *(cleaned_input_turns or [])]
         current_observation = observation_with_user_turns(
-            parsed_turn.get("observation"), input_turns
-        ) if input_turns else parsed_turn.get("observation")
+            parsed_turn.get("observation"), cleaned_input_turns
+        ) if cleaned_input_turns else parsed_turn.get("observation")
     runtime_ctx = _build_runtime_context(
         events=events, normalized_transcript=normalized_transcript,
         session_path=session_path, workdir=Path.cwd(),
@@ -637,9 +654,11 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         events_path=events_path, state=current_state, observation=current_observation,
         instructions=parsed_turn.get("instructions"),
         session_text=normalized_transcript,
-        pending_tool_calls=parsed_turn.get("pending_tools") if not input_turns else None,
+        pending_tool_calls=parsed_turn.get("pending_tools") if not cleaned_input_turns and not effective_infer_from else None,
         generate=generate_state_packet, execute_call=execute_call,
         message_id=inferred_message_id,
+        infer_from=effective_infer_from,
+        transcript_turns=cleaned_all_turns if effective_infer_from else None,
     )
     if result["phase"] == "infer":
         prior_state_number = parsed_turn.get("state_number", 1)

@@ -233,8 +233,13 @@ def test_step_option_control_session_surface_and_preview_conflict():
     from toas.cli_dispatch_ops import parse_step_options
 
     assert parse_step_options(["step", "--control", "/pwd", "--session", "s.md", "--surface", "s1"]) == (
-        False, False, False, "/pwd", "s.md", "s1"
+        False, False, False, "/pwd", "s.md", "s1", None
     )
+    assert parse_step_options(["step", "--infer-from", "STATE/1"]) == (
+        False, False, False, None, None, None, "STATE/1"
+    )
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        parse_step_options(["step", "--infer-from"])
     with pytest.raises(SystemExit, match="usage: toas step"):
         parse_step_options(["step", "--preview-request", "--control", "/pwd"])
 

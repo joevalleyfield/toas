@@ -769,6 +769,8 @@ def test_generation_runner_resolves_and_executes_explicit_state_packet(monkeypat
     assert runner.prepare_state_request({"state": {"goal": "x"}}) == "plan"
     assert captured["working"] == []
     assert json.loads(captured["request_messages"][0]["content"]) == {"state": {"goal": "x"}}
+    assert runner.prepare_state_request({"request_messages": [{"role": "system", "content": "prompt"}]}) == "plan"
+    assert captured["request_messages"] == [{"role": "system", "content": "prompt"}]
 
     monkeypatch.setattr(GenerationRunner, "prepare_state_request", lambda _self, _packet: "plan")
     monkeypatch.setattr(GenerationRunner, "execute_with_retry", lambda _self, _plan: "result")

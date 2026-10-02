@@ -164,6 +164,7 @@ def step_once(
     on_llm_completion: Callable[[GenerationCompletion], None] | None = None,
     on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
+    infer_from: str | None = None,
     run_step_fn: Callable[..., None] | None = None,
 ) -> StepOutcome:
     """Run one local operator step using CLI-equivalent semantics."""
@@ -190,6 +191,7 @@ def step_once(
         or on_llm_completion is not None
         or on_projection_nodes is not None
         or on_projection_delta is not None
+        or infer_from is not None
     ):
         run_step_fn(
             generate_override=generate,
@@ -211,6 +213,7 @@ def step_once(
             on_llm_completion=on_llm_completion,
             on_projection_nodes=on_projection_nodes,
             on_projection_delta=on_projection_delta,
+            infer_from=infer_from,
         )
     else:
         run_step_fn(generate_override=generate)

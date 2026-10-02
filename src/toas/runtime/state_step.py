@@ -697,10 +697,136 @@ def build_state_step_packet(
     }
 
 
+_INFER_FROM_DIRECTIVE_RE = re.compile(r"(?m)^/infer-from\s+([^\s]+)\s*$")
+
+
+def parse_infer_from_directive(turns: list[dict[str, Any]]) -> tuple[str | None, list[dict[str, Any]]]:
+    """Inspect trailing user turns for /infer-from <label>, stripping directive from user prose."""
+    found_label: str | None = None
+    modified_turns: list[dict[str, Any]] = []
+
+    for turn in turns:
+        if turn.get("role") not in {"user", "control"} or not isinstance(turn.get("content"), str):
+            modified_turns.append(turn)
+            continue
+        content = turn["content"]
+        match = _INFER_FROM_DIRECTIVE_RE.search(content)
+        if match is not None:
+            found_label = match.group(1).strip()
+            new_content = _INFER_FROM_DIRECTIVE_RE.sub("", content).strip()
+            new_turn = dict(turn)
+            new_turn["content"] = new_content
+            modified_turns.append(new_turn)
+        else:
+            modified_turns.append(turn)
+
+    return found_label, modified_turns
+
+
+def find_state_turn_index_by_label(turns: list[dict[str, Any]], label: str) -> int:
+    """Find the index of the state turn matching the label, or raise ValueError."""
+    clean_label = label.strip()
+    if clean_label.startswith("##"):
+        clean_label = clean_label.lstrip("#").strip()
+    if clean_label.upper().startswith("TOAS:"):
+        clean_label = clean_label[5:].strip()
+
+    target_num: int | None = None
+    target_role: str | None = None
+
+    if clean_label.isdigit():
+        target_num = int(clean_label)
+    else:
+        m = re.match(r"^(STATE|STATE-DIFF)/(\d+)$", clean_label, re.IGNORECASE)
+        if m:
+            target_role = m.group(1).lower()
+            target_num = int(m.group(2))
+        else:
+            raise ValueError(f"state turn with label {label!r} not found in transcript")
+
+    for idx, turn in enumerate(turns):
+        role = turn.get("role")
+        if role not in {"state", "state-diff"}:
+            continue
+        if target_role is not None and role != target_role:
+            continue
+        parsed = parse_state_turn(turn)
+        if parsed.get("state_number") == target_num:
+            return idx
+
+    raise ValueError(f"state turn with label {label!r} not found in transcript")
+
+
+def build_multi_state_sequence_packet(
+    *,
+    events_path: str | Path,
+    state: dict[str, Any],
+    turns: list[dict[str, Any]],
+    start_index: int,
+    instructions: str | None = None,
+    session_text: str | None = None,
+) -> dict[str, Any]:
+    """Build model-facing sequence projection from start_index through the transcript frontier."""
+    from ..tools import REGISTRY
+
+    selected_turns = turns[start_index:]
+    system_instructions = STATE_INSTRUCTIONS if instructions is None else instructions
+    tools_available = sorted(REGISTRY)
+
+    schema_block = (
+        "Return one JSON object with these fields:\n"
+        "- state_patch: an object containing changes to the current state. Use null to remove a key.\n"
+        "- tool_calls: an array of batch tool calls, each with tool_name and args. Use empty array when no tools are needed.\n"
+        "- outcome: optional; use continue or complete."
+    )
+    tools_block = f"Available tools:\n{json.dumps(tools_available, indent=2)}"
+
+    system_content = f"{system_instructions}\n\n{schema_block}\n\n{tools_block}"
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
+
+    for turn in selected_turns:
+        role = turn.get("role")
+        content = str(turn.get("content", "")).strip()
+        if role in {"state", "state-diff"}:
+            marker = turn.get("marker")
+            if not marker:
+                parsed = parse_state_turn(turn)
+                snum = parsed.get("state_number", 1)
+                srole = "STATE-DIFF" if role == "state-diff" else "STATE"
+                marker = f"## TOAS:{srole}/{snum}"
+            rendered_state = f"{marker}\n\n{content}".strip()
+            messages.append({"role": "assistant", "content": rendered_state})
+        elif role in {"user", "control"}:
+            user_content = content
+            if not user_content:
+                user_content = "Advance state from the preceding context."
+            if messages and messages[-1]["role"] == "user":
+                messages[-1]["content"] += f"\n\n{user_content}"
+            else:
+                messages.append({"role": "user", "content": user_content})
+
+    return {
+        "instructions": system_instructions,
+        "schema": {
+            "state_patch": "object",
+            "tool_calls": "array",
+            "outcome": ["continue", "complete"],
+        },
+        "tools": {
+            "available": tools_available,
+            "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
+        },
+        "state": state,
+        "request_messages": messages,
+    }
+
+
 def preview_state_request(
     *, events_path: str | Path, state: dict, observation: Any,
     instructions: str | None = None,
     session_text: str | None = None,
+    infer_from: str | None = None,
+    transcript_turns: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Return the request messages step would send, without generation or writes."""
     records = read_log(str(events_path))
@@ -713,6 +839,20 @@ def preview_state_request(
             and state == latest.get("state_after")
         ):
             return {"phase": "terminal", "status": "completed"}
+    if infer_from is not None and transcript_turns:
+        start_idx = find_state_turn_index_by_label(transcript_turns, infer_from)
+        packet = build_multi_state_sequence_packet(
+            events_path=events_path,
+            state=state,
+            turns=transcript_turns,
+            start_index=start_idx,
+            instructions=instructions,
+            session_text=session_text,
+        )
+        return {
+            "phase": "infer",
+            "request_messages": packet["request_messages"],
+        }
     pending = _latest_pending(records)
     if pending is not None:
         return {
@@ -732,7 +872,7 @@ def preview_state_request(
     }
 
 
-def step_state(
+def step_state(  # noqa: PLR0913
     *,
     events_path: str | Path,
     state: dict[str, Any],
@@ -746,6 +886,8 @@ def step_state(
     execute_call: Callable[[dict], Any],
     execute_user_call: Callable[[dict], Any] | None = None,
     message_id: str | None = None,
+    infer_from: str | None = None,
+    transcript_turns: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run one explicit phase: user consolidation, pending batch, or inference."""
     path = str(events_path)
@@ -864,7 +1006,7 @@ def step_state(
         }
     pending = _latest_pending(records)
     if pending is not None:
-        if pending_tool_calls == [] and not user_tool_calls:
+        if infer_from is not None or (pending_tool_calls == [] and not user_tool_calls):
             append_state_step_records(
                 path,
                 [
@@ -876,7 +1018,7 @@ def step_state(
                 ],
             )
             pending = None
-    elif pending_tool_calls:
+    elif pending_tool_calls and infer_from is None:
         transition_id = f"st_{uuid.uuid4().hex}"
         append_state_step_records(
             path,
@@ -1189,15 +1331,27 @@ def step_state(
         }
 
     transition_id = f"st_{uuid.uuid4().hex}"
-    packet = build_state_step_packet(
-        events_path=events_path, state=state, observation=observation,
-        instructions=instructions, session_text=session_text,
-    )
-    compound_observation = packet["observation"]
+    if infer_from is not None and transcript_turns:
+        start_idx = find_state_turn_index_by_label(transcript_turns, infer_from)
+        packet = build_multi_state_sequence_packet(
+            events_path=events_path,
+            state=state,
+            turns=transcript_turns,
+            start_index=start_idx,
+            instructions=instructions,
+            session_text=session_text,
+        )
+        compound_observation = {"kind": "multi_state_sequence", "start_index": start_idx}
+    else:
+        packet = build_state_step_packet(
+            events_path=events_path, state=state, observation=observation,
+            instructions=instructions, session_text=session_text,
+        )
+        compound_observation = packet["observation"]
     answer = generate(packet)
     if isinstance(answer, dict) and isinstance(answer.get("_llm_call"), dict):
         call_kwargs = dict(answer["_llm_call"])
-        call_kwargs.setdefault("request_messages", [{"role": "user", "content": json.dumps(packet)}])
+        call_kwargs.setdefault("request_messages", packet.get("request_messages", [{"role": "user", "content": json.dumps(packet)}]))
         call_kwargs.setdefault("requested_model", "model")
         res_content = answer.get("content")
         if isinstance(res_content, str) and "response_content" not in call_kwargs:

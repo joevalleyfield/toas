@@ -4,7 +4,7 @@ import re
 
 from .cli_usage import GRAPH_USAGE, HEADS_USAGE, HISTORY_USAGE, LLM_INPUT_USAGE, TRANSCRIPT_USAGE
 
-STEP_USAGE = "usage: toas step [--preview-request] [--preview-response] [--stdin] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
+STEP_USAGE = "usage: toas step [--preview-request] [--preview-response] [--stdin] [--infer-from <state-label>] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
 STEP_ASYNC_USAGE = "usage: toas step --async [--session <transcript_path>] [--surface <surface_id>]"
 SESSION_CONTINUE_USAGE = "usage: toas session continue [--predecessor <transcript_path>] [--name <session_name>] [--ignore-preceding-graph] [--exclude-tail]"
 SURFACE_USAGE = "usage: toas surface [list|bind|select|rebind] ..."
@@ -13,13 +13,14 @@ SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
 SURFACE_REBIND_USAGE = "usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>"
 
 
-def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, str | None, str | None]:
+def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, str | None, str | None, str | None]:
     stdin_mode = False
     preview_request = False
     preview_response = False
     control: str | None = None
     session_path: str | None = None
     surface_id: str | None = None
+    infer_from: str | None = None
     i = 1
     while i < len(argv):
         arg = argv[i]
@@ -41,6 +42,12 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, s
             control = argv[i + 1]
             i += 2
             continue
+        if arg == "--infer-from":
+            if i + 1 >= len(argv):
+                raise SystemExit(STEP_USAGE)
+            infer_from = argv[i + 1]
+            i += 2
+            continue
         if arg == "--session":
             if i + 1 >= len(argv):
                 raise SystemExit(STEP_USAGE)
@@ -56,7 +63,7 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, s
         raise SystemExit(f"unknown option: {arg}")
     if (preview_request or preview_response) and (stdin_mode or control is not None):
         raise SystemExit(STEP_USAGE)
-    return stdin_mode, preview_request, preview_response, control, session_path, surface_id
+    return stdin_mode, preview_request, preview_response, control, session_path, surface_id, infer_from
 
 
 def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None]:

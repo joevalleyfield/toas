@@ -1773,3 +1773,233 @@ def test_state_intermediate_user_turn_edit_branches_dag(monkeypatch, tmp_path, c
     assert len(heads2) == 2
     head_ids = {h["id"] for h in heads2}
     assert head_a in head_ids
+
+
+def test_state_infer_from_parses_directive_and_projects_sequence(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate:\n  goal: original\n  step: 1\n\n"
+        "## TOAS:USER\n\n$ echo first-command\n\n"
+        "## RESULT\n\nfirst-output\n\n"
+        "## TOAS:STATE/2\n\nstate:\n  goal: original\n  step: 2\n\n"
+        "## TOAS:USER\n\nPlease rethink direction.\n/infer-from STATE/1\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas import cli
+    from toas.config import OperatorConfig
+
+    captured_packet = {}
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            captured_packet.update(packet)
+            return {"content": json.dumps({"state_patch": {"step": 3, "rethought": True}, "tool_calls": []})}
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        # Preview request to verify message sequence
+        cli.run_step(session_path=str(session), preview_request=True)
+        preview_out = capsys.readouterr().out
+        preview_req = json.loads(preview_out)
+        req_messages = preview_req["request_messages"]
+        assert len(req_messages) >= 4
+        # System instructions
+        assert req_messages[0]["role"] == "system"
+        # State/1 assistant turn retaining explicit STATE marker
+        assert req_messages[1]["role"] == "assistant"
+        assert "## TOAS:STATE/1" in req_messages[1]["content"]
+        assert "step: 1" in req_messages[1]["content"]
+        # Intermediate user turn with command & result
+        assert req_messages[2]["role"] == "user"
+        assert "first-command" in req_messages[2]["content"]
+        assert "first-output" in req_messages[2]["content"]
+        # State/2 assistant turn retaining explicit STATE marker
+        assert req_messages[3]["role"] == "assistant"
+        assert "## TOAS:STATE/2" in req_messages[3]["content"]
+        assert "step: 2" in req_messages[3]["content"]
+        # Trailing user turn with redirection prose and without /infer-from
+        assert req_messages[4]["role"] == "user"
+        assert "Please rethink direction." in req_messages[4]["content"]
+        assert "/infer-from" not in req_messages[4]["content"]
+
+        # Now execute the step
+        deltas = []
+        cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
+        assert any("## TOAS:STATE/3" in d for d in deltas)
+        assert any("rethought: true" in d for d in deltas)
+
+
+def test_state_infer_from_cli_option_parity(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate:\n  goal: original\n  step: 1\n\n"
+        "## TOAS:STATE/2\n\nstate:\n  goal: original\n  step: 2\n\n"
+        "## TOAS:USER\n\nPlease rethink direction.\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas import cli
+    from toas.config import OperatorConfig
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            return {"content": json.dumps({"state_patch": {"step": 3}, "tool_calls": []})}
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        # Test preview with --infer-from 1 (integer label matching STATE/1)
+        cli.run_step(session_path=str(session), preview_request=True, infer_from="1")
+        preview_out = capsys.readouterr().out
+        preview_req = json.loads(preview_out)
+        req_messages = preview_req["request_messages"]
+        assert any("## TOAS:STATE/1" in m.get("content", "") for m in req_messages)
+        assert any("## TOAS:STATE/2" in m.get("content", "") for m in req_messages)
+
+
+def test_state_infer_from_advances_frontier_and_single_step_lifetime(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate:\n  count: 1\n\n"
+        "## TOAS:STATE/2\n\nstate:\n  count: 2\n\n"
+        "## TOAS:USER\n\n/infer-from STATE/1\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas.config import OperatorConfig
+
+    received_packets = []
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            received_packets.append(packet)
+            val = packet["state"]["count"] + 1
+            return {"content": json.dumps({"state_patch": {"count": val}, "tool_calls": []})}
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        deltas = []
+        # Step 1: uses /infer-from STATE/1
+        cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
+        assert any("count: 3" in d for d in deltas)
+        assert "request_messages" in received_packets[0]
+        session.write_text(session.read_text() + "\n" + deltas[-1])
+
+        # Step 2: ordinary step (no /infer-from in frontier STATE/3 turn)
+        deltas2 = []
+        cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas2.append)
+        assert any("count: 4" in d for d in deltas2)
+        # Normal step does NOT use multi-state sequence request_messages
+        assert "request_messages" not in received_packets[1]
+
+
+def test_state_infer_from_overtakes_earlier_pending_proposal(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate:\n  step: 1\n\n"
+        "## TOAS:STATE/2\n\nstate:\n  step: 2\n"
+        "pending_tools:\n"
+        "  - tool_name: shell\n"
+        "    args:\n"
+        "      command: echo should-not-run\n\n"
+        "## TOAS:USER\n\nSkip that tool.\n/infer-from STATE/1\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas.config import OperatorConfig
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            return {"content": json.dumps({"state_patch": {"step": 3}, "tool_calls": []})}
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        deltas = []
+        cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
+        out = capsys.readouterr().out
+        assert "should-not-run" not in out
+        assert any("## TOAS:STATE/3" in d for d in deltas)
+
+
+def test_state_infer_from_invalid_label_raises_error(monkeypatch, tmp_path):
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate:\n  step: 1\n\n"
+        "## TOAS:USER\n\n/infer-from STATE/99\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas import cli
+
+    with pytest.raises(ValueError, match="STATE/99"):
+        cli.run_step(session_path=str(session))
+
+
+def test_state_infer_from_rejected_on_non_state_transcript(monkeypatch, tmp_path):
+    session = tmp_path / "session.md"
+    session.write_text("## TOAS:USER\n\nHello\n")
+    monkeypatch.chdir(tmp_path)
+    from toas import cli_session_commands
+
+    with pytest.raises(ValueError, match="--infer-from is only supported in state-oriented transcripts"):
+        cli_session_commands.run_step(session_path=str(session), infer_from="STATE/1")
+
+
+def test_state_infer_from_label_parsing_and_sequence_edges():
+    from toas.runtime.state_step import (
+        build_multi_state_sequence_packet,
+        find_state_turn_index_by_label,
+        parse_infer_from_directive,
+    )
+
+    # 1. parse_infer_from_directive with non-user/control turn and non-string content
+    turns = [
+        {"role": "assistant", "content": "hi"},
+        {"role": "user", "content": 123},
+        {"role": "user", "content": "/infer-from 1\ntext"},
+    ]
+    label, modified = parse_infer_from_directive(turns)
+    assert label == "1"
+    assert modified[0]["role"] == "assistant"
+    assert modified[1]["content"] == 123
+    assert modified[2]["content"] == "text"
+
+    # 2. find_state_turn_index_by_label with ## TOAS:STATE/1 and TOAS:STATE/1
+    all_turns = [
+        {"role": "state", "content": "state:\n  x: 1", "marker": "## TOAS:STATE/1"},
+        {"role": "state-diff", "content": "state_patch:\n  x: 2", "marker": "## TOAS:STATE-DIFF/2"},
+    ]
+    assert find_state_turn_index_by_label(all_turns, "## TOAS:STATE/1") == 0
+    assert find_state_turn_index_by_label(all_turns, "TOAS:STATE-DIFF/2") == 1
+    assert find_state_turn_index_by_label(all_turns, "2") == 1
+
+    # 3. Invalid label shapes
+    with pytest.raises(ValueError, match="not found"):
+        find_state_turn_index_by_label(all_turns, "unparseable_label")
+
+    # 4. Mismatched role
+    with pytest.raises(ValueError, match="not found"):
+        find_state_turn_index_by_label(all_turns, "STATE-DIFF/1")
+
+    # 5. Consecutive user turns in build_multi_state_sequence_packet
+    seq_turns = [
+        {"role": "state", "content": "state:\n  x: 1", "marker": "## TOAS:STATE/1"},
+        {"role": "user", "content": "first part"},
+        {"role": "user", "content": "second part"},
+    ]
+    packet = build_multi_state_sequence_packet(
+        events_path="dummy",
+        state={"x": 1},
+        turns=seq_turns,
+        start_index=0,
+    )
+    user_msgs = [m for m in packet["request_messages"] if m["role"] == "user"]
+    assert len(user_msgs) == 1
+    assert "first part\n\nsecond part" in user_msgs[0]["content"]

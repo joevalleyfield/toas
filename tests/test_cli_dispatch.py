@@ -163,8 +163,14 @@ def test_dispatch_step_parses_surface_override():
     assert calls == [("step", (), {"surface_id": "docs"})]
 
 
+def test_dispatch_step_parses_infer_from_override():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["step", "--infer-from", "STATE/1"], deps=_deps(calls))
+    assert calls == [("step", (), {"stdin_mode": False, "control": None, "session_path": None, "surface_id": None, "infer_from": "STATE/1"})]
+
+
 def test_dispatch_step_control_requires_value():
-    with pytest.raises(SystemExit, match="usage: toas step \\[--preview-request\\] \\[--preview-response\\] \\[--stdin\\] \\[--control <slash_command>\\] \\[--session <transcript_path>\\] \\[--surface <surface_id>\\]"):
+    with pytest.raises(SystemExit, match="usage: toas step \\[--preview-request\\] \\[--preview-response\\] \\[--stdin\\] \\[--infer-from <state-label>\\] \\[--control <slash_command>\\] \\[--session <transcript_path>\\] \\[--surface <surface_id>\\]"):
         dispatch_main(["step", "--control"], deps=_deps([]))
 
 

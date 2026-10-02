@@ -181,9 +181,13 @@ class GenerationRunner:
 
     def prepare_state_request(self, packet: dict) -> ResolvedModelInvocation:
         """Resolve provider settings for a state-only packet without transcript projection."""
+        if "request_messages" in packet:
+            request_messages = packet["request_messages"]
+        else:
+            request_messages = [{"role": "user", "content": json.dumps(packet, ensure_ascii=False)}]
         return resolve_model_invocation(
             working=[],
-            request_messages=[{"role": "user", "content": json.dumps(packet, ensure_ascii=False)}],
+            request_messages=request_messages,
             operator_config=self.operator_config,
             base_settings=self.base_settings,
             settings_sources=self.settings_sources,

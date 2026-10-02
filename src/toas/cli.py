@@ -210,6 +210,7 @@ def _run_step(
     on_llm_reasoning_delta=None,
     on_llm_prompt_progress=None,
     on_projection_delta=None,
+    infer_from: str | None = None,
 ):
     if session_path is not None and surface_id is not None:
         raise SystemExit("step accepts only one of session_path or surface_id")
@@ -224,6 +225,8 @@ def _run_step(
         "on_llm_prompt_progress": on_llm_prompt_progress,
         "on_projection_delta": on_projection_delta,
     }
+    if infer_from is not None:
+        kwargs["infer_from"] = infer_from
     if preview or preview_request:
         kwargs["preview"] = True
     if preview_response:
@@ -240,8 +243,9 @@ def run_step(
     control: str | None = None,
     session_path: str | None = None,
     surface_id: str | None = None,
+    infer_from: str | None = None,
 ):
-    if preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None:
+    if preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None or infer_from is not None:
         kwargs: dict[str, object] = {
             "stdin_mode": stdin_mode,
             "control": control,
@@ -255,6 +259,8 @@ def run_step(
             kwargs["preview_response"] = True
         if surface_id is not None:
             kwargs["surface_id"] = surface_id
+        if infer_from is not None:
+            kwargs["infer_from"] = infer_from
         _run_step(**kwargs)  # type: ignore[arg-type]
         return
     if _rpc_stdout("step"):
