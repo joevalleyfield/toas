@@ -804,7 +804,7 @@ def step_state(
                 [{"kind": "state_transition", "transition_id": transition_id, "status": existing["status"]}],
             )
             carried = existing.get("observation", {})
-            compound = {
+            compound: Any = {
                 "kind": "toas.compound-observation/1",
                 "operator_observation": carried.get("operator_observation") if isinstance(carried, dict) else observation,
                 "tool_outcomes": [
@@ -999,7 +999,7 @@ def step_state(
         accepted = state
         patch = state_delta(before, accepted)
         carried = _compound_observation(records, observation, session_text=session_text)
-        outcomes: list[dict[str, Any]] = []
+        outcomes = []
         transition_id = f"st_{uuid.uuid4().hex}"
         status = "running" if calls else "completed"
         transition = {
@@ -1033,7 +1033,7 @@ def step_state(
                 if execute_user_call is None:
                     raise ValueError("user-intent tool execution is unavailable")
                 result = execute_user_call(call)
-                outcome = {
+                execution_outcome: dict[str, Any] = {
                     "index": index,
                     "tool_name": tool_name,
                     "status": "completed",
@@ -1052,28 +1052,28 @@ def step_state(
                         and isinstance(item.get("payload"), dict)
                         and item["payload"].get("ok") is False
                     )
-                    outcome["status"] = str(failed_payload.get("outcome", "failed"))
-                    if outcome["status"] not in {"failed", "cancelled", "indeterminate"}:
-                        outcome["status"] = "failed"
-                    outcome["error"] = str(failed_payload.get("summary", "tool call failed"))
+                    execution_outcome["status"] = str(failed_payload.get("outcome", "failed"))
+                    if execution_outcome["status"] not in {"failed", "cancelled", "indeterminate"}:
+                        execution_outcome["status"] = "failed"
+                    execution_outcome["error"] = str(failed_payload.get("summary", "tool call failed"))
                     if failed_payload.get("tool_name"):
-                        outcome["tool_name"] = failed_payload["tool_name"]
+                        execution_outcome["tool_name"] = failed_payload["tool_name"]
                     if failed_payload.get("traceback"):
-                        outcome["traceback"] = failed_payload["traceback"]
+                        execution_outcome["traceback"] = failed_payload["traceback"]
                     _log_tool_failure(
                         path=path,
                         transition_id=transition_id,
                         index=index,
-                        tool_name=outcome["tool_name"],
+                        tool_name=execution_outcome["tool_name"],
                         call=call,
-                        status=outcome["status"],
-                        error=outcome["error"],
-                        traceback=outcome.get("traceback"),
+                        status=execution_outcome["status"],
+                        error=execution_outcome["error"],
+                        traceback=execution_outcome.get("traceback"),
                     )
             except ToolOutcomeError as exc:
                 tname = exc.tool_name or tool_name
                 tb = exc.traceback or traceback.format_exc().strip()
-                outcome = {
+                execution_outcome = {
                     "index": index,
                     "tool_name": tname,
                     "status": exc.status,
@@ -1081,7 +1081,7 @@ def step_state(
                     "source": "user",
                 }
                 if tb and tb != "NoneType: None":
-                    outcome["traceback"] = tb
+                    execution_outcome["traceback"] = tb
                 _log_tool_failure(
                     path=path,
                     transition_id=transition_id,
@@ -1094,7 +1094,7 @@ def step_state(
                 )
             except Exception as exc:
                 tb = traceback.format_exc().strip()
-                outcome = {
+                execution_outcome = {
                     "index": index,
                     "tool_name": tool_name,
                     "status": "failed",
@@ -1114,10 +1114,10 @@ def step_state(
                 )
             append_state_step_records(
                 path,
-                [{"kind": "state_tool_result", "transition_id": transition_id, **outcome}],
+                [{"kind": "state_tool_result", "transition_id": transition_id, **execution_outcome}],
             )
-            outcomes.append(outcome)
-            if outcome["status"] != "completed":
+            outcomes.append(execution_outcome)
+            if execution_outcome["status"] != "completed":
                 break
 
         if calls:
@@ -1413,4 +1413,3 @@ def find_lineage_state_snapshot(
                     return snapshot
 
     return snapshots[-1]
-

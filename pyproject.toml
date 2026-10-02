@@ -100,6 +100,7 @@ python_version = "3.12"
 files = [
     "src/toas/bench.py",
     "src/toas/capability_prompts.py",
+    "src/toas/cli_session_commands.py",
     "src/toas/config.py",
     "src/toas/config_overrides.py",
     "src/toas/graph.py",
@@ -118,7 +119,12 @@ files = [
     "src/toas/step.py",
     "src/toas/transcript.py",
     "src/toas/tools.py",
+    "src/toas/tools_cluster/basic_ops.py",
+    "src/toas/tools_cluster/execution.py",
+    "src/toas/tools_cluster/rendering.py",
+    "src/toas/tools_cluster/survey_ops.py",
     "src/toas/runtime/environment_policy.py",
+    "src/toas/runtime/state_step.py",
 ]
 mypy_path = "src"
 explicit_package_bases = true
