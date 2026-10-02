@@ -310,7 +310,22 @@ def _resolve_state_input_turns(
     if not resolved_input_turns:
         return normalized_transcript, resolved_input_turns, read_current_log(str(events_path)), False
 
-    prior_messages = [turn for turn in prefix_turns if turn.get("role") not in {"state", "state-diff"}]
+    from .runtime.state_step import materialize_state_turns, reconcile_state_lineage
+
+    if events_path.exists() and state_turn and "role" in state_turn:
+        reconciliation = reconcile_state_lineage(
+            events=read_current_log(str(events_path)),
+            transcript_turns=[*prefix_turns, state_turn],
+            state_index=len(prefix_turns),
+        )
+        if reconciliation.unmaterialized_turns:
+            materialize_state_turns(
+                events_path=events_path,
+                unmaterialized_turns=reconciliation.unmaterialized_turns,
+                parent_id=reconciliation.parent_id,
+            )
+
+    prefix_and_state = [*prefix_turns, state_turn] if state_turn and "role" in state_turn else list(prefix_turns)
     intent_resolved = False
 
     index = 0
@@ -324,9 +339,12 @@ def _resolve_state_input_turns(
             index += 1
             continue
 
-        ordinary_transcript = render_transcript(
-            [*prior_messages, *resolved_input_turns[: index + 1]], spaced=True
-        )
+        step_input_turns = [
+            t for t in resolved_input_turns[: index + 1]
+            if not t.get("content", "").lstrip().startswith("## RESULT")
+        ]
+        step_working = [*prefix_and_state, *step_input_turns]
+        ordinary_transcript = render_transcript(step_working, spaced=True)
         events = read_current_log(str(events_path))
         runtime_ctx = _build_runtime_context(
             events=events,
@@ -350,7 +368,7 @@ def _resolve_state_input_turns(
         was_callable = _frontier_has_callable_intent(
             step_mod=step_mod,
             frontier=turn,
-            working=[*prior_messages, *resolved_input_turns[: index + 1]],
+            working=step_working,
             config=operator_config,
         )
         if not was_callable:
@@ -454,6 +472,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             if materialized:
                 current_state_message_id = materialized[-1]["id"]
                 current_events = read_log(str(events_path))
+                events = current_events
         elif reconciliation.lineage and state_index < len(reconciliation.lineage):
             current_state_message_id = reconciliation.lineage[state_index].get("id")
 
@@ -627,10 +646,15 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             if inferred_parsed:
                 inferred_turn = dict(inferred_parsed[0])
                 inferred_turn["id"] = inferred_message_id
+                inferred_parent_id = current_state_message_id
+                if reconciliation.lcp > state_index + 1 and reconciliation.lineage:
+                    candidate_id = reconciliation.lineage[reconciliation.lcp - 1].get("id")
+                    if candidate_id:
+                        inferred_parent_id = candidate_id
                 materialize_state_turns(
                     events_path=events_path,
                     unmaterialized_turns=[inferred_turn],
-                    parent_id=current_state_message_id,
+                    parent_id=inferred_parent_id,
                 )
         transcript = normalized_transcript
         prefix = ""

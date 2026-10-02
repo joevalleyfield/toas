@@ -60,8 +60,8 @@ authoritative, while the model may patch other mutable state fields, including
 - Preserve the original turn/result transcript and its existing provenance.
 - Resolve executable intent only from USER/CONTROL turns; STATE content is
   never scanned as a slash-command source.
-- Preserve ordinary conversation parsing and message-event numbering; typed
-  state turns remain outside message-event space.
+- Preserve ordinary conversation parsing; typed state turns participate in
+  durable message-event DAG lineage per `260929-state-lineage-and-lcp-alignment`.
 - Reconcile task documentation: mark the closed
   `260928-state-edit-and-user-tools` transcript-shape decision as superseded,
   and amend active state-step tasks that otherwise imply edits belong inside a
@@ -105,9 +105,9 @@ authoritative, while the model may patch other mutable state fields, including
   `step --preview` for the intermediate consolidated-state view and plain
   `step` for direct consolidation and inference.
 
-Status: Active; shared USER/CONTROL frontier routing and state observation
-projection are implemented for the initial slice. Broader execution recovery
-and hostio/RPC parity coverage remain in progress. Structured field mappings
+Status: Complete. Shared USER/CONTROL frontier routing, consequence resolution,
+durable DAG lineage parentage, and state observation projection are fully
+implemented and verified across the test suite. Structured field mappings
 remain deferred.
 
 ## Progress
@@ -155,5 +155,21 @@ remain deferred.
   elevated full suite improved from 14 to 11 failures: the state-step failures
   in the baseline are fixed; remaining failures are the existing CLI dispatch
   expectations and state-execution experiment assertions.
-- Durable resolution of slash-command and other direct-action consequences
-  remains to be implemented; this task is still active.
+- 2026-10-02: Resolved durable parentage linking in `_resolve_state_input_turns`
+  and `_run_state_step`:
+  - `_resolve_state_input_turns` retains `prefix_turns` and `state_turn` in the
+    working transcript passed to `step_fn`, ensuring that LCP matches up through
+    `state_turn` and user/control command consequences chain parentage directly
+    from `state_turn` in `events.jsonl` rather than bypassing it.
+  - Intermediate result turns are filtered from the command step transcript so
+    projected `RESULT` blocks are not misinterpreted as conversational message
+    events.
+  - Model-inferred state turns in `_run_state_step` now link their parent to the
+    active reconciliation lineage tip (`reconciliation.lineage[reconciliation.lcp - 1]`)
+    when user turns occurred, preserving an unbroken DAG:
+    `... -> STATE/n -> USER -> RESULT -> STATE/n+1`.
+  - Added end-to-end acceptance test `test_state_user_command_durable_lineage_and_subsequent_inference`
+    in `tests/test_cli_session_commands_state_step.py`.
+  - Full repo verification (`scripts/check.sh`) passed with 100% statement
+    coverage (3,404 tests passed, 17 deselected), 17 acceptance tests, Ruff,
+    and Mypy across all 151 files. Task complete.

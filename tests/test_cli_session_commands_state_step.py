@@ -417,7 +417,7 @@ def test_appended_user_and_control_intents_use_normal_frontier_and_embed_results
 
     assert intent_resolved is True
     assert [role for _text, role in calls] == ["user", "control"]
-    assert "## TOAS:STATE/1" not in calls[0][0]
+    assert "## TOAS:STATE/1" in calls[0][0]
     turns = resolved_input_turns
     assert len(turns) == 4
     assert turns[0]["role"] == "user" and turns[0]["content"] == "/help"
@@ -1195,3 +1195,111 @@ def test_state_preview_skips_result_turns_and_refuses_unresolved_intent(monkeypa
         parsed_turn={"turn_type": "state", "state": {}, "observation": None}, preview=True,
     )
     assert '"phase": "resolve_user_intent"' in capsys.readouterr().out
+
+
+def test_state_user_command_durable_lineage_and_subsequent_inference(monkeypatch, tmp_path, capsys):
+    import os
+    from unittest.mock import patch
+
+    from toas.graph import list_heads, message_lineage
+
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        session = tmp_path / "session.md"
+        events_path = tmp_path / ".toas" / "events.jsonl"
+        session.write_text(
+            "## TOAS:STATE/1\n\n"
+            "state:\n  goal: inspect repo\n  progress: []\n\n"
+            "## TOAS:USER\n\n"
+            "Note the current branch.\n\n"
+            "## TOAS:USER\n\n"
+            "$ echo active-feature\n"
+        )
+
+        # Step 1: execute user command
+        cli_session_commands.run_step(session_path=str(session))
+        step1_out = capsys.readouterr().out
+        assert "active-feature" in step1_out
+        assert "## RESULT" in step1_out
+
+        events1 = read_log(str(events_path))
+        heads1 = list_heads(events1)
+        assert len(heads1) == 1
+        user_head_id = heads1[0]["id"]
+        assert heads1[0]["role"] == "user"
+
+        lineage1 = message_lineage(events1)
+        assert len(lineage1) == 3
+        assert lineage1[0]["role"] == "state"
+        assert lineage1[1]["role"] == "user"
+        assert lineage1[1]["content"] == "Note the current branch."
+        assert lineage1[1]["parent"] == lineage1[0]["id"]
+        assert lineage1[2]["role"] == "user"
+        assert lineage1[2]["content"] == "$ echo active-feature"
+        assert lineage1[2]["parent"] == lineage1[1]["id"]
+        assert lineage1[2]["id"] == user_head_id
+
+        # Tool request and result records should be present and stitched
+        tool_requests = [e for e in events1 if e.get("kind") == "tool_request"]
+        tool_results = [e for e in events1 if e.get("kind") == "tool_result"]
+        assert len(tool_requests) == 1
+        assert len(tool_results) == 1
+
+        # Now simulate session.md update with embedded result
+        session.write_text(
+            session.read_text()
+            + "\n\n## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n```text toas-output kind=stdout source=tool.shell potency=inert\nactive-feature\n```\n"
+        )
+
+        # Step 2: preview should be eligible for inference
+        cli_session_commands.run_step(session_path=str(session), preview=True)
+        preview_out = capsys.readouterr().out
+        assert '"phase": "infer"' in preview_out
+        preview_data = json.loads(preview_out)
+        req_packet = json.loads(preview_data["request_messages"][0]["content"])
+        # Both user inputs and embedded result enter the compound observation
+        assert req_packet["observation"]["user_inputs"] == [
+            {"content": "Note the current branch."},
+            {"content": "$ echo active-feature"},
+        ]
+        assert any(
+            "active-feature" in node.get("content", "")
+            for outcome in req_packet["observation"].get("tool_outcomes", [])
+            for node in outcome.get("result", [])
+        )
+
+        # Step 3: full inference step advancing to STATE/2
+        class MockRunner:
+            def generate_state_packet(self, packet):
+                return {"content": json.dumps({
+                    "state_patch": {"progress": ["identified active-feature"]},
+                    "tool_calls": [],
+                })}
+
+        from toas.config import OperatorConfig
+        config = OperatorConfig()
+        with patch.object(
+            cli_session_commands,
+            "_resolve_runtime_generation_context",
+            return_value=(config, {}, MockRunner(), {}),
+        ):
+            cli_session_commands.run_step(session_path=str(session))
+
+        step3_out = capsys.readouterr().out
+        assert "## TOAS:STATE/2" in step3_out
+
+        events2 = read_log(str(events_path))
+        heads2 = list_heads(events2)
+        assert len(heads2) == 1
+        assert heads2[0]["role"] == "state"
+        assert heads2[0]["metadata"].get("marker") == "## TOAS:STATE/2"
+        assert heads2[0]["parent"] == user_head_id
+
+        lineage2 = message_lineage(events2)
+        assert len(lineage2) == 4
+        assert [m["role"] for m in lineage2] == ["state", "user", "user", "state"]
+        assert lineage2[3]["id"] == heads2[0]["id"]
+    finally:
+        os.chdir(old_cwd)
+
