@@ -242,7 +242,7 @@ def run_step(
     surface_id: str | None = None,
 ):
     if preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None:
-        kwargs = {
+        kwargs: dict[str, object] = {
             "stdin_mode": stdin_mode,
             "control": control,
             "session_path": session_path,
@@ -255,15 +255,7 @@ def run_step(
             kwargs["preview_response"] = True
         if surface_id is not None:
             kwargs["surface_id"] = surface_id
-        _run_step(
-            stdin_mode=stdin_mode,
-            preview=preview,
-            preview_request=preview_request,
-            preview_response=preview_response,
-            control=control,
-            session_path=session_path,
-            surface_id=surface_id,
-        )
+        _run_step(**kwargs)  # type: ignore[arg-type]
         return
     if _rpc_stdout("step"):
         return

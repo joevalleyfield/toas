@@ -176,10 +176,7 @@ def _split_control_lines(buffer: str) -> tuple[list[str], str]:
 
 
 def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> None:
-    proc = run.process
-    if proc is None:
-        return
-    stream = proc.stdout
+    stream = run.process.stdout if run.process is not None else None
     if stream is None:
         return
     pending = ""

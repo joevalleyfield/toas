@@ -12,21 +12,19 @@ def run_daemon(action: str, *, daemon_module, print_fn=print):
             return
 
         exit_function = getattr(mp_util, "_exit_function", None)
-        if not callable(exit_function):
-            return
-
-        try:
-            atexit.unregister(exit_function)
-        except Exception:
-            pass
-
-        def _wrapped_exit_function() -> None:
+        if callable(exit_function):
             try:
-                exit_function()
-            except KeyboardInterrupt:
-                return
+                atexit.unregister(exit_function)
+            except Exception:
+                pass
 
-        atexit.register(_wrapped_exit_function)
+            def _wrapped_exit_function() -> None:
+                try:
+                    exit_function()
+                except KeyboardInterrupt:
+                    return
+
+            atexit.register(_wrapped_exit_function)
 
     def _suppress_exit_sigint_noise() -> None:
         try:

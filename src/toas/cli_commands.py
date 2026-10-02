@@ -129,13 +129,16 @@ def run_session_continue(
     ignore_preceding_graph: bool = False,
     exclude_tail: bool = False,
 ) -> None:
-    result = continue_runtime_session(
-        workdir=Path.cwd(),
-        predecessor_path=predecessor_path,
-        accepted_name=accepted_name,
-        ignore_preceding_graph=ignore_preceding_graph,
-        exclude_tail=exclude_tail,
-    )
+    kwargs: dict[str, object] = {
+        "workdir": Path.cwd(),
+        "predecessor_path": predecessor_path,
+        "accepted_name": accepted_name,
+    }
+    if ignore_preceding_graph:
+        kwargs["ignore_preceding_graph"] = True
+    if exclude_tail:
+        kwargs["exclude_tail"] = True
+    result = continue_runtime_session(**kwargs)  # type: ignore[arg-type]
     print(json.dumps(result, ensure_ascii=False))
 
 

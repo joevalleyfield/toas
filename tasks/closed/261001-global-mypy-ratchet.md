@@ -3,7 +3,7 @@ FKA:
 AKA: global typing; mypy expansion; static typing ratchet
 Legacy index:
 
-keywords: tooling, hardening, active, maintainability, correctness
+keywords: tooling, hardening, historical, maintainability, correctness
 
 Related: `261001-mypy-recent-runtime-slice`; `504-coverage-missing-files-ratchet-gate`
 
@@ -103,3 +103,14 @@ green.
   `runtime/async_step_runtime_worker.py`; all 151 modules under `src/toas` are
   now in the gate. Focused mypy passed, followed by a clean configured run over
   all 151 modules; full Ruff also passed.
+- 2026-10-02: Simplified `[tool.mypy]` in `pyproject.toml` by replacing the
+  151 individual file paths with package-wide directory `files = ["src/toas"]`.
+  Inventoried code outside `src/toas`: `tests/` (173 test files) uses dynamic
+  mocks and fixtures, remaining out of scope for the production static type gate;
+  `scripts/` (5 files) and `tasks/scripts/` (1 file) are internal developer and
+  task utilities kept separate from production runtime typing.
+  Fixed kwargs forwarding in `cli.py` and `cli_commands.py` and branch coverage
+  in `cli_runtime_commands.py` and `async_step_runtime_worker.py`.
+  Verified `./scripts/check.sh` passes completely: 3403 unit tests with 100%
+  statement coverage, 17 acceptance tests, Ruff linting, and mypy over all 151
+  source files in `src/toas`. Closed task.
