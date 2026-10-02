@@ -28,11 +28,11 @@ from .cli_usage import HISTORY_USAGE
 class DispatchDeps:
     run_help: Callable[[], None]
     run_step: Callable[..., None]
-    run_step_async: Callable[[], None]
+    run_step_async: Callable[..., None]
     run_watch: Callable[..., None]
     run_cancel: Callable[..., None]
     run_backend: Callable[..., None]
-    run_heads: Callable[[], None]
+    run_heads: Callable[..., None]
     run_intents: Callable[[], None]
     run_graph: Callable[..., None]
     run_transcript: Callable[..., None]
@@ -149,18 +149,18 @@ def dispatch_main(
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
             raise SystemExit(TRANSCRIPT_USAGE)
         anchor_id, source_tokens = parse_transcript_options(argv)
-        kwargs = {}
+        transcript_kwargs: dict[str, object] = {}
         if source_tokens is not None:
-            kwargs["source_tokens"] = source_tokens
-        deps.run_transcript(anchor_id, **kwargs)
+            transcript_kwargs["source_tokens"] = source_tokens
+        deps.run_transcript(anchor_id, **transcript_kwargs)
     elif argv[0] == "llm-input":
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
             raise SystemExit(LLM_INPUT_USAGE)
         anchor_id, source_tokens, envelope = parse_llm_input_options(argv)
-        kwargs = {"envelope": envelope}
+        llm_input_kwargs: dict[str, object] = {"envelope": envelope}
         if source_tokens is not None:
-            kwargs["source_tokens"] = source_tokens
-        deps.run_llm_input(anchor_id, **kwargs)
+            llm_input_kwargs["source_tokens"] = source_tokens
+        deps.run_llm_input(anchor_id, **llm_input_kwargs)
     elif argv[0] == "prompt":
         ref = require_arg(argv, 1, "toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
         mode, constraints = parse_prompt_options(argv)
@@ -186,12 +186,12 @@ def dispatch_main(
         if deps.run_session_continue is None:
             raise SystemExit("session continuation is unavailable")
         predecessor_path, accepted_name, ignore_preceding_graph, exclude_tail = parse_session_continue_options(argv)
-        kwargs = {"predecessor_path": predecessor_path, "accepted_name": accepted_name}
+        continue_kwargs: dict[str, object] = {"predecessor_path": predecessor_path, "accepted_name": accepted_name}
         if ignore_preceding_graph:
-            kwargs["ignore_preceding_graph"] = True
+            continue_kwargs["ignore_preceding_graph"] = True
         if exclude_tail:
-            kwargs["exclude_tail"] = True
-        deps.run_session_continue(**kwargs)
+            continue_kwargs["exclude_tail"] = True
+        deps.run_session_continue(**continue_kwargs)
     elif argv[0] == "surface":
         sub, args, reason = parse_surface_options(argv)
         if sub in {"bind", "rebind"}:

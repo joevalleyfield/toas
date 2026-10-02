@@ -93,3 +93,7 @@ green.
   context needed by `/cd` validation with a read-only protocol. Added
   `runtime/step_runtime.py`; the gate now covers 149 modules. Focused mypy,
   configured mypy, and Ruff passed.
+- 2026-10-01: Widened dispatcher callback signatures to match their supported
+  keyword arguments and gave transcript, LLM-input, and session-continuation
+  keyword maps separate heterogeneous types. Added `cli_dispatch.py`; the gate
+  now covers 150 modules. Focused mypy, configured mypy, and Ruff passed.
