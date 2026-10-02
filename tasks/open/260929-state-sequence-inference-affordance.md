@@ -5,7 +5,9 @@ Legacy index:
 
 keywords: runtime, investigation, inception, usability, state-step, transcript
 
-Related: `260927-state-step-alpha-loop`; `260928-state-user-control-turn-lifecycle`
+Depends on: `260928-state-user-control-turn-lifecycle`; `261002-state-transcript-branching-and-modification`
+Blocked by: `261002-state-transcript-branching-and-modification`
+Related: `260927-state-step-alpha-loop`; `260928-state-user-control-turn-lifecycle`; `261002-state-transcript-branching-and-modification`
 
 # Add An Affordance For Multi-State Inference
 
