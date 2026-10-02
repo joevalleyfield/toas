@@ -85,3 +85,7 @@ green.
   and added `step_result_runtime.py` after its persistence dependency was
   narrowed to the actual list return type. The gate now covers 146 modules;
   focused mypy, configured mypy, and Ruff all passed.
+- 2026-10-01: Replaced two CLI keyword dictionaries with explicit typed calls
+  and annotated the prompt payload as a mixed-value mapping. Added `cli.py` and
+  `cli_commands.py`; the gate now covers 148 modules. The configured mypy gate
+  and Ruff passed.

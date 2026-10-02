@@ -255,7 +255,15 @@ def run_step(
             kwargs["preview_response"] = True
         if surface_id is not None:
             kwargs["surface_id"] = surface_id
-        _run_step(**kwargs)
+        _run_step(
+            stdin_mode=stdin_mode,
+            preview=preview,
+            preview_request=preview_request,
+            preview_response=preview_response,
+            control=control,
+            session_path=session_path,
+            surface_id=surface_id,
+        )
         return
     if _rpc_stdout("step"):
         return
@@ -388,7 +396,7 @@ def run_llm_input(
 
 
 def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None):
-    payload = {"ref": ref, "mode": mode}
+    payload: dict[str, object] = {"ref": ref, "mode": mode}
     if constraints:
         payload["constraints"] = constraints
     if _rpc_stdout("prompt", payload):
