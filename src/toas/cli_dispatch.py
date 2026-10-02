@@ -4,10 +4,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .cli_dispatch_ops import (
-    GRAPH_USAGE,
-    HEADS_USAGE,
-    LLM_INPUT_USAGE,
-    TRANSCRIPT_USAGE,
     parse_ancestry_options,
     parse_graph_options,
     parse_heads_options,
@@ -21,7 +17,7 @@ from .cli_dispatch_ops import (
     parse_transcript_options,
     parse_watch_options,
 )
-from .cli_usage import HISTORY_USAGE
+from .cli_usage import get_subcommand_help
 
 
 @dataclass(frozen=True)
@@ -67,8 +63,19 @@ def dispatch_main(
     argv = cmd or ["step"]
 
     if argv[0] in {"help", "--help", "-h"}:
+        if len(argv) > 1:
+            subcommand_help = get_subcommand_help(argv[1])
+            if subcommand_help is not None:
+                raise SystemExit(subcommand_help)
         deps.run_help()
-    elif argv[0] == "state-seed":
+        return
+
+    if len(argv) > 1 and argv[1] in {"--help", "-h"}:
+        subcommand_help = get_subcommand_help(argv[0])
+        if subcommand_help is not None:
+            raise SystemExit(subcommand_help)
+
+    if argv[0] == "state-seed":
         if deps.run_state_seed is None:
             raise SystemExit("state seeding is unavailable")
         if len(argv) == 1:
@@ -122,8 +129,6 @@ def dispatch_main(
         action = argv[1] if len(argv) > 1 else "status"
         deps.run_backend(action)
     elif argv[0] == "heads":
-        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
-            raise SystemExit(HEADS_USAGE)
         source_tokens = parse_heads_options(argv)
         if source_tokens is None:
             deps.run_heads()
@@ -132,8 +137,6 @@ def dispatch_main(
     elif argv[0] == "intents":
         deps.run_intents()
     elif argv[0] == "graph":
-        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
-            raise SystemExit(GRAPH_USAGE)
         projection, source_tokens, stitch_diagnostics, anchor_id, before, after = parse_graph_options(argv)
         graph_kwargs: dict[str, object] = {}
         if source_tokens is not None:
@@ -148,16 +151,12 @@ def dispatch_main(
             graph_kwargs["after"] = after
         deps.run_graph(projection, **graph_kwargs)
     elif argv[0] == "transcript":
-        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
-            raise SystemExit(TRANSCRIPT_USAGE)
         anchor_id, source_tokens = parse_transcript_options(argv)
         transcript_kwargs: dict[str, object] = {}
         if source_tokens is not None:
             transcript_kwargs["source_tokens"] = source_tokens
         deps.run_transcript(anchor_id, **transcript_kwargs)
     elif argv[0] == "llm-input":
-        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
-            raise SystemExit(LLM_INPUT_USAGE)
         anchor_id, source_tokens, envelope = parse_llm_input_options(argv)
         llm_input_kwargs: dict[str, object] = {"envelope": envelope}
         if source_tokens is not None:
@@ -170,8 +169,6 @@ def dispatch_main(
     elif argv[0] == "prompts":
         deps.run_prompts(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "history":
-        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
-            raise SystemExit(HISTORY_USAGE)
         limit, source_tokens, anchor_id = parse_history_options(argv)
         history_kwargs: dict[str, object] = {}
         if source_tokens is None:

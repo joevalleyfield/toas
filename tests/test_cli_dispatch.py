@@ -428,3 +428,84 @@ def test_dispatch_surface_with_reason_non_bind(monkeypatch):
     )
     dispatch_main(["surface", "select", "s1"], deps=deps)
     assert calls == [("surface", ("select", "s1"), {"reason": "forced-reason"})]
+
+
+def test_dispatch_step_help_forms_raise_structured_help():
+    from toas.cli_usage import STEP_HELP
+
+    for cmd in [
+        ["step", "--help"],
+        ["step", "-h"],
+        ["help", "step"],
+        ["--help", "step"],
+        ["-h", "step"],
+    ]:
+        with pytest.raises(SystemExit) as exc_info:
+            dispatch_main(cmd, deps=_deps([]))
+        assert exc_info.value.code == STEP_HELP
+
+    assert "Input & Ingress:" in STEP_HELP
+    assert "--session <path>" in STEP_HELP
+    assert "--stdin" in STEP_HELP
+    assert "--control <slash_command>" in STEP_HELP
+    assert "Inspection & Previews:" in STEP_HELP
+    assert "--preview-request" in STEP_HELP
+    assert "--preview-response" in STEP_HELP
+    assert "Trajectory Steering:" in STEP_HELP
+    assert "--infer-from <label>" in STEP_HELP
+    assert "Deprecated:" in STEP_HELP
+    assert "--async" in STEP_HELP
+    assert "--surface <surface_id>" in STEP_HELP
+    assert "Notes:" in STEP_HELP
+    assert "Examples:" in STEP_HELP
+
+
+def test_dispatch_subcommand_help_routing():
+    subcommands = [
+        ("heads", "usage: toas heads"),
+        ("graph", "usage: toas graph"),
+        ("transcript", "usage: toas transcript"),
+        ("llm-input", "usage: toas llm-input"),
+        ("history", "usage: toas history"),
+        ("watch", "usage: toas watch"),
+        ("cancel", "usage: toas cancel"),
+        ("backend", "usage: toas backend"),
+        ("intents", "usage: toas intents"),
+        ("prompt", "usage: toas prompt"),
+        ("prompts", "usage: toas prompts"),
+        ("session-path", "usage: toas session-path"),
+        ("session", "usage: toas session continue"),
+        ("surface", "usage: toas surface"),
+        ("ancestry", "usage: toas ancestry"),
+        ("diff", "usage: toas diff"),
+        ("index", "usage: toas index"),
+        ("daemon", "usage: toas daemon"),
+        ("service", "usage: toas daemon"),
+        ("host", "usage: toas host"),
+        ("transport", "usage: toas host"),
+        ("replay-script", "usage: toas replay-script"),
+        ("debug", "usage: toas debug"),
+        ("state-seed", "usage: toas state-seed"),
+    ]
+
+    for subcmd, expected in subcommands:
+        with pytest.raises(SystemExit, match=expected):
+            dispatch_main([subcmd, "--help"], deps=_deps([]))
+        with pytest.raises(SystemExit, match=expected):
+            dispatch_main([subcmd, "-h"], deps=_deps([]))
+        with pytest.raises(SystemExit, match=expected):
+            dispatch_main(["help", subcmd], deps=_deps([]))
+        with pytest.raises(SystemExit, match=expected):
+            dispatch_main(["--help", subcmd], deps=_deps([]))
+
+
+def test_dispatch_unspecialized_and_unknown_help_fallbacks():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = _deps(calls)
+
+    dispatch_main(["help", "nonesuch"], deps=deps)
+    dispatch_main(["--help", "nonesuch"], deps=deps)
+    assert calls == [("help", (), {}), ("help", (), {})]
+
+    with pytest.raises(SystemExit, match="unknown command: nonesuch"):
+        dispatch_main(["nonesuch", "--help"], deps=deps)

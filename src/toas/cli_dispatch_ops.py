@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import re
 
-from .cli_usage import GRAPH_USAGE, HEADS_USAGE, HISTORY_USAGE, LLM_INPUT_USAGE, TRANSCRIPT_USAGE
+from .cli_usage import (
+    GRAPH_USAGE,
+    HEADS_USAGE,
+    HISTORY_USAGE,
+    LLM_INPUT_USAGE,
+    SESSION_CONTINUE_USAGE,
+    STEP_ASYNC_USAGE,
+    STEP_HELP,
+    STEP_USAGE,
+    SURFACE_USAGE,
+    TRANSCRIPT_USAGE,
+)
 
-STEP_USAGE = "usage: toas step [--preview-request] [--preview-response] [--stdin] [--infer-from <state-label>] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
-STEP_ASYNC_USAGE = "usage: toas step --async [--session <transcript_path>] [--surface <surface_id>]"
-SESSION_CONTINUE_USAGE = "usage: toas session continue [--predecessor <transcript_path>] [--name <session_name>] [--ignore-preceding-graph] [--exclude-tail]"
-SURFACE_USAGE = "usage: toas surface [list|bind|select|rebind] ..."
 SURFACE_BIND_USAGE = "usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]"
 SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
 SURFACE_REBIND_USAGE = "usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>"
@@ -24,6 +31,8 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, s
     i = 1
     while i < len(argv):
         arg = argv[i]
+        if arg in {"--help", "-h"}:
+            raise SystemExit(STEP_HELP)
         if arg == "--stdin":
             stdin_mode = True
             i += 1
@@ -61,8 +70,6 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, s
             i += 2
             continue
         raise SystemExit(f"unknown option: {arg}")
-    if (preview_request or preview_response) and (stdin_mode or control is not None):
-        raise SystemExit(STEP_USAGE)
     return stdin_mode, preview_request, preview_response, control, session_path, surface_id, infer_from
 
 
@@ -72,6 +79,8 @@ def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None]:
     i = 2
     while i < len(argv):
         arg = argv[i]
+        if arg in {"--help", "-h"}:
+            raise SystemExit(STEP_HELP)
         if arg == "--session":
             if i + 1 >= len(argv):
                 raise SystemExit(STEP_ASYNC_USAGE)
@@ -98,6 +107,8 @@ def parse_session_continue_options(argv: list[str]) -> tuple[str | None, str | N
     i = 2
     while i < len(argv):
         arg = argv[i]
+        if arg in {"--help", "-h"}:
+            raise SystemExit(SESSION_CONTINUE_USAGE)
         if arg == "--predecessor" and i + 1 < len(argv):
             predecessor_path = argv[i + 1]
             i += 2
@@ -122,6 +133,8 @@ def parse_surface_options(argv: list[str]) -> tuple[str, tuple[str, ...], str | 
     if len(argv) < 2:
         raise SystemExit(SURFACE_USAGE)
     sub = argv[1]
+    if sub in {"--help", "-h"}:
+        raise SystemExit(SURFACE_USAGE)
     if sub == "list":
         return "list", (), None
     if sub == "bind":

@@ -431,6 +431,16 @@ def test_main_dispatches_step_async(monkeypatch):
     assert seen == ["step-async"]
 
 
+def test_main_dispatches_step_help(monkeypatch):
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "step", "--help"])
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        cli.main()
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "help", "step"])
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        cli.main()
+
+
 def test_main_dispatches_watch(monkeypatch):
     seen: list[tuple[str, int, bool]] = []
     monkeypatch.setattr(cli.sys, "argv", ["toas", "watch", "run123", "--offset", "5", "--follow"])

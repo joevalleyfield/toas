@@ -48,6 +48,10 @@ def test_parse_step_async_options_missing_values():
         parse_step_async_options(["step-async", "r1", "--surface"])
     with pytest.raises(SystemExit, match="unknown option"):
         parse_step_async_options(["step-async", "r1", "--bad"])
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        parse_step_async_options(["step", "--async", "--help"])
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        parse_step_async_options(["step", "--async", "-h"])
 
 
 def test_parse_surface_options_errors():
@@ -229,7 +233,7 @@ def test_parse_graph_options_more_errors():
         parse_graph_options(["graph", "-3"])
 
 
-def test_step_option_control_session_surface_and_preview_conflict():
+def test_step_option_control_session_surface_and_preview_combinations():
     from toas.cli_dispatch_ops import parse_step_options
 
     assert parse_step_options(["step", "--control", "/pwd", "--session", "s.md", "--surface", "s1"]) == (
@@ -240,8 +244,16 @@ def test_step_option_control_session_surface_and_preview_conflict():
     )
     with pytest.raises(SystemExit, match="usage: toas step"):
         parse_step_options(["step", "--infer-from"])
+    assert parse_step_options(["step", "--preview-request", "--control", "/pwd"]) == (
+        False, True, False, "/pwd", None, None, None
+    )
+    assert parse_step_options(["step", "--preview-response", "--stdin"]) == (
+        True, False, True, None, None, None, None
+    )
     with pytest.raises(SystemExit, match="usage: toas step"):
-        parse_step_options(["step", "--preview-request", "--control", "/pwd"])
+        parse_step_options(["step", "--help"])
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        parse_step_options(["step", "-h"])
 
 
 def test_session_continue_surface_and_rebind_option_forms():
@@ -251,5 +263,13 @@ def test_session_continue_surface_and_rebind_option_forms():
                                            "--ignore-preceding-graph", "--exclude-tail"]) == (
         "old.md", "new", True, True
     )
+    with pytest.raises(SystemExit, match="usage: toas session continue"):
+        parse_session_continue_options(["session", "continue", "--help"])
+    with pytest.raises(SystemExit, match="usage: toas session continue"):
+        parse_session_continue_options(["session", "continue", "-h"])
     assert parse_surface_options(["surface", "list"]) == ("list", (), None)
     assert parse_surface_options(["surface", "bind", "docs", "s.md"])[1] == ("docs", "s.md")
+    with pytest.raises(SystemExit, match="usage: toas surface"):
+        parse_surface_options(["surface", "--help"])
+    with pytest.raises(SystemExit, match="usage: toas surface"):
+        parse_surface_options(["surface", "-h"])

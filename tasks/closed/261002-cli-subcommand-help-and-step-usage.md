@@ -10,7 +10,7 @@ keywords: cli, help, usability, discoverability, step, execution, documentation
 
 # CLI Subcommand Help Routing And Step Usage Documentation
 
-Status: ACTIVE; defining subcommand help dispatch protocol and implementing structured, categorized documentation for `toas step`.
+Status: COMPLETE; implemented centralized subcommand help dispatch across all subcommands, authored structured step usage documentation, removed preview/stdin/control parser conflicts, and verified 100% test and coverage pass.
 
 ## Problem Context
 
@@ -58,23 +58,24 @@ This work directly connects with the September help triage and design survey:
 
 ## Acceptance Criteria
 
-- [ ] Subcommand help dispatch in `cli_dispatch.py`:
+- [x] Subcommand help dispatch in `cli_dispatch.py`:
   - Support `toas <command> --help` and `toas <command> -h`.
   - Support `toas help <command>` and `toas --help <command>`.
   - Route to specialized subcommand help when registered, falling back cleanly to general command usage or global help where unspecialized.
-- [ ] Structured `toas step` help text:
+- [x] Structured `toas step` help text:
   - Explain operational purpose (session synchronization, consequence execution, generation).
   - Categorize flags by operator intent:
-    - Execution lifecycle: default synchronous step, `--async`, `--stdin`
+    - Input & Ingress: `--session <path>`, `--stdin`, `--control <cmd>`
     - Inspection & preview: `--preview-request`, `--preview-response`
-    - State trajectory steering: `--infer-from <state-label>` (state mode only)
-    - Targeting & ingress: `--session <path>`, `--surface <id>`, `--control <cmd>`
-  - Document mutual exclusivity and transcript prerequisites explicitly.
+    - Trajectory steering: `--infer-from <state-label>` (state mode only)
+    - Deprecated: `--async`, `--surface <id>`
+  - Removed artificial parser barrier between preview and stdin/control.
+  - Document prerequisites and deprecation notices explicitly.
   - Provide concise, practical workflow examples.
-- [ ] Legible `STEP_USAGE` and error output:
+- [x] Legible `STEP_USAGE` and error output:
   - Keep `STEP_USAGE` concise as a clean syntax reference, appending a pointer:
-    `For details and option descriptions, run: toas step --help`.
-- [ ] Test Verification:
+    `Run 'toas step --help' for details and examples.`
+- [x] Test Verification:
   - Add unit and acceptance tests covering `toas step --help`, `toas help step`, `toas --help step`, and unknown/general subcommand help dispatch.
   - Maintain 100.00% statement coverage across all modified and covered modules.
   - `./scripts/check.sh` passes 100% clean.
@@ -83,3 +84,13 @@ This work directly connects with the September help triage and design survey:
 
 - 2026-10-02: Opened task, linked to `260901-help-system-design-survey` and
   `260912-config-execution-facet-design`, and established acceptance criteria.
+- 2026-10-02: Implemented centralized subcommand help dispatch in `cli_dispatch.py`
+  and `cli_usage.py`, supporting `toas <cmd> --help`, `toas <cmd> -h`, `toas help <cmd>`,
+  and `toas --help <cmd>` across all 24 subcommands with fallback to global help.
+- 2026-10-02: Authored structured `STEP_HELP` grouping options by true intent (Input &
+  Ingress, Inspection & Previews, Trajectory Steering, Deprecated).
+- 2026-10-02: Removed artificial restriction in `cli_dispatch_ops.py` preventing preview
+  flags from combining with stdin or control.
+- 2026-10-02: Verified entire test suite via `./scripts/check.sh` (3,422 unit tests,
+  17 acceptance tests, 100.00% statement coverage, clean ruff and mypy).
+
