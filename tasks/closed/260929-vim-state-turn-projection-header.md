@@ -3,7 +3,7 @@ FKA:
 AKA: vim post-inference state turn; vim state turn assistant prefix fix
 Legacy index:
 
-keywords: surface, vim, projection, runtime, state, correctness
+keywords: surface, vim, projection, runtime, state, historical, correctness
 
 Parent: `260926-state-step-requirements`
 Depends on: `260929-state-transcript-parsing-alignment`
@@ -51,4 +51,10 @@ As a result:
   - Updated `tests/vim/transcript_syntax_probe.vader` with syntax assertions for state and state-diff roles and highlight links.
   - Added `state_projection_lane` scenario and `test_local_host_state_projection_lane_preserves_state_header_without_assistant` in `tests/test_vim_plugin_local_host_projection_cases.py`.
   - Verified all 23 Vim tests pass cleanly.
+- **Evidence & Closure (2026-10-02)**:
+  - Landed in commit `8212d8949db9` (`fix(vim): preserve state turn headers post-inference without assistant prefix`).
+  - Tested via `tests/vim/vim_plugin_local_host_projection_cases.py` and `tests/test_vim_plugin_local_host_projection_cases.py`.
+  - All 23 Vim tests passing. Closed.
+
+Status: Complete.
 

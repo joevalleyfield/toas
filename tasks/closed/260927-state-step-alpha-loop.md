@@ -3,7 +3,7 @@ FKA:
 AKA: integrated state-step alpha; state-step vertical slice
 Legacy index:
 
-keywords: runtime, implementation, active, contract, transcript, graph, capabilities, projection
+keywords: runtime, implementation, historical, contract, transcript, graph, capabilities, projection
 
 Parent: `260926-state-step-requirements`
 Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260927-state-step-history-projections`; `260928-state-user-control-turn-lifecycle`
@@ -243,7 +243,10 @@ run only on a later explicit step through existing permissions.
 - Earlier full-suite verification reached 3,299 passing tests and 27 failures
   under sandbox restrictions; the local-cache run above supersedes that
   environment-limited result.
+- **Evidence & Closure (2026-10-02)**:
+  - Vertical slice progression completed across commits `cb15520c5a57`, `aff140547296`, `953e5a25b4e5`, `41ad80d09e0c`, `d20ac9d21ea2`, `909cce9aeaa3`, `4b1ad74acbb3`.
+  - Local state-step execution path verified in `src/toas/runtime/state_step.py`, `src/toas/cli_session_commands.py`, and `src/toas/graph.py`.
+  - All 104 state-step tests in `tests/test_state_step.py`, `tests/test_cli_session_commands_state_step.py`, and `tests/test_state_execution_experiment.py` pass cleanly.
+  - Full repo verification (`scripts/check.sh`) passed with 100% statement coverage (3,403 tests), Ruff, and mypy. Closed.
 
-Claimed for implementation on 2026-09-27.
-
-Status: Active.
+Status: Complete.

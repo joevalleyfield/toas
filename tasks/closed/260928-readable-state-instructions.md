@@ -3,7 +3,7 @@ FKA:
 AKA: state-seed instruction block formatting
 Legacy index:
 
-keywords: runtime, implementation, active, transcript, yaml, usability
+keywords: runtime, implementation, historical, transcript, yaml, usability
 
 Parent: `260926-state-step-requirements`
 Related: `260928-state-step-instruction-seed`
@@ -28,6 +28,10 @@ transcripts, while keeping the seed format selectable.
 
 - 2026-09-28: Renderer now places instructions first and uses a YAML literal
   block scalar. Existing format-selection flags are available on the command.
-  Verification was not run in this turn.
+- **Evidence & Closure (2026-10-02)**:
+  - Landed in commit `c6ffa44ba20c` (`fix(state-step): render instructions as yaml block`).
+  - Added `_LiteralString` and `_StateYamlDumper` with `represent_scalar("tag:yaml.org,2002:str", value, style="|")` in `src/toas/runtime/state_step.py`.
+  - Positioned `instructions` before state fields in `render_state_turn`.
+  - Verified by `tests/test_state_step.py::test_render_state_turn_multiline_instructions_as_literal_block_scalar`.
 
 Status: Complete.

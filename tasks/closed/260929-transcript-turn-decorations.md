@@ -3,7 +3,7 @@ FKA:
 AKA: turn header metadata; transcript decorations; non-semantic turn headers
 Legacy index:
 
-keywords: transcript, parser, metadata, decorations, ergonomics
+keywords: transcript, parser, metadata, decorations, ergonomics, historical
 
 Parent: `260926-state-step-requirements`
 Related: `260929-state-transcript-parsing-alignment`
@@ -37,3 +37,14 @@ enable easier buffer navigation and inspection.
    decorations.
 4. **Round-Trip Preservation**: Working transcript serializers should preserve
    the operator's authored decorations when reconstructing the buffer.
+
+## Implementation & Evidence (2026-10-02)
+
+- Landed in commit `d89614f2554f` (`feat(transcript): support native state turns and header decorations`).
+- `_TRANSCRIPT_ROLE_MARKER_RE` in `src/toas/transcript.py` matches arbitrary trailing presentation decorations/versions: `r"^## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL|STATE|STATE-DIFF)(?:/([^ \t]+))?(?:[ \t]+(.*))?$"`.
+- `parse_transcript` assigns clean semantic roles while capturing raw headers in `message["marker"]`.
+- `render_transcript` round-trips authored marker strings.
+- `_eq` and `_lcp` match purely on semantic role and content, ensuring decorations do not distort prefix matches.
+- Verified by `tests/test_transcript.py::test_parse_transcript_preserves_non_canonical_marker_decorations` and `tests/test_transcript.py::test_lcp_and_eq_with_state_turns`.
+
+Status: Complete.

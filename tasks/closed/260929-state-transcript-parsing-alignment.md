@@ -3,7 +3,7 @@ FKA:
 AKA: native state turn parsing; transcript state alignment
 Legacy index:
 
-keywords: transcript, parser, runtime, state, alignment
+keywords: transcript, parser, runtime, state, alignment, historical
 
 Parent: `260926-state-step-requirements`
 Depends on: `260927-state-step-alpha-loop`
@@ -76,5 +76,11 @@ turns as an isolated parallel universe.
   - 100% targeted test coverage on `toas.transcript`.
   - All 42 state-step tests in `test_state_step.py` and `test_cli_session_commands_state_step.py` updated to adhere to the clean flow and passing.
   - Full repo test suite (3,362 tests) passes cleanly.
+- **Evidence & Closure (2026-10-02)**:
+  - Landed across commits `d89614f2554f` (`feat(transcript): support native state turns and header decorations`), `884951edb5d3` (`refactor(state-step): un-invert document partitioning and turn decoding`), and `9cf4be3a4686` (`feat(state-step): integrate state turns into durable message DAG and LCP lineage`).
+  - Native parsing in `src/toas/transcript.py` tested via `tests/test_transcript.py::test_parse_transcript_accepts_state_and_state_diff_blocks`, `test_render_transcript_state_canonical_markers`, `test_lcp_and_eq_with_state_turns`.
+  - All 42 state tests in `tests/test_state_step.py` and `tests/test_cli_session_commands_state_step.py` pass cleanly. Closed.
+
+Status: Complete.
 
 
