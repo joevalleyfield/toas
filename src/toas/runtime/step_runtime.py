@@ -591,14 +591,14 @@ def _branch_config_from_direct_declarations(*, step_mod, working: list[dict], ba
             elif args[1] == "load" and len(args) in {2, 3}:
                 provenance = node.get("provenance")
                 source_message_id = provenance.get("restep_of") if isinstance(provenance, dict) else None
-                update = _adjacent_config_load_resolution(source_message_id=source_message_id, events=events or [])
-                if update is None:
+                adjacent_update = _adjacent_config_load_resolution(source_message_id=source_message_id, events=events or [])
+                if adjacent_update is None:
                     continue
                 config, overrides = _apply_live_config_update(
                     config=config,
                     baseline_config=baseline_config,
                     overrides=overrides,
-                    update=update,
+                    update=adjacent_update,
                 )
                 applied = True
     return config, applied

@@ -89,3 +89,7 @@ green.
   and annotated the prompt payload as a mixed-value mapping. Added `cli.py` and
   `cli_commands.py`; the gate now covers 148 modules. The configured mypy gate
   and Ruff passed.
+- 2026-10-01: Renamed a reused config-update local and described the workspace
+  context needed by `/cd` validation with a read-only protocol. Added
+  `runtime/step_runtime.py`; the gate now covers 149 modules. Focused mypy,
+  configured mypy, and Ruff passed.

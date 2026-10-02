@@ -4,7 +4,7 @@ import re
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import cast
+from typing import Protocol, cast
 
 from ..graph import (
     active_intent,
@@ -23,6 +23,20 @@ from .context_assembly import (
 )
 from .operator_command_context import OperatorCommandContext
 from .result_nodes import make_result_node
+
+
+class _WorkspaceContext(Protocol):
+    @property
+    def command_cwd(self) -> str: ...
+
+    @property
+    def previous_command_cwd(self) -> str | None: ...
+
+    @property
+    def workspace_mode(self) -> str: ...
+
+    @property
+    def workspace_roots(self) -> list[str]: ...
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
@@ -608,7 +622,7 @@ def _shell_runtime_reset_result(args: list[str], *, step_mod, context: OperatorC
     ]
 
 
-def _resolve_cd_target(raw_target: str, *, context: OperatorCommandContext) -> Path:
+def _resolve_cd_target(raw_target: str, *, context: _WorkspaceContext) -> Path:
     if raw_target == "-":
         if context.previous_command_cwd is None:
             raise ValueError("no previous command cwd")
@@ -618,7 +632,7 @@ def _resolve_cd_target(raw_target: str, *, context: OperatorCommandContext) -> P
     return candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
 
 
-def _guard_workspace_target(target: Path, raw_target: str, *, context: OperatorCommandContext) -> None:
+def _guard_workspace_target(target: Path, raw_target: str, *, context: _WorkspaceContext) -> None:
     if not target.is_dir():
         raise ValueError(f"not a directory: {raw_target}")
     if context.workspace_mode == "strict":
