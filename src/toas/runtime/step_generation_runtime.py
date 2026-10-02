@@ -66,7 +66,7 @@ class StepCliDeps:
     step_fn: Callable[..., tuple[list[dict], list[dict]]]
     split_append_nodes: Callable[[list[dict]], tuple[object, list[dict], list[dict]]]
     redact_secret_lines: Callable[[str], str]
-    persist_messages_and_llm_calls: Callable[[Path, list[dict]], object]
+    persist_messages_and_llm_calls: Callable[[Path, list[dict]], list[dict]]
     stitch_frontier_records: Callable[..., list[dict]]
     apply_result_side_effects: Callable[..., None]
     render_output_with_newline_style: Callable[..., str]

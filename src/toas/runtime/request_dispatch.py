@@ -14,7 +14,7 @@ def safe_op_call(
     payload_validators: dict[str, Callable[[object], dict]],
     async_ops_with_payload_errors: set[str],
     make_ok_response: Callable[[str, dict], dict],
-    make_error_response: Callable[[str], dict],
+    make_error_response: Callable[..., dict],
     validate_payload_object: Callable[[object], dict],
 ) -> dict:
     try:
@@ -44,7 +44,7 @@ def handle_request_dispatch(
     async_ops_with_payload_errors: set[str],
     default_handler: Callable[[dict, str], dict],
     make_ok_response: Callable[[str, dict], dict],
-    make_error_response: Callable[[str], dict],
+    make_error_response: Callable[..., dict],
     validate_payload_object: Callable[[object], dict],
 ) -> dict:
     request_id = request["request_id"]
