@@ -222,6 +222,11 @@ run only on a later explicit step through existing permissions.
 
 ## Verification Record
 
+- 2026-10-01: Restored full statement coverage for the repository, including
+  state-step parser, observation/recovery, CLI preview and execution, and
+  experiment-script validation edges. `scripts/check.sh` passes: 3,403 tests
+  passed (17 deselected), 100% coverage across 149 measured files, 17
+  acceptance tests passed, Ruff passed, and mypy passed.
 - Follow-on `260927-state-step-history-projections` addresses the user-facing
   state-history views considered by the contract. Its first slice appends
   successive full state turns (states-only) instead of replacing the current
@@ -235,11 +240,9 @@ run only on a later explicit step through existing permissions.
   pending batch, executes the real TOAS `echo` capability on a later step, and
   presents the result to the following inference; no message events are
   fabricated.
-- Full-suite verification remains open: sandbox restrictions prevent local
-  `uv` subprocess cache access and socket binding. The run reached 3,299
-  passing tests and 27 failures, mostly in those restricted smoke/integration
-  paths; two legacy `experiments/state_execution.py` assertions also fail and
-  are outside this task's production runtime surface.
+- Earlier full-suite verification reached 3,299 passing tests and 27 failures
+  under sandbox restrictions; the local-cache run above supersedes that
+  environment-limited result.
 
 Claimed for implementation on 2026-09-27.
 

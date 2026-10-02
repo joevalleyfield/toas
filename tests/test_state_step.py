@@ -15,8 +15,16 @@ from toas.operator_api import step_state_once
 from toas.runtime.model_invocation_contracts import resolve_model_invocation
 from toas.runtime.state_step import (
     ToolOutcomeError,
+    _compound_observation,
+    _log_tool_failure,
+    _merge_patch,
+    _normalize_tool_call_aliases,
+    _operator_observation,
+    _parse_state_response,
     _reconcile_tool_outcomes,
+    _sanitize_projected_tool_outcomes,
     _user_input_observations,
+    _user_observation_inputs,
     _user_result_observations,
     build_state_step_packet,
     condense_inert_blocks,
@@ -31,8 +39,11 @@ from toas.runtime.state_step import (
     reconcile_state_lineage,
     render_state_turn,
     seed_state_turn,
+    state_delta,
     state_records,
     step_state,
+    transcript_observation_with_tool_outcomes,
+    user_state_edit_needed,
 )
 from toas.runtime.step_generation_runtime import GenerationRunner
 
@@ -83,7 +94,8 @@ def test_partition_collects_trailing_user_and_control_turns():
 
 def test_control_results_are_observed_without_projecting_control_text():
     observation = observation_with_user_turns(
-        "existing note",
+        {"kind": "toas.compound-observation/1", "operator_observation": "existing note",
+         "control_results": [{"content": "prior result"}]},
         [
             {"role": "user", "content": "Inspect this."},
             {
@@ -95,6 +107,7 @@ def test_control_results_are_observed_without_projecting_control_text():
 
     assert observation["user_inputs"] == [{"content": "Inspect this."}]
     assert observation["control_results"] == [
+        {"content": "prior result"},
         {"content": "/work/project", "source": "control"}
     ]
     assert "/pwd" not in json.dumps(observation)
@@ -261,7 +274,7 @@ def test_invalid_response_preserves_request_and_response_evidence(tmp_path):
             generate=lambda _p: {"content": "not json"},
             execute_call=lambda _c: None,
         )
-    [transition] = read_log(str(events))
+    transition = next(record for record in read_log(str(events)) if record.get("kind") == "state_transition")
     assert transition["kind"] == "state_transition"
     assert transition["status"] == "failed"
     assert transition["state_before"] == {"goal": "keep"}
@@ -330,7 +343,7 @@ def test_parser_rejects_invalid_turns_and_renderer_rejects_unknown_format():
 )
 def test_invalid_response_variants_are_rejected_with_diagnostic_history(tmp_path, content, message):
     events = tmp_path / "events.jsonl"
-    answer = content if content is None else {"content": content}
+    answer = content if content is None else {"content": content, "_llm_call": {"requested_model": "test"}}
     with pytest.raises(ValueError, match=message):
         step_state(
             events_path=events,
@@ -339,7 +352,7 @@ def test_invalid_response_variants_are_rejected_with_diagnostic_history(tmp_path
             generate=lambda _p: answer,
             execute_call=lambda _c: None,
         )
-    [transition] = read_log(str(events))
+    transition = next(record for record in read_log(str(events)) if record.get("kind") == "state_transition")
     assert transition["status"] == "failed"
     assert transition["failure_phase"] == "response_validation"
     assert "request_packet" in transition
@@ -460,6 +473,272 @@ def test_step_state_tool_failure_retains_tool_name_traceback_and_logs(tmp_path):
     assert error_log_file.exists()
     logged_lines = error_log_file.read_text(encoding="utf-8").strip().splitlines()
     assert any("tool_execution_failed" in line and "get_structure" in line for line in logged_lines)
+
+
+def test_state_step_small_helpers_cover_sparse_and_observation_edges(tmp_path):
+    from toas.runtime import state_step as module
+
+    assert _parse_state_response('```json\n{"ok": true}\n```') == {"ok": True}
+    with pytest.raises(ValueError, match="missing callable name"):
+        _normalize_tool_call_aliases([{"args": {}}])
+    assert state_delta(
+        {"gone": 1, "same": {"x": 1, "y": 2}, "changed": [1]},
+        {"same": {"x": 3}, "changed": [2], "new": True},
+    ) == {"changed": [2], "gone": None, "new": True, "same": {"x": 3, "y": None}}
+    assert _merge_patch({"nested": {"keep": 1}}, {"nested": {"drop": None}}) == {
+        "nested": {"keep": 1}
+    }
+    assert _operator_observation({"kind": "toas.compound-observation/1", "operator_observation": "note"}) == "note"
+    compound = {"kind": "toas.compound-observation/1", "user_inputs": [{"content": "x"}, 7]}
+    assert _user_observation_inputs(compound) == [{"content": "x"}]
+    assert _user_observation_inputs("plain") == []
+    assert transcript_observation_with_tool_outcomes(
+        {"kind": "toas.compound-observation/1", "operator_observation": "note",
+         "user_inputs": [{"content": "prompt"}], "control_results": [{"content": "result"}]},
+        [{"status": "completed"}],
+    ) == {
+        "kind": "toas.compound-observation/1", "operator_observation": "note",
+        "tool_outcomes": [{"status": "completed"}], "user_inputs": [{"content": "prompt"}],
+        "control_results": [{"content": "result"}],
+    }
+    assert transcript_observation_with_tool_outcomes("plain", []) == {
+        "kind": "toas.compound-observation/1", "operator_observation": "plain", "tool_outcomes": []
+    }
+    fenced = '```text block_id=ib_x\nbody\n```'
+    ref = '```text block_id=ib_x\n(ref: ib_x)\n```'
+    assert condense_inert_blocks(ref) == ref
+    assert expand_inert_blocks('```text block_id=ib_missing\n(ref: ib_missing)\n```', {}) .endswith('```')
+    assert expand_inert_blocks('```text lines=1-2 block_id=ib_x\n(ref: ib_x)\n```', {"ib_x": "body"}).endswith('(ref: ib_x)\n```')
+    records = [{"payload": {"stdout": fenced}, "content": '```text block_id=ib_y\nother\n```'}]
+    assert module.extract_inert_blocks_by_id(records) == {"ib_x": "body", "ib_y": "other"}
+    assert module.extract_inert_blocks_by_id(fenced) == {"ib_x": "body"}
+    _log_tool_failure(path=tmp_path / "events.jsonl", transition_id="t", index=0,
+                      tool_name="shell", call={}, status="failed", error="x", traceback=None)
+
+
+def test_user_state_edit_detection_compares_snapshot_and_observation(tmp_path):
+    events = tmp_path / "events.jsonl"
+    assert user_state_edit_needed(events_path=events, state={"goal": "new"}, observation=None,
+                                  has_user_tool_calls=False)
+    append_state_step_records(str(events), [
+        {"kind": "state_snapshot", "state": {"goal": "same"}},
+        {"kind": "state_observation", "observation": {"kind": "toas.compound-observation/1",
+                                                           "operator_observation": "old"}},
+    ])
+    assert not user_state_edit_needed(events_path=events, state={"goal": "same"}, observation="old",
+                                     has_user_tool_calls=False)
+    assert user_state_edit_needed(events_path=events, state={"goal": "same"}, observation="old",
+                                  has_user_tool_calls=True)
+    assert user_state_edit_needed(events_path=events, state={"goal": "same"}, observation="new",
+                                  has_user_tool_calls=False)
+
+
+def test_state_step_user_batch_consolidation_and_idempotency(tmp_path):
+    events = tmp_path / "events.jsonl"
+    calls = []
+    result = step_state(
+        events_path=events, state={"goal": "new"}, observation="look",
+        user_tool_calls=[{"tool_name": "echo", "args": {"text": "hi"}}],
+        user_turn_digest="user-turn-1", generate=lambda _: pytest.fail("user intent does not infer"),
+        execute_call=lambda _: None,
+        execute_user_call=lambda call: calls.append(call) or [{"role": "result", "content": "hi"}],
+    )
+    assert result["phase"] == "consolidate_user" and result["status"] == "completed"
+    assert calls[0]["tool_name"] == "echo"
+    repeated = step_state(
+        events_path=events, state={"goal": "new"}, observation="edited",
+        user_turn_digest="user-turn-1", generate=lambda _: pytest.fail("digest replay must not execute"),
+        execute_call=lambda _: pytest.fail("digest replay must not execute"),
+    )
+    assert repeated["transition_id"] == result["transition_id"]
+    assert repeated["observation"]["operator_observation"] == "look"
+
+
+def test_user_batch_observation_projects_user_inputs(tmp_path):
+    events = tmp_path / "events.jsonl"
+    result = step_state(
+        events_path=events, state={},
+        observation={"kind": "toas.compound-observation/1", "operator_observation": "note",
+                     "user_inputs": [{"content": "follow this"}]},
+        user_turn_digest="with-input", generate=lambda _: None, execute_call=lambda _: None,
+    )
+    assert result["observation"]["user_inputs"] == [{"content": "follow this"}]
+
+
+@pytest.mark.parametrize("failure_kind", ["payload", "typed", "exception", "unavailable"])
+def test_state_step_user_batch_records_failure_and_stops(failure_kind, tmp_path):
+    events = tmp_path / "events.jsonl"
+    def execute(_call):
+        if failure_kind == "payload":
+            return [{"payload": {"ok": False, "outcome": "unexpected", "summary": "stopped",
+                                 "tool_name": "shell", "traceback": "trace"}}]
+        if failure_kind == "typed":
+            raise ToolOutcomeError("indeterminate", "unknown", tool_name="python", traceback="tb")
+        raise RuntimeError("denied")
+    result = step_state(
+        events_path=events, state={}, observation=None,
+        user_tool_calls=[{"tool_name": "echo", "args": {}}, {"tool_name": "echo", "args": {}}],
+        user_turn_digest="digest", generate=lambda _: None, execute_call=lambda _: None,
+        execute_user_call=None if failure_kind == "unavailable" else execute,
+    )
+    assert result["status"] in {"cancelled", "indeterminate", "failed"}
+    assert len(result["outcomes"]) == 1
+    assert [r for r in state_step_records(str(events)) if r["kind"] == "state_tool_result"]
+
+
+def test_state_step_preview_and_pending_batch_error_paths(tmp_path):
+    from toas.runtime.state_step import preview_state_request
+    events = tmp_path / "events.jsonl"
+    assert preview_state_request(events_path=events, state={}, observation=None)["phase"] == "infer"
+    step_state(events_path=events, state={}, observation=None,
+               generate=lambda _: {"content": '```json\n{"state_patch":{},"tool_calls":[{"tool_name":"echo","args":{}}]}\n```'},
+               execute_call=lambda _: None, message_id="message-id")
+    preview = preview_state_request(events_path=events, state={}, observation=None)
+    assert preview["phase"] == "execute_batch"
+    err = step_state(events_path=events, state={}, observation=None, generate=lambda _: None,
+                     execute_call=lambda _: (_ for _ in ()).throw(
+                         ToolOutcomeError("cancelled", "stopped", tool_name="echo", traceback="tb")))
+    assert err["status"] == "cancelled"
+    assert preview_state_request(events_path=events, state={}, observation=None)["phase"] == "infer"
+
+
+def test_state_step_user_running_recovery_and_pending_running_recovery(tmp_path):
+    events = tmp_path / "events.jsonl"
+    append_state_step_records(str(events), [{"kind": "state_transition", "transition_id": "u",
+        "source": "user", "user_turn_digest": "d", "status": "running", "state_after": {},
+        "observation": {}, "tool_calls": [{"tool_name": "echo"}]}])
+    recovered = step_state(events_path=events, state={}, observation="new", user_turn_digest="d",
+        generate=lambda _: None, execute_call=lambda _: None)
+    assert recovered["status"] == "indeterminate"
+    append_state_step_records(str(events), [{"kind": "state_transition", "transition_id": "m",
+        "source": "model", "status": "running", "tool_calls": [{"tool_name": "echo"}]}])
+    no_retry = step_state(events_path=events, state={}, observation=None, generate=lambda _: None,
+                          execute_call=lambda _: pytest.fail("running batch must not retry"))
+    assert no_retry["status"] == "indeterminate"
+
+
+def test_user_recovery_uses_prior_failures_and_builds_missing_observation(tmp_path):
+    events = tmp_path / "events.jsonl"
+    append_state_step_records(str(events), [
+        {"kind": "state_transition", "transition_id": "u1", "source": "user",
+         "user_turn_digest": "failed", "status": "running", "state_after": {},
+         "tool_calls": [{"tool_name": "echo"}]},
+        {"kind": "state_tool_result", "transition_id": "u1", "status": "cancelled", "error": "stop"},
+        {"kind": "state_transition", "transition_id": "u2", "source": "user",
+         "user_turn_digest": "done", "status": "completed", "state_after": {},
+         "observation": "carried note", "tool_calls": []},
+        {"kind": "state_transition", "transition_id": "u3", "source": "user",
+         "user_turn_digest": "all-done", "status": "running", "state_after": {},
+         "tool_calls": [{"tool_name": "echo"}]},
+        {"kind": "state_tool_result", "transition_id": "u3", "status": "completed"},
+    ])
+    failed = step_state(events_path=events, state={}, observation=None, user_turn_digest="failed",
+        generate=lambda _: None, execute_call=lambda _: None)
+    assert failed["status"] == "cancelled"
+    done = step_state(events_path=events, state={}, observation="fallback", user_turn_digest="done",
+        generate=lambda _: None, execute_call=lambda _: None)
+    assert done["observation"]["operator_observation"] == "fallback"
+    completed = step_state(events_path=events, state={}, observation=None, user_turn_digest="all-done",
+        generate=lambda _: None, execute_call=lambda _: None)
+    assert completed["status"] == "completed"
+
+
+def test_state_parser_error_shapes_and_renderer_user_calls():
+    for content, message in (
+        ("instructions: 1\nstate: {}", "instructions must be a string"),
+        ("user_tool_calls: [1]\nstate: {}", "user_tool_calls must be an array"),
+        ("pending_tools: [1]\nstate: {}", "pending_tools must be an array"),
+        ("tool_calls: [1]\nstate: {}", "tool_calls must be an array"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            parse_state_turn("## TOAS:STATE/1\n\n" + content)
+    parsed = parse_state_turn(render_state_turn(
+        {}, user_tool_calls=[{"tool_name": "echo"}], pending_tools=[{"tool_name": "read_file"}]
+    ))
+    assert parsed["user_tool_calls"] == [{"tool_name": "echo"}]
+    assert parsed["pending_tools"] == parsed["tool_calls"] == [{"tool_name": "read_file"}]
+
+
+def test_state_outcome_reconciliation_handles_dict_scalar_and_unmatched_results():
+    prior = [
+        {"index": 9, "result": {"role": "result", "content": "old", "payload": {"secret": 1}}},
+        {"index": 10, "result": "scalar"},
+    ]
+    result = _reconcile_tool_outcomes(prior, ["one", "two", "extra"])
+    assert result[0]["index"] == 0
+    assert result[0]["result"] == [{"role": "result", "content": "one"}]
+    assert result[1]["result"] == [{"role": "result", "content": "two", "projection_lane": "user"}]
+    assert result[2]["source"] == "user" and result[2]["result"][0]["content"] == "extra"
+    assert _reconcile_tool_outcomes([{"result": [None, {}, {}]}], ["only"])[0]["result"] == [
+        {"role": "result", "content": "only", "projection_lane": "user"}
+    ]
+    assert _sanitize_projected_tool_outcomes([{"result": ["kept", {"content": "x", "payload": {"internal": 1}}]}]) == [
+        {"result": ["kept", {"content": "x"}]}
+    ]
+
+
+def test_compound_observation_reconciles_transcript_and_prior_records(tmp_path):
+    events = tmp_path / "events.jsonl"
+    append_state_step_records(str(events), [
+        {"kind": "state_transition", "transition_id": "t", "status": "failed",
+         "tool_calls": [{"tool_name": "echo"}]},
+        {"kind": "state_tool_result", "transition_id": "t", "status": "failed",
+         "result": [{"role": "result", "content": "old"}]},
+    ])
+    observation = _compound_observation(
+        state_records(str(events)), {"kind": "toas.compound-observation/1", "operator_observation": "operator",
+                                    "user_inputs": [{"content": "prompt"}]}, session_text=(
+            "## TOAS:STATE/1\n\nstate: {}\n\n## TOAS:USER\n\nnew prompt\n\n## RESULT\n\nnew result"
+        ),
+    )
+    assert observation["operator_observation"] == "operator"
+    assert observation["user_inputs"] == [{"content": "prompt"}]
+    assert observation["tool_outcomes"][0]["result"][0]["content"] == "new result"
+    assert _compound_observation([], {"kind": "toas.compound-observation/1", "operator_observation": "x"})["operator_observation"] == "x"
+
+
+def test_compound_observation_prefers_prior_user_outcome_and_covers_fallback_sources():
+    from toas.runtime.state_step import _compound_observation
+    user_history = [
+        {"kind": "state_transition", "transition_id": "u", "source": "user", "status": "completed"},
+        {"kind": "state_observation", "transition_id": "u", "observation": {"source": "prior"}},
+    ]
+    assert _compound_observation(user_history, "ignored")["source"] == "prior"
+    prior_outcome = [{"kind": "state_transition", "transition_id": "m", "status": "failed"},
+                     {"kind": "state_tool_result", "transition_id": "m", "status": "failed"}]
+    assert _compound_observation(prior_outcome, {"user_results": ["result"]})["tool_outcomes"][0]["status"] == "failed"
+    assert _compound_observation([], {"tool_outcomes": [{"status": "kept"}]})["tool_outcomes"][0]["status"] == "kept"
+    assert _compound_observation([], {"control_results": [{"content": "control"}]})["control_results"] == [
+        {"content": "control"}
+    ]
+    assert _compound_observation([], "plain", session_text="not a state transcript")["tool_outcomes"] == []
+    assert _compound_observation([], {"tool_outcomes": [{"status": "kept"}]},
+                                 session_text="## TOAS:STATE/1\n\nstate: {}")["tool_outcomes"] == [
+        {"status": "kept"}
+    ]
+
+
+def test_preview_terminal_and_invalid_tool_call_evidence(tmp_path):
+    from toas.runtime.state_step import preview_state_request
+    events = tmp_path / "events.jsonl"
+    step_state(events_path=events, state={"goal": "done"}, observation=None,
+        generate=lambda _: {"content": '{"state_patch":{},"tool_calls":[],"outcome":"complete"}'},
+        execute_call=lambda _: None)
+    assert preview_state_request(events_path=events, state={"goal": "done"}, observation=None)["phase"] == "terminal"
+    with pytest.raises(ValueError, match="missing callable name"):
+        step_state(events_path=events, state={"goal": "next"}, observation=None,
+            generate=lambda _: {"content": '{"state_patch":{},"tool_calls":[{"args":{}}]}'},
+            execute_call=lambda _: None)
+    invalid = read_log(str(events))[-1]
+    assert invalid["failure_phase"] == "response_validation"
+
+
+def test_log_tool_failure_swallows_logging_errors_and_state_lineage_empty_paths(monkeypatch, tmp_path):
+    from toas.runtime import async_activity_store_impl
+    monkeypatch.setattr(async_activity_store_impl, "error_log", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk")))
+    _log_tool_failure(path=tmp_path / "events.jsonl", transition_id="t", index=0,
+                      tool_name="echo", call={}, status="failed", error="x", traceback="tb")
+    assert materialize_state_turns(events_path=tmp_path / "events.jsonl", unmaterialized_turns=[], parent_id=None) == []
 
 
 

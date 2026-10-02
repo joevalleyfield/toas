@@ -55,6 +55,63 @@ def test_patch_rejects_missing_required_field_and_invalid_notes():
         apply_patch(INITIAL_STATE, {"progress": "bad"})
 
 
+def test_parse_proposal_fences_and_plan_validation():
+    assert parse_proposal('```json\n{"state_patch":{},"action":{"type":"continue"}}\n```')["action"]["type"] == "continue"
+    assert parse_proposal('{"state_patch":{},"action":{"type":"plan","steps":[{"type":"inspect"}]}}')["action"]["type"] == "plan"
+    for payload in (
+        '{"state_patch":{},"action":null}',
+        '{"state_patch":{},"action":{"type":"plan","steps":[]}}',
+        '{"state_patch":{},"action":{"type":"plan","steps":[{"type":"shell"}]}}',
+        '{"state_patch":{},"action":{"type":"unknown"}}',
+    ):
+        with pytest.raises(ValueError):
+            parse_proposal(payload)
+
+
+def test_script_action_is_reviewed_and_runs_in_fixture_environment(tmp_path):
+    import toas.experiments.state_execution as experiment
+
+    root = tmp_path / "fixture"
+    root.mkdir()
+    (root / "note.txt").write_text("before", encoding="utf-8")
+    env = experiment._script_env(root)
+    assert Path(env["HOME"]).is_dir() and Path(env["TMPDIR"]).is_dir()
+    action = {"type": "script", "language": "python", "snippet": "print('ok')"}
+    records = []
+    with pytest.raises(PermissionError, match="No script reviewer"):
+        act(root, action, timeout=3, review_records=records)
+    assert records[-1]["approved"] is False
+    approved = act(root, action, timeout=3, review_script=lambda *_: (True, "approved"), review_records=records)
+    assert json.loads(approved)["stdout"] == "ok\n"
+    with pytest.raises(PermissionError, match="rejected"):
+        act(root, action, timeout=3, review_script=lambda *_: (False, "rejected"))
+    with pytest.raises(ValueError, match="requires language"):
+        act(root, {"type": "script", "language": "ruby", "snippet": ""}, timeout=3,
+            review_script=lambda *_: (True, "ok"))
+    with pytest.raises(RuntimeError, match="script exited 2"):
+        act(root, {"type": "script", "language": "python", "snippet": "raise SystemExit(2)"},
+            timeout=3, review_script=lambda *_: (True, "ok"))
+    with pytest.raises(ValueError, match="cwd must be a relative path"):
+        act(root, {"type": "script", "language": "python", "snippet": "pass", "cwd": 3},
+            timeout=3, review_script=lambda *_: (True, "ok"))
+    with pytest.raises(ValueError, match="fixture directory"):
+        act(root, {"type": "script", "language": "python", "snippet": "pass", "cwd": "missing"},
+            timeout=3, review_script=lambda *_: (True, "ok"))
+
+
+def test_action_read_write_path_and_shell_script_variants(tmp_path):
+    root = tmp_path / "fixture"
+    root.mkdir()
+    target = root / "note.txt"
+    target.write_text("before", encoding="utf-8")
+    assert act(root, {"type": "read", "path": "note.txt"}, timeout=3) == "before"
+    assert act(root, {"type": "write", "path": "note.txt", "text": "after"}, timeout=3).startswith("Updated")
+    assert act(root, {"type": "script", "language": "bash", "command": "printf ok"}, timeout=3,
+               review_script=lambda *_: (True, "ok"))
+    with pytest.raises(ValueError, match="write requires"):
+        act(root, {"type": "write", "path": "note.txt"}, timeout=3)
+
+
 def test_proposal_requires_one_bounded_action():
     assert (
         parse_proposal('{"state_patch":{},"action":{"type":"continue"}}')["action"]["type"]

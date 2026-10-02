@@ -227,3 +227,24 @@ def test_parse_graph_options_more_errors():
     # before/after without anchor ID
     with pytest.raises(SystemExit, match="usage: toas graph"):
         parse_graph_options(["graph", "-3"])
+
+
+def test_step_option_control_session_surface_and_preview_conflict():
+    from toas.cli_dispatch_ops import parse_step_options
+
+    assert parse_step_options(["step", "--control", "/pwd", "--session", "s.md", "--surface", "s1"]) == (
+        False, False, False, "/pwd", "s.md", "s1"
+    )
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        parse_step_options(["step", "--preview-request", "--control", "/pwd"])
+
+
+def test_session_continue_surface_and_rebind_option_forms():
+    from toas.cli_dispatch_ops import parse_session_continue_options, parse_surface_options
+
+    assert parse_session_continue_options(["session", "continue", "--predecessor", "old.md", "--name", "new",
+                                           "--ignore-preceding-graph", "--exclude-tail"]) == (
+        "old.md", "new", True, True
+    )
+    assert parse_surface_options(["surface", "list"]) == ("list", (), None)
+    assert parse_surface_options(["surface", "bind", "docs", "s.md"])[1] == ("docs", "s.md")

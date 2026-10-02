@@ -4105,3 +4105,21 @@ def test_step_context_runtime_helpers_cover_recursive_merge_and_newline_and_debu
     assert transcript.endswith("hello\n## TOAS:CONTROL\n\n/help\n")
     assert normalized.endswith("hello\n## TOAS:CONTROL\n\n/help\n")
     assert newline == "\n"
+
+
+def test_run_step_forwards_explicit_preview_flags(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_run_step", lambda **kwargs: calls.append(kwargs))
+    cli.run_step(preview=True, preview_request=True, preview_response=True)
+    assert calls == [{"stdin_mode": False, "control": None, "session_path": None,
+                      "preview": True, "preview_request": True, "preview_response": True}]
+
+
+def test_internal_run_step_maps_preview_flags_to_operator(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "run_operator_step_once", lambda **kwargs: calls.append(kwargs))
+    cli._run_step(preview=True, preview_response=True)
+    assert calls == [{"stdin_mode": False, "control": None, "session_path": None,
+                      "on_llm_answer_delta": None, "on_llm_reasoning_delta": None,
+                      "on_llm_prompt_progress": None, "on_projection_delta": None,
+                      "preview": True, "preview_response": True}]

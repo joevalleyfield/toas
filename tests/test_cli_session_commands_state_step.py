@@ -82,7 +82,24 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _working: {})
     monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda *_args: ())
 
+    # Both preview modes exercise the typed-state preview route without advancing it.
+    base_text = session.read_text()
+    session.write_text(base_text + (
+        "\n\n## TOAS:USER\n\nPlease inspect the current state.\n\n"
+        "## TOAS:USER\n\n## RESULT\n\nA prior result.\n"
+    ))
+    cli_session_commands.run_step(session_path=str(session), preview=True)
+    assert '"phase": "infer"' in capsys.readouterr().out
+    with monkeypatch.context() as m:
+        m.setattr(cli_session_commands, "_resolve_state_input_turns", lambda **kwargs: (
+            kwargs["normalized_transcript"], kwargs["input_turns"], [], True
+        ))
+        cli_session_commands.run_step(session_path=str(session))
+        capsys.readouterr()
+    session.write_text(base_text)
+
     # Step 1: infer
+    session.write_text(base_text.rstrip("\n"))
     initial_text = session.read_text()
     cli_session_commands.run_step(session_path=str(session))
     assert session.read_text() == initial_text  # disk is not mutated by run_step
@@ -91,11 +108,17 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     session.write_text(session.read_text() + out1)  # simulate >> session.md
     assert "Earlier conversation." in session.read_text()
 
+    cli_session_commands.run_step(session_path=str(session), preview=True)
+    assert '"phase": "execute_batch"' in capsys.readouterr().out
+    session.write_text(session.read_text().rstrip("\n"))
+
     # Step 2: batch execution
     before_step2 = session.read_text()
-    cli_session_commands.run_step(session_path=str(session))
+    projected = []
+    cli_session_commands.run_step(session_path=str(session), on_projection_nodes=projected.extend)
     assert session.read_text() == before_step2
     out2 = capsys.readouterr().out
+    assert projected
     session.write_text(session.read_text() + out2)
 
     # Step 3: next infer
@@ -114,6 +137,14 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     message_roles = [record["role"] for record in records if "role" in record]
     assert "state" in message_roles
     assert packets[-1]["observation"]["tool_outcomes"][0]["status"] == "completed"
+    monkeypatch.setattr(cli_session_commands, "write_llm_call_record", lambda *_a, **_k: None)
+    monkeypatch.setattr(cli_session_commands, "_resolve_runtime_generation_context", lambda **_kwargs: (
+        config, {}, SimpleNamespace(generate_state_packet=lambda _packet: {
+            "content": '{"state_patch":{},"tool_calls":[]}', "_llm_call": {"requested_model": "test"}
+        }), {}
+    ))
+    cli_session_commands.run_step(session_path=str(session), preview_response=True)
+    assert capsys.readouterr().out.startswith("{")
 
 
 def test_state_step_cli_truncated_tool_result_in_transcript_takes_precedence(monkeypatch, tmp_path, capsys):
@@ -1080,6 +1111,87 @@ def test_state_step_cli_renders_partial_success_with_failure_lines(monkeypatch, 
     assert "broken.py" in out2
 
 
+def test_state_input_resolution_no_inputs_and_callable_without_results(monkeypatch, tmp_path):
+    events = tmp_path / "events.jsonl"
+    events.touch()
+    deps = SimpleNamespace(step_fn=lambda *_args, **_kwargs: ([], []))
+    empty = cli_session_commands._resolve_state_input_turns(
+        deps=deps, events_path=events, session_path=tmp_path / "session.md", session_newline="\n",
+        normalized_transcript="## TOAS:STATE/1\n\nstate: {}\n", prefix_turns=[], state_turn={}, input_turns=[],
+    )
+    assert empty[1:] == ([], [], False)
+    monkeypatch.setattr(cli_session_commands, "_build_runtime_context", lambda **_kwargs: {
+        "events": [], "log": [], "head_id": None, "lineage": [],
+    })
+    monkeypatch.setattr(cli_session_commands, "_resolve_runtime_generation_context", lambda **_kwargs: (
+        object(), {}, object(), {}
+    ))
+    monkeypatch.setattr(cli_session_commands, "_build_step_kwargs", lambda **_kwargs: {})
+    from toas.runtime import step_runtime
+    monkeypatch.setattr(step_runtime, "_frontier_has_callable_intent", lambda **_kwargs: True)
+    resolved = cli_session_commands._resolve_state_input_turns(
+        deps=deps, events_path=events, session_path=tmp_path / "session.md", session_newline="\n",
+        normalized_transcript="## TOAS:STATE/1\n\nstate: {}\n", prefix_turns=[], state_turn={},
+        input_turns=[{"role": "user", "content": "read the file"}],
+    )
+    assert resolved[1] == [{"role": "user", "content": "read the file"}]
+    assert resolved[3] is True
 
 
+def test_state_cli_execute_batch_without_result_nodes_uses_status_fallback(monkeypatch, tmp_path, capsys):
+    from toas.runtime import state_step
+    from toas.transcript import parse_transcript
 
+    events = tmp_path / "events.jsonl"
+    events.touch()
+    transcript = "## TOAS:STATE/1\n\nstate: {goal: inspect}"
+    turns = parse_transcript(transcript)
+    monkeypatch.setattr(cli_session_commands, "_build_runtime_context", lambda **_kwargs: {
+        "command_cwd": str(tmp_path), "workspace_mode": "strict", "workspace_roots": [str(tmp_path)],
+        "log": [], "head_id": None, "lineage": [],
+    })
+    monkeypatch.setattr(state_step, "step_state", lambda **_kwargs: {
+        "phase": "execute_batch", "outcomes": [], "status": "completed",
+    })
+    cli_session_commands._run_state_step(
+        deps=SimpleNamespace(), events_path=events, session_path=tmp_path / "session.md",
+        normalized_transcript=transcript, session_newline="\n", events=[], turns=turns,
+        state_index=0, parsed_turn=parse_state_turn(turns[0]),
+    )
+    assert "[COMPLETED] batch execution completed" in capsys.readouterr().out
+
+
+def test_preview_rejects_ordinary_transcript_without_state_turn(monkeypatch, tmp_path):
+    session = tmp_path / "session.md"
+    session.write_text("## TOAS:USER\n\nhello")
+    events = tmp_path / "events.jsonl"
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        resolve_session_path=lambda _events: session,
+        read_text_preserve_newlines=lambda path: path.read_text(),
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: [])
+    with pytest.raises(SystemExit, match="requires a typed state turn"):
+        cli_session_commands.run_step(preview=True)
+
+
+def test_state_preview_skips_result_turns_and_refuses_unresolved_intent(monkeypatch, tmp_path, capsys):
+    from toas.runtime import step_runtime
+
+    state_turn = {"role": "state", "marker": "## TOAS:STATE/1", "content": "state: {}"}
+    turns = [state_turn,
+             {"role": "user", "content": "## RESULT\n\nold result"},
+             {"role": "user", "content": "prose with attached result"},
+             {"role": "user", "content": "## RESULT\n\nnew result"},
+             {"role": "user", "content": "$ echo maybe"}]
+    monkeypatch.setattr(step_runtime, "_frontier_has_callable_intent", lambda **_kwargs: True)
+    cli_session_commands._run_state_step(
+        deps=SimpleNamespace(), events_path=tmp_path / "events.jsonl", session_path=tmp_path / "session.md",
+        normalized_transcript="", session_newline="\n", events=[], turns=turns, state_index=0,
+        parsed_turn={"turn_type": "state", "state": {}, "observation": None}, preview=True,
+    )
+    assert '"phase": "resolve_user_intent"' in capsys.readouterr().out

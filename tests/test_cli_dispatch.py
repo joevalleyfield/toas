@@ -397,6 +397,16 @@ def test_dispatch_step_rejects_both_session_and_surface():
         dispatch_main(["step", "--session", "x.md", "--surface", "s1"], deps=_deps([]))
 
 
+def test_dispatch_step_forwards_each_preview_mode():
+    calls = []
+    deps = _deps(calls)
+    dispatch_main(["step", "--preview-request"], deps=deps)
+    dispatch_main(["step", "--preview-response"], deps=deps)
+    assert calls[0] == ("step", (), {"stdin_mode": False, "control": None, "session_path": None,
+                                       "surface_id": None, "preview_request": True})
+    assert calls[1][-1]["preview_response"] is True
+
+
 def test_dispatch_debug_unknown_subcommand():
     with pytest.raises(SystemExit, match="unknown debug command"):
         dispatch_main(["debug", "unknown", "path.jsonl"], deps=_deps([]))

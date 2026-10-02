@@ -2700,3 +2700,12 @@ def test_active_compaction_projection_ignores_malformed_or_unselected_records():
         },
     ]
     assert active_compaction_projection(events) is None
+def test_normalize_tool_call_rejects_ambiguous_alias_combinations():
+    from toas.graph import _normalize_tool_call
+
+    assert _normalize_tool_call({"tool_name": "one", "name": "two"})[1] == (
+        "conflicting callable keys: tool_name, operation, name, tool"
+    )
+    assert _normalize_tool_call({"tool_name": "one", "args": {}, "parameters": {"x": 1}})[1] == (
+        "conflicting argument keys: args, arguments, params, parameters"
+    )
