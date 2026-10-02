@@ -358,6 +358,10 @@ def _resolve_state_input_turns(
                 deps=deps, events_path=events_path, events=events
             )
         )
+        if isinstance(stream_state, dict):
+            stream_state.setdefault("enabled", False)
+            stream_state.setdefault("emitted", False)
+            stream_state.setdefault("ends_with_newline", True)
         step_kwargs = _build_step_kwargs(
             deps=deps,
             runtime_ctx=runtime_ctx,
@@ -478,12 +482,18 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
 
     if parsed_turn["turn_type"] == "state":
         current_state = parsed_turn["state"]
-        snapshots = [s for s in state_step_records(str(events_path)) if s.get("kind") == "state_snapshot"]
-        if not snapshots and current_state_message_id and not preview and not preview_response:
-            append_state_step_records(
-                str(events_path),
-                [{"kind": "state_snapshot", "transition_id": f"seed_{current_state_message_id}", "state": current_state, "message_id": current_state_message_id}],
+        if parsed_turn.get("state_number", 1) == 1:
+            snapshots = [s for s in state_step_records(str(events_path)) if s.get("kind") == "state_snapshot"]
+            has_snapshot = any(
+                s.get("message_id") == current_state_message_id
+                or (s.get("message_id") is None and s.get("state") == current_state)
+                for s in snapshots
             )
+            if not has_snapshot and current_state_message_id and not preview and not preview_response:
+                append_state_step_records(
+                    str(events_path),
+                    [{"kind": "state_snapshot", "transition_id": f"seed_{current_state_message_id}", "state": current_state, "message_id": current_state_message_id}],
+                )
     else:
         snapshot = find_lineage_state_snapshot(
             events_path=events_path,
@@ -627,7 +637,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         events_path=events_path, state=current_state, observation=current_observation,
         instructions=parsed_turn.get("instructions"),
         session_text=normalized_transcript,
-        pending_tool_calls=parsed_turn.get("pending_tools"),
+        pending_tool_calls=parsed_turn.get("pending_tools") if not input_turns else None,
         generate=generate_state_packet, execute_call=execute_call,
         message_id=inferred_message_id,
     )

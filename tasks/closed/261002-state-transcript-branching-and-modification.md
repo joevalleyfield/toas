@@ -100,25 +100,38 @@ rewrites introduce state-specific concerns:
 
 ## Acceptance Criteria
 
-- [ ] Lineage-aware state snapshot recording: editing an earlier state turn
+- [x] Lineage-aware state snapshot recording: editing an earlier state turn
   creates a new branch whose state message receives a dedicated `state_snapshot`
   durable event.
-- [ ] Lineage-isolated state diffing: `STATE-DIFF` resolution on a branched
+- [x] Lineage-isolated state diffing: `STATE-DIFF` resolution on a branched
   transcript calculates diffs relative to the branch's state snapshot, not an
   abandoned branch's snapshot.
-- [ ] State turn `/run` parity: `/run` in a user turn following a state turn with
+- [x] State turn `/run` parity: `/run` in a user turn following a state turn with
   `pending_tools` resolves and executes the selected state tool call(s).
-- [ ] Frontier-only tool execution: tools only execute when positioned at the
+- [x] Frontier-only tool execution: tools only execute when positioned at the
   active frontier; changes to historical non-frontier tools do not execute.
-- [ ] Active frontier branch creation: truncating or editing an earlier turn
+- [x] Active frontier branch creation: truncating or editing an earlier turn
   establishes that turn as the active frontier and forks a new branch.
-- [ ] Proposal overtake / cancellation: inserting intervening user commands or
+- [x] Proposal overtake / cancellation: inserting intervening user commands or
   modifying pending tools overtakes or cancels stale pending model transitions.
-- [ ] Historical user turn editing: editing an intermediate user turn between
+- [x] Historical user turn editing: editing an intermediate user turn between
   state turns correctly branches the DAG at that turn and allows subsequent
   state inference to proceed from the branch tip.
-- [ ] Unit and acceptance tests in `tests/test_cli_session_commands_state_step.py`
+- [x] Unit and acceptance tests in `tests/test_cli_session_commands_state_step.py`
   and runtime modules covering these branching, `/run`, and rewrite scenarios.
-- [ ] Full `./scripts/check.sh` passes cleanly (100% test pass, 100% statement
+- [x] Full `./scripts/check.sh` passes cleanly (100% test pass, 100% statement
   coverage, lint/type checks).
+
+## Evidence
+
+- Unit and integration tests added in `tests/test_cli_session_commands_state_step.py`:
+  - `test_state_turn_pending_tools_execute_at_frontier`: verifies frontier `pending_tools` batch execution.
+  - `test_state_turn_tools_outside_frontier_do_not_execute`: verifies historical tools remain inert.
+  - `test_state_turn_run_command_parity`: verifies `/run` in subsequent user turn addresses pending tools in state turn.
+  - `test_state_turn_branching_seeds_snapshot_and_isolates_diff`: verifies branching state turns seed dedicated snapshots and isolate `STATE-DIFF` resolution.
+  - `test_state_proposal_overtake_and_cancellation`: verifies cancelling and overtaking pending proposals.
+  - `test_state_intermediate_user_turn_edit_branches_dag`: verifies historical user turn edits branch the DAG and advance inference cleanly from the fork tip.
+- Updated `normalize_tool_plan` in `src/toas/graph.py`, `_latest_assistant_message` in `src/toas/runtime/source_reference_operations.py`, `_plan_candidates_from_content` in `src/toas/runtime/intent_arbitration_edges.py`, and `_source_operation_spans` in `src/toas/runtime/frontier_resolution.py`.
+- Updated `step_state` in `src/toas/runtime/state_step.py` and `_run_state_step` in `src/toas/cli_session_commands.py`.
+- Full `./scripts/check.sh` passed cleanly with 3410 passed tests, 100.00% statement coverage across all 151 source files, and zero ruff or mypy errors.
 

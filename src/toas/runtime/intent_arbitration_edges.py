@@ -75,7 +75,15 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
     stripped = strip_inert_regions(content)
     matches = list(_YAML_BLOCK_RE.finditer(stripped))
     if not matches:
-        return [(*candidate, None) for candidate in extract_bash_exec_plans(content)] + [
+        raw_candidates: list[tuple[list[dict], int, str | None]] = []
+        try:
+            parsed = yaml.safe_load(stripped)
+            candidate_plan, _ = normalize_tool_plan(parsed)
+            if candidate_plan is not None:
+                raw_candidates.append((candidate_plan, 0, "toas"))
+        except yaml.YAMLError:
+            pass
+        return raw_candidates + [(*candidate, None) for candidate in extract_bash_exec_plans(content)] + [
             (*candidate, "toas") for candidate in extract_json_exec_plans(content)
         ] + [(*candidate, None) for candidate in extract_python_exec_plans(content)] + [
             (*candidate, None) for candidate in extract_powershell_exec_plans(content)

@@ -36,7 +36,7 @@ def _latest_assistant_message(working: list[dict]) -> tuple[dict, int]:
     # user turns do not change the lexical source root.
     for index in range(len(working) - 2, -1, -1):
         message = working[index]
-        if message.get("role") == "assistant":
+        if message.get("role") in {"assistant", "state", "state-diff"}:
             return message, index
     raise ValueError("no prior assistant message available for source reference")
 

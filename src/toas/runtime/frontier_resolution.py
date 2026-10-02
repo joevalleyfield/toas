@@ -26,6 +26,18 @@ class PlanSource:
 
 
 def _source_operation_spans(body: str, parsed: object, plan: list[dict]) -> tuple[str, ...] | None:
+    if isinstance(parsed, dict) and "pending_tools" in parsed and isinstance(parsed["pending_tools"], list):
+        node = yaml.compose(body)
+        if isinstance(node, yaml.MappingNode):
+            for k, v in node.value:
+                if isinstance(k, yaml.ScalarNode) and k.value == "pending_tools" and isinstance(v, yaml.SequenceNode):
+                    starts = []
+                    for item in v.value:
+                        start = item.start_mark.index
+                        starts.append(body.rfind("\n", 0, start) + 1)
+                    end_pos = v.end_mark.index
+                    ends = starts[1:] + [end_pos]
+                    return tuple(body[s:e] for s, e in zip(starts, ends, strict=True))
     if isinstance(parsed, list):
         node = yaml.compose(body)
         if not isinstance(node, yaml.SequenceNode) or len(node.value) != len(plan):
@@ -64,6 +76,16 @@ def extract_plan_source(
             continue
         if spans is not None:
             return PlanSource(plan=normalized, operation_sources=spans)
+    if not staged and (source_position is None or source_position == 0):
+        try:
+            parsed = yaml.safe_load(source_view)
+            normalized, error = normalize_tool_plan(parsed)
+            if error is None and normalized == plan:
+                spans = _source_operation_spans(source_view, parsed, normalized)
+                if spans is not None:
+                    return PlanSource(plan=normalized, operation_sources=spans)
+        except yaml.YAMLError:
+            pass
     return None
 
 

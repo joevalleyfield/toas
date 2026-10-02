@@ -1547,6 +1547,8 @@ def _normalize_shell_call_from_command(command: str) -> tuple[dict | None, str |
 
 def normalize_tool_plan(parsed: object) -> tuple[list[dict] | None, str | None]:
     if isinstance(parsed, dict):
+        if "pending_tools" in parsed and isinstance(parsed["pending_tools"], list):
+            return normalize_tool_plan(parsed["pending_tools"])
         normalized, error = _normalize_tool_call(parsed)
         if normalized is None:
             return None, error

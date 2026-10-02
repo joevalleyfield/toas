@@ -864,6 +864,44 @@ def step_state(
         }
     pending = _latest_pending(records)
     if pending is not None:
+        if pending_tool_calls == [] and not user_tool_calls:
+            append_state_step_records(
+                path,
+                [
+                    {
+                        "kind": "state_transition",
+                        "transition_id": pending["transition_id"],
+                        "status": "cancelled",
+                    }
+                ],
+            )
+            pending = None
+    elif pending_tool_calls:
+        transition_id = f"st_{uuid.uuid4().hex}"
+        append_state_step_records(
+            path,
+            [
+                {
+                    "kind": "state_transition",
+                    "transition_id": transition_id,
+                    "source": "operator",
+                    "status": "pending",
+                    "state_before": state,
+                    "state_after": state,
+                    "state_patch": {},
+                    "observation": observation,
+                    "tool_calls": pending_tool_calls,
+                }
+            ],
+        )
+        pending = {
+            "transition_id": transition_id,
+            "status": "pending",
+            "source": "operator",
+            "tool_calls": pending_tool_calls,
+        }
+
+    if pending is not None:
         if pending.get("status") == "running":
             append_state_step_records(
                 path,
