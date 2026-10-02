@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from .async_lifecycle_envelope_adapter import add_lifecycle_envelope, add_status_envelope
@@ -64,7 +65,7 @@ def build_op_handlers(
     handle_backend_start_fn,
     handle_backend_stop_fn,
     handle_backend_restart_fn,
-) -> dict[str, callable]:
+) -> dict[str, Callable[..., dict]]:
     return {
         "status": handle_status_fn,
         "step_async": handle_step_async_fn,

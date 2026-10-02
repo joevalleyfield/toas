@@ -11,14 +11,18 @@ def run_daemon(action: str, *, daemon_module, print_fn=print):
         except Exception:
             return
 
+        exit_function = getattr(mp_util, "_exit_function", None)
+        if not callable(exit_function):
+            return
+
         try:
-            atexit.unregister(mp_util._exit_function)
+            atexit.unregister(exit_function)
         except Exception:
             pass
 
         def _wrapped_exit_function() -> None:
             try:
-                mp_util._exit_function()
+                exit_function()
             except KeyboardInterrupt:
                 return
 

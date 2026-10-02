@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any, cast
 
 
 def pid_path(*, cwd: Path | None = None) -> Path:
@@ -34,7 +35,7 @@ def is_pid_running(pid: int, *, os_name: str | None = None) -> bool:
             PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
             STILL_ACTIVE = 259
 
-            kernel32 = ctypes.windll.kernel32
+            kernel32 = cast(Any, ctypes).windll.kernel32
             OpenProcess = kernel32.OpenProcess
             OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
             OpenProcess.restype = wintypes.HANDLE
