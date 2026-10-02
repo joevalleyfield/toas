@@ -97,3 +97,9 @@ green.
   keyword arguments and gave transcript, LLM-input, and session-continuation
   keyword maps separate heterogeneous types. Added `cli_dispatch.py`; the gate
   now covers 150 modules. Focused mypy, configured mypy, and Ruff passed.
+- 2026-10-01: Typed the mixed tool-status payload, narrowed subprocess access
+  on the process-backed path, made the optional event return explicit, and
+  adapted the tool-stream callback to its `None` contract. Added
+  `runtime/async_step_runtime_worker.py`; all 151 modules under `src/toas` are
+  now in the gate. Focused mypy passed, followed by a clean configured run over
+  all 151 modules; full Ruff also passed.

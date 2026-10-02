@@ -120,11 +120,11 @@ def emit_tool_events_from_line(
         return
     ok_label, operation = match.groups()
     ok = ok_label == "OK"
-    payload = {"operation": operation, "ok": ok}
+    tool_payload: dict[str, object] = {"operation": operation, "ok": ok}
     if not ok:
-        payload["status"] = "error"
+        tool_payload["status"] = "error"
     run.meta["in_result_block"] = False
-    emit_stream_event(run, "tool_done", payload, lane="tool", phase="end")
+    emit_stream_event(run, "tool_done", tool_payload, lane="tool", phase="end")
 
 
 _LINE_BREAK_RE = re.compile(r"\r\n|\r|\n")
@@ -177,6 +177,8 @@ def _split_control_lines(buffer: str) -> tuple[list[str], str]:
 
 def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> None:
     proc = run.process
+    if proc is None:
+        return
     stream = proc.stdout
     if stream is None:
         return
@@ -223,8 +225,10 @@ def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> No
 
 
 def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
+    process = run.process
+    assert process is not None, "wait_for_process requires a subprocess-backed run"
     try:
-        code = run.process.wait()
+        code = process.wait()
     except _RunCancelledBrokenPipe:
         with run.lock:
             run.returncode = 130
@@ -277,7 +281,7 @@ def _emit_explicit_tool_stream_event(run: AsyncRun, event_type: str, payload: di
         raise RuntimeError(f"invalid tool stream event type: {event_type}")
     with run.lock:
         if run.terminal_event_emitted:
-            return
+            return None
         run.updated_at = time.time()
         event = emit_stream_event(run, event_type, payload, lane=lane, phase=phase)
         if event_type == "tool_progress":
@@ -424,12 +428,15 @@ def _run_in_process_worker(
         def flush(self) -> None:
             return None
 
+    def _emit_tool_stream_event(event_type: str, payload: dict) -> None:
+        _emit_explicit_tool_stream_event(run, event_type, payload)
+
     try:
         with process_state_lock:
             os.chdir(Path(run.workdir))
             os.environ["TOAS_RPC_MODE"] = "off"
             proxy = _RunStdoutProxy()
-            with tool_stream_emitter(lambda event_type, payload: _emit_explicit_tool_stream_event(run, event_type, payload)):
+            with tool_stream_emitter(_emit_tool_stream_event):
                 with redirect_stdout(proxy), redirect_stderr(proxy):
                     runtime_step_fn()
         with run.lock:
