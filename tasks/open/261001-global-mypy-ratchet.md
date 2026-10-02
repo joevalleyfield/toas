@@ -81,3 +81,7 @@ green.
   fixed the `step_result_runtime.py` and `request_dispatch.py` diagnostics;
   added `request_dispatch.py`, bringing the gate to 144 modules. Focused checks
   and the configured gate passed, as did Ruff on the touched modules.
+- 2026-10-01: Added a structural protocol for the daemon's `serve_one()` loop
+  and added `step_result_runtime.py` after its persistence dependency was
+  narrowed to the actual list return type. The gate now covers 146 modules;
+  focused mypy, configured mypy, and Ruff all passed.

@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Protocol
 
 from ..rpc_tcp import TcpRpcServer
 from ..rpc_transport import (
@@ -17,6 +18,10 @@ from ..rpc_transport import (
     endpoint_label,
     make_server,
 )
+
+
+class _ServeableServer(Protocol):
+    def serve_one(self) -> None: ...
 
 
 def run_step_healthcheck(*, rpc_request, rpc_client_error) -> bool:
@@ -59,7 +64,7 @@ def serve_forever(
     stop_event = threading.Event()
     threads: list[threading.Thread] = []
 
-    def _serve_loop(server: object) -> None:
+    def _serve_loop(server: _ServeableServer) -> None:
         while not stop_event.is_set():
             try:
                 server.serve_one()
