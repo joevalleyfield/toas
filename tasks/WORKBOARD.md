@@ -277,6 +277,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T260927-state-step-history-projections]** Preserve And Project State-Step History
+- **[T261002-cli-subcommand-help-and-step-usage]** Status: ACTIVE; defining subcommand help dispatch protocol and implementing structured, categorized documentation for `toas step`.
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
