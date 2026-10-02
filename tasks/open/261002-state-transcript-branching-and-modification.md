@@ -57,11 +57,20 @@ rewrites introduce state-specific concerns:
    LCP reconciliation forks history at the point of edit. The downstream state
    turns must not be implicitly resurrected on the new branch; rather, the new
    branch advances via fresh user turns or inference from the new fork point.
-4. **Tool Result Block Revisions**:
-   Modifying tool result blocks or adding custom observation text in a
-   state-bearing transcript should follow the standard TOAS model: they
-   represent operator observations on the frontier, never mutating historical
-   tool execution records.
+4. **Tool Execution and Invariant Rules**:
+   - **Tools in the frontier execute**: If a state turn is at the active transcript
+     frontier and defines `pending_tools`, those tools execute upon `toas step`.
+   - **Tools in the most recent state are addressable via `/run`**: An operator
+     can write `/run` (or `/run p1.o1`, `/run o1`, etc.) in a subsequent `USER`
+     turn to reference and execute pending tools from the most recent state turn,
+     sharing the same operator affordance as assistant turns.
+   - **Tools outside of frontier do not execute**: Modifying tools in historical
+     turns outside the active frontier never triggers execution simply because
+     the content changed.
+   - **Active frontier at an earlier turn branches immediately**: Truncating or
+     editing an earlier turn positions the active frontier at that turn, creating
+     a branch from the new content there even if child nodes have not yet been
+     appended.
 
 ## Intended Behavior
 
@@ -74,11 +83,20 @@ rewrites introduce state-specific concerns:
 2. **Proposal Invalidation & Overtake**:
    Pending tools from a prior state turn must only execute if the frontier
    transcript directly approves or preserves them without intervening intent.
-   If the operator inserts a user command, modifies the pending tools, or
-   branches before execution, the proposal is marked superseded/cancelled.
-3. **Non-Mutating DAG Forking**:
+   If the operator inserts an unaligned user command, modifies the pending
+   tools, or branches before execution, the proposal is marked superseded or
+   cancelled.
+3. **Addressability via `/run` for State Turns**:
+   When `/run` is invoked after a state turn, source reference resolution treats
+   the most recent state turn as an addressable source of executable tool plans
+   (from its `pending_tools`), aligning state mode with assistant transcript
+   semantics.
+4. **Frontier-Bound Tool Execution**:
+   Execution of state tools is strictly bound to the active frontier turn. Tools
+   in non-frontier turns remain inert even if modified.
+5. **Non-Mutating DAG Forking**:
    State-step transcript reconciliation respects durable DAG parentage when
-   branching across state and user turns.
+   branching across state and user turns at any point in history.
 
 ## Acceptance Criteria
 
@@ -88,14 +106,19 @@ rewrites introduce state-specific concerns:
 - [ ] Lineage-isolated state diffing: `STATE-DIFF` resolution on a branched
   transcript calculates diffs relative to the branch's state snapshot, not an
   abandoned branch's snapshot.
-- [ ] Proposal overtake / cancellation: editing or inserting user/control turns
-  when pending tools are present marks pending proposals as overtaken or
-  cancelled instead of executing stale proposals.
+- [ ] State turn `/run` parity: `/run` in a user turn following a state turn with
+  `pending_tools` resolves and executes the selected state tool call(s).
+- [ ] Frontier-only tool execution: tools only execute when positioned at the
+  active frontier; changes to historical non-frontier tools do not execute.
+- [ ] Active frontier branch creation: truncating or editing an earlier turn
+  establishes that turn as the active frontier and forks a new branch.
+- [ ] Proposal overtake / cancellation: inserting intervening user commands or
+  modifying pending tools overtakes or cancels stale pending model transitions.
 - [ ] Historical user turn editing: editing an intermediate user turn between
   state turns correctly branches the DAG at that turn and allows subsequent
   state inference to proceed from the branch tip.
 - [ ] Unit and acceptance tests in `tests/test_cli_session_commands_state_step.py`
-  (and relevant runtime modules) covering these branching and rewrite
-  scenarios.
+  and runtime modules covering these branching, `/run`, and rewrite scenarios.
 - [ ] Full `./scripts/check.sh` passes cleanly (100% test pass, 100% statement
   coverage, lint/type checks).
+
