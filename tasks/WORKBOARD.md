@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-02
+> **Last Sync:** 2026-10-04
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -267,7 +267,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context. ⚠️ Stale
 - **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered... ⚠️ Stale
 - **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences ⚠️ Stale
-- **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations
+- **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations ⚠️ Stale
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
 - **[T260912-config-execution-facet-design]** Deliberate the execution config/help facet

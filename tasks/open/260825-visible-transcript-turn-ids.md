@@ -4,7 +4,7 @@ AKA: visible turn ids; transcript node labels; LLM-hidden turn identifiers
 Legacy index:
 
 Parent: `260823-concept-graph-artifact-reuse`
-Related: `260823-handoff-successor-focus-naming`; `260823-projection-discoverability`
+Related: `260823-handoff-successor-focus-naming`; `260823-projection-discoverability`; `docs/notes/2026-10-04-transcript-decorators.md`
 
 keywords: transcript, surface, follow-on, projection, usability, contract
 
@@ -56,3 +56,11 @@ A visible turn-ID representation, projection rule, branching/editing behavior,
 and stateless selection contract are documented and tested. At least one
 consumer can pass an explicit turn identity in its operation request without
 creating global selection state or changing default LLM input.
+
+## Progress
+
+- 2026-10-04: Explored expanding turn-IDs into a general transcript decorator
+  architecture in `docs/notes/2026-10-04-transcript-decorators.md`, covering
+  auditory loop ergonomics, world sequences, sibling lane collections, resonant
+  turn derivation, and primitive composition.
+
