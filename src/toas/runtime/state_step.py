@@ -19,7 +19,51 @@ from ..graph import state_step_records as _state_step_records
 
 STATE_MARKER = "## TOAS:STATE/1"
 STATE_DIFF_MARKER = "## TOAS:STATE-DIFF/1"
-STATE_TURN_PATTERN = re.compile(r"^## TOAS:(STATE|STATE-DIFF)/(\d+)$")
+STATE_TURN_PATTERN = re.compile(
+    r"^## TOAS:(STATE|STATE-DIFF)"
+    r"(?:/([a-zA-Z0-9_-]+(?:->[a-zA-Z0-9_-]+)?))?"
+    r"(?:[ \t]+\[\[([a-zA-Z0-9_-]+(?:->[a-zA-Z0-9_-]+)?)\]\])?"
+    r"(?:[ \t]+\[(.*?)\])?$"
+)
+
+
+def parse_state_marker(marker_str: str) -> dict[str, Any] | None:
+    """Extract kind, handle, source/target handles, is_key, and ordinal from a marker line."""
+    m = STATE_TURN_PATTERN.match(marker_str.strip())
+    if not m or not (m.group(2) or m.group(3)):
+        return None
+    kind = m.group(1)
+    qualifier = m.group(2)
+    bracket_handle = m.group(3)
+    trailer = m.group(4)
+
+    handle = bracket_handle or qualifier or "1"
+    state_number: int | None = None
+    if qualifier and qualifier.isdigit():
+        state_number = int(qualifier)
+    elif handle.isdigit():
+        state_number = int(handle)
+
+    source_handle: str | None = None
+    target_handle: str | None = None
+    if "->" in handle:
+        source_handle, target_handle = handle.split("->", 1)
+
+    is_key = False
+    if trailer:
+        trailer_parts = [p.strip().lower() for p in trailer.split()]
+        for part in trailer_parts:
+            if part in {"key", "key:true", "key=true"}:
+                is_key = True
+
+    return {
+        "kind": kind,
+        "handle": handle,
+        "source_handle": source_handle,
+        "target_handle": target_handle,
+        "is_key": is_key,
+        "state_number": state_number,
+    }
 STATE_INSTRUCTIONS = """Advance the supplied TOAS state using the latest observation.
 
 Return one JSON object with these fields:
@@ -37,7 +81,10 @@ Inference and tool execution are separate operations. Return JSON only."""
 
 def is_state_turn_marker(line: str) -> bool:
     """Return True if the line is any typed state or state-diff turn marker."""
-    return bool(STATE_TURN_PATTERN.match(line.strip()))
+    m = STATE_TURN_PATTERN.match(line.strip())
+    if not m:
+        return False
+    return bool(m.group(2) or m.group(3))
 
 
 class _LiteralString(str):
@@ -151,8 +198,20 @@ def parse_state_turn(target: dict[str, Any] | str) -> dict[str, Any]:
     role = turn.get("role", "state")
     kind = "STATE" if role == "state" else "STATE-DIFF"
     marker = turn.get("marker") or f"## TOAS:{role.upper()}/1"
-    m = re.match(r"^## TOAS:(STATE|STATE-DIFF)/(\d+)", marker.strip())
-    state_number = int(m.group(2)) if m else 1
+    marker_info = parse_state_marker(marker)
+    if marker_info:
+        kind = marker_info["kind"]
+        handle = marker_info["handle"]
+        source_handle = marker_info["source_handle"]
+        target_handle = marker_info["target_handle"]
+        is_key = marker_info["is_key"]
+        state_number = marker_info["state_number"]
+    else:
+        state_number = 1
+        handle = "1"
+        source_handle = None
+        target_handle = None
+        is_key = False
 
     body = turn.get("content", "").strip()
     format_name = "markdown" if body.startswith("```yaml") else "yaml"
@@ -194,7 +253,11 @@ def parse_state_turn(target: dict[str, Any] | str) -> dict[str, Any]:
     if kind == "STATE-DIFF" and not isinstance(payload.get("state_patch"), dict):
         raise ValueError("state-diff turn must contain a state_patch mapping")
     payload["turn_type"] = "state" if kind == "STATE" else "state_diff"
-    payload["state_number"] = state_number
+    payload["handle"] = handle
+    payload["source_handle"] = source_handle
+    payload["target_handle"] = target_handle
+    payload["is_key"] = is_key
+    payload["state_number"] = state_number if state_number is not None else 1
     payload["format"] = format_name
     return payload
 
@@ -209,7 +272,10 @@ def render_state_turn(
     user_tool_calls: list[dict[str, Any]] | None = None,
     pending_tools: list[dict[str, Any]] | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
-    state_number: int = 1,
+    state_number: int | None = None,
+    handle: str | None = None,
+    vector: tuple[str, str] | None = None,
+    is_key: bool = False,
 ) -> str:
     if format not in {"yaml", "markdown"}:
         raise ValueError("state format must be 'yaml' or 'markdown'")
@@ -226,7 +292,14 @@ def render_state_turn(
     if observation is not None:
         payload["observation"] = observation
     marker_name = "STATE-DIFF" if is_diff else "STATE"
-    marker = f"## TOAS:{marker_name}/{state_number}"
+    if vector is not None:
+        marker = f"## TOAS:{marker_name} [[{vector[0]}->{vector[1]}]]"
+    elif handle is not None:
+        marker = f"## TOAS:{marker_name} [[{handle}]]"
+    else:
+        marker = f"## TOAS:{marker_name}/{state_number if state_number is not None else 1}"
+    if is_key:
+        marker += " [key:true]"
     if format == "yaml":
         body = yaml.dump(payload, Dumper=_StateYamlDumper, sort_keys=False, allow_unicode=True).rstrip()
         return f"{marker}\n\n{body}\n"
@@ -731,18 +804,19 @@ def find_state_turn_index_by_label(turns: list[dict[str, Any]], label: str) -> i
     if clean_label.upper().startswith("TOAS:"):
         clean_label = clean_label[5:].strip()
 
-    target_num: int | None = None
     target_role: str | None = None
+    role_prefix_match = re.match(r"^(STATE|STATE-DIFF)[ \t/]+(.*)$", clean_label, re.IGNORECASE)
+    if role_prefix_match:
+        target_role = role_prefix_match.group(1).lower()
+        clean_label = role_prefix_match.group(2).strip()
 
+    if clean_label.startswith("[[") and clean_label.endswith("]]"):
+        clean_label = clean_label[2:-2].strip()
+
+    target_num: int | None = None
+    target_handle = clean_label
     if clean_label.isdigit():
         target_num = int(clean_label)
-    else:
-        m = re.match(r"^(STATE|STATE-DIFF)/(\d+)$", clean_label, re.IGNORECASE)
-        if m:
-            target_role = m.group(1).lower()
-            target_num = int(m.group(2))
-        else:
-            raise ValueError(f"state turn with label {label!r} not found in transcript")
 
     for idx, turn in enumerate(turns):
         role = turn.get("role")
@@ -751,7 +825,9 @@ def find_state_turn_index_by_label(turns: list[dict[str, Any]], label: str) -> i
         if target_role is not None and role != target_role:
             continue
         parsed = parse_state_turn(turn)
-        if parsed.get("state_number") == target_num:
+        if parsed.get("handle") == target_handle:
+            return idx
+        if target_num is not None and parsed.get("state_number") == target_num:
             return idx
 
     raise ValueError(f"state turn with label {label!r} not found in transcript")

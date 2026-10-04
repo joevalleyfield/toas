@@ -30,10 +30,12 @@ from toas.runtime.state_step import (
     condense_inert_blocks,
     expand_inert_blocks,
     find_lineage_state_snapshot,
+    find_state_turn_index_by_label,
     initial_state,
     is_state_turn_marker,
     materialize_state_turns,
     observation_with_user_turns,
+    parse_state_marker,
     parse_state_turn,
     partition_state_transcript,
     reconcile_state_lineage,
@@ -799,6 +801,61 @@ def test_state_turn_parses_and_renders_state_ordinal():
     parsed_diff = parse_state_turn(diff_rendered)
     assert parsed_diff["state_number"] == 4
     assert parsed_diff["state_patch"] == {"goal": "patched"}
+
+
+def test_state_turn_parses_and_renders_handles_and_vectors():
+    # 1. is_state_turn_marker accepts named handles and vectors
+    assert is_state_turn_marker("## TOAS:STATE [[alpha]]")
+    assert is_state_turn_marker("## TOAS:STATE [[alpha]] [key:true]")
+    assert is_state_turn_marker("## TOAS:STATE [[alpha]] [key]")
+    assert is_state_turn_marker("## TOAS:STATE/alpha")
+    assert is_state_turn_marker("## TOAS:STATE-DIFF [[alpha->bravo]]")
+    assert is_state_turn_marker("## TOAS:STATE-DIFF [[alpha->delta]] [key:true]")
+    assert is_state_turn_marker("## TOAS:STATE-DIFF/alpha->bravo")
+    assert not is_state_turn_marker("## TOAS:USER [[alpha]]")
+    assert not is_state_turn_marker("## TOAS:STATE invalid")
+
+    # 2. render_state_turn with handle and key trailer
+    rendered_node = render_state_turn({"goal": "node"}, handle="alpha", is_key=True)
+    assert rendered_node.startswith("## TOAS:STATE [[alpha]] [key:true]\n")
+    parsed_node = parse_state_turn(rendered_node)
+    assert parsed_node["handle"] == "alpha"
+    assert parsed_node["is_key"] is True
+    assert parsed_node["state"] == {"goal": "node"}
+
+    # 3. render_state_turn with vector
+    rendered_vector = render_state_turn({}, state_patch={"goal": "patched"}, vector=("alpha", "bravo"))
+    assert rendered_vector.startswith("## TOAS:STATE-DIFF [[alpha->bravo]]\n")
+    parsed_vector = parse_state_turn(rendered_vector)
+    assert parsed_vector["handle"] == "alpha->bravo"
+    assert parsed_vector["source_handle"] == "alpha"
+    assert parsed_vector["target_handle"] == "bravo"
+    assert parsed_vector["is_key"] is False
+    assert parsed_vector["state_patch"] == {"goal": "patched"}
+
+    # 4. find_state_turn_index_by_label with handles and vectors
+    turns = [
+        {"role": "state", "content": "state: {step: 1}", "marker": "## TOAS:STATE [[alpha]] [key:true]"},
+        {"role": "state-diff", "content": "state_patch: {step: 2}", "marker": "## TOAS:STATE-DIFF [[alpha->bravo]]"},
+        {"role": "state", "content": "state: {step: 2}", "marker": "## TOAS:STATE [[bravo]]"},
+        {"role": "state", "content": "state: {step: 3}", "marker": "## TOAS:STATE/3 [[charlie]]"},
+    ]
+    assert find_state_turn_index_by_label(turns, "alpha") == 0
+    assert find_state_turn_index_by_label(turns, "[[alpha]]") == 0
+    assert find_state_turn_index_by_label(turns, "## TOAS:STATE [[alpha]]") == 0
+    assert find_state_turn_index_by_label(turns, "alpha->bravo") == 1
+    assert find_state_turn_index_by_label(turns, "[[alpha->bravo]]") == 1
+    assert find_state_turn_index_by_label(turns, "TOAS:STATE-DIFF [[alpha->bravo]]") == 1
+    assert find_state_turn_index_by_label(turns, "bravo") == 2
+    assert find_state_turn_index_by_label(turns, "3") == 3
+
+    # 5. edge coverage: parse_state_marker on invalid line, digit-only bracket, and unparseable marker fallback
+    assert parse_state_marker("invalid") is None
+    parsed_digit_handle = parse_state_marker("## TOAS:STATE [[2]]")
+    assert parsed_digit_handle is not None and parsed_digit_handle["state_number"] == 2
+    fallback_turn = parse_state_turn({"role": "state", "content": "state: {}", "marker": "invalid"})
+    assert fallback_turn["handle"] == "1"
+    assert fallback_turn["state_number"] == 1
 
 
 def test_state_turn_renders_and_parses_pending_tools():

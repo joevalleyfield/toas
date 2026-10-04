@@ -144,6 +144,14 @@ compound observation, independent of the selected transcript projection.
   diffs and `[[alpha->delta]]` for cumulative spans, resolving node vs. edge
   ambiguity and making the full alternating redundant view ($S_0 \to D_{0\to 1} \to S_1$)
   first-class for audit and debugging.
+- 2026-10-04: Implemented Slice 1 of Stage 2 in `src/toas/runtime/state_step.py`:
+  generalized `STATE_TURN_PATTERN`, `is_state_turn_marker`, `parse_state_marker`,
+  and `parse_state_turn` to recognize node handles (`[[alpha]]`), transition
+  vectors (`[[alpha->bravo]]`), and milestone trailers (`[key:true]`) while
+  preserving full backward compatibility with numeric markers (`STATE/1`);
+  updated `render_state_turn` to accept `handle=`, `vector=`, and `is_key=`;
+  and generalized `find_state_turn_index_by_label` to support handle, vector,
+  bracket, and role-prefixed lookups. All 3,423 tests passing with 100% coverage.
 
 Status: Active.
 
