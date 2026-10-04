@@ -63,4 +63,14 @@ creating global selection state or changing default LLM input.
   architecture in `docs/notes/2026-10-04-transcript-decorators.md`, covering
   auditory loop ergonomics, world sequences, sibling lane collections, resonant
   turn derivation, and primitive composition.
-
+- 2026-10-04: Refined that note through operator discussion: names stay useful
+  within a working context while canonical IDs retain historical identity;
+  LCP supplies branch context, and explicit prose/result references translate
+  to canonical targets. State references require re-inclusion, while transcript
+  packets may identify turns on demand or always for prefix-cache stability.
+  The note supersedes universal LLM-inert and decorator-directed branching
+  claims, separates confirmed direction from open syntax/storage/profile
+  choices, and proposes task boundaries without opening implementation work.
+  Validation: unique headings, local links, whitespace, fence balance, and
+  task continuity metadata checked. Documentation-only change; runtime tests
+  were not run.

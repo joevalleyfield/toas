@@ -1,8 +1,14 @@
-# Transcript Decorators: Human Ergonomics, Visible Graph Truths, And LLM-Inert Projections
+# Transcript Decorators: Human Names, Canonical References, And Inference Projections
 
 Status: EXPLORATORY DRAFT
-Normative Scope: design exploration; no code changes or commits
+Normative Scope: design exploration; no runtime implementation or adopted grammar
 Related Tasks: `260825-visible-transcript-turn-ids`, `260927-state-step-history-projections`, `260929-state-sequence-inference-affordance`
+
+The follow-up discussion in sections 8–10 refines the earlier exploration:
+human names belong to a working context, canonical IDs retain historical
+identity, and model-facing identification depends on the inference packet.
+Theme families and syntax examples below remain possibilities, not adopted
+requirements.
 
 ## 1. Problem Context: Beyond Ordinal Slugs
 
@@ -16,11 +22,11 @@ narrow what a decorator can be. In TOAS, the core design split is:
 - `events.jsonl` is the append-only, durable graph history;
 - Model inference runs over an assembled, horizonal message packet (`llm-input`).
 
-A **transcript decorator** is a zero-token-overhead lens that surfaces durable
-graph facts directly on the working transcript. It makes underlying graph
-truths visible and addressable for human operators and editor tooling (like Vim)
-without leaking metadata tokens into model inference or distorting prompt
-context.
+A **transcript decorator** is a presentation lens that surfaces graph facts
+and useful human handles on the working transcript. Human decoration can be
+excluded from model input. An explicit reference carries meaning, however,
+and may require canonical identification or re-inclusion of referenced content
+in the inference packet; zero token overhead is not a universal invariant.
 
 ## 2. Cognitive Ergonomics: Auditory Loops And Naming
 
@@ -62,13 +68,17 @@ frictionless memory reinforcer.
 #### Mode B: Deterministic Mnemonic Names (For Arbitrary Graph Entities)
 For arbitrary, non-sequential graph entities (like durable event hashes,
 fork points, or patch deltas), Docker-style or Antigravity-style adjective-noun
-pairings (`clever-curie`, `bold-bohr`, `calm-cedar`, `brisk-fox`) provide
-collision-resistant handles derived deterministically from the underlying hash.
+pairings (`clever-curie`, `bold-bohr`, `calm-cedar`, `brisk-fox`) could provide
+candidate handles derived deterministically from the underlying ID.
 - Hashing `evt_7ed5e9...` into a 2-word phrase from a small curated dictionary
   (e.g., 256 adjectives x 256 nouns = 65,536 combinations) produces names that:
   1. are deterministic and stable across sessions;
   2. roll off the tongue effortlessly;
-  3. are distinct and memorable in conversation or notes.
+  3. are memorable in conversation or notes, with collisions still possible.
+
+This is one possible naming scheme. A finite vocabulary does not guarantee
+uniqueness, and the later discussion does not require a human name to be a
+permanent global alias for its canonical target.
 
 #### Hybrid Syntax
 Where technical precision and human memory meet, a hybrid decorator can pair
@@ -78,7 +88,8 @@ the mnemonic handle with an abbreviated hash:
 ## TOAS:ASSISTANT [bold-bohr e:9c12]
 ```
 The operator talks about and addresses `bravo` or `bold-bohr`, while tools and
-scripts can still resolve the exact `8f3a` commit hash.
+scripts can resolve the underlying event identity. The displayed short
+fingerprint is illustrative, not a guaranteed unique event locator.
 
 ## 3. Branching Topology: Sequences Of Sequences And Collections Of Sibling Lanes
 
@@ -132,10 +143,11 @@ thematic collection:
    - Cenozoic lane: `paleocene` -> `eocene` -> `oligocene` -> `miocene`.
 
 #### Cognitive & Architectural Advantages:
-- **Disjoint Namespaces Without Punctuation Clutter**: Because each branch owns
-  an entire cohesive sibling sequence, steps on Branch A (`titan`, `enceladus`)
-  can never collide with steps on Branch B (`fluorine`, `chlorine`), without
-  requiring ugly path separators like `branch_1/step_2`.
+- **Distinct Vocabularies Without Punctuation Clutter**: Allocating disjoint
+  sibling sequences could distinguish concurrently presented branches without
+  path separators like `branch_1/step_2`. Exhaustion, custom dictionaries, and
+  copied fragments still need local ambiguity handling; this is not a global
+  uniqueness guarantee.
 - **Semantic Affinity**: The operator instantly understands that `titan`,
   `enceladus`, and `rhea` belong to the same exploration thread because they share
   a single thematic lane.
@@ -159,7 +171,7 @@ unnecessary auditory overhead.
 | **State Diffs (`STATE-DIFF`)** | `## TOAS:STATE-DIFF [delta:b->c]` | **Relational Vector**. Needs to express transition from $S_A$ to $S_B$. | Transition markers (`alpha->bravo`, `Δ-charlie`) or patch deltas. |
 | **Conversational Turns (`USER`, `ASSISTANT`, `CONTROL`)** | `## TOAS:ASSISTANT [turn:4]` | **Pacing & Attribution**. Needs light turn indexing without heavy semantic baggage. | Simple turn ordinals (`t:4`) or light conversational identifiers. |
 | **Tool Plans (`pending_tools`)** | `pending_tools: [p:read_1, p:shell_2]` | **Intent & Batch Membership**. Tentative proposals before execution. | Batch-indexed action slugs (`plan:read-a`, `plan:test-b`). |
-| **Tool Results (`RESULT` blocks)** | ````python block_id=ib_calm_cedar```` | **High Clash Prevention & Concrete Fact**. Empirical external observations. | Deterministic adjective-noun pairs (`calm-cedar`) or gem/mineral nouns (`jade`, `cobalt`), paired with replay-safe block hashes. |
+| **Tool Results (`RESULT` blocks)** | Human handle `calm-cedar` over canonical `block_id=ib_...` | **Concrete Fact & Reuse**. Empirical external observations. | Deterministic adjective-noun pairs (`calm-cedar`) or gem/mineral nouns (`jade`, `cobalt`), with canonical block IDs preserved underneath. |
 
 ### Where Order Is Useful vs. Where Clash Prevention Dominates
 
@@ -171,8 +183,9 @@ unnecessary auditory overhead.
   In `RESULT` blocks and external tool outputs, multiple independent artifacts
   are emitted concurrently. Strict linear order is less meaningful than absolute
   unambiguous reference. Here, high-entropy adjective-noun pairings or distinct
-  category nouns (e.g., minerals: `amber`, `cobalt`, `quartz`) prevent clashes
-  when referencing blocks across distant turns (`(ref: quartz)`).
+  category nouns (e.g., minerals: `amber`, `cobalt`, `quartz`) can make references
+  across distant turns easier to use (`(ref: quartz)`). Canonical block IDs
+  retain identity; names must resolve unambiguously within their working context.
 - **Crossing Boundaries**:
   When a forward `STATE` observation references an earlier `RESULT` block:
   ```markdown
@@ -276,7 +289,7 @@ turn content:
 
 | Facet | Potential Decorators | What It Tells the Operator |
 | :--- | :--- | :--- |
-| **Identity & Handle** | Sequence name (`bravo`), hash alias (`bold-bohr`), or short hash (`id:8f3a`) | Unique identity for targeting via `--infer-from` or `/jump`. |
+| **Identity & Handle** | Sequence name (`bravo`), mnemonic alias (`bold-bohr`), or short fingerprint (`id:8f3a`) | A human handle for contextual selection, backed by canonical identity. |
 | **Lineage & Forking** | `parent:alpha`, `^8f39`, `branch:charlie-helium` | Explicit topology; reveals when a turn forks rather than continues. |
 | **State & Delta Role** | `delta:d_01`, `key:true`, `anchor` | Distinguishes whether a state turn is an anchor snapshot, intermediate delta, or key milestone. |
 | **Chronology & Performance** | `t:09:14:22`, `dur:1.2s`, `seq:4` | Wallclock execution time and latency without searching through daemon logs. |
@@ -294,14 +307,16 @@ _TRANSCRIPT_ROLE_MARKER_RE = re.compile(
     r"^## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL|STATE|STATE-DIFF)(?:/([^ \t]+))?(?:[ \t]+(.*))?$"
 )
 ```
-This naturally supports:
+The generic transcript parser accepts and preserves headings such as:
 ```markdown
 ## TOAS:STATE/bravo [id:8f3a t:09:14:22 key:true]
 ## TOAS:ASSISTANT [bold-bohr dur:1.8s]
 ## TOAS:STATE-DIFF/charlie-hydrogen [parent:bravo delta:d_02]
 ```
-- **Pros**: Zero vertical whitespace overhead; stays on the single `## TOAS:...` header line;
-  trivially parsed into `role`, `qualifier` (`bravo`), and structured attribute map.
+- **Pros**: Zero vertical whitespace overhead; stays on the single `## TOAS:...`
+  header line. Structured decorator parsing would be a new contract: the current
+  parser preserves the marker rather than producing an attribute map, and state
+  selectors currently recognize numeric qualifiers.
 - **Cons**: Can grow wide if too many attributes are enabled at once.
 
 ### Option 2: Metadata Attribute Line / Block
@@ -323,54 +338,157 @@ metadata the transcript projects:
 
 ## 8. Lifecycle And Affordances
 
-### 1. Emission (Write-Time)
-When `toas step` executes a turn or emits consequence blocks to `stdout` (or streams
-into Vim via `on_projection_delta`), it formats the header using the active decoration
-level, embedding the sequence handle and durable event link.
+### Working context and durable identity — confirmed direction
 
-### 2. User Editing And Reconciliation (Read-Time)
-What happens when the operator edits a decorated turn?
-- If the operator edits the body of `## TOAS:STATE/bravo [id:8f3a]`, the runtime
-  detects that the body has changed relative to event `8f3a`.
-- The decorator `[id:8f3a]` acts as the explicit **provenance anchor**: it tells the
-  runtime exactly which durable snapshot the user started modifying, turning an
-  in-place edit into an unambiguous branch from `8f3a`.
-- The next step produces a new turn (e.g. `STATE/bravo-hydrogen` or `STATE/charlie`)
-  without overwriting or corrupting `bravo`.
+The event log is almost entirely write-only in ordinary use. Reconstructing,
+reading, and branch-continuing an ancient transcript remain important, but
+human names need not be permanent global identifiers across those histories.
+Canonical event and result-block IDs retain their existing identity semantics.
 
-### 3. Operational Addressing
-Mnemonic decorators become first-class CLI and slash-command arguments:
-- `toas step --infer-from bravo`
-- `toas step --infer-from charlie-helium`
-- `toas diff alpha bravo`
-- `/jump bold-bohr`
-Because `bravo` and `charlie-helium` roll off the tongue and fit the auditory loop,
-the operator can type them without copying and pasting hex strings.
+Names should stay dependable while their objects or references remain in the
+user's working context. Editing a turn need not immediately change its human
+name. Ordinary appends provide an order for assigning later names. A projection
+that temporarily hides a turn is not necessarily the end of that context;
+similarly, a state reference can keep an older result relevant after its source
+turn leaves the visible transcript.
 
-### 4. The Strict LLM-Inert Invariant
-At prompt construction time (`llm-input` or `_run_state_step` request assembly):
-- The parser extracts the pure role and content.
-- All decorator qualifiers, attributes, and brackets are stripped.
-- The model receives only clean message semantics.
-- Exposing deep graph provenance to the human operator has **zero token cost**
-  and **zero prompt drift risk**.
+The selected transcript and LCP reconciliation supply branch context:
 
-## 9. Open Exploration Questions
+```text
+original bravo -> child referring to bravo
+edited bravo   -> child referring to bravo
+```
 
-1. **User Configuration Mechanics**:
-   - Should `sequence_domain` be configured under `/config set transcript.sequence_domain elements`?
-   - Should custom user sequences be allowed (e.g. passing a custom list in `.toas/config.yaml`)?
-2. **Lane Graduation Threshold**:
-   - Under what condition does `charlie-lithium` drop the `charlie-` prefix?
-     Is it after a fixed number of branch turns (e.g. 2 steps), when explicitly
-     promoted via an operator gesture (e.g. `/focus`), or configurable?
-3. **Namespace Separation for Types**:
-   - Should different entity types have hard-coded vocabulary domains (e.g. `STATE`
-     always uses Elements/NATO, `RESULT` always uses Minerals/Adjective-Noun) to
-     prevent cross-type collisions automatically?
-4. **Relationship to Open Tasks**:
-   - `260825-visible-transcript-turn-ids`: Generalizes from bare turn IDs to this rich
-     decorator system.
-   - `260927-state-step-history-projections`: Stage 2 "Key states" can designate key
-     anchors via decorators (`key:true` or dedicated milestone names).
+Each child refers to the turn in its own transcript. A decorator does not
+override LCP, turn changed content into an old event, or select historical
+parentage independently. The previous proposal that an ID trailer itself
+causes a branch from the identified event is superseded.
 
+A freshly reconstructed context may receive new names, provided its retained
+references remain coherent. Exact assignment, retirement, and reconstruction
+mechanics are open. Copy/paste is a concrete source of duplicate definitions;
+names need local ambiguity handling, not global uniqueness.
+
+### Optional historical naming evidence — tentative
+
+History might retain that an object was once displayed under a particular name
+and thematic sequence. Such evidence would aid recognition, not establish a
+must-be-unique alias or override current contextual resolution. Whether to
+record assignments, uses, or both, and whether this belongs in entry metadata
+or a separate append-only record, remain open. This is not a prerequisite for
+the first human naming affordance.
+
+### Text search and editor navigation — explored
+
+Alphabetic progression could map naturally to editor-local marks. However,
+searchable definitions and references already provide editor-neutral navigation:
+
+```markdown
+## TOAS:USER #bravo [87fd...]
+
+Reconsider @alpha before continuing.
+```
+
+Alternative heading spelling: `## TOAS:USER [bravo 87fd...]`. Using `#bravo`
+for references too would let search walk definitions and uses together; using
+`#bravo` for definitions and `@bravo` for references separates those searches.
+These are syntax candidates, not an adopted grammar. Vim marks, completion,
+highlighting, and go-to-reference behavior can remain optional conveniences.
+
+## 9. References And Inference Packets — 2026-10-04 Refinement
+
+### Explicit references — confirmed direction, grammar open
+
+The strongest turn-name use-case is talking about earlier transcript turns.
+Explicit prose syntax should distinguish a reference from an ordinary word;
+every occurrence of "bravo" must not become a candidate for reinterpretation.
+Literal examples and inert source/result bodies also need a non-reference
+interpretation. Exact syntax and escape/literal rules remain open.
+
+Human references resolve within the selected working context to canonical
+targets. Model-facing references use canonical IDs rather than overloaded
+thematic words. A reverse projection back to human names is a useful tentative
+extension when model responses refer to those IDs.
+
+For result deduplication, user-facing `(ref: cobalt)` could resolve to the
+existing `ib_...` block ID. The current state path already condenses inert
+blocks into canonical references and expands available bodies when building
+model input. Human names would layer over that mechanism; they would not
+replace canonical block IDs.
+
+### Inclusion and identification — confirmed distinction
+
+What a reference requests depends on the inference packet:
+
+| Packet style | Reference consequence |
+| --- | --- |
+| Ordinary state packet | Re-include referenced material absent from the current state/observation packet. |
+| Transcript packet with identification on demand | When the target is already included, add its model-facing turn ID and translate the reference. |
+| Transcript packet with identification always present | Translate the reference; included turns already carry their model-facing IDs. |
+
+Identity alone does not supply content. If a selected transcript packet omits
+the target, its inclusion rule still needs to be explicit. The placement and
+lifetime of re-included material in state packets remain open; reference
+expansion does not by itself mean permanently copying material into state.
+
+"Inference profile" is tentative vocabulary for packet-building choices.
+Content inclusion and identity decoration are separate dimensions. Selecting a
+human state-history view should not implicitly select an inference profile.
+The existing explicit multi-state `/infer-from` path is another packet shape
+to account for, rather than assuming all state inference is state-only.
+
+Always-present model IDs may be useful for preserving KV-cache prefixes.
+Adding an ID retroactively to an earlier heading changes the token prefix at
+that point. Always emitting stable canonical IDs costs tokens but avoids that
+particular rewrite; it does not guarantee backend cache availability. See
+[llama.cpp server prompt-cache behavior](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
+Human theme changes need not change the canonical IDs serialized to the model.
+Neither decoration policy nor its default has been selected.
+
+The earlier universal LLM-inert claim is superseded: decorative names can be
+excluded, but meaningful references require translation, identification, or
+content inclusion. This is design direction, not an implemented invariant.
+In particular, the current multi-state packet builder forwards state headings.
+
+## 10. Decision Order And Existing Task Boundaries
+
+Proposed next design milestone: a small reference contract. Earlier theme
+exploration remains available without becoming a prerequisite.
+
+| Decide sooner | Reason |
+| --- | --- |
+| Definition/reference grammar and literal boundaries | Recognize intentional references without rewriting ordinary prose. |
+| Working-context assignment and retention | Preserve familiar names through edits, appends, retained references, and view changes. |
+| Resolution relative to LCP reconciliation | Avoid treating mere redecoration or equivalent reference spelling as substantive edits; preserve real branching. |
+| Packet inclusion and identification rules | Make state re-inclusion and transcript ID decoration explicit, including cache tradeoffs. |
+| Missing or ambiguous target behavior | Handle copied fragments and unresolved references without guessing. |
+
+Tentatively defer thematic dictionaries, sibling-sequence allocation, prefix graduation,
+exhaustion spelling, rich metadata trailers, editor integrations, and a general
+inference-profile configuration framework. Historical naming storage remains
+open. Key-state designation is a separate projection choice: having a name
+does not itself make a state a milestone.
+
+Proposed task routing, not task promotions or new implementation commitments:
+
+- [Visible transcript turn IDs](../../tasks/open/260825-visible-transcript-turn-ids.md)
+  is the existing design home for human names, contextual canonical reference
+  resolution, and model-facing identification. Its earlier hidden-ID wording
+  needs the profile-dependent refinement above. Bounded implementation children
+  can follow once the contract is concrete.
+- [State-step history projections](../../tasks/open/260927-state-step-history-projections.md)
+  retains ownership of the five views, key-state designation, and projection
+  selection. Display-only changes should preserve model semantics; explicit
+  reference inclusion and multi-state inference are distinct packet choices.
+  It need not wait for elaborate themes.
+- [Projection discoverability](../../tasks/open/260823-projection-discoverability.md)
+  can teach the concrete surfaces after their contract exists.
+- [Transcript highlighting](../../tasks/open/260813-transcript-highlighting-design.md)
+  can consume the eventual grammar. Search already supplies basic navigation;
+  a separate marks task is unnecessary at this stage.
+
+Next evidence: transcript specimens for a past-turn reference, a result
+reference carried into state, an edit to a named turn, and reconstruction with
+fresh labels. Show the human text, resolved canonical targets, and model
+packets, including on-demand versus always-present transcript IDs. No new task
+or runtime implementation is opened by this note update.
