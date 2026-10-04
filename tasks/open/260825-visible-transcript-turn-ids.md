@@ -10,10 +10,11 @@ keywords: transcript, surface, follow-on, projection, usability, contract
 
 # Visible Transcript Turn IDs
 
-Define a general transcript-facing way to display stable turn identifiers that
-are normally excluded from the LLM message projection, so users and editor or
-CLI surfaces can select a specific turn without relying on cursor state or
-hidden global selection state.
+Define transcript-facing human names and explicit references backed by
+canonical identity, so users and editor or CLI surfaces can select a turn
+without relying on cursor state or hidden global selection state. Human naming,
+LCP comparison, and model-facing identification have separate contracts;
+inference-profile defaults remain open.
 
 ## Motivation
 
@@ -22,9 +23,9 @@ backward from the transcript frontier. Selecting an older valid handoff is a
 useful fork affordance, but making that selection robust across Vim, CLI, and
 other editors needs a visible, user-addressable turn identity.
 
-The identifier should help users refer to transcript turns and should not alter
-what the model receives by default. It is a surface affordance, not a new
-runtime frontier or an event-log cursor.
+Human decoration supports reading and reference authoring. Some model packets
+need canonical identification or reference-content inclusion. Display choices
+must not silently choose an inference profile or become graph-parent authority.
 
 ## Open Shape
 
@@ -34,8 +35,12 @@ runtime frontier or an event-log cursor.
   transcript-local display identity;
 - define how IDs survive branching, transcript edits, reconciliation, and
   successor replay;
-- define opt-in projection rules so IDs remain hidden from LLM input unless a
-  future operation explicitly requests them;
+- define how retained references carry targets after their definitions leave
+  the visible transcript, including save/reopen and reconstruction behavior;
+- define a source-preserving reference-aware LCP comparison form separately
+  from model-facing marker projection and visibility cleanup;
+- define profile-dependent identification and content-inclusion behavior
+  without selecting a universal model-input default prematurely;
 - define editor-neutral selection arguments and validation for operations such
   as choosing an older handoff;
 - ensure selecting a turn is carried in the operation call and never persisted
@@ -44,7 +49,8 @@ runtime frontier or an event-log cursor.
 ## Non-Goals For Inception
 
 - changing the canonical event graph or message-event identity model;
-- making turn IDs part of the default model-input projection;
+- adopting a model-input identification default before its profile contract
+  and stable allocation behavior are specified;
 - adding cursor state, selected-node state, or an ambient editor selection to
   durable history;
 - implementing every older-handoff operation that may eventually consume the
@@ -52,10 +58,11 @@ runtime frontier or an event-log cursor.
 
 ## Exit Criteria
 
-A visible turn-ID representation, projection rule, branching/editing behavior,
-and stateless selection contract are documented and tested. At least one
-consumer can pass an explicit turn identity in its operation request without
-creating global selection state or changing default LLM input.
+A human naming/reference representation, retained-target lifecycle, comparison
+form, branching/editing behavior, and stateless selection contract are
+documented and tested. At least one consumer can pass an explicit turn identity
+without creating global selection state. Model input follows an explicitly
+defined packet policy rather than inheriting human decoration choices.
 
 ## Progress
 
@@ -85,4 +92,18 @@ creating global selection state or changing default LLM input.
   editing, cache-stable `[t:N]` packet indexing, and content re-inclusion for
   state packets.
 
-
+- 2026-10-04: Follow-up separates authored transcript, LCP comparison form,
+  canonical reference evidence, and model-facing packet projection. Proposed
+  retained bindings travel with the working context and fall back only when a
+  current definition is absent. Proposed LCP compares exact literal spans and
+  typed canonical targets, matches a prefix before assigning new suffix IDs,
+  and preserves authored content. The contract records a lifecycle/comparison
+  specimen matrix and keeps binding spelling, storage schema, typed-state
+  boundaries, legacy adoption, and failure disposition open. Earlier default
+  always-present IDs and blanket hidden-ID task language are superseded by
+  candidate packet policies. No runtime code or implementation task changed.
+  Validation: current `_lcp` probes confirm heading-only relabeling matches
+  while body-reference relabeling diverges. Local links, numbered headings,
+  whitespace, and fence balance pass; continuity/relationship fields and manual
+  workboard sections are unchanged. Generated workboard synchronized. Full
+  runtime suite not run for this documentation-only proposal.

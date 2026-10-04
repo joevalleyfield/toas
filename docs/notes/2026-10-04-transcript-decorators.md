@@ -577,8 +577,10 @@ Reconsider [t:2] before we write the migration script.
 Does an embedded database meet our multi-process daemon requirements?
 ```
 
-*Cache Tradeoff*: Adds a small, constant token overhead per turn, but preserves
-100% prompt-prefix stability across turns.
+*Cache Tradeoff*: Adds token overhead per turn, but avoids retroactive heading
+changes caused by later references. Other packet changes and backend behavior
+can still affect prefix reuse. Index allocation and the default policy remain
+open.
 
 ---
 
@@ -600,12 +602,14 @@ src/toas/cli.py
 state:
   active_focus: cli entrypoint
   observations:
-    - cli_symbol_table: [[cobalt]]
+    - cli_symbol_table: "[[cobalt]]"
 ````
 
 #### Canonical Resolution
 - `cobalt` resolves to inert block `ib_9a4f` in durable storage.
-- The `STATE` event in `events.jsonl` stores: `observations: [{cli_symbol_table: "ib_9a4f"}]`.
+- Authored state remains available. A proposed source-linked resolution fact
+  records that this use of `cobalt` targets `ib_9a4f`; storage layout remains
+  open. This specimen does not require rewriting authored state into bare IDs.
 
 #### Model Inference Packet (`llm-input`)
 If `charlie` has scrolled out of the active context window (for example, in a
@@ -692,3 +696,31 @@ Does an embedded database meet our multi-process daemon requirements?
 - The human experience is seamless and coherent, while the durable record
   remains immutable.
 
+Reconciliation must also compare the resolved reference targets; otherwise
+the literal body change from `[[bravo]]` to `[[helium]]` creates a branch in
+the current implementation. This is an intended specimen, not current runtime
+behavior. See the comparison proposal below.
+
+## 12. Retained References And LCP Comparison Follow-Up
+
+The [reference contract](2026-10-04-transcript-reference-contract.md) now
+distinguishes authored text, canonical reference-resolution evidence, the LCP
+comparison form, and model-facing packets. Model marker projection is sometimes
+needed; its syntax, visibility filtering, and result expansion do not define
+transcript cleanup for reconciliation.
+
+Proposed retained bindings travel with a working context when a definition
+leaves the visible transcript. A current name still resolves against a visible
+edited turn; historical evidence must not silently pin that use to an abandoned
+revision. Explicit canonical references can deliberately name historical
+targets. Physical binding syntax and record schema remain open.
+
+The proposed comparison preserves exact literal text and substitutes typed
+canonical target atoms only for recognized references. Re-theming a reference
+without changing its target can preserve the prefix; editing prose, a literal
+example, or the target itself remains a substantive change. Prefix matching
+establishes earlier turn identities before new suffix references are recorded.
+This preserves LCP parent selection without using speculative new event IDs.
+
+The contract includes a required lifecycle/comparison specimen matrix. It is
+design work, not a runtime implementation or a general normalization pass.
