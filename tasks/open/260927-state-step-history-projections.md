@@ -144,14 +144,24 @@ compound observation, independent of the selected transcript projection.
   diffs and `[[alpha->delta]]` for cumulative spans, resolving node vs. edge
   ambiguity and making the full alternating redundant view ($S_0 \to D_{0\to 1} \to S_1$)
   first-class for audit and debugging.
-- 2026-10-04: Implemented Slice 1 of Stage 2 in `src/toas/runtime/state_step.py`:
-  generalized `STATE_TURN_PATTERN`, `is_state_turn_marker`, `parse_state_marker`,
-  and `parse_state_turn` to recognize node handles (`[[alpha]]`), transition
-  vectors (`[[alpha->bravo]]`), and milestone trailers (`[key:true]`) while
-  preserving full backward compatibility with numeric markers (`STATE/1`);
-  updated `render_state_turn` to accept `handle=`, `vector=`, and `is_key=`;
-  and generalized `find_state_turn_index_by_label` to support handle, vector,
-  bracket, and role-prefixed lookups. All 3,423 tests passing with 100% coverage.
+- 2026-10-04: Completed Stage 2 in `src/toas/runtime/state_step.py`, `src/toas/graph.py`,
+  `src/toas/operator_api.py`, `src/toas/cli.py`, `src/toas/cli_commands.py`,
+  `src/toas/cli_surface_commands.py`, `src/toas/cli_dispatch.py`, and `src/toas/runtime/request_ops.py`:
+  - Implemented orthogonal Cartesian projection engine across `snapshots` in
+    `{all, key, anchor}` and `diffs` in `{none, step, cumulative}` with ergonomic
+    aliases (`snapshots`, `redundant`, `diffs`, `milestones`, `delta`).
+  - Added StateHistoryPoint extraction and rendering with vector spelling
+    (`## TOAS:STATE-DIFF [[alpha->bravo]]` and `[[alpha->delta]]`), milestone
+    trailers (`[key:true]`), and genesis anchor $S_0$ preservation.
+  - Added durable recording of projection selections (`state_projection_selection`)
+    and key designations (`state_key_designation`) in `events.jsonl` with graph
+    read/append support.
+  - Implemented zero-inference milestone updates via `/sync` directive
+    interception in `toas step`.
+  - Wired CLI flags (`--snapshots`, `--diffs`, `--projection`, `--record`, and positional
+    aliases) and daemon RPC payload forwarding for `toas transcript`.
+  - Verified with 3,430 passed tests across all 9 matrix cells, aliases, CLI/RPC pathways,
+    and preserved 100.00% statement coverage across 22,064 statements.
 
 Status: Active.
 

@@ -151,10 +151,18 @@ def dispatch_main(
             graph_kwargs["after"] = after
         deps.run_graph(projection, **graph_kwargs)
     elif argv[0] == "transcript":
-        anchor_id, source_tokens = parse_transcript_options(argv)
+        anchor_id, source_tokens, snapshots, diffs, projection_alias, record = parse_transcript_options(argv)
         transcript_kwargs: dict[str, object] = {}
         if source_tokens is not None:
             transcript_kwargs["source_tokens"] = source_tokens
+        if snapshots is not None:
+            transcript_kwargs["snapshots"] = snapshots
+        if diffs is not None:
+            transcript_kwargs["diffs"] = diffs
+        if projection_alias is not None:
+            transcript_kwargs["projection"] = projection_alias
+        if record:
+            transcript_kwargs["record"] = True
         deps.run_transcript(anchor_id, **transcript_kwargs)
     elif argv[0] == "llm-input":
         anchor_id, source_tokens, envelope = parse_llm_input_options(argv)

@@ -174,13 +174,24 @@ def run_history(
     )
 
 
-def run_transcript(head_id: str | None = None, source_tokens: list[str] | None = None) -> None:
+def run_transcript(
+    head_id: str | None = None,
+    source_tokens: list[str] | None = None,
+    snapshots: str | None = None,
+    diffs: str | None = None,
+    projection: str | None = None,
+    record: bool = False,
+) -> None:
     run_surface_transcript(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_transcript_text=operator_transcript_text,
         head_id=head_id,
         source_tokens=source_tokens,
+        snapshots=snapshots,
+        diffs=diffs,
+        projection=projection,
+        record=record,
     )
 
 

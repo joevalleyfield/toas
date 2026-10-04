@@ -279,9 +279,86 @@ def parse_history_options(argv: list[str]) -> tuple[int, list[str] | None, str |
     return limit, source_tokens, positionals[1]
 
 
-def parse_transcript_options(argv: list[str]) -> tuple[str | None, list[str] | None]:
-    anchor_id, source_tokens, _ = _parse_lineage_projection_options(argv, usage=TRANSCRIPT_USAGE, allow_envelope=False)
-    return anchor_id, source_tokens
+def parse_transcript_options(
+    argv: list[str],
+) -> tuple[str | None, list[str] | None, str | None, str | None, str | None, bool]:
+    from .runtime.state_step import PROJECTION_ALIASES
+
+    positionals: list[str] = []
+    source_tokens: list[str] | None = None
+    snapshots: str | None = None
+    diffs: str | None = None
+    projection: str | None = None
+    record = False
+    i = 1
+    while i < len(argv):
+        token = argv[i]
+        if token == "--sources":
+            if i + 1 >= len(argv):
+                raise SystemExit(TRANSCRIPT_USAGE)
+            source_tokens = []
+            i += 1
+            while i < len(argv) and not argv[i].startswith("--"):
+                source_tokens.append(argv[i])
+                i += 1
+            if not source_tokens:
+                raise SystemExit(TRANSCRIPT_USAGE)
+            continue
+        if token == "--snapshots":
+            if i + 1 >= len(argv):
+                raise SystemExit(TRANSCRIPT_USAGE)
+            snapshots = argv[i + 1]
+            i += 2
+            continue
+        if token.startswith("--snapshots="):
+            snapshots = token.split("=", 1)[1]
+            i += 1
+            continue
+        if token == "--diffs":
+            if i + 1 >= len(argv):
+                raise SystemExit(TRANSCRIPT_USAGE)
+            diffs = argv[i + 1]
+            i += 2
+            continue
+        if token.startswith("--diffs="):
+            diffs = token.split("=", 1)[1]
+            i += 1
+            continue
+        if token == "--projection":
+            if i + 1 >= len(argv):
+                raise SystemExit(TRANSCRIPT_USAGE)
+            projection = argv[i + 1]
+            i += 2
+            continue
+        if token.startswith("--projection="):
+            projection = token.split("=", 1)[1]
+            i += 1
+            continue
+        if token == "--record":
+            record = True
+            i += 1
+            continue
+        if token.startswith("--"):
+            raise SystemExit(f"unknown option: {token}")
+        positionals.append(token)
+        i += 1
+
+    anchor_id: str | None = None
+    if len(positionals) == 1:
+        if positionals[0].lower() in PROJECTION_ALIASES and projection is None:
+            projection = positionals[0].lower()
+        else:
+            anchor_id = positionals[0]
+    elif len(positionals) == 2:
+        if positionals[1].lower() in PROJECTION_ALIASES and projection is None:
+            anchor_id = positionals[0]
+            projection = positionals[1].lower()
+        else:
+            raise SystemExit(TRANSCRIPT_USAGE)
+    elif len(positionals) > 2:
+        raise SystemExit(TRANSCRIPT_USAGE)
+
+    return anchor_id, source_tokens, snapshots, diffs, projection, record
 
 
 def parse_llm_input_options(argv: list[str]) -> tuple[str | None, list[str] | None, bool]:

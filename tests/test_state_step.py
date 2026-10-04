@@ -1299,3 +1299,267 @@ def test_spilled_tool_result_in_state_step_packet_projection(tmp_path):
     )
     node_edited = packet_edited["observation"]["tool_outcomes"][0]["result"][0]
     assert node_edited["content"] == "[OK] get_structure: manually narrowed to symbol_1"
+
+
+def test_normalize_projection_spec():
+    from toas.runtime.state_step import normalize_projection_spec
+
+    # defaults
+    assert normalize_projection_spec() == ("all", "none")
+
+    # aliases
+    assert normalize_projection_spec(alias="snapshots") == ("all", "none")
+    assert normalize_projection_spec(alias="redundant") == ("all", "step")
+    assert normalize_projection_spec(alias="diffs") == ("anchor", "step")
+    assert normalize_projection_spec(alias="milestones") == ("key", "cumulative")
+    assert normalize_projection_spec(alias="delta") == ("anchor", "cumulative")
+
+    # explicit values
+    assert normalize_projection_spec(snapshots="key", diffs="step") == ("key", "step")
+    assert normalize_projection_spec(snapshots="anchor", diffs="cumulative") == ("anchor", "cumulative")
+
+    # invalid alias
+    with pytest.raises(ValueError, match="unknown projection alias"):
+        normalize_projection_spec(alias="invalid_alias")
+
+    # invalid snapshots
+    with pytest.raises(ValueError, match="invalid snapshots value"):
+        normalize_projection_spec(snapshots="bogus")
+
+    # invalid diffs
+    with pytest.raises(ValueError, match="invalid diffs value"):
+        normalize_projection_spec(diffs="bogus")
+
+
+def test_cartesian_state_projections_all_cells(tmp_path):
+    from toas.runtime.state_step import (
+        StateHistoryPoint,
+        extract_state_history_points,
+        project_state_history_points,
+        project_state_transcript,
+        read_state_key_designations,
+        read_state_projection_selection,
+        write_state_key_designations,
+        write_state_projection_selection,
+    )
+
+    points = [
+        StateHistoryPoint(handle="alpha", state={"step": 0, "status": "init"}, is_key=True),
+        StateHistoryPoint(handle="bravo", state={"step": 1, "status": "progress"}, is_key=False),
+        StateHistoryPoint(handle="charlie", state={"step": 2, "status": "milestone"}, is_key=True),
+        StateHistoryPoint(handle="delta", state={"step": 3, "status": "frontier"}, is_key=False),
+    ]
+
+    # Empty points
+    assert project_state_history_points([]) == []
+
+    # 1. Pure Snapshots (all, none)
+    snap_turns = project_state_history_points(points, snapshots="all", diffs="none")
+    assert len(snap_turns) == 4
+    assert [t["marker"] for t in snap_turns] == [
+        "## TOAS:STATE [[alpha]] [key:true]",
+        "## TOAS:STATE [[bravo]]",
+        "## TOAS:STATE [[charlie]] [key:true]",
+        "## TOAS:STATE [[delta]]",
+    ]
+
+    # 2. Full Alternating Redundancy (all, step)
+    redundant_turns = project_state_history_points(points, snapshots="all", diffs="step")
+    assert len(redundant_turns) == 7
+    markers = [t["marker"] for t in redundant_turns]
+    assert markers == [
+        "## TOAS:STATE [[alpha]] [key:true]",
+        "## TOAS:STATE-DIFF [[alpha->bravo]]",
+        "## TOAS:STATE [[bravo]]",
+        "## TOAS:STATE-DIFF [[bravo->charlie]]",
+        "## TOAS:STATE [[charlie]] [key:true]",
+        "## TOAS:STATE-DIFF [[charlie->delta]]",
+        "## TOAS:STATE [[delta]]",
+    ]
+    assert "status: progress" in redundant_turns[1]["content"]
+
+    # 3. Anchor + All Diffs (anchor, step)
+    diffs_turns = project_state_history_points(points, snapshots="anchor", diffs="step")
+    assert len(diffs_turns) == 4
+    assert [t["marker"] for t in diffs_turns] == [
+        "## TOAS:STATE [[alpha]] [key:true]",
+        "## TOAS:STATE-DIFF [[alpha->bravo]]",
+        "## TOAS:STATE-DIFF [[bravo->charlie]]",
+        "## TOAS:STATE-DIFF [[charlie->delta]]",
+    ]
+
+    # 4. Total Run Delta (anchor, cumulative)
+    delta_turns = project_state_history_points(points, snapshots="anchor", diffs="cumulative")
+    assert len(delta_turns) == 2
+    assert [t["marker"] for t in delta_turns] == [
+        "## TOAS:STATE [[alpha]] [key:true]",
+        "## TOAS:STATE-DIFF [[alpha->delta]]",
+    ]
+    assert "status: frontier" in delta_turns[1]["content"]
+
+    # 5. Genesis Anchor Only (anchor, none)
+    anchor_only = project_state_history_points(points, snapshots="anchor", diffs="none")
+    assert len(anchor_only) == 1
+    assert anchor_only[0]["marker"] == "## TOAS:STATE [[alpha]] [key:true]"
+
+    # 6. Key Milestones Only (key, none)
+    key_only = project_state_history_points(points, snapshots="key", diffs="none")
+    assert len(key_only) == 2
+    assert [t["marker"] for t in key_only] == [
+        "## TOAS:STATE [[alpha]] [key:true]",
+        "## TOAS:STATE [[charlie]] [key:true]",
+    ]
+
+    # 7. Key States + Step Diffs (key, step)
+    key_step = project_state_history_points(points, snapshots="key", diffs="step")
+    assert len(key_step) == 5
+    assert [t["marker"] for t in key_step] == [
+        "## TOAS:STATE [[alpha]] [key:true]",
+        "## TOAS:STATE-DIFF [[alpha->bravo]]",
+        "## TOAS:STATE-DIFF [[bravo->charlie]]",
+        "## TOAS:STATE [[charlie]] [key:true]",
+        "## TOAS:STATE-DIFF [[charlie->delta]]",
+    ]
+
+    # 8. Key States + Cumulative Diffs (key, cumulative / milestones)
+    key_cumul = project_state_history_points(points, snapshots="key", diffs="cumulative")
+    assert len(key_cumul) == 4
+    assert [t["marker"] for t in key_cumul] == [
+        "## TOAS:STATE [[alpha]] [key:true]",
+        "## TOAS:STATE-DIFF [[alpha->charlie]]",
+        "## TOAS:STATE [[charlie]] [key:true]",
+        "## TOAS:STATE-DIFF [[charlie->delta]]",
+    ]
+
+    # 9. All + Cumulative (same as redundant)
+    all_cumul = project_state_history_points(points, snapshots="all", diffs="cumulative")
+    assert len(all_cumul) == len(redundant_turns)
+
+    # Transcript round-trip with prefix and suffix turns
+    transcript_text = (
+        "## TOAS:SYSTEM\n\nSystem instructions.\n\n"
+        "## TOAS:STATE [[alpha]] [key:true]\n\nstate:\n  step: 0\n  status: init\n\n"
+        "## TOAS:STATE [[bravo]]\n\nstate:\n  step: 1\n  status: progress\n\n"
+        "## TOAS:STATE [[charlie]] [key:true]\n\nstate:\n  step: 2\n  status: milestone\n\n"
+        "## TOAS:USER\n\nContinue.\n"
+    )
+    # Project to milestones
+    projected = project_state_transcript(transcript_text, alias="milestones")
+    assert "## TOAS:SYSTEM" in projected
+    assert "## TOAS:STATE-DIFF [[alpha->charlie]]" in projected
+    assert "## TOAS:STATE [[charlie]] [key:true]" in projected
+    assert "## TOAS:USER\n\nContinue." in projected
+    assert "## TOAS:STATE [[bravo]]" not in projected
+
+    # Project to delta
+    projected_delta = project_state_transcript(transcript_text, alias="delta")
+    assert "## TOAS:STATE-DIFF [[alpha->charlie]]" in projected_delta
+    assert "## TOAS:STATE [[charlie]]" not in projected_delta
+
+    # Project with no state turns
+    non_state = "## TOAS:USER\n\nHello\n"
+    assert project_state_transcript(non_state, alias="redundant") == "## TOAS:USER\n\nHello\n"
+
+    # Durable projection selection
+    events_file = tmp_path / "events.jsonl"
+    events_file.touch()
+    assert read_state_projection_selection(events_file) is None
+    write_state_projection_selection(events_file, alias="redundant")
+    assert read_state_projection_selection(events_file) == ("all", "step")
+
+    # Re-reading with recorded selection in project_state_transcript
+    projected_recorded = project_state_transcript(transcript_text, events_path=events_file)
+    assert "## TOAS:STATE-DIFF [[alpha->bravo]]" in projected_recorded
+
+    # Durable key designations
+    assert read_state_key_designations(events_file) == {}
+    write_state_key_designations(events_file, {"bravo": True, "charlie": False})
+    read_keys = read_state_key_designations(events_file)
+    assert read_keys["bravo"] is True
+    assert read_keys["charlie"] is False
+
+    # Extract state history points with durable keys
+    turns_extracted = [
+        {"role": "state", "content": "state: {step: 0}", "marker": "## TOAS:STATE [[alpha]]"},
+        {"role": "state", "content": "state: {step: 1}", "marker": "## TOAS:STATE [[bravo]]"},
+        {"role": "state-diff", "content": "state_patch: {step: 2}", "marker": "## TOAS:STATE-DIFF [[bravo->charlie]]"},
+    ]
+    extracted_pts = extract_state_history_points(turns_extracted, events_path=events_file)
+    assert extracted_pts[0].is_key is True  # genesis is always key
+    assert extracted_pts[1].is_key is True  # from durable key designation
+    assert extracted_pts[2].is_key is False  # from durable key designation
+
+
+def test_sync_directive_and_step_execution(tmp_path):
+    from types import SimpleNamespace
+
+    from toas import cli_session_commands
+    from toas.runtime.state_step import parse_sync_directive, read_state_key_designations
+    from toas.transcript import parse_transcript
+
+    # 1. parse_sync_directive
+    turns = [
+        {"role": "assistant", "content": "hello"},
+        {"role": "user", "content": "/sync\nextra instruction"},
+    ]
+    found, cleaned = parse_sync_directive(turns)
+    assert found is True
+    assert cleaned[1]["content"] == "extra instruction"
+
+    # with non-user turn or non-string
+    non_user_turns = [{"role": "system", "content": "sys"}, {"role": "user", "content": 123}]
+    f2, c2 = parse_sync_directive(non_user_turns)
+    assert f2 is False
+
+    # 2. execute sync via _run_state_step
+    events = tmp_path / "events.jsonl"
+    events.touch()
+    session = tmp_path / "session.md"
+    session_text = (
+        "## TOAS:STATE [[alpha]]\n\nstate:\n  goal: start\n\n"
+        "## TOAS:STATE [[bravo]] [key:true]\n\nstate:\n  goal: middle\n\n"
+        "## TOAS:USER\n\n/sync\n"
+    )
+    session.write_text(session_text)
+    transcript_turns = parse_transcript(session_text)
+
+    cli_session_commands._run_state_step(
+        deps=SimpleNamespace(),
+        events_path=events,
+        session_path=session,
+        normalized_transcript=session_text,
+        session_newline="\n",
+        events=[],
+        turns=transcript_turns,
+        state_index=1,
+        parsed_turn={"turn_type": "state", "state": {"goal": "middle"}, "observation": None},
+    )
+    # Check that keys were durably recorded without inference
+    keys = read_state_key_designations(events)
+    assert keys["alpha"] is True  # genesis
+    assert keys["bravo"] is True
+
+    # 3. edge coverage for extract_state_history_points and parse_sync_directive
+    user_no_directive = [{"role": "user", "content": "plain text"}]
+    f3, c3 = parse_sync_directive(user_no_directive)
+    assert f3 is False
+    assert c3[0]["content"] == "plain text"
+
+    from toas.runtime.state_step import extract_state_history_points
+    edge_turns = [
+        {"role": "user", "content": "skip me"},
+        {"role": "state", "content": "state: {step: 0}", "marker": "## TOAS:STATE [[alpha]]"},
+        {"role": "state-diff", "content": "state_patch: {step: 1}", "marker": "## TOAS:STATE-DIFF [[alpha->bravo]]"},
+        {
+            "role": "state",
+            "content": "state: {step: 1}\ninstructions: do something\npending_tools: []\nobservation: obs_1",
+            "marker": "## TOAS:STATE [[bravo]]",
+        },
+        {"role": "state-diff", "content": "state_patch: {step: 2}", "marker": "## TOAS:STATE-DIFF [[bravo->bravo]]"},
+    ]
+    edge_pts = extract_state_history_points(edge_turns)
+    assert len(edge_pts) == 2
+    assert edge_pts[1].instructions == "do something"
+    assert edge_pts[1].pending_tools == []
+    assert edge_pts[1].observation == "obs_1"
+    assert edge_pts[1].state == {"step": 2}

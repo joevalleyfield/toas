@@ -30,7 +30,7 @@ class _CliStub:
         return None
 
     @staticmethod
-    def run_transcript(head_id=None, source_tokens=None):
+    def run_transcript(head_id=None, source_tokens=None, **kwargs):
         return None
 
     @staticmethod
@@ -87,6 +87,28 @@ def test_run_op_capture_stdout_unknown_op_raises():
             "transcript",
             {"head_id": "n2", "source_tokens": ["segments", "hot"]},
             ("run_transcript", ("n2",), {"source_tokens": ["segments", "hot"]}),
+        ),
+        (
+            "transcript",
+            {
+                "head_id": "n2",
+                "source_tokens": ["segments", "hot"],
+                "snapshots": "key",
+                "diffs": "step",
+                "projection": "milestones",
+                "record": True,
+            },
+            (
+                "run_transcript",
+                ("n2",),
+                {
+                    "source_tokens": ["segments", "hot"],
+                    "snapshots": "key",
+                    "diffs": "step",
+                    "projection": "milestones",
+                    "record": True,
+                },
+            ),
         ),
         (
             "llm_input",

@@ -372,10 +372,32 @@ def run_history(
     cli_commands.run_history(limit, source_tokens=source_tokens, anchor_id=anchor_id)
 
 
-def run_transcript(head_id: str | None = None, source_tokens: list[str] | None = None):
-    if _rpc_stdout("transcript", drop_runtime_none_fields({"head_id": head_id, "source_tokens": source_tokens})):
+def run_transcript(
+    head_id: str | None = None,
+    source_tokens: list[str] | None = None,
+    snapshots: str | None = None,
+    diffs: str | None = None,
+    projection: str | None = None,
+    record: bool = False,
+):
+    payload = drop_runtime_none_fields({
+        "head_id": head_id,
+        "source_tokens": source_tokens,
+        "snapshots": snapshots,
+        "diffs": diffs,
+        "projection": projection,
+        "record": record if record else None,
+    })
+    if _rpc_stdout("transcript", payload):
         return
-    cli_commands.run_transcript(head_id, source_tokens=source_tokens)
+    cli_commands.run_transcript(
+        head_id,
+        source_tokens=source_tokens,
+        snapshots=snapshots,
+        diffs=diffs,
+        projection=projection,
+        record=record,
+    )
 
 
 def run_session_path():

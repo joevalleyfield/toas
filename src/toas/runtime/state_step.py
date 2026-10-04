@@ -361,6 +361,372 @@ def state_delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]
     return delta
 
 
+PROJECTION_ALIASES: dict[str, tuple[str, str]] = {
+    "snapshots": ("all", "none"),
+    "redundant": ("all", "step"),
+    "diffs": ("anchor", "step"),
+    "milestones": ("key", "cumulative"),
+    "delta": ("anchor", "cumulative"),
+}
+
+
+def normalize_projection_spec(
+    snapshots: str | None = None,
+    diffs: str | None = None,
+    alias: str | None = None,
+) -> tuple[str, str]:
+    """Normalize snapshot frequency and diff granularity, resolving any alias."""
+    if alias is not None:
+        clean_alias = alias.lower().strip()
+        if clean_alias not in PROJECTION_ALIASES:
+            raise ValueError(
+                f"unknown projection alias: {alias!r}; expected one of {sorted(PROJECTION_ALIASES.keys())}"
+            )
+        alias_snapshots, alias_diffs = PROJECTION_ALIASES[clean_alias]
+        snapshots = snapshots or alias_snapshots
+        diffs = diffs or alias_diffs
+
+    clean_snapshots = (snapshots or "all").lower().strip()
+    clean_diffs = (diffs or "none").lower().strip()
+
+    valid_snapshots = {"all", "key", "anchor"}
+    if clean_snapshots not in valid_snapshots:
+        raise ValueError(
+            f"invalid snapshots value: {snapshots!r}; expected one of {sorted(valid_snapshots)}"
+        )
+
+    valid_diffs = {"none", "step", "cumulative"}
+    if clean_diffs not in valid_diffs:
+        raise ValueError(
+            f"invalid diffs value: {diffs!r}; expected one of {sorted(valid_diffs)}"
+        )
+
+    return clean_snapshots, clean_diffs
+
+
+def write_state_projection_selection(
+    events_path: str | Path,
+    *,
+    snapshots: str | None = None,
+    diffs: str | None = None,
+    alias: str | None = None,
+) -> dict[str, Any]:
+    """Durably record the chosen state-history projection selection."""
+    norm_snapshots, norm_diffs = normalize_projection_spec(snapshots, diffs, alias)
+    record: dict[str, Any] = {
+        "kind": "state_projection_selection",
+        "snapshots": norm_snapshots,
+        "diffs": norm_diffs,
+    }
+    if alias is not None:
+        record["alias"] = alias.lower().strip()
+    append_state_step_records(str(events_path), [record])
+    return record
+
+
+def read_state_projection_selection(events_path: str | Path) -> tuple[str, str] | None:
+    """Read the latest recorded state-history projection selection, or None."""
+    records = state_records(str(events_path))
+    for record in reversed(records):
+        if record.get("kind") == "state_projection_selection":
+            snapshots = record.get("snapshots")
+            diffs = record.get("diffs")
+            if isinstance(snapshots, str) and isinstance(diffs, str):
+                return normalize_projection_spec(snapshots, diffs)
+    return None
+
+
+def write_state_key_designations(
+    events_path: str | Path,
+    keys: dict[str, bool],
+) -> dict[str, Any]:
+    """Durably record key-state milestone designations."""
+    record = {
+        "kind": "state_key_designation",
+        "keys": dict(keys),
+    }
+    append_state_step_records(str(events_path), [record])
+    return record
+
+
+def read_state_key_designations(events_path: str | Path) -> dict[str, bool]:
+    """Read all accumulated durable key-state milestone designations."""
+    records = state_records(str(events_path))
+    key_map: dict[str, bool] = {}
+    for record in records:
+        if record.get("kind") == "state_key_designation":
+            kdict = record.get("keys")
+            if isinstance(kdict, dict):
+                for k, v in kdict.items():
+                    key_map[str(k)] = bool(v)
+    return key_map
+
+
+_SYNC_DIRECTIVE_RE = re.compile(r"(?m)^/sync\s*$")
+
+
+def parse_sync_directive(turns: list[dict[str, Any]]) -> tuple[bool, list[dict[str, Any]]]:
+    """Inspect trailing user/control turns for /sync, stripping directive from prose."""
+    found = False
+    modified_turns: list[dict[str, Any]] = []
+
+    for turn in turns:
+        if turn.get("role") not in {"user", "control"} or not isinstance(turn.get("content"), str):
+            modified_turns.append(turn)
+            continue
+        content = turn["content"]
+        match = _SYNC_DIRECTIVE_RE.search(content)
+        if match is not None:
+            found = True
+            new_content = _SYNC_DIRECTIVE_RE.sub("", content).strip()
+            new_turn = dict(turn)
+            new_turn["content"] = new_content
+            modified_turns.append(new_turn)
+        else:
+            modified_turns.append(turn)
+
+    return found, modified_turns
+
+
+@dataclass
+class StateHistoryPoint:
+    handle: str
+    state: dict[str, Any]
+    is_key: bool = False
+    state_number: int | None = None
+    format: str = "yaml"
+    instructions: str | None = None
+    pending_tools: list[dict[str, Any]] | None = None
+    observation: Any = None
+
+
+def extract_state_history_points(
+    turns: list[dict[str, Any]],
+    *,
+    events_path: str | Path | None = None,
+) -> list[StateHistoryPoint]:
+    """Extract ordered state snapshots and their metadata from transcript turns."""
+    durable_keys = read_state_key_designations(events_path) if events_path else {}
+    points: list[StateHistoryPoint] = []
+    points_by_handle: dict[str, StateHistoryPoint] = {}
+
+    for turn in turns:
+        role = turn.get("role")
+        if role not in {"state", "state-diff"}:
+            continue
+        parsed = parse_state_turn(turn)
+        handle = parsed.get("handle") or "1"
+        is_key = durable_keys.get(handle, parsed.get("is_key", False))
+        fmt = parsed.get("format", "yaml")
+        instructions = parsed.get("instructions")
+        pending_tools = parsed.get("pending_tools")
+        obs = parsed.get("observation")
+        snum = parsed.get("state_number")
+
+        if role == "state":
+            st = parsed["state"]
+            if handle in points_by_handle:
+                pt = points_by_handle[handle]
+                pt.state = st
+                pt.is_key = is_key or pt.is_key
+                pt.format = fmt
+                if instructions is not None:
+                    pt.instructions = instructions
+                if pending_tools is not None:
+                    pt.pending_tools = pending_tools
+                if obs is not None:
+                    pt.observation = obs
+            else:
+                pt = StateHistoryPoint(
+                    handle=handle,
+                    state=st,
+                    is_key=is_key,
+                    state_number=snum,
+                    format=fmt,
+                    instructions=instructions,
+                    pending_tools=pending_tools,
+                    observation=obs,
+                )
+                points.append(pt)
+                points_by_handle[handle] = pt
+        elif role == "state-diff":
+            patch = parsed["state_patch"]
+            src_handle = parsed.get("source_handle")
+            target_handle = parsed.get("target_handle") or handle
+            base_state = (
+                points_by_handle[src_handle].state
+                if src_handle and src_handle in points_by_handle
+                else (points[-1].state if points else initial_state())
+            )
+            applied = _merge_patch(base_state, patch)
+            if target_handle in points_by_handle:
+                pt = points_by_handle[target_handle]
+                pt.state = applied
+                pt.is_key = is_key or pt.is_key
+            else:
+                pt = StateHistoryPoint(
+                    handle=target_handle,
+                    state=applied,
+                    is_key=is_key,
+                    state_number=snum,
+                    format=fmt,
+                    instructions=instructions,
+                    pending_tools=pending_tools,
+                    observation=obs,
+                )
+                points.append(pt)
+                points_by_handle[target_handle] = pt
+
+    if points:
+        points[0].is_key = True
+
+    return points
+
+
+def project_state_history_points(
+    points: list[StateHistoryPoint],
+    *,
+    snapshots: str = "all",
+    diffs: str = "none",
+) -> list[dict[str, Any]]:
+    """Render state history points into typed turns according to Cartesian parameters."""
+    if not points:
+        return []
+
+    norm_snapshots, norm_diffs = normalize_projection_spec(snapshots, diffs)
+    n = len(points) - 1
+    key_indices = [i for i, pt in enumerate(points) if i == 0 or pt.is_key]
+
+    def _render_snapshot_node(pt: StateHistoryPoint) -> dict[str, Any]:
+        rendered = render_state_turn(
+            pt.state,
+            handle=pt.handle,
+            is_key=pt.is_key,
+            format=pt.format,
+            instructions=pt.instructions,
+            pending_tools=pt.pending_tools,
+            observation=pt.observation,
+            state_number=pt.state_number,
+        )
+        from ..transcript import parse_transcript
+        parsed = parse_transcript(rendered)
+        return dict(parsed[0]) if parsed else {"role": "state", "content": ""}
+
+    def _render_diff_node(src: StateHistoryPoint, dst: StateHistoryPoint) -> dict[str, Any]:
+        delta = state_delta(src.state, dst.state)
+        rendered = render_state_turn(
+            state={},
+            state_patch=delta,
+            vector=(src.handle, dst.handle),
+            format=dst.format,
+        )
+        from ..transcript import parse_transcript
+        parsed = parse_transcript(rendered)
+        return dict(parsed[0]) if parsed else {"role": "state-diff", "content": ""}
+
+    emitted: list[dict[str, Any]] = []
+
+    if norm_snapshots == "all":
+        if norm_diffs == "none":
+            for pt in points:
+                emitted.append(_render_snapshot_node(pt))
+        else:
+            emitted.append(_render_snapshot_node(points[0]))
+            for i in range(1, len(points)):
+                emitted.append(_render_diff_node(points[i - 1], points[i]))
+                emitted.append(_render_snapshot_node(points[i]))
+
+    elif norm_snapshots == "anchor":
+        emitted.append(_render_snapshot_node(points[0]))
+        if norm_diffs == "step":
+            for i in range(1, len(points)):
+                emitted.append(_render_diff_node(points[i - 1], points[i]))
+        elif norm_diffs == "cumulative":
+            if n > 0:
+                emitted.append(_render_diff_node(points[0], points[n]))
+
+    elif norm_snapshots == "key":
+        if norm_diffs == "none":
+            for idx in key_indices:
+                emitted.append(_render_snapshot_node(points[idx]))
+        elif norm_diffs == "step":
+            emitted.append(_render_snapshot_node(points[0]))
+            for i in range(1, len(points)):
+                emitted.append(_render_diff_node(points[i - 1], points[i]))
+                if i in key_indices:
+                    emitted.append(_render_snapshot_node(points[i]))
+        elif norm_diffs == "cumulative":
+            emitted.append(_render_snapshot_node(points[0]))
+            for j in range(len(key_indices) - 1):
+                k_src = key_indices[j]
+                k_dst = key_indices[j + 1]
+                emitted.append(_render_diff_node(points[k_src], points[k_dst]))
+                emitted.append(_render_snapshot_node(points[k_dst]))
+            last_key = key_indices[-1]
+            if n > last_key:
+                emitted.append(_render_diff_node(points[last_key], points[n]))
+
+    return emitted
+
+
+def project_state_turns(
+    turns: list[dict[str, Any]],
+    *,
+    snapshots: str | None = None,
+    diffs: str | None = None,
+    alias: str | None = None,
+    events_path: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    """Project transcript turns by transforming the state-turn horizon."""
+    state_indices = [
+        i for i, t in enumerate(turns)
+        if t.get("role") in {"state", "state-diff"}
+    ]
+    if not state_indices:
+        return list(turns)
+
+    if snapshots is None and diffs is None and alias is None and events_path:
+        recorded = read_state_projection_selection(events_path)
+        if recorded:
+            snapshots, diffs = recorded
+
+    norm_snapshots, norm_diffs = normalize_projection_spec(snapshots, diffs, alias)
+    first_idx = state_indices[0]
+    last_idx = state_indices[-1]
+
+    prefix_turns = turns[:first_idx]
+    suffix_turns = turns[last_idx + 1 :]
+    state_slice = turns[first_idx : last_idx + 1]
+
+    points = extract_state_history_points(state_slice, events_path=events_path)
+    projected = project_state_history_points(
+        points, snapshots=norm_snapshots, diffs=norm_diffs
+    )
+    return [*prefix_turns, *projected, *suffix_turns]
+
+
+def project_state_transcript(
+    transcript: str,
+    *,
+    snapshots: str | None = None,
+    diffs: str | None = None,
+    alias: str | None = None,
+    events_path: str | Path | None = None,
+) -> str:
+    """Project a transcript string across the selected Cartesian state geometry."""
+    from ..transcript import parse_transcript, render_transcript
+
+    turns = parse_transcript(transcript)
+    projected = project_state_turns(
+        turns,
+        snapshots=snapshots,
+        diffs=diffs,
+        alias=alias,
+        events_path=events_path,
+    )
+    return render_transcript(projected, spaced=True)
+
+
 def user_state_edit_needed(
     *, events_path: str | Path, state: dict[str, Any], observation: Any,
     has_user_tool_calls: bool,
@@ -1663,7 +2029,8 @@ def find_lineage_state_snapshot(
     all_events = events if events is not None else (read_log(str(events_path)) if events_path else [])
     records = state_step_records(str(events_path)) if events_path and Path(events_path).exists() else [
         e for e in all_events if e.get("kind") in {
-            "state_transition", "state_diff", "state_snapshot", "state_observation", "state_tool_request", "state_tool_result"
+            "state_transition", "state_diff", "state_snapshot", "state_observation", "state_tool_request", "state_tool_result",
+            "state_projection_selection", "state_key_designation",
         }
     ]
     snapshots = [r for r in records if r.get("kind") == "state_snapshot"]

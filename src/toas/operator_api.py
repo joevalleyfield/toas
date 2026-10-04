@@ -303,13 +303,40 @@ def transcript_text(
     events_path: Path,
     head_id: str | None = None,
     source_tokens: list[str] | None = None,
+    snapshots: str | None = None,
+    diffs: str | None = None,
+    projection: str | None = None,
+    record: bool = False,
 ) -> TranscriptOutcome:
     events, selected = _projection_events_and_head(
         events_path,
         source_tokens=source_tokens,
         head_id=head_id,
     )
-    return TranscriptOutcome(text=project_transcript(events, head_id=selected))
+    raw_text = project_transcript(events, head_id=selected)
+    from .runtime.state_step import (
+        is_state_turn_marker,
+        project_state_transcript,
+        write_state_projection_selection,
+    )
+
+    if any(is_state_turn_marker(line) for line in raw_text.splitlines()):
+        if record:
+            write_state_projection_selection(
+                events_path,
+                snapshots=snapshots,
+                diffs=diffs,
+                alias=projection,
+            )
+        projected_text = project_state_transcript(
+            raw_text,
+            snapshots=snapshots,
+            diffs=diffs,
+            alias=projection,
+            events_path=events_path,
+        )
+        return TranscriptOutcome(text=projected_text)
+    return TranscriptOutcome(text=raw_text)
 
 
 def llm_input_messages(

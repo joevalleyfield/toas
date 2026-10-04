@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 
 def run_heads(
@@ -37,11 +38,29 @@ def run_transcript(
     operator_transcript_text: Callable,
     head_id: str | None = None,
     source_tokens: list[str] | None = None,
+    snapshots: str | None = None,
+    diffs: str | None = None,
+    projection: str | None = None,
+    record: bool = False,
     print_fn: Callable = print,
 ) -> None:
     events_path = resolve_events_path()
     ensure_file(events_path)
-    out = operator_transcript_text(events_path=events_path, head_id=head_id, source_tokens=source_tokens)
+    kwargs: dict[str, Any] = {}
+    if snapshots is not None:
+        kwargs["snapshots"] = snapshots
+    if diffs is not None:
+        kwargs["diffs"] = diffs
+    if projection is not None:
+        kwargs["projection"] = projection
+    if record:
+        kwargs["record"] = True
+    out = operator_transcript_text(
+        events_path=events_path,
+        head_id=head_id,
+        source_tokens=source_tokens,
+        **kwargs,
+    )
     print_fn(out.text, end="")
 
 

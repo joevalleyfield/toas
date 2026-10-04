@@ -177,10 +177,70 @@ def test_parse_history_options_errors():
 
 
 def test_parse_transcript_and_llm_input_options_accept_anchor_sources_and_envelope():
-    assert parse_transcript_options(["transcript"]) == (None, None)
+    assert parse_transcript_options(["transcript"]) == (None, None, None, None, None, False)
     assert parse_transcript_options(["transcript", "hot:n2", "--sources", "segments", "hot"]) == (
         "hot:n2",
         ["segments", "hot"],
+        None,
+        None,
+        None,
+        False,
+    )
+    assert parse_transcript_options(["transcript", "--snapshots", "key", "--diffs", "step"]) == (
+        None,
+        None,
+        "key",
+        "step",
+        None,
+        False,
+    )
+    assert parse_transcript_options(["transcript", "--snapshots=anchor", "--diffs=cumulative", "--record"]) == (
+        None,
+        None,
+        "anchor",
+        "cumulative",
+        None,
+        True,
+    )
+    assert parse_transcript_options(["transcript", "redundant"]) == (
+        None,
+        None,
+        None,
+        None,
+        "redundant",
+        False,
+    )
+    assert parse_transcript_options(["transcript", "head_1", "milestones"]) == (
+        "head_1",
+        None,
+        None,
+        None,
+        "milestones",
+        False,
+    )
+    assert parse_transcript_options(["transcript", "--projection=delta"]) == (
+        None,
+        None,
+        None,
+        None,
+        "delta",
+        False,
+    )
+    assert parse_transcript_options(["transcript", "--diffs", "step"]) == (
+        None,
+        None,
+        None,
+        "step",
+        None,
+        False,
+    )
+    assert parse_transcript_options(["transcript", "--projection", "milestones"]) == (
+        None,
+        None,
+        None,
+        None,
+        "milestones",
+        False,
     )
     assert parse_llm_input_options(["llm-input"]) == (None, None, False)
     assert parse_llm_input_options(["llm-input", "--envelope"]) == (None, None, True)
@@ -194,10 +254,24 @@ def test_parse_transcript_and_llm_input_options_accept_anchor_sources_and_envelo
 def test_parse_transcript_and_llm_input_options_errors():
     with pytest.raises(SystemExit, match="usage: toas transcript"):
         parse_transcript_options(["transcript", "--sources"])
+    with pytest.raises(SystemExit, match="usage: toas transcript"):
+        parse_transcript_options(["transcript", "--sources", "--record"])
+    with pytest.raises(SystemExit, match="usage: toas transcript"):
+        parse_transcript_options(["transcript", "--snapshots"])
+    with pytest.raises(SystemExit, match="usage: toas transcript"):
+        parse_transcript_options(["transcript", "--diffs"])
+    with pytest.raises(SystemExit, match="usage: toas transcript"):
+        parse_transcript_options(["transcript", "--projection"])
     with pytest.raises(SystemExit, match="unknown option: --envelope"):
         parse_transcript_options(["transcript", "--envelope"])
     with pytest.raises(SystemExit, match="usage: toas transcript"):
         parse_transcript_options(["transcript", "n1", "n2"])
+    with pytest.raises(SystemExit, match="usage: toas transcript"):
+        parse_transcript_options(["transcript", "n1", "n2", "n3"])
+    with pytest.raises(SystemExit, match="usage: toas llm-input"):
+        parse_llm_input_options(["llm-input", "--sources"])
+    with pytest.raises(SystemExit, match="usage: toas llm-input"):
+        parse_llm_input_options(["llm-input", "n1", "n2"])
     with pytest.raises(SystemExit, match="usage: toas llm-input"):
         parse_llm_input_options(["llm-input", "--sources", "--envelope"])
     with pytest.raises(SystemExit, match="unknown option: --bad"):

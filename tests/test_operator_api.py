@@ -680,6 +680,37 @@ def test_transcript_text_with_sources_projects_qualified_anchor(tmp_path):
     assert "cold" not in out.text
 
 
+def test_transcript_text_projects_state_geometry_and_records_selection(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"state","content":"state:\\n  goal: a","metadata":{"marker":"## TOAS:STATE [[alpha]] [key:true]"}}',
+            '{"id":"n1","parent":"n0","role":"state","content":"state:\\n  goal: b","metadata":{"marker":"## TOAS:STATE [[bravo]]"}}',
+            '{"id":"h0","type":"head","name":"main","parent":"n1","selected":true}',
+        ],
+    )
+    # Default is pure snapshots
+    out_default = transcript_text(events_path=events_path)
+    assert "## TOAS:STATE [[alpha]] [key:true]" in out_default.text
+    assert "## TOAS:STATE [[bravo]]" in out_default.text
+    assert "STATE-DIFF" not in out_default.text
+
+    # Redundant alias with record=True
+    out_redundant = transcript_text(events_path=events_path, projection="redundant", record=True)
+    assert "## TOAS:STATE-DIFF [[alpha->bravo]]" in out_redundant.text
+
+    # Subsequent call reuses durably recorded selection
+    out_recorded = transcript_text(events_path=events_path)
+    assert "## TOAS:STATE-DIFF [[alpha->bravo]]" in out_recorded.text
+
+    # Total Run Delta
+    out_delta = transcript_text(events_path=events_path, snapshots="anchor", diffs="cumulative")
+    assert "## TOAS:STATE-DIFF [[alpha->bravo]]" in out_delta.text
+    assert "## TOAS:STATE [[bravo]]" not in out_delta.text
+
+
 def test_llm_input_messages_projects_selected_head(tmp_path):
     events_path = tmp_path / ".toas/events.jsonl"
     events_path.parent.mkdir(parents=True, exist_ok=True)

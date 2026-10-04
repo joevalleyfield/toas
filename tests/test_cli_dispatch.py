@@ -231,9 +231,15 @@ def test_dispatch_transcript_and_llm_input_parse_sources():
     calls: list[tuple[str, tuple, dict]] = []
     deps = _deps(calls)
     dispatch_main(["transcript", "hot:n2", "--sources", "segments", "hot"], deps=deps)
+    dispatch_main(["transcript", "hot:n2", "--snapshots", "key", "--diffs", "step", "--projection", "milestones", "--record"], deps=deps)
     dispatch_main(["llm-input", "hot:n2", "--sources", "segments", "hot", "--envelope"], deps=deps)
     assert calls == [
         ("transcript", ("hot:n2",), {"source_tokens": ["segments", "hot"]}),
+        (
+            "transcript",
+            ("hot:n2",),
+            {"snapshots": "key", "diffs": "step", "projection": "milestones", "record": True},
+        ),
         ("llm_input", ("hot:n2",), {"envelope": True, "source_tokens": ["segments", "hot"]}),
     ]
 

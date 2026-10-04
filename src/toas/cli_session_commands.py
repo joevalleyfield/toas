@@ -444,11 +444,13 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         observation_with_user_turns,
         parse_infer_from_directive,
         parse_state_turn,
+        parse_sync_directive,
         partition_state_transcript,
         preview_state_request,
         reconcile_state_lineage,
         render_state_turn,
         step_state,
+        write_state_key_designations,
     )
 
     if turns is None or state_index is None:
@@ -514,6 +516,22 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
     directive_infer_from, cleaned_input_turns = (
         parse_infer_from_directive(input_turns) if input_turns else (None, input_turns)
     )
+    directive_sync, cleaned_input_turns = (
+        parse_sync_directive(cleaned_input_turns) if cleaned_input_turns else (False, cleaned_input_turns)
+    )
+    if directive_sync:
+        all_state_turns = [t for t in [*prefix_turns, state_turn] if t.get("role") in {"state", "state-diff"}]
+        key_designations = {}
+        for st_turn in all_state_turns:
+            parsed = parse_state_turn(st_turn)
+            key_designations[parsed["handle"]] = parsed["is_key"]
+        if all_state_turns:
+            first_parsed = parse_state_turn(all_state_turns[0])
+            key_designations[first_parsed["handle"]] = True
+        write_state_key_designations(events_path, key_designations)
+        print(f"[OK] synchronized transcript state: {key_designations}")
+        return
+
     effective_infer_from = infer_from or directive_infer_from
     cleaned_all_turns = [*prefix_turns, state_turn, *(cleaned_input_turns or [])]
     if effective_infer_from:

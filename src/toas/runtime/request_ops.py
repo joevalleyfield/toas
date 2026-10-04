@@ -78,10 +78,20 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
             kwargs["anchor_id"] = payload.get("anchor_id")
         return capture_stdout(cli_module.run_history, limit, **kwargs)
     if op == "transcript":
+        transcript_kwargs: dict[str, object] = {}
+        if "snapshots" in payload:
+            transcript_kwargs["snapshots"] = payload.get("snapshots")
+        if "diffs" in payload:
+            transcript_kwargs["diffs"] = payload.get("diffs")
+        if "projection" in payload:
+            transcript_kwargs["projection"] = payload.get("projection")
+        if "record" in payload:
+            transcript_kwargs["record"] = bool(payload.get("record", False))
         return capture_stdout(
             cli_module.run_transcript,
             payload.get("head_id"),
             source_tokens=payload.get("source_tokens"),
+            **transcript_kwargs,
         )
     if op == "llm_input":
         return capture_stdout(

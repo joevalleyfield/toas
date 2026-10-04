@@ -78,6 +78,39 @@ def test_run_transcript_passes_head_and_preserves_text_end():
     ]
 
 
+def test_run_transcript_passes_projection_parameters():
+    calls = []
+    events_path = Path("events.jsonl")
+
+    surface.run_transcript(
+        ensure_file=lambda path: calls.append(("ensure", path)),
+        resolve_events_path=lambda: events_path,
+        operator_transcript_text=lambda *, events_path, head_id, source_tokens, **kwargs: calls.append(
+            ("transcript", events_path, head_id, source_tokens, kwargs)
+        )
+        or _Text("projected\n"),
+        head_id="n4",
+        source_tokens=["segments", "hot"],
+        snapshots="key",
+        diffs="step",
+        projection="milestones",
+        record=True,
+        print_fn=lambda text, end="\n": calls.append(("print", text, end)),
+    )
+
+    assert calls == [
+        ("ensure", events_path),
+        (
+            "transcript",
+            events_path,
+            "n4",
+            ["segments", "hot"],
+            {"snapshots": "key", "diffs": "step", "projection": "milestones", "record": True},
+        ),
+        ("print", "projected\n", ""),
+    ]
+
+
 def test_run_llm_input_renders_messages_with_lf():
     calls = []
     events_path = Path("events.jsonl")
