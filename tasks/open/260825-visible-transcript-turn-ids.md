@@ -4,7 +4,7 @@ AKA: visible turn ids; transcript node labels; LLM-hidden turn identifiers
 Legacy index:
 
 Parent: `260823-concept-graph-artifact-reuse`
-Related: `260823-handoff-successor-focus-naming`; `260823-projection-discoverability`; `docs/notes/2026-10-04-transcript-decorators.md`
+Related: `260823-handoff-successor-focus-naming`; `260823-projection-discoverability`; `docs/notes/2026-10-04-transcript-decorators.md`; `docs/notes/2026-10-04-transcript-reference-contract.md`
 
 keywords: transcript, surface, follow-on, projection, usability, contract
 
@@ -79,5 +79,10 @@ creating global selection state or changing default LLM input.
   block references carried into state (`[[cobalt]]`), in-place edits reconciled
   via LCP, and re-projection under fresh theme labels. Compared on-demand vs.
   always-present turn IDs for prompt-prefix cache stability.
+- 2026-10-04: Formalized normative contract in
+  `docs/notes/2026-10-04-transcript-reference-contract.md`, establishing the
+  `[[handle]]` grammar, working-context resolution table, LCP primacy under
+  editing, cache-stable `[t:N]` packet indexing, and content re-inclusion for
+  state packets.
 
 

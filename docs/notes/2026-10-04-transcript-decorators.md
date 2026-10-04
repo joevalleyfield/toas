@@ -3,10 +3,13 @@
 Status: EXPLORATORY DRAFT
 Normative Scope: design exploration; no runtime implementation or adopted grammar
 Related Tasks: `260825-visible-transcript-turn-ids`, `260927-state-step-history-projections`, `260929-state-sequence-inference-affordance`
+Normative Contract: `docs/notes/2026-10-04-transcript-reference-contract.md`
 
 The follow-up discussion in sections 8–10 refines the earlier exploration:
 human names belong to a working context, canonical IDs retain historical
 identity, and model-facing identification depends on the inference packet.
+The normative contract formalizing grammar, resolution, and packet assembly
+lives in `docs/notes/2026-10-04-transcript-reference-contract.md`.
 Theme families and syntax examples below remain possibilities, not adopted
 requirements.
 
