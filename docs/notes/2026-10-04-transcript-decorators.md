@@ -487,8 +487,205 @@ Proposed task routing, not task promotions or new implementation commitments:
   can consume the eventual grammar. Search already supplies basic navigation;
   a separate marks task is unnecessary at this stage.
 
-Next evidence: transcript specimens for a past-turn reference, a result
-reference carried into state, an edit to a named turn, and reconstruction with
-fresh labels. Show the human text, resolved canonical targets, and model
-packets, including on-demand versus always-present transcript IDs. No new task
-or runtime implementation is opened by this note update.
+The specimens in section 11 ground these boundaries across a past-turn
+reference, a result reference carried into state, an edit to a named turn,
+and reconstruction with fresh labels. No new task or runtime implementation
+is opened by this note update.
+
+## 11. Concrete Transcript Specimens
+
+The specimens below ground the reference and identification design in four
+concrete scenarios: past-turn prose references, result-block references carried
+into state, in-place edits reconciled via LCP, and reconstruction with fresh
+labels.
+
+### Specimen 1: Past-Turn Prose Reference (`[[bravo]]`)
+
+#### Human Working Surface (`session.md`)
+The operator defines turns with labels and writes a reference in a later prompt:
+
+```markdown
+## TOAS:SYSTEM [[alpha]]
+You are a software engineering assistant working on TOAS.
+
+## TOAS:USER [[bravo]]
+We should evaluate using SQLite instead of PostgreSQL for session storage.
+Keep it local and embeddable.
+
+## TOAS:ASSISTANT [[charlie]]
+Agreed. SQLite gives us zero daemon overhead and fast local queries.
+
+## TOAS:USER [[delta]]
+Reconsider [[bravo]] before we write the migration script.
+Does an embedded database meet our multi-process daemon requirements?
+```
+
+#### Canonical Resolution Table (Working Context to Graph)
+The runtime resolves working handles within the active transcript to durable
+append-only event IDs in `events.jsonl`:
+
+| Handle | Role | Canonical Event ID | Reference Target in Turn |
+| :--- | :--- | :--- | :--- |
+| `alpha` | `SYSTEM` | `evt_01j7a1...` | — |
+| `bravo` | `USER` | `evt_01j7b2...` | — |
+| `charlie` | `ASSISTANT` | `evt_01j7c3...` | — |
+| `delta` | `USER` | `evt_01j7d4...` | `[[bravo]]` -> `evt_01j7b2...` |
+
+#### Model Inference Packet (`llm-input`) Comparison
+
+##### Option A: On-Demand Turn ID Injection (Dynamic)
+IDs are injected only into turns that are actively cited. Other turns stay bare:
+
+```markdown
+## TOAS:SYSTEM
+You are a software engineering assistant working on TOAS.
+
+## TOAS:USER [turn:evt_01j7b2]
+We should evaluate using SQLite instead of PostgreSQL for session storage.
+Keep it local and embeddable.
+
+## TOAS:ASSISTANT
+Agreed. SQLite gives us zero daemon overhead and fast local queries.
+
+## TOAS:USER
+Reconsider [turn:evt_01j7b2] before we write the migration script.
+Does an embedded database meet our multi-process daemon requirements?
+```
+
+*Cache Tradeoff*: Injected IDs alter the token stream of earlier turns,
+invalidating the prompt/KV-cache prefix from that point forward.
+
+##### Option B: Always-Present Stable Turn IDs (Cache-Stable)
+Every turn carries a compact, monotonic index or hash prefix from the start:
+
+```markdown
+## TOAS:SYSTEM [t:1]
+You are a software engineering assistant working on TOAS.
+
+## TOAS:USER [t:2]
+We should evaluate using SQLite instead of PostgreSQL for session storage.
+Keep it local and embeddable.
+
+## TOAS:ASSISTANT [t:3]
+Agreed. SQLite gives us zero daemon overhead and fast local queries.
+
+## TOAS:USER [t:4]
+Reconsider [t:2] before we write the migration script.
+Does an embedded database meet our multi-process daemon requirements?
+```
+
+*Cache Tradeoff*: Adds a small, constant token overhead per turn, but preserves
+100% prompt-prefix stability across turns.
+
+---
+
+### Specimen 2: Result Block Reference Carried into State (`[[cobalt]]`)
+
+#### Human Working Surface (`session.md`)
+An assistant turn executes a search tool. The inert result block carries both
+its canonical block ID and a human handle `cobalt`. Later, a `STATE` turn records
+an observation referencing it:
+
+````markdown
+## TOAS:ASSISTANT [[charlie]]
+```python block_id=ib_9a4f handle=cobalt
+src/toas/cli.py
+    436: def main():
+```
+
+## TOAS:STATE [[delta]]
+state:
+  active_focus: cli entrypoint
+  observations:
+    - cli_symbol_table: [[cobalt]]
+````
+
+#### Canonical Resolution
+- `cobalt` resolves to inert block `ib_9a4f` in durable storage.
+- The `STATE` event in `events.jsonl` stores: `observations: [{cli_symbol_table: "ib_9a4f"}]`.
+
+#### Model Inference Packet (`llm-input`)
+If `charlie` has scrolled out of the active context window (for example, in a
+condensed state packet), the runtime sees the reference and re-includes the
+content:
+
+````markdown
+## TOAS:STATE
+state:
+  active_focus: cli entrypoint
+  observations:
+    - cli_symbol_table:
+```python block_id=ib_9a4f
+src/toas/cli.py
+    436: def main():
+```
+````
+
+Identity alone does not supply content; the reference contract re-hydrates
+`ib_9a4f` directly into the packet.
+
+---
+
+### Specimen 3: In-Place Edit to a Named Turn (LCP Reconciliation)
+
+#### Original Working Surface
+```markdown
+## TOAS:USER [[bravo]]
+Run pytest on tests/test_cli.py.
+
+## TOAS:ASSISTANT [[charlie]]
+Tests failed: 1 failure in test_main_help.
+```
+
+#### User Action: In-Place Edit
+The operator edits turn `bravo` in place to add `--verbose`, and runs `toas step`:
+```markdown
+## TOAS:USER [[bravo]]
+Run pytest on tests/test_cli.py with -vv and -s.
+```
+
+#### LCP Reconciliation & Identity Mechanics
+1. **LCP Match**: The parser compares `session.md` against the durable graph.
+   The longest common prefix ends at `alpha` (prior to `bravo`).
+2. **Branch Creation**: The runtime does not overwrite `evt_01j7b2`. It appends
+   a new event `evt_01j7e5` with parent `alpha`.
+3. **Handle Retention**: In the active working context, the active turn remains
+   labeled `[[bravo]]` (or graduates to a branch label if multiple branches are
+   projected). The superseded historical event `evt_01j7b2` remains in
+   `events.jsonl`.
+4. **LCP Primacy**: Text changes fork the graph through prefix reconciliation;
+   the human handle remains bound to the physical text in the working copy.
+
+---
+
+### Specimen 4: Reconstruction with Fresh Labels
+
+#### Scenario
+An operator switches their configured theme from NATO phonetics (`alpha`, `bravo`)
+to Periodic Elements (`hydrogen`, `helium`) and runs `toas transcript`.
+
+#### Re-Projected Working Surface
+```markdown
+## TOAS:SYSTEM [[hydrogen]]
+You are a software engineering assistant working on TOAS.
+
+## TOAS:USER [[helium]]
+We should evaluate using SQLite instead of PostgreSQL for session storage.
+Keep it local and embeddable.
+
+## TOAS:ASSISTANT [[lithium]]
+Agreed. SQLite gives us zero daemon overhead and fast local queries.
+
+## TOAS:USER [[beryllium]]
+Reconsider [[helium]] before we write the migration script.
+Does an embedded database meet our multi-process daemon requirements?
+```
+
+#### Mechanics
+- Canonical graph IDs `evt_01j7a1...` through `evt_01j7d4...` are unchanged.
+- The projection renderer assigns `helium` to `evt_01j7b2`.
+- When rendering `beryllium`, the reference that canonically points to
+  `evt_01j7b2` is dynamically re-rendered as `[[helium]]`.
+- The human experience is seamless and coherent, while the durable record
+  remains immutable.
+

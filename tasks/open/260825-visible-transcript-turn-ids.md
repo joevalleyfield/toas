@@ -74,3 +74,10 @@ creating global selection state or changing default LLM input.
   Validation: unique headings, local links, whitespace, fence balance, and
   task continuity metadata checked. Documentation-only change; runtime tests
   were not run.
+- 2026-10-04: Added concrete transcript specimens (Section 11) to the design
+  note, illustrating past-turn prose references (`[[bravo]]`), inert result
+  block references carried into state (`[[cobalt]]`), in-place edits reconciled
+  via LCP, and re-projection under fresh theme labels. Compared on-demand vs.
+  always-present turn IDs for prompt-prefix cache stability.
+
+
