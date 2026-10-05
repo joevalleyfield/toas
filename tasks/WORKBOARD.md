@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-04
+> **Last Sync:** 2026-10-05
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -276,6 +276,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti...
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
+- **[T261004-state-observation-reference-addressing]** State Observation Reference Addressing And Condensation
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
