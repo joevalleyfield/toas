@@ -1072,6 +1072,71 @@ def test_expand_inert_blocks_unresolved_references_fail_soft():
     assert expanded == content
 
 
+def test_expand_inert_blocks_standalone_reference_and_full_blocks():
+    full_block = (
+        '````markdown toas-output kind=file path=spec.md block_id=ib_spec42\n'
+        "# Specification\n"
+        "1. Do this\n"
+        "````"
+    )
+    # Standalone reference expands to the full block
+    standalone_ref = "(ref: ib_spec42)"
+    expanded = expand_inert_blocks(
+        standalone_ref,
+        blocks_by_id={"ib_spec42": "# Specification\n1. Do this"},
+        full_blocks_by_id={"ib_spec42": full_block},
+    )
+    assert expanded == full_block
+
+    # Fallback to body when full block is not provided
+    expanded_body = expand_inert_blocks(
+        standalone_ref,
+        blocks_by_id={"ib_spec42": "# Specification\n1. Do this"},
+    )
+    assert expanded_body == "# Specification\n1. Do this"
+
+    # Preserves reference if unknown
+    assert expand_inert_blocks("(ref: ib_unknown)", blocks_by_id={"ib_spec42": "body"}) == "(ref: ib_unknown)"
+
+    # Cycle protection in standalone expansion
+    cycle_ref = "(ref: ib_self)"
+    assert expand_inert_blocks(cycle_ref, blocks_by_id={"ib_self": "(ref: ib_self)"}) == "(ref: ib_self)"
+
+
+def test_expand_inert_blocks_preserves_inline_prose_citation():
+    prose = "Please review the analysis in (ref: ib_spec42) before proceeding."
+    expanded = expand_inert_blocks(
+        prose,
+        blocks_by_id={"ib_spec42": "body"},
+        full_blocks_by_id={"ib_spec42": "full block"},
+    )
+    assert expanded == prose
+
+
+def test_expand_inert_blocks_nested_and_cycles():
+    # Nested expansion
+    nested_a_body = "Line A\n```text block_id=ib_B\n(ref: ib_B)\n```"
+    blocks = {
+        "ib_A": nested_a_body,
+        "ib_B": "Line B from nested block",
+    }
+    content = "```text block_id=ib_A\n(ref: ib_A)\n```"
+    expanded = expand_inert_blocks(content, blocks)
+    assert "Line A" in expanded
+    assert "Line B from nested block" in expanded
+
+    # Cycle protection
+    blocks_cycle = {
+        "ib_C": "```text block_id=ib_D\n(ref: ib_D)\n```",
+        "ib_D": "```text block_id=ib_C\n(ref: ib_C)\n```",
+    }
+    content_cycle = "```text block_id=ib_C\n(ref: ib_C)\n```"
+    # Must terminate and not raise RecursionError
+    expanded_cycle = expand_inert_blocks(content_cycle, blocks_cycle)
+    assert "ib_C" in expanded_cycle
+    assert "ib_D" in expanded_cycle
+
+
 def test_reconcile_state_lineage_and_materialize(tmp_path):
     events_path = tmp_path / "events.jsonl"
     events_path.touch()

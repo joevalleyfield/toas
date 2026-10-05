@@ -781,24 +781,65 @@ def condense_inert_blocks(content: str) -> str:
     return pattern.sub(repl, content)
 
 
-def expand_inert_blocks(content: str, blocks_by_id: dict[str, str]) -> str:
-    """Expand unexpanded block references when the full block body is available."""
-    pattern = re.compile(r'(?ms)^(`{3,})([^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*)\n\(ref: \3\)\n\1$')
+_FENCED_REF_PATTERN = re.compile(r'(?ms)^(`{3,})([^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*)\n\(ref: \3\)\n\1$')
+_STANDALONE_REF_PATTERN = re.compile(r'^\s*\(ref:\s*([a-zA-Z0-9_-]+)\)\s*$')
 
-    def repl(m: re.Match) -> str:
-        fence, header, block_id = m.group(1), m.group(2), m.group(3)
-        if "lines=" in header or ".toas/scratch/" in header:
+
+def expand_inert_blocks(
+    content: str,
+    blocks_by_id: dict[str, str],
+    full_blocks_by_id: dict[str, str] | None = None,
+    *,
+    max_depth: int = 5,
+) -> str:
+    """Expand unexpanded block references when the full block body or full block is available."""
+    current = content
+    seen_ids: set[str] = set()
+
+    for _ in range(max_depth):
+        matched = False
+
+        def repl_fenced(m: re.Match) -> str:
+            nonlocal matched
+            fence, header, block_id = m.group(1), m.group(2), m.group(3)
+            if "lines=" in header or ".toas/scratch/" in header:
+                return m.group(0)
+            if block_id in seen_ids:
+                return m.group(0)
+            body = blocks_by_id.get(block_id)
+            if body is not None:
+                matched = True
+                seen_ids.add(block_id)
+                return f"{fence}{header}\n{body}\n{fence}"
             return m.group(0)
-        body = blocks_by_id.get(block_id)
-        if body is not None:
-            return f"{fence}{header}\n{body}\n{fence}"
-        return m.group(0)
 
-    return pattern.sub(repl, content)
+        current = _FENCED_REF_PATTERN.sub(repl_fenced, current)
+
+        if full_blocks_by_id or blocks_by_id:
+            def repl_standalone(m: re.Match) -> str:
+                nonlocal matched
+                block_id = m.group(1)
+                if block_id in seen_ids:
+                    return m.group(0)
+                expanded_val = (
+                    full_blocks_by_id.get(block_id) if full_blocks_by_id else None
+                ) or blocks_by_id.get(block_id)
+                if expanded_val is not None:
+                    matched = True
+                    seen_ids.add(block_id)
+                    return expanded_val
+                return m.group(0)
+
+            current = _STANDALONE_REF_PATTERN.sub(repl_standalone, current)
+
+        if not matched:
+            break
+
+    return current
 
 
-def extract_inert_blocks_by_id(text_or_records: Any) -> dict[str, str]:
-    """Index non-reference inert block bodies by block_id from text, event records, or arbitrary structures."""
+def extract_inert_blocks_by_id(text_or_records: Any, *, full_blocks: bool = False) -> dict[str, str]:
+    """Index non-reference inert block bodies (or full blocks) by block_id from text, records, or structures."""
     blocks: dict[str, str] = {}
     pattern = re.compile(r'(?ms)^(`{3,})[^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*\n(.*?)\n\1$')
 
@@ -807,7 +848,7 @@ def extract_inert_blocks_by_id(text_or_records: Any) -> dict[str, str]:
             for m in pattern.finditer(val):
                 block_id, body = m.group(2), m.group(3)
                 if not body.strip().startswith(f"(ref: {block_id})"):
-                    blocks[block_id] = body
+                    blocks[block_id] = m.group(0) if full_blocks else body
         elif isinstance(val, dict):
             for v in val.values():
                 _scan(v)
@@ -819,13 +860,23 @@ def extract_inert_blocks_by_id(text_or_records: Any) -> dict[str, str]:
     return blocks
 
 
-def _expand_compound_observation(observation: Any, blocks_by_id: dict[str, str]) -> Any:
+def _expand_compound_observation(
+    observation: Any,
+    blocks_by_id: dict[str, str],
+    full_blocks_by_id: dict[str, str] | None = None,
+) -> Any:
     if isinstance(observation, dict):
-        return {k: _expand_compound_observation(v, blocks_by_id) for k, v in observation.items()}
+        return {
+            k: _expand_compound_observation(v, blocks_by_id, full_blocks_by_id)
+            for k, v in observation.items()
+        }
     if isinstance(observation, list):
-        return [_expand_compound_observation(item, blocks_by_id) for item in observation]
+        return [
+            _expand_compound_observation(item, blocks_by_id, full_blocks_by_id)
+            for item in observation
+        ]
     if isinstance(observation, str):
-        return expand_inert_blocks(observation, blocks_by_id)
+        return expand_inert_blocks(observation, blocks_by_id, full_blocks_by_id)
     return observation
 
 
@@ -1108,11 +1159,13 @@ def build_state_step_packet(
 
     compound = _compound_observation(records, observation, session_text=session_text)
     blocks_by_id = extract_inert_blocks_by_id(records)
+    full_blocks_by_id = extract_inert_blocks_by_id(records, full_blocks=True)
     if session_text:
         blocks_by_id.update(extract_inert_blocks_by_id(session_text))
+        full_blocks_by_id.update(extract_inert_blocks_by_id(session_text, full_blocks=True))
     if blocks_by_id:
-        compound = _expand_compound_observation(compound, blocks_by_id)
-        state = _expand_compound_observation(state, blocks_by_id)
+        compound = _expand_compound_observation(compound, blocks_by_id, full_blocks_by_id)
+        state = _expand_compound_observation(state, blocks_by_id, full_blocks_by_id)
 
     if isinstance(compound, dict) and "tool_outcomes" in compound:
         compound = dict(compound)
@@ -1247,11 +1300,13 @@ def build_multi_state_sequence_packet(
 
     records = read_log(str(events_path)) if Path(events_path).exists() else []
     blocks_by_id = extract_inert_blocks_by_id(records)
+    full_blocks_by_id = extract_inert_blocks_by_id(records, full_blocks=True)
     if session_text:
         blocks_by_id.update(extract_inert_blocks_by_id(session_text))
+        full_blocks_by_id.update(extract_inert_blocks_by_id(session_text, full_blocks=True))
     if blocks_by_id:
-        state = _expand_compound_observation(state, blocks_by_id)
-        messages = _expand_compound_observation(messages, blocks_by_id)
+        state = _expand_compound_observation(state, blocks_by_id, full_blocks_by_id)
+        messages = _expand_compound_observation(messages, blocks_by_id, full_blocks_by_id)
 
     return {
         "instructions": system_instructions,

@@ -3,7 +3,7 @@ FKA:
 AKA: state observation references; inert block addressing; observation condensation
 Legacy index:
 
-keywords: runtime, active, state-step, observation, reference, projection
+keywords: runtime, closed, state-step, observation, reference, projection
 
 Parent: `260926-state-step-requirements`
 Depends on: `260927-state-step-history-projections`; `261004-state-step-documentation-graduation`
@@ -76,5 +76,17 @@ several concrete seams exist:
     compound observations during model packet construction.
   - Verified fail-soft behavior for unresolved references.
   - All 3,434 tests passing with 100.00% statement coverage.
+- 2026-10-05: Implemented Slice 2 of reference addressing in `src/toas/runtime/state_step.py`:
+  - Added full block indexing (`extract_inert_blocks_by_id(..., full_blocks=True)`)
+    to preserve block header attributes and outer fences.
+  - Added standalone reference expansion (`_STANDALONE_REF_PATTERN`) so that
+    structured state fields like `artifacts: ["(ref: ib_xyz)"]` expand to the
+    full fenced inert block (or body fallback).
+  - Added bounded cycle and recursion protection (`seen_ids`, `max_depth`) in
+    `expand_inert_blocks` to prevent infinite loops from circular references.
+  - Preserved inline prose citations and skipped expansion on blocks with line
+    slicing or scratch file metadata.
+  - Verified fail-soft fallback when reference targets are unresolvable.
+  - All 3,437 tests passing with 100.00% statement coverage.
 
-Status: Active.
+Status: Closed.
