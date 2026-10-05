@@ -797,27 +797,25 @@ def expand_inert_blocks(content: str, blocks_by_id: dict[str, str]) -> str:
     return pattern.sub(repl, content)
 
 
-def extract_inert_blocks_by_id(text_or_records: str | list[dict]) -> dict[str, str]:
-    """Index non-reference inert block bodies by block_id from text or event records."""
+def extract_inert_blocks_by_id(text_or_records: Any) -> dict[str, str]:
+    """Index non-reference inert block bodies by block_id from text, event records, or arbitrary structures."""
     blocks: dict[str, str] = {}
-    if isinstance(text_or_records, str):
-        pattern = re.compile(r'(?ms)^(`{3,})[^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*\n(.*?)\n\1$')
-        for m in pattern.finditer(text_or_records):
-            block_id, body = m.group(2), m.group(3)
-            if not body.strip().startswith(f"(ref: {block_id})"):
-                blocks[block_id] = body
-    elif isinstance(text_or_records, list):
-        for record in text_or_records:
-            payload = record.get("payload")
-            if isinstance(payload, dict):
-                stdout = payload.get("stdout")
-                if isinstance(stdout, str):
-                    for m in re.finditer(r'(?ms)^(`{3,})[^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*\n(.*?)\n\1$', stdout):
-                        blocks[m.group(2)] = m.group(3)
-            content = record.get("content")
-            if isinstance(content, str):
-                for m in re.finditer(r'(?ms)^(`{3,})[^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*\n(.*?)\n\1$', content):
-                    blocks[m.group(2)] = m.group(3)
+    pattern = re.compile(r'(?ms)^(`{3,})[^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*\n(.*?)\n\1$')
+
+    def _scan(val: Any) -> None:
+        if isinstance(val, str):
+            for m in pattern.finditer(val):
+                block_id, body = m.group(2), m.group(3)
+                if not body.strip().startswith(f"(ref: {block_id})"):
+                    blocks[block_id] = body
+        elif isinstance(val, dict):
+            for v in val.values():
+                _scan(v)
+        elif isinstance(val, (list, tuple)):
+            for item in val:
+                _scan(item)
+
+    _scan(text_or_records)
     return blocks
 
 
@@ -1109,12 +1107,12 @@ def build_state_step_packet(
     from ..tools import REGISTRY
 
     compound = _compound_observation(records, observation, session_text=session_text)
+    blocks_by_id = extract_inert_blocks_by_id(records)
     if session_text:
-        blocks_by_id = extract_inert_blocks_by_id(session_text)
-    else:
-        blocks_by_id = extract_inert_blocks_by_id(records)
+        blocks_by_id.update(extract_inert_blocks_by_id(session_text))
     if blocks_by_id:
         compound = _expand_compound_observation(compound, blocks_by_id)
+        state = _expand_compound_observation(state, blocks_by_id)
 
     if isinstance(compound, dict) and "tool_outcomes" in compound:
         compound = dict(compound)
@@ -1246,6 +1244,14 @@ def build_multi_state_sequence_packet(
                 messages[-1]["content"] += f"\n\n{user_content}"
             else:
                 messages.append({"role": "user", "content": user_content})
+
+    records = read_log(str(events_path)) if Path(events_path).exists() else []
+    blocks_by_id = extract_inert_blocks_by_id(records)
+    if session_text:
+        blocks_by_id.update(extract_inert_blocks_by_id(session_text))
+    if blocks_by_id:
+        state = _expand_compound_observation(state, blocks_by_id)
+        messages = _expand_compound_observation(messages, blocks_by_id)
 
     return {
         "instructions": system_instructions,

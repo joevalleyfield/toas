@@ -65,5 +65,16 @@ several concrete seams exist:
 
 - 2026-10-05: Task opened as follow-on to state-step history projections and
   durable documentation graduation.
+- 2026-10-05: Implemented Slice 1 of reference addressing in `src/toas/runtime/state_step.py`:
+  - Generalized `extract_inert_blocks_by_id` to recursively scan arbitrary nested
+    structures, dictionaries, and tuples in `events.jsonl` durable records.
+  - Merged block indexing across both durable event records (`events.jsonl`) and
+    `session_text` in `build_state_step_packet` and `build_multi_state_sequence_packet`,
+    so that references resolve reliably even when full blocks were condensed or
+    projected away in the human working transcript.
+  - Extended reference expansion across structured `state` fields as well as
+    compound observations during model packet construction.
+  - Verified fail-soft behavior for unresolved references.
+  - All 3,434 tests passing with 100.00% statement coverage.
 
 Status: Active.

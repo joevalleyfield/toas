@@ -29,6 +29,7 @@ from toas.runtime.state_step import (
     build_state_step_packet,
     condense_inert_blocks,
     expand_inert_blocks,
+    extract_inert_blocks_by_id,
     find_lineage_state_snapshot,
     find_state_turn_index_by_label,
     initial_state,
@@ -929,6 +930,146 @@ def test_build_state_step_packet_expands_condensed_inert_references(tmp_path):
     assert "Line A" in projected_content
     assert "Line B" in projected_content
     assert "(ref: ib_testblock123456)" not in projected_content
+
+
+def test_build_state_step_packet_expands_references_from_durable_events(tmp_path):
+    events = tmp_path / "events.jsonl"
+    full_output = (
+        "## RESULT\n\n"
+        "[OK] shell: exit=0\n"
+        '````markdown toas-output kind=file source="cat doc.txt" potency=inert path=doc.txt block_id=ib_durable123\n'
+        "Line 1 from durable events\n"
+        "Line 2 from durable events\n"
+        "````"
+    )
+    # Write durable record containing the full block in a state_observation
+    record = {
+        "kind": "state_observation",
+        "transition_id": "st_prev",
+        "observation": {
+            "kind": "toas.compound-observation/1",
+            "tool_outcomes": [{"stdout": full_output}],
+        },
+    }
+    events.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    # Working session.md only has the condensed reference
+    session_text = (
+        "## TOAS:STATE/1\n\nstate: {goal: read}\n\n"
+        "## TOAS:USER\n\n"
+        "## RESULT\n\n"
+        "[OK] shell: exit=0\n"
+        '````markdown toas-output kind=file source="cat doc.txt" potency=inert path=doc.txt block_id=ib_durable123\n'
+        "(ref: ib_durable123)\n"
+        "````\n"
+    )
+    obs = {
+        "kind": "toas.compound-observation/1",
+        "user_inputs": [
+            {
+                "content": (
+                    "## RESULT\n\n"
+                    "[OK] shell: exit=0\n"
+                    '````markdown toas-output kind=file source="cat doc.txt" potency=inert path=doc.txt block_id=ib_durable123\n'
+                    "(ref: ib_durable123)\n"
+                    "````"
+                )
+            }
+        ],
+    }
+    state = {
+        "goal": "read",
+        "artifact": (
+            '````markdown block_id=ib_durable123\n'
+            "(ref: ib_durable123)\n"
+            "````"
+        ),
+    }
+    packet = build_state_step_packet(
+        events_path=events,
+        state=state,
+        observation=obs,
+        session_text=session_text,
+    )
+    projected = packet["observation"]["user_inputs"][0]["content"]
+    assert "Line 1 from durable events" in projected
+    assert "Line 2 from durable events" in projected
+    assert packet["state"]["artifact"].startswith("````markdown block_id=ib_durable123")
+    assert "Line 1 from durable events" in packet["state"]["artifact"]
+
+
+def test_build_multi_state_sequence_packet_expands_references(tmp_path):
+    from toas.runtime.state_step import build_multi_state_sequence_packet
+
+    events = tmp_path / "events.jsonl"
+    record = {
+        "kind": "tool_result",
+        "payload": {
+            "stdout": (
+                '```python block_id=ib_seq999\n'
+                "def sequence_code():\n"
+                "    return True\n"
+                "```"
+            )
+        },
+    }
+    events.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    turns = [
+        {"role": "state", "content": "state: {step: 1}", "marker": "## TOAS:STATE [[alpha]]"},
+        {
+            "role": "user",
+            "content": (
+                "Here is the code:\n"
+                "```python block_id=ib_seq999\n"
+                "(ref: ib_seq999)\n"
+                "```"
+            ),
+        },
+    ]
+    state = {
+        "step": 1,
+        "code_block": "```python block_id=ib_seq999\n(ref: ib_seq999)\n```",
+    }
+    packet = build_multi_state_sequence_packet(
+        events_path=events,
+        state=state,
+        turns=turns,
+        start_index=0,
+    )
+    # Check messages and state expanded
+    user_msg = packet["request_messages"][2]["content"]
+    assert "def sequence_code():" in user_msg
+    assert "def sequence_code():" in packet["state"]["code_block"]
+
+
+def test_extract_inert_blocks_by_id_handles_nested_structures():
+    data = {
+        "outer": [
+            ("tuple_elem", {
+                "nested_stdout": (
+                    '```text block_id=ib_nested1\n'
+                    "nested body\n"
+                    "```\n"
+                    '```text block_id=ib_refonly\n'
+                    "(ref: ib_refonly)\n"
+                    "```"
+                )
+            })
+        ]
+    }
+    blocks = extract_inert_blocks_by_id(data)
+    assert blocks == {"ib_nested1": "nested body"}
+
+
+def test_expand_inert_blocks_unresolved_references_fail_soft():
+    content = (
+        "```text block_id=ib_missing\n"
+        "(ref: ib_missing)\n"
+        "```"
+    )
+    expanded = expand_inert_blocks(content, {})
+    assert expanded == content
 
 
 def test_reconcile_state_lineage_and_materialize(tmp_path):
