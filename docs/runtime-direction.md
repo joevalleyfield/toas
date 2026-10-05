@@ -31,6 +31,7 @@ TOAS is converging toward:
 - minimal ambient infrastructure
 - selective isolation boundaries
 - durable transcript semantics separated from live runtime semantics
+- structured state-transition step and Cartesian history projections (see `docs/state-step.md`) alongside conversational stepping
 
 The architecture is increasingly:
 

@@ -3,7 +3,7 @@ FKA:
 AKA: state-step transcript history; state history views
 Legacy index:
 
-keywords: projection, implementation, active, transcript, state-step
+keywords: projection, implementation, closed, transcript, state-step
 
 Parent: `260926-state-step-requirements`
 Related: `260927-state-step-alpha-loop`; `260928-state-user-control-turn-lifecycle`; `docs/notes/2026-10-04-state-history-projection-geometry.md`
@@ -163,5 +163,5 @@ compound observation, independent of the selected transcript projection.
   - Verified with 3,430 passed tests across all 9 matrix cells, aliases, CLI/RPC pathways,
     and preserved 100.00% statement coverage across 22,064 statements.
 
-Status: Active.
+Status: Closed.
 

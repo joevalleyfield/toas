@@ -41,8 +41,8 @@ trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
 - registry-backed tool execution
 - versioned prompt assets
 - metadata-backed session-starting prompt family
-- dynamic capability-advertisement prompts
 - transcript projection and history inspection commands
+- structured state-transition step with 3x3 Cartesian history projections and vector spelling (see `docs/state-step.md`)
 
 ## CLI
 
@@ -58,10 +58,11 @@ trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
   Request cancellation for an async run.
 - `toas heads`
   Show the selected history graph leaf set as a compact branch-tip view.
-- `toas transcript [head_id]`
-  Print a transcript projection; explicit node/head targeting is read-only projection and does not affect subsequent `step` execution.
-  To resume from a given lineage, redirect the projection into the working
-  transcript file (`toas transcript <head_id> > <session_path>`); there is no
+- `toas transcript [head_id] [--snapshots <all|key|anchor>] [--diffs <none|step|cumulative>] [--projection <alias>] [--record]`
+  Print a transcript projection; supports state-history projection options and standard aliases (`snapshots`, `redundant`, `diffs`, `milestones`, `delta`).
+  Explicit node/head targeting is read-only projection and does not affect subsequent `step` execution.
+  To resume from a given lineage or adopt a projection, redirect the projection into the working
+  transcript file (`toas transcript --projection=milestones > <session_path>`); there is no
   separate writeback command.
 - `toas llm-input [head_id]`
   Print model-facing projected messages; explicit node/head targeting is read-only projection and does not affect subsequent `step` execution.
