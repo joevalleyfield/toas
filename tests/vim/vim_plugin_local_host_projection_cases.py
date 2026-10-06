@@ -90,6 +90,31 @@ def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
             event,
             "## TOAS:STATE/2",
         )
+    if scenario == "tool_python_code_block_wrapper":
+        return (
+            "rtoolpyblock1",
+            "## TOAS:USER\n\n```python\ndef execute(\n    operation: str,\n):\n    pass\n```",
+            "",
+            "",
+        )
+    if scenario == "tool_prose_annotation_wrapper":
+        return (
+            "rtoolprose1",
+            "## TOAS:USER\n\noperation: str,",
+            "",
+            "",
+        )
+    if scenario == "speculative_tool_overridden_by_llm":
+        event = (
+            "{'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, "
+            "'payload': {'text': 'Hello world stream'}}"
+        )
+        return (
+            "rspecllm1",
+            "## TOAS:USER\n\n```yaml\n- tool_name: shell\n```\n",
+            event,
+            "Hello world stream",
+        )
     raise ValueError(f"unknown scenario: {scenario}")
 
 
@@ -226,6 +251,33 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 "      \\ '>     script: |',",
                 "      \\ '>       sleep 3',",
                 "      \\ '> ```',",
+                "      \\ ]",
+                "let g:tool_name = call(function(g:extract_fn), [g:frontier_lines])",
+                "let g:result = {",
+                "      \\ 'run_id': '',",
+                "      \\ 'status': '',",
+                "      \\ 'run_kind': '',",
+                "      \\ 'error': '',",
+                "      \\ 'transport': '',",
+                "      \\ 'text': g:tool_name,",
+                "      \\ }",
+                f"call writefile([json_encode(g:result)], '{out_path}')",
+                "qa!",
+            ]
+        elif scenario in {"tool_python_code_block_wrapper", "tool_prose_annotation_wrapper"}:
+            escaped_frontier = [f"      \\ '{line}'," for line in session_text.rstrip().split("\n")]
+            script_lines = [
+                "set nocompatible",
+                "set hidden",
+                "set noswapfile",
+                "set shortmess+=I",
+                f"source {plugin_path}",
+                "redir => g:toas_function_dump",
+                "silent function /toas_extract_frontier_tool_name_from_lines",
+                "redir END",
+                "let g:extract_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_extract_frontier_tool_name_from_lines')",
+                "let g:frontier_lines = [",
+                *escaped_frontier,
                 "      \\ ]",
                 "let g:tool_name = call(function(g:extract_fn), [g:frontier_lines])",
                 "let g:result = {",
@@ -408,6 +460,15 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 and "## TOAS:STATE/1" in result.get("text", "")
                 and required_text in result.get("text", "")
                 and "## TOAS:ASSISTANT" not in result.get("text", "")
+            )
+        if scenario in {"tool_python_code_block_wrapper", "tool_prose_annotation_wrapper"}:
+            ok = result.get("text", "") == ""
+        if scenario == "speculative_tool_overridden_by_llm":
+            ok = (
+                result.get("run_id", "") == run_id
+                and result.get("run_kind") == "llm"
+                and "tool: shell" not in result.get("text", "")
+                and required_text in result.get("text", "")
             )
         return {"ok": ok, "result": result}
 

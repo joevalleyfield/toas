@@ -32,6 +32,7 @@ let s:toas_run_reasoning_open = {}
 let s:toas_run_seen_event_keys = {}
 let s:toas_run_last_content_lane = {}
 let s:toas_run_kind = {}
+let s:toas_run_kind_source = {}
 let s:toas_run_tool_meta = {}
 let s:toas_run_error_summary = {}
 let s:toas_run_stream_policy = {}
@@ -1108,11 +1109,9 @@ function! s:toas_apply_watch_events(run_id, events) abort
         let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
       endif
       call s:toas_note_tool_event_meta(a:run_id, l:event)
-      " Prompt-progress events carry metadata rather than renderable text, but
-      " they still establish that this is an LLM run. Promote the display kind
-      " before rendering the policy header and progress line.
-      if get(l:event, 'lane', '') ==# 'llm_prompt_progress'
-        call s:toas_note_run_kind(a:run_id, l:event.lane)
+      let l:lane = get(l:event, 'lane', '')
+      if l:lane !=# ''
+        call s:toas_note_run_kind(a:run_id, l:lane)
       endif
       let l:event_text = s:toas_extract_renderable_event_text(a:run_id, l:event)
       if l:event_text !=# ''
@@ -1173,8 +1172,12 @@ function! s:toas_run_display_text(run_id) abort
   if l:projection !=# ''
     return l:projection
   endif
-  if get(s:toas_run_kind, a:run_id, '') ==# 'tool'
-    return get(s:toas_run_tool_text, a:run_id, '')
+  let l:kind = get(s:toas_run_kind, a:run_id, '')
+  if l:kind ==# 'tool'
+    let l:tool_text = get(s:toas_run_tool_text, a:run_id, '')
+    if l:tool_text !=# '' || get(s:toas_run_text, a:run_id, '') ==# ''
+      return l:tool_text
+    endif
   endif
   return get(s:toas_run_text, a:run_id, '')
 endfunction
@@ -1198,14 +1201,22 @@ function! s:toas_note_run_kind(run_id, lane) abort
     return 0
   endif
   let l:current = get(s:toas_run_kind, a:run_id, '')
-  if l:current ==# l:kind
+  let l:source = get(s:toas_run_kind_source, a:run_id, '')
+  if l:kind ==# 'run' && (l:current ==# 'tool' || l:current ==# 'llm')
     return 0
   endif
-  if l:current ==# 'tool' || l:current ==# 'llm'
+  if l:current ==# l:kind && l:source ==# 'authoritative'
+    return 0
+  endif
+  if l:source ==# 'authoritative' && (l:current ==# 'tool' || l:current ==# 'llm')
     return 0
   endif
   let s:toas_run_kind[a:run_id] = l:kind
+  let s:toas_run_kind_source[a:run_id] = 'authoritative'
   let g:toas_last_run_kind = l:kind
+  if l:kind ==# 'llm'
+    let s:toas_run_tool_meta[a:run_id] = {}
+  endif
   return 1
 endfunction
 
@@ -1262,29 +1273,67 @@ function! s:toas_extract_frontier_tool_name_from_lines(lines) abort
   let l:i = len(a:lines) - 1
   while l:i >= 0
     let l:line = trim(a:lines[l:i])
-    if l:line =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>'
+    if l:line =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\|STATE\|STATE-DIFF\)\>' || l:line =~# '^## RESULT\>'
       let l:start = l:i + 1
       break
     endif
     let l:i -= 1
   endwhile
-  let l:i = len(a:lines) - 1
-  while l:i >= l:start
-    let l:line = trim(a:lines[l:i])
-    if l:line =~# '^\$\s\+\S'
-      return 'shell'
+  if l:start >= len(a:lines)
+    return ''
+  endif
+
+  let l:in_fence = ''
+  let l:current_yaml_tool = ''
+  let l:intents = []
+
+  for l:raw in a:lines[l:start :]
+    let l:trimmed = trim(l:raw)
+    if l:trimmed =~# '^>'
+      continue
     endif
-    let l:tool_name = matchstr(l:line, '^\%(-\s*\)\?tool_name:\s*\zs[^#[:space:]]\+')
-    if l:tool_name !=# ''
-      return substitute(substitute(l:tool_name, "^['\"]", '', ''), "['\"]$", '', '')
+    if l:trimmed =~# '^```'
+      if l:in_fence !=# ''
+        if l:in_fence ==# 'yaml' && l:current_yaml_tool !=# ''
+          call add(l:intents, l:current_yaml_tool)
+          let l:current_yaml_tool = ''
+        endif
+        let l:in_fence = ''
+      else
+        let l:tag = tolower(trim(matchstr(l:trimmed, '^```\s*\zs.*')))
+        if l:tag =~# '^ya\?ml\>'
+          let l:in_fence = 'yaml'
+          let l:current_yaml_tool = ''
+        else
+          let l:in_fence = 'other'
+        endif
+      endif
+      continue
     endif
-    let l:operation = matchstr(l:line, '^\%(-\s*\)\?operation:\s*\zs[^#[:space:]]\+')
-    if l:operation !=# ''
-      return substitute(substitute(l:operation, "^['\"]", '', ''), "['\"]$", '', '')
+
+    if l:in_fence ==# 'yaml'
+      if l:current_yaml_tool ==# '' && l:raw =~# '^ \{0,2\}\%(-\s*\)\?\%(tool_name\|operation\):'
+        let l:val = matchstr(l:trimmed, '^\%(-\s*\)\?\%(tool_name\|operation\):\s*\zs[^\t\r\n #]\+')
+        let l:cand = substitute(substitute(l:val, "^['\"]", '', ''), "['\"]$", '', '')
+        if l:cand =~# '^[a-zA-Z0-9_-]\+$'
+          let l:current_yaml_tool = l:cand
+        endif
+      endif
+    elseif l:in_fence ==# ''
+      if l:trimmed =~# '^\$\s\+\S'
+        call add(l:intents, 'shell')
+      endif
     endif
-    let l:i -= 1
-  endwhile
-  return ''
+  endfor
+
+  if l:in_fence ==# 'yaml' && l:current_yaml_tool !=# ''
+    call add(l:intents, l:current_yaml_tool)
+  endif
+
+  if empty(l:intents)
+    return ''
+  endif
+  return l:intents[-1]
 endfunction
 
 function! s:toas_detect_frontier_tool_name() abort
@@ -1297,6 +1346,7 @@ function! s:toas_seed_tool_meta_from_frontier(run_id) abort
     return 0
   endif
   let s:toas_run_kind[a:run_id] = 'tool'
+  let s:toas_run_kind_source[a:run_id] = 'speculative'
   let g:toas_last_run_kind = 'tool'
   if !has_key(s:toas_run_tool_meta, a:run_id)
     let s:toas_run_tool_meta[a:run_id] = {}
@@ -2808,6 +2858,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   let s:toas_run_projection_text[l:run_id] = ''
   let s:toas_run_tool_text[l:run_id] = ''
   let s:toas_run_kind[l:run_id] = 'run'
+  let s:toas_run_kind_source[l:run_id] = ''
   let s:toas_run_last_content_lane[l:run_id] = ''
   let s:toas_run_tool_meta[l:run_id] = {}
   let s:toas_run_error_summary[l:run_id] = ''
@@ -2823,6 +2874,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   endif
   if has_key(s:toas_run_kind, l:pending_id) && get(s:toas_run_kind, l:pending_id, '') ==# 'tool'
     let s:toas_run_kind[l:run_id] = 'tool'
+    let s:toas_run_kind_source[l:run_id] = get(s:toas_run_kind_source, l:pending_id, 'speculative')
     let g:toas_last_run_kind = 'tool'
   endif
   let s:toas_run_metrics[l:run_id] = {
@@ -3412,6 +3464,7 @@ function! ToasStepAsync() abort
     let s:toas_run_projection_text[l:run_id] = ''
     let s:toas_run_tool_text[l:run_id] = ''
     let s:toas_run_kind[l:run_id] = 'run'
+    let s:toas_run_kind_source[l:run_id] = ''
     let s:toas_run_tool_meta[l:run_id] = {}
     let s:toas_run_started_reltime[l:run_id] = reltime()
     let s:toas_run_last_elapsed_label[l:run_id] = '0:00'
@@ -3925,6 +3978,7 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_run_seen_event_keys = {}
   let s:toas_run_last_content_lane = {}
   let s:toas_run_kind = {}
+  let s:toas_run_kind_source = {}
   let s:toas_run_tool_meta = {}
   let s:toas_run_error_summary = {}
   let s:toas_run_stream_policy = {}

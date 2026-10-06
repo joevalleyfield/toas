@@ -101,3 +101,21 @@ def test_local_host_state_projection_lane_preserves_state_header_without_assista
     assert "## TOAS:STATE/2" in result["text"]
     assert "## TOAS:ASSISTANT" not in result["text"]
 
+
+def test_python_code_block_does_not_seed_tool_identity():
+    result = _run("tool_python_code_block_wrapper")
+    assert result["text"] == ""
+
+
+def test_prose_operation_does_not_seed_tool_identity():
+    result = _run("tool_prose_annotation_wrapper")
+    assert result["text"] == ""
+
+
+def test_speculative_tool_overridden_by_authoritative_llm_stream():
+    result = _run("speculative_tool_overridden_by_llm")
+    assert result["run_id"] == "rspecllm1"
+    assert result["run_kind"] == "llm"
+    assert "tool: shell" not in result["text"]
+    assert "Hello world stream" in result["text"]
+
