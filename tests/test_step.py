@@ -3160,6 +3160,8 @@ def test_config_show_returns_grouped_effective_overview():
     assert "thinking: disabled" in content
     assert "avoid terms: 4 configured" in content
     assert "extraction:" in content
+    assert "runtime:" in content
+    assert "streaming: enabled" in content
     assert "execution:" in content
     assert "llm.base_url =" not in content
 
@@ -4212,7 +4214,7 @@ def test_config_show_includes_quick_edit_examples():
     _, out = step(transcript, [])
     content = out[0]["content"]
     assert "Quick edits:" not in content
-    assert "/config show models|generation|extraction|execution" in content
+    assert "/config show models|generation|extraction|runtime|execution" in content
 
 
 def test_config_set_generation_thinking_mode_error_includes_example():

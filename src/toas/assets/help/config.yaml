@@ -3,8 +3,9 @@ overview:
   - "start here:"
   - "  /config                  compact usage and navigation"
   - "  /config --help           exact config-interface usage"
-  - "  /config show             inspect effective current values"
+  - "  /config show             inspect effective current values (overview)"
   - "  /config list             alias for /config show"
+  - "  /config show --flat      inspect all configuration keys (flat key=value)"
   - "  /config show --sources   inspect values with their provenance (flat)"
   - "  /config show <topic>     inspect a focused key/topic view"
   - "  /config show models --flat  inspect model configuration as flat key/value data"
@@ -34,7 +35,7 @@ overview:
   - "  tools-guidance-first-edit-pass"
   - "  tools-guidance-full"
   - ""
-  - "tip: use /config show to see all valid keys in the current build"
+  - "tip: use /config show for the curated overview, or /config show --flat to see all valid keys"
   - "tip: the overview is curated; use /config show --sources for every effective key and its winning source"
 topics:
   - id: models
@@ -101,6 +102,16 @@ topics:
           - "capture_task_thread is a side-thread fork: keep the payload concise and return to the primary task"
           - "/config show capability_advertisement  inspect profile and hidden-tool settings"
           - "/help tools  inspect the broader callable tool reference"
+  - id: runtime
+    aliases: [streaming, stream, progress, async]
+    summary: "Runtime controls streaming, thinking stream, prompt progress, and asynchronous execution."
+    facets:
+      plain:
+        summary: "Runtime settings shape live execution, streaming deltas, prompt progress feedback, and async execution mechanics."
+      config:
+        summary: "Adjust streaming, thinking streaming, prompt progress, and execution lifecycle behavior."
+        related_keys: [runtime.streaming_mode, runtime.thinking_stream_mode, runtime.prompt_progress_mode, runtime.async_runs, runtime.async_backend_mode, runtime.cancellation_mode, runtime.context_budget_mode]
+        next_actions: [/config show runtime, /config set runtime.prompt_progress_mode enabled, /config set runtime.thinking_stream_mode enabled]
 key_descriptions:
   llm.model: "Selects the active model for generation."
   llm.endpoints: "Defines configured endpoint entries and their known models."
@@ -111,6 +122,10 @@ key_descriptions:
   generation.max_tokens: "Limits generated output tokens."
   generation.max_retries: "Controls retry attempts after a generation failure."
   generation.retry_delay_s: "Controls the delay between generation retries."
+  runtime.streaming_mode: "Enables or disables stdout answer streaming."
+  runtime.thinking_stream_mode: "Enables or disables live streaming of model thinking deltas."
+  runtime.prompt_progress_mode: "Enables or disables live streaming of prompt construction progress."
+  runtime.async_runs: "Enables or disables asynchronous execution for step runs."
   health_timing.first_frame_timeout_ms: "Controls the timeout before the first response frame."
   health_timing.inter_frame_timeout_ms: "Controls the timeout between response frames."
   health_timing.host_request_deadline_ms: "Controls the host request deadline."

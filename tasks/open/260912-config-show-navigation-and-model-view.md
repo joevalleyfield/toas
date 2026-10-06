@@ -55,6 +55,13 @@ existing dictionary-shaped projection.
 - No machine-readable schema beyond preserving the current explicit escape
   hatch.
 
+## Progress
+
+- 2026-10-05: Advertised `--flat` across overview, entrypoint help, and help catalog
+  assets. Surfaced `runtime:` section in `_config_overview` and registered the
+  `runtime` topic and related keys in `config.yaml` so streaming, thinking stream,
+  and prompt progress settings are discoverable in both live state and concept help.
+
 ## Status
 
-Plan recorded; child tasks ready for implementation.
+Active; runtime section surfaced and --flat escape hatch discoverable across config surfaces.

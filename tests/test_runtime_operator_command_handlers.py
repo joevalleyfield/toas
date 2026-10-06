@@ -965,7 +965,9 @@ def test_config_show_unfiltered_is_grouped_effective_overview():
     assert "active target: (none)" in content
     assert "generation:" in content
     assert "extraction:" in content
+    assert "runtime:" in content
     assert "execution:" in content
+    assert "/config show --flat" in content
     assert "llm.model =" not in content
     assert "precedence stack" not in content
     assert "(" in content
@@ -1103,6 +1105,7 @@ def test_bare_config_is_compact_navigation_not_state_dump():
 
     assert "config: inspect or change configuration" in content
     assert "/config show [FILTER] [--flat] [--sources]" in content
+    assert "/config show --flat" in content
     assert "/config show --sources" in content
     assert "/config show <topic-or-key>" in content
     assert "/config values KEY" in content
