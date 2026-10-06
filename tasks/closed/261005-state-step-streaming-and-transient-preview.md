@@ -3,7 +3,7 @@ FKA:
 AKA: state-step streaming; transient state deltas; thinking streaming in state mode
 Legacy index:
 
-keywords: runtime, active, state-step, streaming, thinking, preview
+keywords: runtime, historical, state-step, streaming, thinking, preview
 
 Parent: `260926-state-step-requirements`
 Depends on: `260927-state-step-history-projections`; `261004-state-observation-reference-addressing`
@@ -85,5 +85,17 @@ settled working transcripts clean and projection-grounded.
     canonical state turn replacement upon completion.
   - All 3,443 unit tests and 17 acceptance tests pass at 100.00% statement coverage
     (22,148 statements) with clean Ruff and Mypy checks.
+- 2026-10-06: Slice 2 completed:
+  - Wrapped state-step execution in `_run_state_step` to catch malformed / invalid
+    generation exceptions (`ValueError`), format structured validation diagnostics
+    (`## TOAS:USER\n\n## RESULT\n\n[ERROR] ...`), and deliver them via
+    `on_projection_delta` / stdout.
+  - Verified transient streamed preview replacement upon generation validation
+    failure in both CLI and Vim interface projection tests without corrupting
+    durable state.
+  - Added `on_llm_completion` callback dispatch to
+    `GenerationRunner.generate_state_packet` for lifecycle symmetry.
+  - All 3,456 unit tests and 17 acceptance tests pass at 100.00% statement coverage
+    (22,225 statements) with clean Ruff and Mypy checks.
 
-Status: Active.
+Status: Complete.

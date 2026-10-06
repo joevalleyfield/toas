@@ -221,6 +221,23 @@ class GenerationRunner:
         try:
             plan = self.prepare_state_request(packet)
             result = self.execute_with_retry(plan)
+            on_completion = getattr(self, "on_llm_completion", None)
+            if on_completion is not None and hasattr(result, "node"):
+                response = result.node.get("response")
+                if not isinstance(response, dict):
+                    response = {}
+                content = result.node.get("content")
+                reasoning_content = response.get("reasoning_content")
+                content_origin = response.get("content_origin", "answer")
+                on_completion(
+                    GenerationCompletion(
+                        content=content if isinstance(content, str) else "",
+                        reasoning_content=reasoning_content if isinstance(reasoning_content, str) else None,
+                        content_origin=content_origin if isinstance(content_origin, str) else "",
+                        attempt=result.attempt,
+                        max_attempts=result.max_attempts,
+                    )
+                )
             return self.build_artifacts(plan, result)
         finally:
             self.on_llm_answer_delta = saved_delta

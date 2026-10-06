@@ -2315,3 +2315,197 @@ def test_run_step_state_mode_generate_override_and_preview_response(monkeypatch,
         on_llm_answer_delta=deltas.append,
     )
 
+
+def test_run_step_state_mode_invalid_response_projects_diagnostic_and_preserves_clean_durable_state(
+    monkeypatch, tmp_path
+):
+    session = tmp_path / "session.md"
+    initial_text = "## TOAS:STATE/1\n\nstate:\n  goal: inspect\n\nobservation:\n  kind: start\n"
+    session.write_text(initial_text)
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        resolve_session_path=lambda _events: session,
+        read_text_preserve_newlines=lambda path: path.read_text(),
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: [])
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+
+    answer_deltas = []
+    reasoning_deltas = []
+    projection_deltas = []
+
+    def broken_gen(packet, **kwargs):
+        if kwargs.get("on_delta"):
+            kwargs["on_delta"]('{"state_patch": broken')
+        if kwargs.get("on_reasoning_delta"):
+            kwargs["on_reasoning_delta"]("pondering broken json...")
+        return {"content": '{"state_patch": broken'}
+
+    with pytest.raises(ValueError, match="invalid state-step JSON response"):
+        cli_session_commands.run_step(
+            session_path=str(session),
+            generate_override=broken_gen,
+            on_llm_answer_delta=answer_deltas.append,
+            on_llm_reasoning_delta=reasoning_deltas.append,
+            on_projection_delta=projection_deltas.append,
+        )
+
+    # 1. Real-time transient streaming delivered draft deltas
+    assert answer_deltas == ['{"state_patch": broken']
+    assert reasoning_deltas == ["pondering broken json..."]
+
+    # 2. Validation diagnostic replaced transient draft via projection delta
+    assert len(projection_deltas) == 1
+    assert "## TOAS:USER\n\n## RESULT\n\n[ERROR] invalid state-step JSON response:" in projection_deltas[0]
+
+    # 3. Durable state logged the failure without advancing state
+    events = read_log(str(events_path))
+    assert len(events) == 3
+    assert events[-1]["kind"] == "state_transition"
+    assert events[-1]["status"] == "failed"
+    assert events[-1]["failure_phase"] == "response_validation"
+    assert events[-1]["response_content"] == '{"state_patch": broken'
+
+    # 4. Session transcript was not corrupted
+    assert session.read_text() == initial_text
+
+
+def test_run_step_state_mode_invalid_response_prints_diagnostic_when_no_projection_callback(
+    monkeypatch, tmp_path, capsys
+):
+    session = tmp_path / "session.md"
+    initial_text = "## TOAS:STATE/1\n\nstate:\n  goal: inspect\n\nobservation:\n  kind: start"
+    session.write_text(initial_text)
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        resolve_session_path=lambda _events: session,
+        read_text_preserve_newlines=lambda path: path.read_text(),
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: [])
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+
+    with pytest.raises(ValueError, match="state-step model response must contain JSON text"):
+        cli_session_commands.run_step(
+            session_path=str(session),
+            generate_override=lambda _p: {"content": None},
+        )
+
+    out = capsys.readouterr().out
+    assert "## TOAS:USER\n\n## RESULT\n\n[ERROR] state-step model response must contain JSON text" in out
+
+
+def test_generation_runner_state_packet_fires_on_llm_completion(tmp_path):
+    from toas.config import OperatorConfig
+    from toas.runtime.step_generation_runtime import GenerationCompletion, GenerationRunner
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    completions: list[GenerationCompletion] = []
+    runner = GenerationRunner(
+        deps=SimpleNamespace(
+            project_llm_input_from_messages=lambda msgs: msgs,
+            resolve_selected_endpoint=lambda _cfg, _sett: ("http://localhost", "default"),
+            resolve_selected_model=lambda _cfg, _sett: ("test-model", "default"),
+            resolve_secret=lambda _key: None,
+        ),
+        operator_config=OperatorConfig(),
+        base_settings=SimpleNamespace(
+            llm_base_url="http://localhost",
+            llm_transport_mode="chat_messages",
+            llm_trace="minimal",
+        ),
+        settings_sources={"transport": "default"},
+        policy=SimpleNamespace(max_tokens=100),
+        events_path=events_path,
+        stream_state={},
+        on_llm_completion=completions.append,
+    )
+
+    runner.prepare_state_request = lambda _packet: SimpleNamespace(
+        selected_settings=SimpleNamespace(
+            llm_base_url="http://localhost",
+            llm_model="test-model",
+            llm_transport_mode="chat_messages",
+            llm_trace="minimal",
+        ),
+        selected_endpoint_source="default",
+        selected_model_source="default",
+        selected_api_key_source="default",
+        messages=[],
+        attempts=1,
+        retry_delay_s=0,
+    )
+    runner.execute_with_retry = lambda _plan: SimpleNamespace(
+        node={
+            "content": '{"state_patch": {}, "tool_calls": []}',
+            "response": {
+                "model": "test-model",
+                "reasoning_content": "thinking deeply",
+                "content_origin": "answer",
+            },
+        },
+        attempt=1,
+        max_attempts=1,
+    )
+
+    res = runner.generate_state_packet({"state": {}})
+    assert res["content"] == '{"state_patch": {}, "tool_calls": []}'
+    assert len(completions) == 1
+    assert completions[0].content == '{"state_patch": {}, "tool_calls": []}'
+    assert completions[0].reasoning_content == "thinking deeply"
+    assert completions[0].content_origin == "answer"
+
+    # Also exercise when node has no response dictionary
+    runner.execute_with_retry = lambda _plan: SimpleNamespace(
+        node={"content": "{}"},
+        attempt=1,
+        max_attempts=1,
+    )
+    runner.generate_state_packet({"state": {}})
+    assert len(completions) == 2
+    assert completions[1].reasoning_content is None
+    assert completions[1].content_origin == "answer"
+
+
+

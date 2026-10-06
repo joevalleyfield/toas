@@ -276,7 +276,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti...
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
-- **[T261005-state-step-streaming-and-transient-preview]** State-Step Streaming And Transient Delta Preview
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -366,9 +365,9 @@ continuation, and authority concerns without reopening completed slices.
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261006-tool-execution-progress-updates]** Tool Execution Progress Updates During Plan And State Execution
 - **[T261005-vim-frontier-tool-heuristic-and-kind-latch]** Vim Frontier Tool Heuristic And Rigid Run-Kind Latch
+- **[T261005-state-step-streaming-and-transient-preview]** State-Step Streaming And Transient Delta Preview
 - **[T261004-state-step-documentation-graduation]** Graduate State-Step Architecture And Projection Geometry
 - **[T261004-state-observation-reference-addressing]** State Observation Reference Addressing And Condensation
-- **[T261002-state-transcript-branching-and-modification]** Status: ACTIVE implementation slice; defines and implements semantics when the user modifies state or user turns at any point in a transcript containi...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

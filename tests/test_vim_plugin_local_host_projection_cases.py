@@ -142,3 +142,10 @@ def test_silent_tool_watch_events_mark_tool_changed():
     assert result["tool_changed"] == 1
 
 
+def test_state_invalid_response_preview_replacement_in_vim():
+    result = _run("state_invalid_response_preview_replacement_wrapper")
+    assert result["run_id"] == "rstateinv1"
+    assert "[ERROR] invalid state-step JSON response" in result["text"]
+    assert '{"state_patch": broken' not in result["text"]
+
+

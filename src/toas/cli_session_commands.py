@@ -723,19 +723,35 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
     from .graph import _next_message_id
     inferred_message_id = _next_message_id(read_log(str(events_path))) if events_path.exists() else "n1"
 
-    result = step_state(
-        events_path=events_path, state=current_state, observation=current_observation,
-        instructions=parsed_turn.get("instructions"),
-        session_text=normalized_transcript,
-        pending_tool_calls=parsed_turn.get("pending_tools") if not cleaned_input_turns and not effective_infer_from else None,
-        generate=generate_state_packet, execute_call=execute_call,
-        message_id=inferred_message_id,
-        infer_from=effective_infer_from,
-        transcript_turns=cleaned_all_turns if effective_infer_from else None,
-        on_delta=on_llm_answer_delta,
-        on_reasoning_delta=on_llm_reasoning_delta,
-        on_prompt_progress=on_llm_prompt_progress,
-    )
+    try:
+        result = step_state(
+            events_path=events_path, state=current_state, observation=current_observation,
+            instructions=parsed_turn.get("instructions"),
+            session_text=normalized_transcript,
+            pending_tool_calls=parsed_turn.get("pending_tools") if not cleaned_input_turns and not effective_infer_from else None,
+            generate=generate_state_packet, execute_call=execute_call,
+            message_id=inferred_message_id,
+            infer_from=effective_infer_from,
+            transcript_turns=cleaned_all_turns if effective_infer_from else None,
+            on_delta=on_llm_answer_delta,
+            on_reasoning_delta=on_llm_reasoning_delta,
+            on_prompt_progress=on_llm_prompt_progress,
+        )
+    except ValueError as exc:
+        diagnostic = f"[ERROR] {exc}"
+        rendered_results = f"## TOAS:USER\n\n## RESULT\n\n{diagnostic}"
+        transcript = normalized_transcript
+        prefix = ""
+        if transcript and not transcript.endswith(("\n", "\r")):
+            prefix += "\n"
+        if transcript and not (transcript + prefix).endswith("\n\n"):
+            prefix += "\n"
+        output_chunk = prefix + rendered_results + "\n"
+        if on_projection_delta is not None:
+            on_projection_delta(output_chunk)
+        else:
+            print(output_chunk, end="")
+        raise
     if result["phase"] == "infer":
         prior_state_number = parsed_turn.get("state_number", 1)
         tool_calls = result.get("tool_calls") or None
