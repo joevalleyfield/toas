@@ -67,14 +67,19 @@ def when_follow_config_discovery(acceptance_state: dict, capsys) -> None:
         "/config show generation",
         "/config show extraction",
         "/config show runtime",
+        "/config show execution",
         "/config show backend",
         "/config show shell",
         "/config show tool_writes",
         "/config show models --flat",
         "/config show models --sources",
+        "/config show execution --flat",
+        "/config show execution --sources",
         "/config show --sources models",
         "/help config sources",
         "/help config provenance",
+        "/help config execution",
+        "/help execution",
     ):
         _run_control(acceptance_state["repo"], command)
         outputs.append((command, capsys.readouterr().out))
@@ -194,8 +199,25 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
         assert section in overview
     assert "/config show --flat" in overview
     assert "/config show models|generation|extraction|runtime|execution" in overview
-    for command in ("generation", "extraction", "runtime", "backend", "shell", "tool_writes"):
+    for command in ("generation", "extraction", "runtime", "execution", "backend", "shell", "tool_writes"):
         assert "no matching keys" not in _output(outputs, f"/config show {command}")
+
+    show_execution = _output(outputs, "/config show execution")
+    assert "execution configuration" in show_execution
+    assert "backend.mode:" in show_execution
+    assert "shell.assistant_timeout_s:" in show_execution
+    assert "tool_writes.newline_style:" in show_execution
+
+    flat_execution = _output(outputs, "/config show execution --flat")
+    for key in ("backend.mode =", "shell.assistant_timeout_s =", "tool_writes.newline_style =", "runtime.async_runs ="):
+        assert key in flat_execution
+
+    sources_execution = _output(outputs, "/config show execution --sources")
+    assert "[source=default]" in sources_execution
+
+    help_execution = _output(outputs, "/help execution")
+    assert "help: execution" in help_execution
+    assert "/help config execution" in help_execution
 
     with_sources = _output(outputs, "/config show models --sources")
     sources_first = _output(outputs, "/config show --sources models")

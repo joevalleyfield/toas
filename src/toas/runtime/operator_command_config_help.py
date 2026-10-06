@@ -341,6 +341,44 @@ def _config_models_overview(*, step_mod, context: OperatorCommandContext) -> str
     return "\n".join(lines)
 
 
+def _config_execution_overview(*, step_mod, context: OperatorCommandContext) -> str:
+    """Render execution configuration as an operator-readable composed view."""
+    backend = context.config.backend
+    managed = backend.managed_local
+    managed_summary = " ".join(managed.command) if managed.command else "(disabled)"
+    shell = context.config.shell
+    allowed = shell.allowed_commands
+    allowed_summary = f"{len(allowed)} commands ({', '.join(allowed[:5])}...)" if len(allowed) > 8 else (", ".join(allowed) or "(none)")
+    tool_writes = context.config.tool_writes
+    runtime = context.config.runtime
+
+    lines = [
+        "execution configuration",
+        "",
+        "backend:",
+        f"  backend.mode: {backend.mode}",
+        f"  backend.managed_local: {managed_summary}",
+        "",
+        "shell:",
+        f"  shell.assistant_timeout_s: {shell.assistant_timeout_s}s",
+        f"  shell.allowed_commands: {allowed_summary}",
+        "",
+        "tool writes:",
+        f"  tool_writes.newline_style: {tool_writes.newline_style}",
+        "",
+        "runtime lifecycle:",
+        f"  runtime.async_runs: {runtime.async_runs}",
+        f"  runtime.async_backend_mode: {runtime.async_backend_mode}",
+        f"  runtime.cancellation_mode: {runtime.cancellation_mode}",
+        "",
+        "next:",
+        "  /config show execution --flat    inspect exhaustive execution keys",
+        "  /config show execution --sources inspect execution keys with winning sources",
+        "  /help config execution           execution concepts and boundaries",
+    ]
+    return "\n".join(lines)
+
+
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     filter_text, show_sources, show_flat = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
 
@@ -359,6 +397,8 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
     model_topic = resolve_config_help_topic(load_config_help_catalog(), filter_text) if filter_text else None
     if filter_text and model_topic is not None and model_topic.topic_id == "models" and not show_sources and not show_flat:
         return [_result_node(_config_models_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+    if filter_text and model_topic is not None and model_topic.topic_id == "execution" and not show_sources and not show_flat:
+        return [_result_node(_config_execution_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
     if filter_text is None and not show_sources and not show_flat:
         return [_result_node(_config_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
     if show_sources:

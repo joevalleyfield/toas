@@ -6,7 +6,7 @@ Legacy index:
 Parent: `260912-config-show-navigation-and-model-view`
 Related: `260912-config-navigation-hint-correction`; `260912-config-discovery-preservation`
 
-keywords: config, exploration, parked, contract, usability, execution, policy
+keywords: config, exploration, historical, contract, usability, execution, policy
 
 # Deliberate the execution config/help facet
 
@@ -185,8 +185,19 @@ Before implementation, produce:
 - no migration or compatibility removal;
 - no implementation of `/config show execution` until the boundary is agreed.
 
+## Progress
+
+- 2026-10-06: Deliberated the boundary and selected Option 1 (composed topic view)
+  to establish symmetry across `generation`, `extraction`, and `execution`.
+  - Registered `execution` as a topic in `src/toas/assets/help/config.yaml` linking
+    `backend.mode`, `backend.managed_local`, `shell.assistant_timeout_s`,
+    `shell.allowed_commands`, `tool_writes.newline_style`, `runtime.async_runs`,
+    `runtime.async_backend_mode`, and `runtime.cancellation_mode`.
+  - Implemented `_config_execution_overview` for human-readable inspection via
+    `/config show execution` alongside `--flat` and `--sources` escape hatches.
+  - Added plain and config help coverage via `/help execution` and `/help config execution`.
+  - Verified with full unit and acceptance test suites at 100.00% statement coverage.
+
 ## Status
 
-Parked for deliberate reconsideration. The matrix and open alternatives are
-preserved, but this topic is not in the active implementation path until a
-concrete operator workflow makes one execution grouping worth pursuing.
+Complete.

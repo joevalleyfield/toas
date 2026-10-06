@@ -7,7 +7,7 @@ Parent: `260912-config-show-effective-overview`
 
 Related: `260912-config-discovery-preservation`
 
-keywords: config, discovery, surface, contract, decomposition, active
+keywords: config, discovery, surface, contract, decomposition, historical
 
 # Rationalize config-show navigation and model detail views
 
@@ -64,7 +64,18 @@ existing dictionary-shaped projection.
 - 2026-10-05: Added dedicated `streaming` concept topic to `config.yaml` explaining
   the distinction between generation streaming and tool execution streaming,
   linking to live controls across `runtime.*` and `health_timing.*`.
+- 2026-10-06: Completed execution facet integration and navigation closure:
+  - Implemented `/config show execution` composed view and registered the
+    `execution` topic in `config.yaml` to establish concept symmetry across
+    `generation`, `extraction`, and `execution`.
+  - Added execution discovery paths to acceptance tests and verified that every
+    advertised topic in `/config show models|generation|extraction|runtime|execution`
+    executes without `no matching keys`.
+  - All child tasks (`260912-config-show-next-command-audit`,
+    `260912-config-model-structured-view`, and `260912-config-execution-facet-design`)
+    are closed.
+  - Verified full test suite at 100.00% statement coverage (22,238 statements).
 
 ## Status
 
-Active; runtime and streaming topics discoverable and --flat escape hatch surfaced across config surfaces.
+Complete.

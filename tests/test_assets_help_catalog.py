@@ -243,3 +243,26 @@ def test_config_help_streaming_topic_and_plain_help():
     rendered_config = render_config_help("streaming", valid_keys=["runtime.streaming_mode"])
     assert "config help: streaming" in rendered_config
     assert "runtime.streaming_mode" in rendered_config
+
+
+def test_config_help_execution_topic_and_plain_help():
+    catalog = load_config_help_catalog()
+    topic = resolve_config_help_topic(catalog, "execution")
+    assert topic is not None
+    assert topic.topic_id == "execution"
+    assert "execute" in topic.aliases
+    assert "backend.mode" in topic.facets["config"].related_keys
+    assert "shell.assistant_timeout_s" in topic.facets["config"].related_keys
+    assert "tool_writes.newline_style" in topic.facets["config"].related_keys
+    assert "runtime.async_runs" in topic.facets["config"].related_keys
+
+    plain = render_plain_help("execution")
+    assert plain is not None
+    assert "help: execution" in plain
+    assert "model generation and candidate extraction" in plain
+    assert "/help config execution" in plain
+
+    rendered_config = render_config_help("execution", valid_keys=["backend.mode", "shell.assistant_timeout_s"])
+    assert "config help: execution" in rendered_config
+    assert "backend.mode" in rendered_config
+    assert "shell.assistant_timeout_s" in rendered_config
