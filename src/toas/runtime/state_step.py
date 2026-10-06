@@ -1391,6 +1391,9 @@ def step_state(  # noqa: PLR0913
     message_id: str | None = None,
     infer_from: str | None = None,
     transcript_turns: list[dict[str, Any]] | None = None,
+    on_delta: Callable[[str], None] | None = None,
+    on_reasoning_delta: Callable[[str], None] | None = None,
+    on_prompt_progress: Callable[[object], None] | None = None,
 ) -> dict[str, Any]:
     """Run one explicit phase: user consolidation, pending batch, or inference."""
     path = str(events_path)
@@ -1851,7 +1854,21 @@ def step_state(  # noqa: PLR0913
             instructions=instructions, session_text=session_text,
         )
         compound_observation = packet["observation"]
-    answer = generate(packet)
+    gen_kwargs: dict[str, Any] = {}
+    if on_delta is not None:
+        gen_kwargs["on_delta"] = on_delta
+    if on_reasoning_delta is not None:
+        gen_kwargs["on_reasoning_delta"] = on_reasoning_delta
+    if on_prompt_progress is not None:
+        gen_kwargs["on_prompt_progress"] = on_prompt_progress
+
+    if gen_kwargs:
+        try:
+            answer = generate(packet, **gen_kwargs)
+        except TypeError:
+            answer = generate(packet)
+    else:
+        answer = generate(packet)
     if isinstance(answer, dict) and isinstance(answer.get("_llm_call"), dict):
         call_kwargs = dict(answer["_llm_call"])
         call_kwargs.setdefault("request_messages", packet.get("request_messages", [{"role": "user", "content": json.dumps(packet)}]))
@@ -2109,3 +2126,6 @@ def find_lineage_state_snapshot(
                     return snapshot
 
     return snapshots[-1]
+
+
+execute_state_step = step_state

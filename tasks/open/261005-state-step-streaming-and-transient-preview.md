@@ -72,5 +72,18 @@ settled working transcripts clean and projection-grounded.
 
 - 2026-10-05: Task opened following discussion on applying the thinking-streaming
   transient-to-canonical replacement precedent to state-step generation.
+- 2026-10-05: Slice 1 completed:
+  - Added streaming callback affordances (`on_delta`, `on_reasoning_delta`,
+    `on_prompt_progress`) across `execute_state_step` / `step_state`,
+    `step_state_once`, `GenerationRunner.generate_state_packet`, and
+    `_run_state_step` / `run_step`.
+  - Wired `generate_override` and generation flags (`stream_stdout_enabled`,
+    `stream_thinking_enabled`, `stream_prompt_progress_enabled`, `llm_stream_mode`,
+    `debug_prompt_progress_*`) through state-step dispatch.
+  - Verified reasoning deltas, candidate delta chunks, and prompt progress stream in
+    real time during generation while `on_projection_delta` delivers the final
+    canonical state turn replacement upon completion.
+  - All 3,443 unit tests and 17 acceptance tests pass at 100.00% statement coverage
+    (22,148 statements) with clean Ruff and Mypy checks.
 
 Status: Active.

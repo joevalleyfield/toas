@@ -200,11 +200,32 @@ class GenerationRunner:
             llm_stream_mode=self.llm_stream_mode,
         )
 
-    def generate_state_packet(self, packet: dict) -> dict:
+    def generate_state_packet(
+        self,
+        packet: dict,
+        *,
+        on_delta: Callable[[str], None] | None = None,
+        on_reasoning_delta: Callable[[str], None] | None = None,
+        on_prompt_progress: Callable[[object], None] | None = None,
+    ) -> dict:
         """Generate from state-only input through the normal provider/retry/audit path."""
-        plan = self.prepare_state_request(packet)
-        result = self.execute_with_retry(plan)
-        return self.build_artifacts(plan, result)
+        saved_delta = getattr(self, "on_llm_answer_delta", None)
+        saved_reasoning = getattr(self, "on_llm_reasoning_delta", None)
+        saved_progress = getattr(self, "on_llm_prompt_progress", None)
+        if on_delta is not None:
+            self.on_llm_answer_delta = on_delta
+        if on_reasoning_delta is not None:
+            self.on_llm_reasoning_delta = on_reasoning_delta
+        if on_prompt_progress is not None:
+            self.on_llm_prompt_progress = on_prompt_progress
+        try:
+            plan = self.prepare_state_request(packet)
+            result = self.execute_with_retry(plan)
+            return self.build_artifacts(plan, result)
+        finally:
+            self.on_llm_answer_delta = saved_delta
+            self.on_llm_reasoning_delta = saved_reasoning
+            self.on_llm_prompt_progress = saved_progress
 
     def execute_with_retry(self, plan):
         last_error: Exception | None = None

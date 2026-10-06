@@ -69,13 +69,30 @@ class StepOutcome:
     completed: bool = True
 
 
-def step_state_once(*, events_path: str | Path, state: dict, observation,
-                    generate: Callable[[dict], object], execute_call: Callable[[dict], object]) -> dict:
+def step_state_once(
+    *,
+    events_path: str | Path,
+    state: dict,
+    observation,
+    generate: Callable[[dict], object],
+    execute_call: Callable[[dict], object],
+    on_delta: Callable[[str], None] | None = None,
+    on_reasoning_delta: Callable[[str], None] | None = None,
+    on_prompt_progress: Callable[[object], None] | None = None,
+) -> dict:
     """Advance the independent, typed state-step runtime once."""
     from .runtime.state_step import step_state
 
-    return step_state(events_path=events_path, state=state, observation=observation,
-                      generate=generate, execute_call=execute_call)
+    return step_state(
+        events_path=events_path,
+        state=state,
+        observation=observation,
+        generate=generate,
+        execute_call=execute_call,
+        on_delta=on_delta,
+        on_reasoning_delta=on_reasoning_delta,
+        on_prompt_progress=on_prompt_progress,
+    )
 
 
 @dataclass(frozen=True)

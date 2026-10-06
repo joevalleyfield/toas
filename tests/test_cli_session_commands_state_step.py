@@ -2003,3 +2003,315 @@ def test_state_infer_from_label_parsing_and_sequence_edges():
     user_msgs = [m for m in packet["request_messages"] if m["role"] == "user"]
     assert len(user_msgs) == 1
     assert "first part\n\nsecond part" in user_msgs[0]["content"]
+
+
+def test_step_state_and_alias_forwards_streaming_callbacks(tmp_path):
+    from toas.runtime.state_step import execute_state_step, step_state
+
+    assert execute_state_step is step_state
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    captured_kwargs = {}
+
+    def mock_generate(packet, **kwargs):
+        captured_kwargs.update(kwargs)
+        if "on_reasoning_delta" in kwargs and kwargs["on_reasoning_delta"]:
+            kwargs["on_reasoning_delta"]("thinking...")
+        if "on_delta" in kwargs and kwargs["on_delta"]:
+            kwargs["on_delta"]('{"state_patch": {"done": true}, "tool_calls": []}')
+        if "on_prompt_progress" in kwargs and kwargs["on_prompt_progress"]:
+            kwargs["on_prompt_progress"]({"tokens": 10})
+        return {
+            "content": '{"state_patch": {"done": true}, "tool_calls": []}'
+        }
+
+    deltas = []
+    reasoning = []
+    progress = []
+
+    res = step_state(
+        events_path=events_path,
+        state={"goal": "test"},
+        observation={"kind": "user_input", "content": "go"},
+        generate=mock_generate,
+        execute_call=lambda _c: [],
+        on_delta=deltas.append,
+        on_reasoning_delta=reasoning.append,
+        on_prompt_progress=progress.append,
+    )
+    assert res["status"] == "completed"
+    assert res["state"]["done"] is True
+    assert reasoning == ["thinking..."]
+    assert deltas == ['{"state_patch": {"done": true}, "tool_calls": []}']
+    assert progress == [{"tokens": 10}]
+
+    # Fallback when generate takes only packet without kwargs
+    def one_arg_generate(packet):
+        return {"content": '{"state_patch": {}, "tool_calls": []}'}
+
+    res2 = execute_state_step(
+        events_path=events_path,
+        state={"goal": "test"},
+        observation={"kind": "user_input", "content": "go"},
+        generate=one_arg_generate,
+        execute_call=lambda _c: [],
+        on_delta=deltas.append,
+    )
+    assert res2["status"] == "completed"
+
+
+def test_step_state_once_forwards_streaming_callbacks(tmp_path):
+    from toas.operator_api import step_state_once
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    deltas = []
+    reasoning = []
+    progress = []
+
+    def mock_gen(packet, **kwargs):
+        if kwargs.get("on_delta"):
+            kwargs["on_delta"]("chunk")
+        if kwargs.get("on_reasoning_delta"):
+            kwargs["on_reasoning_delta"]("thought")
+        if kwargs.get("on_prompt_progress"):
+            kwargs["on_prompt_progress"]({"phase": "ready"})
+        return {"content": '{"state_patch": {}, "tool_calls": []}'}
+
+    res = step_state_once(
+        events_path=events_path,
+        state={"goal": "test"},
+        observation={"kind": "user_input", "content": "go"},
+        generate=mock_gen,
+        execute_call=lambda _c: [],
+        on_delta=deltas.append,
+        on_reasoning_delta=reasoning.append,
+        on_prompt_progress=progress.append,
+    )
+    assert res["status"] == "completed"
+    assert deltas == ["chunk"]
+    assert reasoning == ["thought"]
+    assert progress == [{"phase": "ready"}]
+
+
+def test_generation_runner_generate_state_packet_streaming_callbacks(monkeypatch, tmp_path):
+    from toas.runtime.step_generation_runtime import GenerationRunner
+
+    runner = GenerationRunner.__new__(GenerationRunner)
+    runner.events_path = tmp_path / "events.jsonl"
+    runner.on_llm_answer_delta = lambda _s: None
+    runner.on_llm_reasoning_delta = lambda _s: None
+    runner.on_llm_prompt_progress = lambda _p: None
+
+    original_delta = runner.on_llm_answer_delta
+    original_reasoning = runner.on_llm_reasoning_delta
+    original_progress = runner.on_llm_prompt_progress
+
+    observed_in_call = {}
+
+    def fake_prepare(_self, packet):
+        observed_in_call["delta"] = runner.on_llm_answer_delta
+        observed_in_call["reasoning"] = runner.on_llm_reasoning_delta
+        observed_in_call["progress"] = runner.on_llm_prompt_progress
+        return "plan"
+
+    monkeypatch.setattr(GenerationRunner, "prepare_state_request", fake_prepare)
+    monkeypatch.setattr(GenerationRunner, "execute_with_retry", lambda _self, _plan: "res")
+    monkeypatch.setattr(GenerationRunner, "build_artifacts", lambda _self, _plan, _res: {"content": "{}"})
+
+    custom_delta = lambda _s: "custom"
+    custom_reasoning = lambda _s: "thought"
+    custom_progress = lambda _p: "prog"
+
+    runner.generate_state_packet(
+        {"state": {}},
+        on_delta=custom_delta,
+        on_reasoning_delta=custom_reasoning,
+        on_prompt_progress=custom_progress,
+    )
+
+    assert observed_in_call["delta"] is custom_delta
+    assert observed_in_call["reasoning"] is custom_reasoning
+    assert observed_in_call["progress"] is custom_progress
+
+    assert runner.on_llm_answer_delta is original_delta
+    assert runner.on_llm_reasoning_delta is original_reasoning
+    assert runner.on_llm_prompt_progress is original_progress
+
+
+def test_run_step_state_mode_streams_and_replaces_with_canonical_turn(monkeypatch, tmp_path):
+    session = tmp_path / "session.md"
+    session.write_text("## TOAS:STATE/1\n\nstate:\n  goal: inspect\n\nobservation:\n  kind: start\n")
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        resolve_session_path=lambda _events: session,
+        read_text_preserve_newlines=lambda path: path.read_text(),
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: [])
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+
+    reasoning_deltas = []
+    answer_deltas = []
+    prompt_progresses = []
+    projection_deltas = []
+
+    def mock_generate_packet(packet, **kwargs):
+        cb_reasoning = kwargs.get("on_reasoning_delta")
+        cb_delta = kwargs.get("on_delta")
+        cb_prog = kwargs.get("on_prompt_progress")
+        if cb_prog:
+            cb_prog({"stage": "input"})
+        if cb_reasoning:
+            cb_reasoning("pondering state...")
+        if cb_delta:
+            cb_delta('{"state_patch": {"inspected": true}, "tool_calls": []}')
+        return {
+            "content": '{"state_patch": {"inspected": true}, "tool_calls": []}'
+        }
+
+    config = SimpleNamespace(shell=SimpleNamespace(assistant_timeout_s=5))
+    generation_runner = SimpleNamespace(
+        generate_state_packet=mock_generate_packet,
+        on_llm_answer_delta=None,
+        on_llm_reasoning_delta=None,
+        on_llm_prompt_progress=None,
+        on_llm_stream_open=None,
+        on_llm_completion=None,
+        stream_stdout_enabled=None,
+        stream_thinking_enabled=None,
+        stream_prompt_progress_enabled=None,
+        llm_stream_mode=None,
+        debug_prompt_progress_enabled=None,
+        debug_prompt_progress_file=None,
+    )
+
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (config, {}, generation_runner, {}),
+    )
+
+    cli_session_commands.run_step(
+        session_path=str(session),
+        on_llm_answer_delta=answer_deltas.append,
+        on_llm_reasoning_delta=reasoning_deltas.append,
+        on_llm_prompt_progress=prompt_progresses.append,
+        on_projection_delta=projection_deltas.append,
+        stream_stdout_enabled=True,
+        stream_thinking_enabled=True,
+        stream_prompt_progress_enabled=True,
+        llm_stream_mode="full",
+        debug_prompt_progress_enabled=True,
+        debug_prompt_progress_file=str(tmp_path / "debug.log"),
+    )
+
+    # 1. Real-time streaming feedback was delivered during generation
+    assert reasoning_deltas == ["pondering state..."]
+    assert answer_deltas == ['{"state_patch": {"inspected": true}, "tool_calls": []}']
+    assert prompt_progresses == [{"stage": "input"}]
+
+    # 2. generation_runner was configured with stream settings
+    assert generation_runner.stream_stdout_enabled is True
+    assert generation_runner.stream_thinking_enabled is True
+    assert generation_runner.stream_prompt_progress_enabled is True
+    assert generation_runner.llm_stream_mode == "full"
+    assert generation_runner.debug_prompt_progress_enabled is True
+    assert generation_runner.debug_prompt_progress_file == str(tmp_path / "debug.log")
+
+    # 3. Canonical state turn was delivered to projection delta
+    assert len(projection_deltas) == 1
+    assert "## TOAS:STATE [[2]]" in projection_deltas[0] or "## TOAS:STATE/2" in projection_deltas[0]
+    assert "inspected: true" in projection_deltas[0]
+
+
+def test_run_step_state_mode_generate_override_and_preview_response(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    session.write_text("## TOAS:STATE/1\n\nstate:\n  goal: inspect\n\nobservation:\n  kind: start\n")
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+
+    deps = SimpleNamespace(
+        resolve_events_path=lambda: events_path,
+        ensure_file=lambda path: path.touch(exist_ok=True),
+        resolve_session_path=lambda _events: session,
+        read_text_preserve_newlines=lambda path: path.read_text(),
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, _newline: text,
+    )
+    monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
+    monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: [])
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_prepare_session_transcript",
+        lambda **_kwargs: (session, session.read_text(), session.read_text(), "\n"),
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_build_runtime_context",
+        lambda **_kwargs: {
+            "command_cwd": str(tmp_path),
+            "workspace_mode": "strict",
+            "workspace_roots": [str(tmp_path)],
+        },
+    )
+
+    deltas = []
+    override_calls = []
+
+    def override_gen(packet, **kwargs):
+        override_calls.append(packet)
+        if kwargs.get("on_delta"):
+            kwargs["on_delta"]("streamed")
+        return {"content": '{"state_patch": {"overridden": true}, "tool_calls": []}'}
+
+    cli_session_commands.run_step(
+        session_path=str(session),
+        generate_override=override_gen,
+        on_llm_answer_delta=deltas.append,
+    )
+    assert len(override_calls) == 1
+    assert deltas == ["streamed"]
+
+    # Test preview_response with streaming callback
+    deltas.clear()
+    cli_session_commands.run_step(
+        session_path=str(session),
+        generate_override=override_gen,
+        preview_response=True,
+        on_llm_answer_delta=deltas.append,
+    )
+    assert deltas == ["streamed"]
+    out = capsys.readouterr().out
+    assert '{"state_patch": {"overridden": true}' in out
+
+    # Test one-arg generate_override fallback when TypeError is raised
+    one_arg_override = lambda _p: {"content": '{"state_patch": {}, "tool_calls": []}'}
+    cli_session_commands.run_step(
+        session_path=str(session),
+        generate_override=one_arg_override,
+        on_llm_answer_delta=deltas.append,
+    )
+

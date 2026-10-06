@@ -5,6 +5,7 @@ import json
 import sys  # noqa: F401
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from .graph import (
     list_heads,
@@ -206,6 +207,18 @@ def run_step(
             infer_from=infer_from,
             on_projection_nodes=on_projection_nodes,
             on_projection_delta=on_projection_delta,
+            generate_override=generate_override,
+            on_llm_answer_delta=on_llm_answer_delta,
+            on_llm_reasoning_delta=on_llm_reasoning_delta,
+            on_llm_prompt_progress=on_llm_prompt_progress,
+            on_llm_stream_open=on_llm_stream_open,
+            on_llm_completion=on_llm_completion,
+            stream_stdout_enabled=stream_stdout_enabled,
+            stream_thinking_enabled=stream_thinking_enabled,
+            stream_prompt_progress_enabled=stream_prompt_progress_enabled,
+            llm_stream_mode=llm_stream_mode,
+            debug_prompt_progress_enabled=debug_prompt_progress_enabled,
+            debug_prompt_progress_file=debug_prompt_progress_file,
         )
         return
     if infer_from is not None:
@@ -430,7 +443,19 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                     preview: bool = False, preview_response: bool = False,
                     infer_from: str | None = None,
                     on_projection_nodes: Callable[[list[dict]], None] | None = None,
-                    on_projection_delta: Callable[[str], None] | None = None) -> None:
+                    on_projection_delta: Callable[[str], None] | None = None,
+                    generate_override: Callable[..., Any] | None = None,
+                    on_llm_answer_delta: Callable[[str], None] | None = None,
+                    on_llm_reasoning_delta: Callable[[str], None] | None = None,
+                    on_llm_prompt_progress: Callable[[object], None] | None = None,
+                    on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
+                    on_llm_completion: Callable[[GenerationCompletion], None] | None = None,
+                    stream_stdout_enabled: bool | None = None,
+                    stream_thinking_enabled: bool | None = None,
+                    stream_prompt_progress_enabled: bool | None = None,
+                    llm_stream_mode: str | None = None,
+                    debug_prompt_progress_enabled: bool | None = None,
+                    debug_prompt_progress_file: str | None = None) -> None:
     """Adapt a typed state transcript to the independent state-step runtime."""
     from . import step as step_mod
     from .config import apply_overrides, config_from_discovered_paths
@@ -614,18 +639,48 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
     )
     generation_runner = None
 
-    def generate_state_packet(packet: dict) -> dict:
+    def generate_state_packet(packet: dict, **kwargs: Any) -> dict:
         nonlocal generation_runner
+        if generate_override is not None:
+            try:
+                return generate_override(packet, **kwargs)
+            except TypeError:
+                return generate_override(packet)
         if generation_runner is None:
             _, _, generation_runner, _ = _resolve_runtime_generation_context(
                 deps=deps, events_path=events_path, events=events
             )
-        return generation_runner.generate_state_packet(packet)
+            generation_runner.on_llm_answer_delta = on_llm_answer_delta
+            generation_runner.on_llm_reasoning_delta = on_llm_reasoning_delta
+            generation_runner.on_llm_prompt_progress = on_llm_prompt_progress
+            generation_runner.on_llm_stream_open = on_llm_stream_open
+            generation_runner.on_llm_completion = on_llm_completion
+            if stream_stdout_enabled is not None:
+                generation_runner.stream_stdout_enabled = stream_stdout_enabled
+            if stream_thinking_enabled is not None:
+                generation_runner.stream_thinking_enabled = stream_thinking_enabled
+            if stream_prompt_progress_enabled is not None:
+                generation_runner.stream_prompt_progress_enabled = stream_prompt_progress_enabled
+            if llm_stream_mode is not None:
+                generation_runner.llm_stream_mode = llm_stream_mode
+            if debug_prompt_progress_enabled is not None:
+                generation_runner.debug_prompt_progress_enabled = debug_prompt_progress_enabled
+            if debug_prompt_progress_file is not None:
+                generation_runner.debug_prompt_progress_file = debug_prompt_progress_file
+        try:
+            return generation_runner.generate_state_packet(packet, **kwargs)
+        except TypeError:
+            return generation_runner.generate_state_packet(packet)
 
     if preview_response:
         assert request is not None
         packet = json.loads(request["request_messages"][0]["content"])
-        answer = generate_state_packet(packet)
+        answer = generate_state_packet(
+            packet,
+            on_delta=on_llm_answer_delta,
+            on_reasoning_delta=on_llm_reasoning_delta,
+            on_prompt_progress=on_llm_prompt_progress,
+        )
         model_call = answer.get("_llm_call")
         if isinstance(model_call, dict):
             write_llm_call_record(str(events_path), **model_call)
@@ -677,6 +732,9 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         message_id=inferred_message_id,
         infer_from=effective_infer_from,
         transcript_turns=cleaned_all_turns if effective_infer_from else None,
+        on_delta=on_llm_answer_delta,
+        on_reasoning_delta=on_llm_reasoning_delta,
+        on_prompt_progress=on_llm_prompt_progress,
     )
     if result["phase"] == "infer":
         prior_state_number = parsed_turn.get("state_number", 1)
