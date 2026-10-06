@@ -29,6 +29,15 @@ The activity lifecycle/store owns live run state, while Vim already tracks
 last activity, no-progress ticks, frame/byte counts, and decode/apply timing.
 Subscribe also has timeout and no-progress outcomes.
 
+In operator usage (specifically in Vim), the visual run progression across
+`empty RUN-PENDING -> RUN -> [LLM generation or tool-call] -> streaming content -> final result`
+exhibits notable cutover latency. Specifically, there can be a prolonged delay
+between entering apparent `RUN` and displaying the transition to LLM generation or
+tool execution, even when external signals (such as child LLM process creation or
+task info) clearly show the transition to a specific next action has already
+occurred. Bounded health telemetry needs to distinguish this display/transport
+cutover lag from genuine execution stalls.
+
 ## Evidence
 
 - 2026-08-13: Added bounded observer progress timing to host and Vim stream
@@ -343,6 +352,8 @@ periodic refresh.
   synchronous bridge until a queued host path exists.
 - Verify the opt-in logging defaults in a real host/Vim stall reproduction and
   document the explicit forensic tracing switches for operators.
+- Investigate Vim/host run-mode cutover latency across `RUN-PENDING -> RUN -> [LLM or tool] -> streaming -> final result`,
+  distinguishing transport/status notification lag from execution stalls when child processes or task info indicate the action is already active.
 - Decide which health facts, if any, become durable records.
 - Establish default thresholds and retention limits.
 

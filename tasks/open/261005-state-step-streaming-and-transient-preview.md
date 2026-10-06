@@ -7,7 +7,7 @@ keywords: runtime, active, state-step, streaming, thinking, preview
 
 Parent: `260926-state-step-requirements`
 Depends on: `260927-state-step-history-projections`; `261004-state-observation-reference-addressing`
-Related: `docs/state-step.md`; `src/toas/cli_streaming.py`; `src/toas/runtime/state_step.py`
+Related: `260811-activity-health-telemetry`; `docs/state-step.md`; `src/toas/cli_streaming.py`; `src/toas/runtime/state_step.py`
 
 # State-Step Streaming And Transient Delta Preview
 
@@ -24,6 +24,12 @@ In state-transition mode, model invocation currently executes as an unstreamed
 call. When the model engages in extended reasoning or generates a large state
 patch with tool calls, the user observes no live feedback until the full
 response is returned, decoded, and merged into durable state.
+
+This silence also accentuates the mode cutover latency observed in Vim across
+`empty RUN-PENDING -> RUN -> [LLM generation or tool-call] -> streaming content -> final result`
+(tracked in `260811-activity-health-telemetry`): entering `RUN` appears stalled even
+after the model process is actively generating because no intermediate output reaches
+the editor's run region until resolution finishes.
 
 TOAS has an established precedent in conversation mode where:
 1. Thinking deltas stream in real time into the active turn or result region.

@@ -292,6 +292,10 @@ continuation, and authority concerns without reopening completed slices.
 - **2026-06-28 task-intake deficit:** The weekend produced a useful but tiring
   task-opening surplus. Capture future friction here before promoting it to a
   task.
+- **2026-10-05 run mode cutover latency:** In Vim, the mode cutover across
+  `empty RUN-PENDING -> RUN -> [LLM generation or tool-call] -> streaming content -> final result`
+  exhibits noticeable latency between apparent `RUN` and LLM/tool indication even
+  when underlying process/task state confirms the transition has already occurred.
 
 ## 2b. Unelaborated Backlog
 *Known follow-on pressure. One line each; do not promote to tasks until selected.*
