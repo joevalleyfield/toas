@@ -222,6 +222,7 @@ continuation, and authority concerns without reopening completed slices.
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `561`, `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`, `260626-events-jsonl-multiplicity-and-merge-provenance`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260811-activity-health-telemetry Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... (related `260602-transport-equivalence-certification`, `260530-shell-lane-spawn-semantics`)
+    - 261005-vim-frontier-tool-heuristic-and-kind-latch Vim Frontier Tool Heuristic And Rigid Run-Kind Latch (related `261005-state-step-streaming-and-transient-preview`, `vim/plugin/toas.vim`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - Warning: root `260628-acceptance-live-generation-bounds` not rendered (closed task).
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
@@ -277,6 +278,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261005-state-step-streaming-and-transient-preview]** State-Step Streaming And Transient Delta Preview
+- **[T261005-vim-frontier-tool-heuristic-and-kind-latch]** Vim Frontier Tool Heuristic And Rigid Run-Kind Latch
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -296,6 +298,7 @@ continuation, and authority concerns without reopening completed slices.
   `empty RUN-PENDING -> RUN -> [LLM generation or tool-call] -> streaming content -> final result`
   exhibits noticeable latency between apparent `RUN` and LLM/tool indication even
   when underlying process/task state confirms the transition has already occurred.
+  Tracked further in `261005-vim-frontier-tool-heuristic-and-kind-latch`.
 
 ## 2b. Unelaborated Backlog
 *Known follow-on pressure. One line each; do not promote to tasks until selected.*
