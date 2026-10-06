@@ -115,6 +115,12 @@ def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
             event,
             "Hello world stream",
         )
+    if scenario == "tool_batch_progress_multi_wrapper":
+        return ("rbatchmulti1", "## TOAS:USER\n", "", "")
+    if scenario == "tool_batch_progress_single_wrapper":
+        return ("rbatchsingle1", "## TOAS:USER\n", "", "")
+    if scenario == "tool_silent_watch_events_wrapper":
+        return ("rsilentwatch1", "## TOAS:USER\n", "", "")
     raise ValueError(f"unknown scenario: {scenario}")
 
 
@@ -358,6 +364,86 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 f"call writefile([json_encode(g:result)], '{out_path}')",
                 "qa!",
             ]
+        elif scenario == "tool_batch_progress_multi_wrapper":
+            script_lines = [
+                "set nocompatible",
+                "set hidden",
+                "set noswapfile",
+                "set shortmess+=I",
+                f"source {plugin_path}",
+                "redir => g:toas_function_dump",
+                "silent function /toas_render_run_lines",
+                "silent function /toas_note_run_kind",
+                "silent function /toas_note_tool_event_meta",
+                "redir END",
+                "let g:render_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_render_run_lines')",
+                "let g:kind_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_note_run_kind')",
+                "let g:tool_meta_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_note_tool_event_meta')",
+                f"call call(function(g:kind_fn), ['{run_id}', 'tool'])",
+                f"call call(function(g:tool_meta_fn), ['{run_id}', {{'lane': 'tool', 'payload': {{'operation': 'read_file', 'index': 1, 'total': 2}}}}])",
+                f"let g:render1 = call(function(g:render_fn), ['{run_id}', 'running', '', ''])",
+                f"call call(function(g:tool_meta_fn), ['{run_id}', {{'lane': 'tool', 'payload': {{'operation': 'write_file', 'index': 2, 'total': 2}}}}])",
+                f"let g:render2 = call(function(g:render_fn), ['{run_id}', 'running', '', ''])",
+                "let g:result = {",
+                f"      \\ 'run_id': '{run_id}',",
+                "      \\ 'status': 'running',",
+                "      \\ 'run_kind': 'tool',",
+                "      \\ 'step1': join(g:render1, \"\\n\"),",
+                "      \\ 'step2': join(g:render2, \"\\n\"),",
+                "      \\ 'text': join(g:render2, \"\\n\"),",
+                "      \\ }",
+                f"call writefile([json_encode(g:result)], '{out_path}')",
+                "qa!",
+            ]
+        elif scenario == "tool_batch_progress_single_wrapper":
+            script_lines = [
+                "set nocompatible",
+                "set hidden",
+                "set noswapfile",
+                "set shortmess+=I",
+                f"source {plugin_path}",
+                "redir => g:toas_function_dump",
+                "silent function /toas_render_run_lines",
+                "silent function /toas_note_run_kind",
+                "silent function /toas_note_tool_event_meta",
+                "redir END",
+                "let g:render_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_render_run_lines')",
+                "let g:kind_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_note_run_kind')",
+                "let g:tool_meta_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_note_tool_event_meta')",
+                f"call call(function(g:kind_fn), ['{run_id}', 'tool'])",
+                f"call call(function(g:tool_meta_fn), ['{run_id}', {{'lane': 'tool', 'payload': {{'operation': 'read_file', 'index': 1, 'total': 1}}}}])",
+                f"let g:rendered = call(function(g:render_fn), ['{run_id}', 'running', '', ''])",
+                "let g:result = {",
+                f"      \\ 'run_id': '{run_id}',",
+                "      \\ 'status': 'running',",
+                "      \\ 'run_kind': 'tool',",
+                "      \\ 'text': join(g:rendered, \"\\n\"),",
+                "      \\ }",
+                f"call writefile([json_encode(g:result)], '{out_path}')",
+                "qa!",
+            ]
+        elif scenario == "tool_silent_watch_events_wrapper":
+            script_lines = [
+                "set nocompatible",
+                "set hidden",
+                "set noswapfile",
+                "set shortmess+=I",
+                f"source {plugin_path}",
+                "redir => g:toas_function_dump",
+                "silent function /toas_apply_watch_events",
+                "redir END",
+                "let g:apply_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_apply_watch_events')",
+                "let g:events = [{'type': 'tool_start', 'lane': 'tool', 'phase': 'start', 'payload': {'operation': 'search', 'index': 1, 'total': 3}}, {'type': 'tool_done', 'lane': 'tool', 'phase': 'end', 'payload': {'operation': 'search', 'ok': v:true}}, {'type': 'tool_start', 'lane': 'tool', 'phase': 'start', 'payload': {'operation': 'read_file', 'index': 2, 'total': 3}}]",
+                f"let g:apply_result = call(function(g:apply_fn), ['{run_id}', g:events])",
+                "let g:result = {",
+                f"      \\ 'run_id': '{run_id}',",
+                "      \\ 'status': 'running',",
+                "      \\ 'tool_changed': get(g:apply_result, 'tool_changed', 0),",
+                "      \\ 'text': string(g:apply_result),",
+                "      \\ }",
+                f"call writefile([json_encode(g:result)], '{out_path}')",
+                "qa!",
+            ]
         else:
             script_lines = [
                 "set nocompatible",
@@ -469,6 +555,23 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 and result.get("run_kind") == "llm"
                 and "tool: shell" not in result.get("text", "")
                 and required_text in result.get("text", "")
+            )
+        if scenario == "tool_batch_progress_multi_wrapper":
+            ok = (
+                result.get("run_id", "") == run_id
+                and "tool: read_file (1/2)" in str(result.get("step1", ""))
+                and "tool: write_file (2/2)" in str(result.get("step2", ""))
+            )
+        if scenario == "tool_batch_progress_single_wrapper":
+            ok = (
+                result.get("run_id", "") == run_id
+                and "tool: read_file" in str(result.get("text", ""))
+                and "(1/1)" not in str(result.get("text", ""))
+            )
+        if scenario == "tool_silent_watch_events_wrapper":
+            ok = (
+                result.get("run_id", "") == run_id
+                and result.get("tool_changed") == 1
             )
         return {"ok": ok, "result": result}
 

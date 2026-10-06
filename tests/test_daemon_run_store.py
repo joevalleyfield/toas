@@ -280,6 +280,25 @@ def test_watch_async_step_keeps_tool_done_non_terminal_until_run_done():
     assert out["next_seq"] == 2
 
 
+def test_watch_async_step_projects_tool_start_and_lifecycle_events():
+    run = drs.AsyncRun(run_id="r-tool-start-lifecycle", workdir="/tmp", process=None)
+    with run.lock:
+        run.status = "running"
+        drs.emit_stream_event(run, "tool_start", {"operation": "read_file", "index": 1, "total": 2}, lane="tool", phase="start")
+        drs.emit_stream_event(run, "tool_done", {"operation": "read_file", "ok": True, "index": 1, "total": 2}, lane="tool", phase="end")
+    drs.register_run(run)
+
+    out = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert out["status"] == "running"
+    assert [event["type"] for event in out["events"]] == ["tool_start", "tool_done"]
+    assert out["events"][0]["payload"] == {"operation": "read_file", "index": 1, "total": 2}
+    assert out["events"][0]["phase"] == "start"
+    assert out["events"][0]["lane"] == "tool"
+    assert out["next_seq"] == 2
+
+
+
 def test_watch_async_step_keeps_projection_done_non_terminal_until_run_done():
     run = drs.AsyncRun(run_id="r-projection-nonterminal", workdir="/tmp", process=None)
     with run.lock:

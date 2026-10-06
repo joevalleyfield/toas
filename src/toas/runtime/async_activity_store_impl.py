@@ -235,6 +235,7 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict, *, lane: st
         "llm_done",
         "run_done",
         "error",
+        "tool_start",
         "tool_done",
         "tool_progress",
         "projection_delta",

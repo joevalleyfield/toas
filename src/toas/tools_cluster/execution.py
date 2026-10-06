@@ -2,6 +2,11 @@ import traceback
 from pathlib import Path
 
 from ..runtime.environment_policy import active_environment_overrides
+from ..runtime.tool_stream_context import (
+    emit_tool_done,
+    emit_tool_start,
+    is_tool_done_emitted,
+)
 
 
 def adapt_call_for_execution(
@@ -121,7 +126,8 @@ def execute_plan_calls(
         default_process_env = default_shell_env
     with active_environment_overrides(default_process_env):
         results = []
-        for raw_call in plan:
+        total = len(plan)
+        for idx, raw_call in enumerate(plan, start=1):
             call = adapt_call_for_execution(
                 raw_call,
                 default_shell_cwd=default_shell_cwd,
@@ -129,6 +135,8 @@ def execute_plan_calls(
                 default_shell_timeout_s=default_shell_timeout_s,
                 default_timeout_s=default_timeout_s,
             )
+            tool_name = str(call.get("tool_name") or call.get("operation") or "unknown")
+            emit_tool_start(operation=tool_name, index=idx, total=total)
             try:
                 output = execute_call(call)
             except TimeoutError as exc:
@@ -143,6 +151,8 @@ def execute_plan_calls(
                         raw_call,
                     )
                 )
+                if not is_tool_done_emitted():
+                    emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
                 break
             except ConnectionError as exc:
                 results.append(
@@ -156,6 +166,8 @@ def execute_plan_calls(
                         raw_call,
                     )
                 )
+                if not is_tool_done_emitted():
+                    emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
                 break
             except ChildProcessError as exc:
                 results.append(
@@ -169,6 +181,8 @@ def execute_plan_calls(
                         raw_call,
                     )
                 )
+                if not is_tool_done_emitted():
+                    emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
                 break
             except RuntimeError as exc:
                 failure_kind, outcome = _classify_runtime_failure(str(exc))
@@ -182,6 +196,8 @@ def execute_plan_calls(
                 if isinstance(repair_suggestion, dict) and repair_suggestion:
                     error_result["repair_suggestion"] = repair_suggestion
                 results.append(_apply_intention(error_result, raw_call))
+                if not is_tool_done_emitted():
+                    emit_tool_done(operation=tool_name, ok=False, status=outcome, index=idx, total=total)
                 break
             except Exception as exc:
                 failure_kind, outcome = _classify_runtime_failure(str(exc))
@@ -193,9 +209,15 @@ def execute_plan_calls(
                     include_traceback=True,
                 )
                 results.append(_apply_intention(error_result, raw_call))
+                if not is_tool_done_emitted():
+                    emit_tool_done(operation=tool_name, ok=False, status=outcome, index=idx, total=total)
                 break
             projected = _apply_intention(_annotate_returned_failure(output), raw_call)
             results.append(projected)
+            if not is_tool_done_emitted():
+                ok = projected.get("ok") is not False
+                status = None if ok else str(projected.get("outcome") or "error")
+                emit_tool_done(operation=tool_name, ok=ok, status=status, index=idx, total=total)
             if projected.get("ok") is False:
                 break
         return results

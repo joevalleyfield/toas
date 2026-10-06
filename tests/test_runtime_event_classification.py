@@ -60,6 +60,7 @@ def test_runtime_stream_event_kinds_are_classified():
     assert should_project_event("llm_reasoning") is True
     assert is_terminal_event("llm_reasoning") is False
     assert is_ephemeral_event("prompt_progress") is True
+    assert should_project_event("tool_start") is True
     assert should_project_event("tool_progress") is True
     assert should_project_event("tool_done") is True
     assert should_project_event("projection_delta") is True

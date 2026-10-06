@@ -268,7 +268,10 @@ def _terminal_error_lane(run: AsyncRun) -> str:
 
 
 def _emit_explicit_tool_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict | None:
-    if event_type == "tool_progress":
+    if event_type == "tool_start":
+        lane = "tool"
+        phase = "start"
+    elif event_type == "tool_progress":
         lane = "tool"
         phase = "delta"
     elif event_type == "tool_done":

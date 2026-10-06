@@ -313,3 +313,32 @@ def test_execute_plan_calls_captures_unexpected_exception_with_traceback():
     assert "unexpected syntax error in file.py" in result["error"]
     assert "Traceback" in result["traceback"]
 
+
+def test_execute_plan_calls_emits_tool_lifecycle_stream_events():
+    from toas.runtime.tool_stream_context import tool_stream_emitter
+
+    events = []
+
+    def _emitter(event_type, payload):
+        events.append((event_type, payload))
+
+    plan = [
+        {"tool_name": "read_file", "args": {"path": "a.txt"}},
+        {"tool_name": "write_file", "args": {"path": "b.txt", "content": "hello"}},
+    ]
+
+    def _execute(call):
+        return {"tool_name": call.get("tool_name"), "ok": True, "summary": "done"}
+
+    with tool_stream_emitter(_emitter):
+        results = execute_plan_calls(plan, execute_call=_execute)
+
+    assert len(results) == 2
+    assert events == [
+        ("tool_start", {"operation": "read_file", "index": 1, "total": 2}),
+        ("tool_done", {"operation": "read_file", "ok": True, "index": 1, "total": 2}),
+        ("tool_start", {"operation": "write_file", "index": 2, "total": 2}),
+        ("tool_done", {"operation": "write_file", "ok": True, "index": 2, "total": 2}),
+    ]
+
+

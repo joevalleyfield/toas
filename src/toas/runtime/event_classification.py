@@ -31,6 +31,7 @@ _EVENT_POLICIES: dict[str, EventPolicy] = {
     "llm_delta": EventPolicy("llm_delta", durable=False, projected=True, ephemeral=False, terminal=False),
     "llm_reasoning": EventPolicy("llm_reasoning", durable=False, projected=True, ephemeral=False, terminal=False),
     "prompt_progress": EventPolicy("prompt_progress", durable=False, projected=False, ephemeral=True, terminal=False),
+    "tool_start": EventPolicy("tool_start", durable=False, projected=True, ephemeral=False, terminal=False),
     "tool_progress": EventPolicy("tool_progress", durable=False, projected=True, ephemeral=False, terminal=False),
     "tool_done": EventPolicy("tool_done", durable=False, projected=True, ephemeral=False, terminal=False),
     "projection_delta": EventPolicy("projection_delta", durable=False, projected=True, ephemeral=False, terminal=False),

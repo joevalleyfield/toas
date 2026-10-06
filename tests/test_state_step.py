@@ -1769,3 +1769,50 @@ def test_sync_directive_and_step_execution(tmp_path):
     assert edge_pts[1].pending_tools == []
     assert edge_pts[1].observation == "obs_1"
     assert edge_pts[1].state == {"step": 2}
+
+
+def test_step_state_emits_tool_lifecycle_stream_events(tmp_path):
+    from toas.runtime.tool_stream_context import tool_stream_emitter
+
+    events = []
+
+    def _emitter(event_type, payload):
+        events.append((event_type, payload))
+
+    events_path = tmp_path / "events.jsonl"
+    step_state(
+        events_path=events_path,
+        state={"goal": "work"},
+        observation=None,
+        generate=lambda _: {
+            "content": (
+                '```json\n{"state_patch":{},"tool_calls":['
+                '{"tool_name":"read_file","args":{"path":"a.txt"}},'
+                '{"tool_name":"write_file","args":{"path":"b.txt"}}]}\n```'
+            )
+        },
+        execute_call=lambda _: None,
+        message_id="msg-1",
+    )
+
+    def _execute(call):
+        return {"tool_name": call.get("tool_name"), "ok": True}
+
+    with tool_stream_emitter(_emitter):
+        result = step_state(
+            events_path=events_path,
+            state={"goal": "work"},
+            observation=None,
+            generate=lambda _: None,
+            execute_call=_execute,
+        )
+
+    assert result["status"] == "completed"
+    assert events == [
+        ("tool_start", {"operation": "read_file", "index": 1, "total": 2}),
+        ("tool_done", {"operation": "read_file", "ok": True, "index": 1, "total": 2}),
+        ("tool_start", {"operation": "write_file", "index": 2, "total": 2}),
+        ("tool_done", {"operation": "write_file", "ok": True, "index": 2, "total": 2}),
+    ]
+
+

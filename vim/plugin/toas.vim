@@ -846,9 +846,9 @@ function! s:toas_render_run_lines(run_id, status, text, progress) abort
   let l:kind = get(s:toas_run_kind, a:run_id, '')
   if l:kind ==# 'tool'
     let l:tool_meta = get(s:toas_run_tool_meta, a:run_id, {})
-    let l:operation = type(l:tool_meta) == type({}) ? get(l:tool_meta, 'operation', '') : ''
-    if l:operation !=# ''
-      call add(l:lines, 'tool: ' . l:operation)
+    let l:tool_label = s:toas_format_tool_label(l:tool_meta)
+    if l:tool_label !=# ''
+      call add(l:lines, l:tool_label)
     endif
   endif
   if l:kind ==# 'llm' && has_key(s:toas_run_stream_policy, a:run_id)
@@ -1088,6 +1088,7 @@ function! s:toas_apply_watch_events(run_id, events) abort
   let l:event_chunk = ''
   let l:projection_chunk = ''
   let l:tool_chunk = ''
+  let l:tool_meta_changed = 0
   if type(a:events) == type([])
     for l:event in a:events
       if type(l:event) != type({})
@@ -1108,7 +1109,9 @@ function! s:toas_apply_watch_events(run_id, events) abort
       elseif type(l:event_seq) == type('') && l:event_seq =~# '^\d\+$'
         let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
       endif
-      call s:toas_note_tool_event_meta(a:run_id, l:event)
+      if s:toas_note_tool_event_meta(a:run_id, l:event)
+        let l:tool_meta_changed = 1
+      endif
       let l:lane = get(l:event, 'lane', '')
       if l:lane !=# ''
         call s:toas_note_run_kind(a:run_id, l:lane)
@@ -1156,6 +1159,9 @@ function! s:toas_apply_watch_events(run_id, events) abort
           \ l:tool_chunk,
           \ )
     let l:tool_changed = s:toas_run_tool_text[a:run_id] !=# l:tool_before
+  endif
+  if l:tool_meta_changed
+    let l:tool_changed = 1
   endif
   return {
         \ 'event_text_appended': l:event_text_appended,
@@ -1222,22 +1228,69 @@ endfunction
 
 function! s:toas_note_tool_event_meta(run_id, event) abort
   if type(a:event) != type({})
-    return
+    return 0
   endif
   if get(a:event, 'lane', '') !=# 'tool'
-    return
+    return 0
   endif
   let l:payload = get(a:event, 'payload', {})
   if type(l:payload) != type({})
-    return
+    return 0
   endif
   if !has_key(s:toas_run_tool_meta, a:run_id)
     let s:toas_run_tool_meta[a:run_id] = {}
   endif
+  let l:changed = 0
   let l:operation = get(l:payload, 'operation', '')
   if type(l:operation) == type('') && l:operation !=# ''
-    let s:toas_run_tool_meta[a:run_id].operation = l:operation
+    if get(s:toas_run_tool_meta[a:run_id], 'operation', '') !=# l:operation
+      let s:toas_run_tool_meta[a:run_id].operation = l:operation
+      let l:changed = 1
+    endif
   endif
+  if has_key(l:payload, 'index')
+    let l:index = get(l:payload, 'index')
+    if get(s:toas_run_tool_meta[a:run_id], 'index', v:null) isnot l:index
+      let s:toas_run_tool_meta[a:run_id].index = l:index
+      let l:changed = 1
+    endif
+  endif
+  if has_key(l:payload, 'total')
+    let l:total = get(l:payload, 'total')
+    if get(s:toas_run_tool_meta[a:run_id], 'total', v:null) isnot l:total
+      let s:toas_run_tool_meta[a:run_id].total = l:total
+      let l:changed = 1
+    endif
+  endif
+  return l:changed
+endfunction
+
+function! s:toas_format_tool_label(tool_meta) abort
+  if type(a:tool_meta) != type({})
+    return ''
+  endif
+  let l:operation = get(a:tool_meta, 'operation', '')
+  if type(l:operation) != type('') || l:operation ==# ''
+    return ''
+  endif
+  let l:raw_index = get(a:tool_meta, 'index', v:null)
+  let l:raw_total = get(a:tool_meta, 'total', v:null)
+  let l:index = -1
+  let l:total = -1
+  if type(l:raw_index) == type(0)
+    let l:index = l:raw_index
+  elseif type(l:raw_index) == type('') && l:raw_index =~# '^\d\+$'
+    let l:index = str2nr(l:raw_index)
+  endif
+  if type(l:raw_total) == type(0)
+    let l:total = l:raw_total
+  elseif type(l:raw_total) == type('') && l:raw_total =~# '^\d\+$'
+    let l:total = str2nr(l:raw_total)
+  endif
+  if l:total > 1 && l:index >= 1
+    return printf('tool: %s (%d/%d)', l:operation, l:index, l:total)
+  endif
+  return 'tool: ' . l:operation
 endfunction
 
 function! s:toas_format_elapsed_label(seconds) abort
@@ -1742,9 +1795,9 @@ function! s:toas_append_run_region_chunk(run_id, status, chunk) abort
   let l:kind = get(s:toas_run_kind, a:run_id, '')
   if l:kind ==# 'tool'
     let l:tool_meta = get(s:toas_run_tool_meta, a:run_id, {})
-    let l:operation = type(l:tool_meta) == type({}) ? get(l:tool_meta, 'operation', '') : ''
-    if l:operation !=# ''
-      call add(l:prefix, 'tool: ' . l:operation)
+    let l:tool_label = s:toas_format_tool_label(l:tool_meta)
+    if l:tool_label !=# ''
+      call add(l:prefix, l:tool_label)
     endif
   endif
   if l:kind ==# 'llm' && has_key(s:toas_run_stream_policy, a:run_id)

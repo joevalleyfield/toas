@@ -119,3 +119,26 @@ def test_speculative_tool_overridden_by_authoritative_llm_stream():
     assert "tool: shell" not in result["text"]
     assert "Hello world stream" in result["text"]
 
+
+def test_multi_tool_batch_updates_run_header():
+    result = _run("tool_batch_progress_multi_wrapper")
+    assert result["run_id"] == "rbatchmulti1"
+    assert result["run_kind"] == "tool"
+    assert "tool: read_file (1/2)" in result["step1"]
+    assert "tool: write_file (2/2)" in result["step2"]
+
+
+def test_single_tool_run_header_format():
+    result = _run("tool_batch_progress_single_wrapper")
+    assert result["run_id"] == "rbatchsingle1"
+    assert result["run_kind"] == "tool"
+    assert "tool: read_file" in result["text"]
+    assert "(1/1)" not in result["text"]
+
+
+def test_silent_tool_watch_events_mark_tool_changed():
+    result = _run("tool_silent_watch_events_wrapper")
+    assert result["run_id"] == "rsilentwatch1"
+    assert result["tool_changed"] == 1
+
+

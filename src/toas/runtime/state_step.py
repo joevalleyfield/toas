@@ -16,6 +16,7 @@ import yaml
 
 from ..graph import append_state_step_records, normalize_tool_plan, read_log, write_llm_call_record
 from ..graph import state_step_records as _state_step_records
+from .tool_stream_context import emit_tool_done, emit_tool_start, is_tool_done_emitted
 
 STATE_MARKER = "## TOAS:STATE/1"
 STATE_DIFF_MARKER = "## TOAS:STATE-DIFF/1"
@@ -1584,9 +1585,11 @@ def step_state(  # noqa: PLR0913
             if pending_tool_calls is not None
             else pending["tool_calls"]
         )
+        total = len(calls_to_execute)
         for index, call in enumerate(calls_to_execute):
             call_source = pending.get("source", "model")
             tool_name = call.get("tool_name") or call.get("operation") or "unknown"
+            emit_tool_start(operation=str(tool_name), index=index + 1, total=total)
             try:
                 normalized_call = _normalize_tool_call_aliases([call])[0]
                 tool_name = normalized_call.get("tool_name", tool_name)
@@ -1639,6 +1642,17 @@ def step_state(  # noqa: PLR0913
                     status="failed",
                     error=str(exc),
                     traceback=tb,
+                )
+            if not is_tool_done_emitted():
+                ok = outcome["status"] == "completed"
+                status_raw = outcome.get("status")
+                status = None if ok else (str(status_raw) if status_raw is not None else "error")
+                emit_tool_done(
+                    operation=str(outcome.get("tool_name") or tool_name),
+                    ok=ok,
+                    status=status,
+                    index=index + 1,
+                    total=total,
                 )
             append_state_step_records(
                 path,

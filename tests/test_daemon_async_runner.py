@@ -2107,6 +2107,11 @@ def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
 
     # 7. _emit_explicit_tool_stream_event invalid event type and terminal_event_emitted
     run_event = store.AsyncRun(run_id="test-event-errors", workdir=str(tmp_path), process=None)
+    start_ev = dar._emit_explicit_tool_stream_event(run_event, "tool_start", {"operation": "read_file", "index": 1, "total": 2})
+    assert start_ev is not None
+    assert start_ev["type"] == "tool_start"
+    assert start_ev["lane"] == "tool"
+    assert start_ev["phase"] == "start"
     with pytest.raises(RuntimeError, match="invalid tool stream event type"):
         dar._emit_explicit_tool_stream_event(run_event, "invalid_type", {})
     run_event.terminal_event_emitted = True
