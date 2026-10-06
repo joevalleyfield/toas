@@ -56,8 +56,8 @@ topics:
       plain:
         summary: "Generation turns a request into model output through thinking posture, output budgets, retry behavior, and transport shape."
       config:
-        summary: "Adjust generation behavior without changing transcript or tool semantics."
-        related_keys: [generation.thinking_mode, generation.thinking_budget_tokens, generation.max_tokens, generation.max_retries, generation.retry_delay_s, generation.transport_mode]
+        summary: "Adjust generation and model inference behavior without changing transcript or tool semantics."
+        related_keys: [generation.thinking_mode, generation.thinking_budget_tokens, generation.max_tokens, generation.max_retries, generation.retry_delay_s, generation.transport_mode, backend.mode, backend.managed_local]
         next_actions: [/config show generation, /config values generation.thinking_mode]
   - id: precedence
     aliases: [sources, provenance]
@@ -131,25 +131,20 @@ topics:
           - "/config set runtime.prompt_progress_mode enabled"
   - id: execution
     aliases: [execute, run, action, actions, subprocess]
-    summary: "Execution governs backend invocation, subprocess shell bounds, tool write mutations, and runtime execution lifecycle."
+    summary: "Execution governs assistant shell command bounds, allowed commands, and tool write mutations."
     facets:
       plain:
-        summary: "Execution follows model generation and candidate extraction: the runtime invokes backends, enforces assistant shell command timeouts and permissions, materializes tool write mutations, and manages asynchronous execution lifecycles."
+        summary: "Execution follows model generation and candidate extraction: the runtime enforces assistant shell command timeouts and permissions, and materializes tool write mutations according to configured policy."
         next_actions:
           - "/config show execution        inspect composed execution configuration"
-          - "/help config runtime          inspect runtime streaming and progress toggles"
+          - "/help config shell            inspect shell command bounds"
           - "/help tools                   inspect callable tool reference"
       config:
-        summary: "Inspect and configure backend execution mode, assistant shell bounds, tool write mechanics, and async execution."
+        summary: "Inspect and configure assistant shell execution bounds, allowed commands, and tool write mechanics."
         related_keys:
-          - backend.mode
-          - backend.managed_local
           - shell.assistant_timeout_s
           - shell.allowed_commands
           - tool_writes.newline_style
-          - runtime.async_runs
-          - runtime.async_backend_mode
-          - runtime.cancellation_mode
         next_actions:
           - "/config show execution"
           - "/config show execution --flat"

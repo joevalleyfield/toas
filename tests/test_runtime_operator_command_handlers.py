@@ -1100,26 +1100,24 @@ def test_config_show_supports_curated_topic_filters_and_source_order():
 def test_config_show_execution_structured_flat_and_sources():
     import toas.step as step_mod
 
-    context = _ctx(config_sources={"backend.mode": "config_file", "shell.assistant_timeout_s": "env"})
+    context = _ctx(config_sources={"shell.assistant_timeout_s": "env", "tool_writes.newline_style": "config_file"})
     topic = handle_config_help_commands("config", ["show", "execution"], step_mod=step_mod, context=context)[0]
     topic_content = topic["content"]
     assert "execution configuration" in topic_content
-    assert "backend.mode:" in topic_content
-    assert "backend.managed_local: (disabled)" in topic_content
     assert "shell.assistant_timeout_s: 5s" in topic_content
     assert "shell.allowed_commands: 11 commands" in topic_content
     assert "tool_writes.newline_style: auto" in topic_content
-    assert "runtime.async_runs: enabled" in topic_content
-    assert "runtime.async_backend_mode: local" in topic_content
-    assert "runtime.cancellation_mode: enabled" in topic_content
+    assert "backend.mode" not in topic_content
+    assert "runtime.async_runs" not in topic_content
 
     flat = handle_config_help_commands(
         "config", ["show", "execution", "--flat"], step_mod=step_mod, context=context
     )[0]["content"]
-    assert "backend.mode = external" in flat
     assert "shell.assistant_timeout_s = 5" in flat
     assert "tool_writes.newline_style = auto" in flat
-    assert "runtime.async_runs = enabled" in flat
+    assert "shell.allowed_commands = ('echo', 'pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg', 'find', 'sed', 'awk')" in flat
+    assert "backend.mode" not in flat
+    assert "runtime.async_runs" not in flat
 
     with_sources = handle_config_help_commands(
         "config", ["show", "execution", "--sources"], step_mod=step_mod, context=context
@@ -1128,9 +1126,10 @@ def test_config_show_execution_structured_flat_and_sources():
         "config", ["show", "--sources", "execution"], step_mod=step_mod, context=context
     )[0]["content"]
     assert with_sources == sources_first
-    assert "backend.mode = external    [source=config_file]" in with_sources
     assert "shell.assistant_timeout_s = 5    [source=env]" in with_sources
-    assert "tool_writes.newline_style = auto    [source=default]" in with_sources
+    assert "tool_writes.newline_style = auto    [source=config_file]" in with_sources
+    assert "shell.allowed_commands = ('echo', 'pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg', 'find', 'sed', 'awk')    [source=default]" in with_sources
+    assert "backend.mode" not in with_sources
 
 
 def test_bare_config_is_compact_navigation_not_state_dump():

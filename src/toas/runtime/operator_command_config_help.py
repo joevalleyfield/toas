@@ -204,6 +204,7 @@ def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
         f"{len(context.config.llm.targets)} targets · {len(known_models)} endpoint models",
         "",
         "generation:",
+        f"  backend mode: {context.config.backend.mode}",
         f"  thinking: {generation.thinking_mode}",
         f"  thinking budget: {generation.thinking_budget_tokens or '(unset)' }",
         f"  max tokens: {generation.max_tokens or '(auto/unset)' }",
@@ -223,7 +224,6 @@ def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
         f"  async runs: {context.config.runtime.async_runs}",
         "",
         "execution:",
-        f"  backend mode: {context.config.backend.mode}",
         f"  shell timeout: {context.config.shell.assistant_timeout_s}s",
         f"  tool-write newlines: {context.config.tool_writes.newline_style}",
         "",
@@ -343,21 +343,13 @@ def _config_models_overview(*, step_mod, context: OperatorCommandContext) -> str
 
 def _config_execution_overview(*, step_mod, context: OperatorCommandContext) -> str:
     """Render execution configuration as an operator-readable composed view."""
-    backend = context.config.backend
-    managed = backend.managed_local
-    managed_summary = " ".join(managed.command) if managed.command else "(disabled)"
     shell = context.config.shell
     allowed = shell.allowed_commands
     allowed_summary = f"{len(allowed)} commands ({', '.join(allowed[:5])}...)" if len(allowed) > 8 else (", ".join(allowed) or "(none)")
     tool_writes = context.config.tool_writes
-    runtime = context.config.runtime
 
     lines = [
         "execution configuration",
-        "",
-        "backend:",
-        f"  backend.mode: {backend.mode}",
-        f"  backend.managed_local: {managed_summary}",
         "",
         "shell:",
         f"  shell.assistant_timeout_s: {shell.assistant_timeout_s}s",
@@ -365,11 +357,6 @@ def _config_execution_overview(*, step_mod, context: OperatorCommandContext) -> 
         "",
         "tool writes:",
         f"  tool_writes.newline_style: {tool_writes.newline_style}",
-        "",
-        "runtime lifecycle:",
-        f"  runtime.async_runs: {runtime.async_runs}",
-        f"  runtime.async_backend_mode: {runtime.async_backend_mode}",
-        f"  runtime.cancellation_mode: {runtime.cancellation_mode}",
         "",
         "next:",
         "  /config show execution --flat    inspect exhaustive execution keys",

@@ -251,10 +251,16 @@ def test_config_help_execution_topic_and_plain_help():
     assert topic is not None
     assert topic.topic_id == "execution"
     assert "execute" in topic.aliases
-    assert "backend.mode" in topic.facets["config"].related_keys
     assert "shell.assistant_timeout_s" in topic.facets["config"].related_keys
+    assert "shell.allowed_commands" in topic.facets["config"].related_keys
     assert "tool_writes.newline_style" in topic.facets["config"].related_keys
-    assert "runtime.async_runs" in topic.facets["config"].related_keys
+    assert "backend.mode" not in topic.facets["config"].related_keys
+    assert "runtime.async_runs" not in topic.facets["config"].related_keys
+
+    gen_topic = resolve_config_help_topic(catalog, "generation")
+    assert gen_topic is not None
+    assert "backend.mode" in gen_topic.facets["config"].related_keys
+    assert "backend.managed_local" in gen_topic.facets["config"].related_keys
 
     plain = render_plain_help("execution")
     assert plain is not None
@@ -262,7 +268,7 @@ def test_config_help_execution_topic_and_plain_help():
     assert "model generation and candidate extraction" in plain
     assert "/help config execution" in plain
 
-    rendered_config = render_config_help("execution", valid_keys=["backend.mode", "shell.assistant_timeout_s"])
+    rendered_config = render_config_help("execution", valid_keys=["shell.allowed_commands", "shell.assistant_timeout_s"])
     assert "config help: execution" in rendered_config
-    assert "backend.mode" in rendered_config
+    assert "shell.allowed_commands" in rendered_config
     assert "shell.assistant_timeout_s" in rendered_config

@@ -204,13 +204,15 @@ def then_config_discovery_contract(acceptance_state: dict) -> None:
 
     show_execution = _output(outputs, "/config show execution")
     assert "execution configuration" in show_execution
-    assert "backend.mode:" in show_execution
     assert "shell.assistant_timeout_s:" in show_execution
     assert "tool_writes.newline_style:" in show_execution
+    assert "backend.mode" not in show_execution
 
     flat_execution = _output(outputs, "/config show execution --flat")
-    for key in ("backend.mode =", "shell.assistant_timeout_s =", "tool_writes.newline_style =", "runtime.async_runs ="):
+    for key in ("shell.assistant_timeout_s =", "tool_writes.newline_style =", "shell.allowed_commands ="):
         assert key in flat_execution
+    assert "backend.mode" not in flat_execution
+    assert "runtime.async_runs" not in flat_execution
 
     sources_execution = _output(outputs, "/config show execution --sources")
     assert "[source=default]" in sources_execution
