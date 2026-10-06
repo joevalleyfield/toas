@@ -103,7 +103,7 @@ topics:
           - "/config show capability_advertisement  inspect profile and hidden-tool settings"
           - "/help tools  inspect the broader callable tool reference"
   - id: runtime
-    aliases: [streaming, stream, progress, async]
+    aliases: [async, worker, process]
     summary: "Runtime controls streaming, thinking stream, prompt progress, and asynchronous execution."
     facets:
       plain:
@@ -112,6 +112,23 @@ topics:
         summary: "Adjust streaming, thinking streaming, prompt progress, and execution lifecycle behavior."
         related_keys: [runtime.streaming_mode, runtime.thinking_stream_mode, runtime.prompt_progress_mode, runtime.async_runs, runtime.async_backend_mode, runtime.cancellation_mode, runtime.context_budget_mode]
         next_actions: [/config show runtime, /config set runtime.prompt_progress_mode enabled, /config set runtime.thinking_stream_mode enabled]
+  - id: streaming
+    aliases: [stream, stream-output, live-output]
+    summary: "Streaming delivers incremental output across model generation and tool execution lanes."
+    facets:
+      plain:
+        summary: "Streaming operates across two distinct phases: generation streaming delivers incremental tokens, thinking deltas, and prompt progress from the model; tool execution streaming relays live stdout/stderr from subprocesses before a turn finishes."
+        next_actions:
+          - "/config show streaming  inspect live streaming-related keys"
+          - "/help config runtime    inspect runtime policy toggles"
+          - "/help config generation inspect thinking and generation limits"
+      config:
+        summary: "Configure live answer streaming, thinking deltas, prompt construction progress, and execution timing."
+        related_keys: [runtime.streaming_mode, runtime.thinking_stream_mode, runtime.prompt_progress_mode, health_timing.profile, health_timing.first_frame_timeout_ms, health_timing.inter_frame_timeout_ms]
+        next_actions:
+          - "/config show streaming"
+          - "/config set runtime.thinking_stream_mode enabled"
+          - "/config set runtime.prompt_progress_mode enabled"
 key_descriptions:
   llm.model: "Selects the active model for generation."
   llm.endpoints: "Defines configured endpoint entries and their known models."

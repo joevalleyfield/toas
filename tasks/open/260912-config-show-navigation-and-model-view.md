@@ -61,7 +61,10 @@ existing dictionary-shaped projection.
   assets. Surfaced `runtime:` section in `_config_overview` and registered the
   `runtime` topic and related keys in `config.yaml` so streaming, thinking stream,
   and prompt progress settings are discoverable in both live state and concept help.
+- 2026-10-05: Added dedicated `streaming` concept topic to `config.yaml` explaining
+  the distinction between generation streaming and tool execution streaming,
+  linking to live controls across `runtime.*` and `health_timing.*`.
 
 ## Status
 
-Active; runtime section surfaced and --flat escape hatch discoverable across config surfaces.
+Active; runtime and streaming topics discoverable and --flat escape hatch surfaced across config surfaces.

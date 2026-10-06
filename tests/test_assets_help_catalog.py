@@ -224,3 +224,22 @@ def test_config_help_catalog_accepts_missing_facet_values(monkeypatch):
 
 def test_config_help_rendering_treats_whitespace_query_as_overview():
     assert render_config_help(" ", valid_keys=[]).startswith("config help:")
+
+
+def test_config_help_streaming_topic_and_plain_help():
+    catalog = load_config_help_catalog()
+    topic = resolve_config_help_topic(catalog, "streaming")
+    assert topic is not None
+    assert topic.topic_id == "streaming"
+    assert "stream" in topic.aliases
+    assert "runtime.streaming_mode" in topic.facets["config"].related_keys
+    assert "runtime.thinking_stream_mode" in topic.facets["config"].related_keys
+
+    plain = render_plain_help("streaming")
+    assert plain is not None
+    assert "generation streaming" in plain
+    assert "tool execution streaming" in plain
+
+    rendered_config = render_config_help("streaming", valid_keys=["runtime.streaming_mode"])
+    assert "config help: streaming" in rendered_config
+    assert "runtime.streaming_mode" in rendered_config
