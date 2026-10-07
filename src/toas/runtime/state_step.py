@@ -92,6 +92,25 @@ the state. Propose tool calls only; TOAS validates and executes them on a later 
 Inference and tool execution are separate operations. Return JSON only."""
 
 
+def default_protocol() -> dict[str, Any]:
+    """Return the canonical base protocol specification for state-step turns."""
+    from ..tools import REGISTRY, tool_definitions
+
+    return {
+        "instructions": STATE_INSTRUCTIONS,
+        "schema": {
+            "state_patch": "object",
+            "tool_calls": "array",
+            "outcome": ["continue", "complete"],
+        },
+        "tools": {
+            "available": sorted(REGISTRY),
+            "definitions": tool_definitions(REGISTRY),
+            "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
+        },
+    }
+
+
 def is_state_turn_marker(line: str) -> bool:
     """Return True if the line is any typed state or state-diff turn marker."""
     m = STATE_TURN_PATTERN.match(line.strip())
@@ -232,12 +251,30 @@ def parse_state_turn(target: dict[str, Any] | str) -> dict[str, Any]:
         closing_fence = body.rfind("\n```")
         if closing_fence >= 0:
             body = body[len("```yaml") : closing_fence]
+    body = re.sub(
+        r"(?m)^(\s*protocol:\s*)\(ref:\s*([^)]+)\)\s*$",
+        r"\1{ref: \2}",
+        body,
+    )
     try:
         payload = yaml.safe_load(body) or {}
     except yaml.YAMLError as exc:
         raise ValueError(f"invalid YAML in state turn: {exc}") from exc
     if not isinstance(payload, dict):
         raise ValueError("state turn body must be a mapping")
+    if "protocol" in payload:
+        protocol_val = payload["protocol"]
+        if not isinstance(protocol_val, (str, dict)):
+            raise ValueError("state turn protocol must be a string or mapping")
+        if isinstance(protocol_val, dict):
+            if "instructions" in protocol_val and not isinstance(protocol_val["instructions"], str):
+                raise ValueError("protocol instructions must be a string")
+            if "ref" in protocol_val and not isinstance(protocol_val["ref"], str):
+                raise ValueError("protocol ref must be a string")
+            if "schema" in protocol_val and not isinstance(protocol_val["schema"], dict):
+                raise ValueError("protocol schema must be a mapping")
+            if "tools" in protocol_val and not isinstance(protocol_val["tools"], (list, dict)):
+                raise ValueError("protocol tools must be a list or mapping")
     if "instructions" in payload and not isinstance(payload["instructions"], str):
         raise ValueError("state turn instructions must be a string")
     if "user_tool_calls" in payload and (
@@ -275,13 +312,14 @@ def parse_state_turn(target: dict[str, Any] | str) -> dict[str, Any]:
     return payload
 
 
-def render_state_turn(
+def render_state_turn(  # noqa: PLR0913
     state: dict[str, Any],
     *,
     observation: Any = None,
     format: str = "yaml",
     state_patch: dict[str, Any] | None = None,
     instructions: str | None = None,
+    protocol: Any = None,
     user_tool_calls: list[dict[str, Any]] | None = None,
     pending_tools: list[dict[str, Any]] | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
@@ -294,7 +332,19 @@ def render_state_turn(
         raise ValueError("state format must be 'yaml' or 'markdown'")
     is_diff = state_patch is not None
     payload: dict[str, Any] = {}
-    if instructions is not None:
+    if protocol is not None:
+        if isinstance(protocol, dict):
+            formatted_proto = dict(protocol)
+            if (
+                "instructions" in formatted_proto
+                and isinstance(formatted_proto["instructions"], str)
+                and "\n" in formatted_proto["instructions"]
+            ):
+                formatted_proto["instructions"] = _LiteralString(formatted_proto["instructions"])
+            payload["protocol"] = formatted_proto
+        else:
+            payload["protocol"] = protocol
+    elif instructions is not None:
         payload["instructions"] = _LiteralString(instructions)
     payload["state_patch" if is_diff else "state"] = state_patch if is_diff else state
     if user_tool_calls is not None:
@@ -337,11 +387,18 @@ def initial_state() -> dict[str, Any]:
     }
 
 
-def seed_state_turn(*, format: str = "yaml", observation: Any = None) -> str:
+def seed_state_turn(
+    *,
+    format: str = "yaml",
+    observation: Any = None,
+    protocol: Any = None,
+) -> str:
     """Render a fresh state turn with an intentionally blank operator goal."""
     return render_state_turn(
-        initial_state(), observation=observation, format=format,
-        instructions=STATE_INSTRUCTIONS,
+        initial_state(),
+        observation=observation,
+        format=format,
+        protocol=protocol if protocol is not None else "toas.state-step/1",
     )
 
 
@@ -509,6 +566,7 @@ class StateHistoryPoint:
     state_number: int | None = None
     format: str = "yaml"
     instructions: str | None = None
+    protocol: Any = None
     pending_tools: list[dict[str, Any]] | None = None
     observation: Any = None
 
@@ -532,6 +590,7 @@ def extract_state_history_points(
         is_key = durable_keys.get(handle, parsed.get("is_key", False))
         fmt = parsed.get("format", "yaml")
         instructions = parsed.get("instructions")
+        protocol = parsed.get("protocol")
         pending_tools = parsed.get("pending_tools")
         obs = parsed.get("observation")
         snum = parsed.get("state_number")
@@ -543,6 +602,8 @@ def extract_state_history_points(
                 pt.state = st
                 pt.is_key = is_key or pt.is_key
                 pt.format = fmt
+                if protocol is not None:
+                    pt.protocol = protocol
                 if instructions is not None:
                     pt.instructions = instructions
                 if pending_tools is not None:
@@ -557,6 +618,7 @@ def extract_state_history_points(
                     state_number=snum,
                     format=fmt,
                     instructions=instructions,
+                    protocol=protocol,
                     pending_tools=pending_tools,
                     observation=obs,
                 )
@@ -576,6 +638,10 @@ def extract_state_history_points(
                 pt = points_by_handle[target_handle]
                 pt.state = applied
                 pt.is_key = is_key or pt.is_key
+                if protocol is not None:
+                    pt.protocol = protocol
+                if instructions is not None:
+                    pt.instructions = instructions
             else:
                 pt = StateHistoryPoint(
                     handle=target_handle,
@@ -584,6 +650,7 @@ def extract_state_history_points(
                     state_number=snum,
                     format=fmt,
                     instructions=instructions,
+                    protocol=protocol,
                     pending_tools=pending_tools,
                     observation=obs,
                 )
@@ -617,6 +684,7 @@ def project_state_history_points(
             is_key=pt.is_key,
             format=pt.format,
             instructions=pt.instructions,
+            protocol=pt.protocol,
             pending_tools=pt.pending_tools,
             observation=pt.observation,
             state_number=pt.state_number,
@@ -1281,77 +1349,6 @@ def _sanitize_projected_tool_outcomes(tool_outcomes: list[dict[str, Any]]) -> li
     return sanitized
 
 
-def build_state_step_packet(
-    *, events_path: str | Path, state: dict, observation: Any,
-    instructions: str | None = None,
-    session_text: str | None = None,
-) -> dict[str, Any]:
-    """Build the shared state-only packet used by preview and inference."""
-    records = read_log(str(events_path))
-    from ..tools import REGISTRY, tool_definitions
-
-    compound = _compound_observation(records, observation, session_text=session_text)
-    blocks_by_id = extract_inert_blocks_by_id(records)
-    full_blocks_by_id = extract_inert_blocks_by_id(records, full_blocks=True)
-    if session_text:
-        blocks_by_id.update(extract_inert_blocks_by_id(session_text))
-    events_file = Path(events_path)
-    workspace_root = events_file.parent.parent if events_file.parent.name == ".toas" else events_file.parent
-    if blocks_by_id or workspace_root:
-        compound = _expand_compound_observation(
-            compound, blocks_by_id, full_blocks_by_id, workspace_root=workspace_root
-        )
-        state = _expand_compound_observation(
-            state, blocks_by_id, full_blocks_by_id, workspace_root=workspace_root
-        )
-
-    if isinstance(compound, dict) and "tool_outcomes" in compound:
-        compound = dict(compound)
-        compound["tool_outcomes"] = _sanitize_projected_tool_outcomes(compound["tool_outcomes"])
-
-    return {
-        "instructions": STATE_INSTRUCTIONS if instructions is None else instructions,
-        "schema": {
-            "state_patch": "object",
-            "tool_calls": "array",
-            "outcome": ["continue", "complete"],
-        },
-        "tools": {
-            "available": sorted(REGISTRY),
-            "definitions": tool_definitions(REGISTRY),
-            "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
-        },
-        "state": state,
-        "observation": compound,
-    }
-
-
-_INFER_FROM_DIRECTIVE_RE = re.compile(r"(?m)^/infer-from\s+([^\s]+)\s*$")
-
-
-def parse_infer_from_directive(turns: list[dict[str, Any]]) -> tuple[str | None, list[dict[str, Any]]]:
-    """Inspect trailing user turns for /infer-from <label>, stripping directive from user prose."""
-    found_label: str | None = None
-    modified_turns: list[dict[str, Any]] = []
-
-    for turn in turns:
-        if turn.get("role") not in {"user", "control"} or not isinstance(turn.get("content"), str):
-            modified_turns.append(turn)
-            continue
-        content = turn["content"]
-        match = _INFER_FROM_DIRECTIVE_RE.search(content)
-        if match is not None:
-            found_label = match.group(1).strip()
-            new_content = _INFER_FROM_DIRECTIVE_RE.sub("", content).strip()
-            new_turn = dict(turn)
-            new_turn["content"] = new_content
-            modified_turns.append(new_turn)
-        else:
-            modified_turns.append(turn)
-
-    return found_label, modified_turns
-
-
 def find_state_turn_index_by_label(turns: list[dict[str, Any]], label: str) -> int:
     """Find the index of the state turn matching the label, or raise ValueError."""
     clean_label = label.strip()
@@ -1389,6 +1386,208 @@ def find_state_turn_index_by_label(turns: list[dict[str, Any]], label: str) -> i
     raise ValueError(f"state turn with label {label!r} not found in transcript")
 
 
+def resolve_state_turn_protocol(
+    target: Any = None,
+    turns: list[dict[str, Any]] | None = None,
+    *,
+    seen_refs: set[str] | None = None,
+) -> dict[str, Any]:
+    """Resolve a state turn protocol reference and any overlays into a concrete protocol dict."""
+    if target is None:
+        return default_protocol()
+
+    if isinstance(target, str):
+        target_clean = target.strip()
+        if target_clean.startswith("(ref:") and target_clean.endswith(")"):
+            target_clean = target_clean[5:-1].strip()
+        elif target_clean.startswith("ref:"):
+            target_clean = target_clean[4:].strip()
+
+        if target_clean in {"toas.state-step/1", "default"}:
+            return default_protocol()
+
+        if turns is None:
+            raise ValueError(f"cannot resolve protocol reference {target!r} without transcript turns")
+
+        seen = set(seen_refs or ())
+        if target_clean in seen:
+            raise ValueError(f"circular protocol reference detected: {target_clean!r}")
+        seen.add(target_clean)
+
+        idx = find_state_turn_index_by_label(turns, target_clean)
+        ref_turn = turns[idx]
+        return resolve_state_turn_protocol(ref_turn, turns=turns, seen_refs=seen)
+
+    if isinstance(target, dict):
+        if "turn_type" in target or "role" in target or "marker" in target:
+            parsed = target if "turn_type" in target else parse_state_turn(target)
+            protocol = parsed.get("protocol")
+            if protocol is not None:
+                resolved = resolve_state_turn_protocol(protocol, turns=turns, seen_refs=seen_refs)
+                if "instructions" in parsed and (not isinstance(protocol, dict) or "instructions" not in protocol):
+                    resolved["instructions"] = parsed["instructions"]
+                return resolved
+            if "instructions" in parsed and isinstance(parsed["instructions"], str):
+                base = default_protocol()
+                base["instructions"] = parsed["instructions"]
+                return base
+            return default_protocol()
+
+        if "ref" in target:
+            ref_target = str(target["ref"]).strip()
+            base = resolve_state_turn_protocol(ref_target, turns=turns, seen_refs=seen_refs)
+            result = copy.deepcopy(base)
+            if "instructions" in target and isinstance(target["instructions"], str):
+                result["instructions"] = target["instructions"]
+            if "schema" in target:
+                if isinstance(target["schema"], dict) and isinstance(result.get("schema"), dict):
+                    result["schema"] = {**result["schema"], **target["schema"]}
+                else:
+                    result["schema"] = target["schema"]
+            if "tools" in target:
+                tools_val = target["tools"]
+                if isinstance(tools_val, list):
+                    from ..tools import REGISTRY, tool_definitions
+
+                    filtered_registry = {k: v for k, v in REGISTRY.items() if k in tools_val}
+                    result["tools"] = {
+                        "available": sorted(tools_val),
+                        "definitions": tool_definitions(filtered_registry),
+                        "protocol": result.get("tools", {}).get(
+                            "protocol",
+                            "TOAS batch calls; validate and execute only on a later explicit step",
+                        ),
+                    }
+                elif isinstance(tools_val, dict):
+                    result["tools"] = {**result.get("tools", {}), **tools_val}
+                else:
+                    result["tools"] = tools_val
+            for k, v in target.items():
+                if k not in {"ref", "instructions", "schema", "tools"}:
+                    result[k] = v
+            return result
+        else:
+            base = default_protocol()
+            result = copy.deepcopy(base)
+            if "instructions" in target and isinstance(target["instructions"], str):
+                result["instructions"] = target["instructions"]
+            if "schema" in target:
+                if isinstance(target["schema"], dict) and isinstance(result.get("schema"), dict):
+                    result["schema"] = {**result["schema"], **target["schema"]}
+                else:
+                    result["schema"] = target["schema"]
+            if "tools" in target:
+                tools_val = target["tools"]
+                if isinstance(tools_val, list):
+                    from ..tools import REGISTRY, tool_definitions
+
+                    filtered_registry = {k: v for k, v in REGISTRY.items() if k in tools_val}
+                    result["tools"] = {
+                        "available": sorted(tools_val),
+                        "definitions": tool_definitions(filtered_registry),
+                        "protocol": result.get("tools", {}).get(
+                            "protocol",
+                            "TOAS batch calls; validate and execute only on a later explicit step",
+                        ),
+                    }
+                elif isinstance(tools_val, dict):
+                    result["tools"] = {**result.get("tools", {}), **tools_val}
+                else:
+                    result["tools"] = tools_val
+            for k, v in target.items():
+                if k not in {"instructions", "schema", "tools"}:
+                    result[k] = v
+            return result
+
+    raise ValueError(f"invalid protocol specification: {target!r}")
+
+
+def build_state_step_packet(
+    *, events_path: str | Path, state: dict, observation: Any,
+    instructions: str | None = None,
+    protocol: dict[str, Any] | str | None = None,
+    session_text: str | None = None,
+) -> dict[str, Any]:
+    """Build the shared state-only packet used by preview and inference."""
+    records = read_log(str(events_path))
+
+    turns: list[dict[str, Any]] | None = None
+    target_protocol: Any = protocol
+
+    if session_text:
+        from ..transcript import parse_transcript
+
+        try:
+            turns = parse_transcript(session_text)
+            if target_protocol is None:
+                _prefix, state_turn, _suffix = partition_state_transcript(turns)
+                parsed_state = parse_state_turn(state_turn)
+                if "protocol" in parsed_state:
+                    target_protocol = parsed_state["protocol"]
+                elif "instructions" in parsed_state:
+                    target_protocol = {"instructions": parsed_state["instructions"]}
+        except Exception:
+            pass
+
+    resolved_protocol = resolve_state_turn_protocol(target_protocol, turns=turns)
+    if instructions is not None:
+        resolved_protocol = copy.deepcopy(resolved_protocol)
+        resolved_protocol["instructions"] = instructions
+
+    compound = _compound_observation(records, observation, session_text=session_text)
+    blocks_by_id = extract_inert_blocks_by_id(records)
+    full_blocks_by_id = extract_inert_blocks_by_id(records, full_blocks=True)
+    if session_text:
+        blocks_by_id.update(extract_inert_blocks_by_id(session_text))
+    events_file = Path(events_path)
+    workspace_root = events_file.parent.parent if events_file.parent.name == ".toas" else events_file.parent
+    if blocks_by_id or workspace_root:
+        compound = _expand_compound_observation(
+            compound, blocks_by_id, full_blocks_by_id, workspace_root=workspace_root
+        )
+        state = _expand_compound_observation(
+            state, blocks_by_id, full_blocks_by_id, workspace_root=workspace_root
+        )
+
+    if isinstance(compound, dict) and "tool_outcomes" in compound:
+        compound = dict(compound)
+        compound["tool_outcomes"] = _sanitize_projected_tool_outcomes(compound["tool_outcomes"])
+
+    return {
+        "instructions": resolved_protocol["instructions"],
+        "schema": resolved_protocol["schema"],
+        "tools": resolved_protocol["tools"],
+        "state": state,
+        "observation": compound,
+    }
+
+
+_INFER_FROM_DIRECTIVE_RE = re.compile(r"(?m)^/infer-from\s+([^\s]+)\s*$")
+
+
+def parse_infer_from_directive(turns: list[dict[str, Any]]) -> tuple[str | None, list[dict[str, Any]]]:
+    """Inspect trailing user turns for /infer-from <label>, stripping directive from user prose."""
+    found_label: str | None = None
+    modified_turns: list[dict[str, Any]] = []
+
+    for turn in turns:
+        if turn.get("role") not in {"user", "control"} or not isinstance(turn.get("content"), str):
+            modified_turns.append(turn)
+            continue
+        content = turn["content"]
+        match = _INFER_FROM_DIRECTIVE_RE.search(content)
+        if match is not None:
+            found_label = match.group(1).strip()
+            new_content = _INFER_FROM_DIRECTIVE_RE.sub("", content).strip()
+            new_turn = dict(turn)
+            new_turn["content"] = new_content
+            modified_turns.append(new_turn)
+        else:
+            modified_turns.append(turn)
+
+    return found_label, modified_turns
+
+
 def build_multi_state_sequence_packet(
     *,
     events_path: str | Path,
@@ -1396,21 +1595,35 @@ def build_multi_state_sequence_packet(
     turns: list[dict[str, Any]],
     start_index: int,
     instructions: str | None = None,
+    protocol: dict[str, Any] | str | None = None,
     session_text: str | None = None,
 ) -> dict[str, Any]:
     """Build model-facing sequence projection from start_index through the transcript frontier."""
-    from ..tools import REGISTRY, tool_definitions
+    target_proto = protocol
+    if target_proto is None and turns:
+        state_turns = [t for t in turns if t.get("role") in {"state", "state-diff"}]
+        if state_turns:
+            target_proto = state_turns[-1]
+
+    resolved_protocol = resolve_state_turn_protocol(target_proto, turns=turns)
+    if instructions is not None:
+        resolved_protocol = copy.deepcopy(resolved_protocol)
+        resolved_protocol["instructions"] = instructions
 
     selected_turns = turns[start_index:]
-    system_instructions = STATE_INSTRUCTIONS if instructions is None else instructions
-    tools_available = sorted(REGISTRY)
-    tool_defs = tool_definitions(REGISTRY)
+    system_instructions = resolved_protocol["instructions"]
+    tool_defs = resolved_protocol.get("tools", {}).get("definitions", [])
+    schema = resolved_protocol.get("schema", {})
 
     schema_block = (
-        "Return one JSON object with these fields:\n"
-        "- state_patch: an object containing changes to the current state. Use null to remove a key.\n"
-        "- tool_calls: an array of batch tool calls, each with tool_name and args matching tool argument definitions. Use empty array when no tools are needed.\n"
-        "- outcome: optional; use continue or complete."
+        f"Return one JSON object matching schema:\n{json.dumps(schema, indent=2)}"
+        if schema != default_protocol()["schema"]
+        else (
+            "Return one JSON object with these fields:\n"
+            "- state_patch: an object containing changes to the current state. Use null to remove a key.\n"
+            "- tool_calls: an array of batch tool calls, each with tool_name and args matching tool argument definitions. Use empty array when no tools are needed.\n"
+            "- outcome: optional; use continue or complete."
+        )
     )
     tools_block = f"Available tools and argument definitions:\n{json.dumps(tool_defs, indent=2)}"
 
@@ -1450,16 +1663,8 @@ def build_multi_state_sequence_packet(
 
     return {
         "instructions": system_instructions,
-        "schema": {
-            "state_patch": "object",
-            "tool_calls": "array",
-            "outcome": ["continue", "complete"],
-        },
-        "tools": {
-            "available": tools_available,
-            "definitions": tool_defs,
-            "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
-        },
+        "schema": schema,
+        "tools": resolved_protocol.get("tools", {}),
         "state": state,
         "request_messages": messages,
     }
@@ -1468,6 +1673,7 @@ def build_multi_state_sequence_packet(
 def preview_state_request(
     *, events_path: str | Path, state: dict, observation: Any,
     instructions: str | None = None,
+    protocol: dict[str, Any] | str | None = None,
     session_text: str | None = None,
     infer_from: str | None = None,
     transcript_turns: list[dict[str, Any]] | None = None,
@@ -1491,6 +1697,7 @@ def preview_state_request(
             turns=transcript_turns,
             start_index=start_idx,
             instructions=instructions,
+            protocol=protocol,
             session_text=session_text,
         )
         return {
@@ -1506,7 +1713,7 @@ def preview_state_request(
         }
     packet = build_state_step_packet(
         events_path=events_path, state=state, observation=observation,
-        instructions=instructions, session_text=session_text,
+        instructions=instructions, protocol=protocol, session_text=session_text,
     )
     return {
         "phase": "infer",
@@ -1522,6 +1729,7 @@ def step_state(  # noqa: PLR0913
     state: dict[str, Any],
     observation: Any,
     instructions: str | None = None,
+    protocol: dict[str, Any] | str | None = None,
     session_text: str | None = None,
     user_tool_calls: list[dict[str, Any]] | None = None,
     pending_tool_calls: list[dict[str, Any]] | None = None,
@@ -1999,13 +2207,14 @@ def step_state(  # noqa: PLR0913
             turns=transcript_turns,
             start_index=start_idx,
             instructions=instructions,
+            protocol=protocol,
             session_text=session_text,
         )
         compound_observation = {"kind": "multi_state_sequence", "start_index": start_idx}
     else:
         packet = build_state_step_packet(
             events_path=events_path, state=state, observation=observation,
-            instructions=instructions, session_text=session_text,
+            instructions=instructions, protocol=protocol, session_text=session_text,
         )
         compound_observation = packet["observation"]
     gen_kwargs: dict[str, Any] = {}

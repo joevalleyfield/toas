@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-06
+> **Last Sync:** 2026-10-07
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -274,7 +274,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti...
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
-- **[T261006-state-step-transcript-protocol-reference-and-overlay]** State-Step Transcript Protocol Reference And Overlay
 - **[T261006-unify-state-templates-and-retire-state-seed]** Unify State Templates And Retire State-Seed
 <!-- WORKBOARD:NOW:END -->
 
@@ -364,10 +363,10 @@ continuation, and authority concerns without reopening completed slices.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261006-tool-execution-progress-updates]** Tool Execution Progress Updates During Plan And State Execution
+- **[T261006-state-step-transcript-protocol-reference-and-overlay]** State-Step Transcript Protocol Reference And Overlay
 - **[T261006-state-step-tool-argument-guidance]** State-Step Tool Argument Guidance
 - **[T261006-state-observation-ephemerality-and-bounded-persistence]** State Observation Ephemerality And Bounded Persistence
 - **[T261006-clarify-execution-generation-facets]** Clarify Execution and Generation Facet Boundaries
-- **[T261005-vim-frontier-tool-heuristic-and-kind-latch]** Vim Frontier Tool Heuristic And Rigid Run-Kind Latch
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

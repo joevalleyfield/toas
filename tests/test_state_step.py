@@ -1986,4 +1986,376 @@ def test_state_step_packet_includes_tool_argument_definitions(tmp_path):
     assert "argument definitions" in packet["instructions"]
 
 
+def test_default_protocol_structure():
+    from toas.runtime.state_step import STATE_INSTRUCTIONS, default_protocol
+    from toas.tools import REGISTRY
+
+    proto = default_protocol()
+    assert proto["instructions"] == STATE_INSTRUCTIONS
+    assert proto["schema"] == {
+        "state_patch": "object",
+        "tool_calls": "array",
+        "outcome": ["continue", "complete"],
+    }
+    assert proto["tools"]["available"] == sorted(REGISTRY)
+    assert set(proto["tools"]["definitions"].keys()) == set(REGISTRY.keys())
+    assert "TOAS batch calls" in proto["tools"]["protocol"]
+
+
+def test_parse_and_render_state_turn_protocol():
+    from toas.runtime.state_step import parse_state_turn, render_state_turn
+
+    # String protocol
+    rendered = render_state_turn({"goal": "g"}, protocol="toas.state-step/1")
+    assert "protocol: toas.state-step/1" in rendered
+    parsed = parse_state_turn(rendered)
+    assert parsed["protocol"] == "toas.state-step/1"
+
+    # Mapping protocol with multiline instructions
+    proto = {"ref": "STATE/1", "instructions": "Line 1\nLine 2\n"}
+    rendered_map = render_state_turn({"goal": "g"}, protocol=proto)
+    assert "protocol:" in rendered_map
+    assert "ref: STATE/1" in rendered_map
+    assert "instructions: |" in rendered_map
+    parsed_map = parse_state_turn(rendered_map)
+    assert parsed_map["protocol"]["ref"] == "STATE/1"
+    assert parsed_map["protocol"]["instructions"] == "Line 1\nLine 2\n"
+
+    # Forgiving unquoted (ref: ...) normalization
+    forgiving_text = "## TOAS:STATE/2\n\nprotocol: (ref: STATE/1)\nstate: {goal: g}\n"
+    parsed_forgiving = parse_state_turn(forgiving_text)
+    assert parsed_forgiving["protocol"] == {"ref": "STATE/1"}
+
+
+def test_parse_state_turn_protocol_validation_errors():
+    from toas.runtime.state_step import parse_state_turn
+
+    cases = [
+        ("protocol: 123\nstate: {}", "state turn protocol must be a string or mapping"),
+        ("protocol: {instructions: 123}\nstate: {}", "protocol instructions must be a string"),
+        ("protocol: {ref: 123}\nstate: {}", "protocol ref must be a string"),
+        ("protocol: {schema: 123}\nstate: {}", "protocol schema must be a mapping"),
+        ("protocol: {tools: 123}\nstate: {}", "protocol tools must be a list or mapping"),
+    ]
+    for text, match in cases:
+        with pytest.raises(ValueError, match=match):
+            parse_state_turn("## TOAS:STATE/1\n\n" + text)
+
+
+def test_resolve_state_turn_protocol_handles_and_assets():
+    from toas.runtime.state_step import default_protocol, resolve_state_turn_protocol
+
+    base = default_protocol()
+    assert resolve_state_turn_protocol(None) == base
+    assert resolve_state_turn_protocol("toas.state-step/1") == base
+    assert resolve_state_turn_protocol("default") == base
+    assert resolve_state_turn_protocol("(ref: toas.state-step/1)") == base
+    assert resolve_state_turn_protocol("ref: default") == base
+
+    # Missing turns
+    with pytest.raises(ValueError, match="without transcript turns"):
+        resolve_state_turn_protocol("STATE/1", turns=None)
+
+    turns = [
+        {"role": "state", "content": "protocol: toas.state-step/1\nstate: {}", "marker": "## TOAS:STATE/1"},
+        {"role": "state", "content": "protocol:\n  ref: STATE/1\nstate: {}", "marker": "## TOAS:STATE/2"},
+    ]
+    resolved = resolve_state_turn_protocol("STATE/2", turns=turns)
+    assert resolved == base
+
+    # Circular reference detection
+    cycle_turns = [
+        {"role": "state", "content": "protocol:\n  ref: STATE/2\nstate: {}", "marker": "## TOAS:STATE/1"},
+        {"role": "state", "content": "protocol:\n  ref: STATE/1\nstate: {}", "marker": "## TOAS:STATE/2"},
+    ]
+    with pytest.raises(ValueError, match="circular protocol reference detected: 'STATE/1'"):
+        resolve_state_turn_protocol("STATE/1", turns=cycle_turns)
+
+    # Invalid target
+    with pytest.raises(ValueError, match="invalid protocol specification"):
+        resolve_state_turn_protocol(12345)
+
+
+def test_resolve_state_turn_protocol_overlays():
+    from toas.runtime.state_step import resolve_state_turn_protocol
+
+    turns = [
+        {"role": "state", "content": "protocol: toas.state-step/1\nstate: {}", "marker": "## TOAS:STATE/1"},
+    ]
+
+    # Overlay instructions and schema
+    overlay = {
+        "ref": "STATE/1",
+        "instructions": "Custom instructions only",
+        "schema": {"outcome": ["continue", "complete", "delegate"]},
+        "custom_meta": 42,
+    }
+    resolved = resolve_state_turn_protocol(overlay, turns=turns)
+    assert resolved["instructions"] == "Custom instructions only"
+    assert resolved["schema"]["outcome"] == ["continue", "complete", "delegate"]
+    assert resolved["schema"]["state_patch"] == "object"
+    assert resolved["custom_meta"] == 42
+
+    # Non-dict schema overlay replacement
+    resolved_schema_raw = resolve_state_turn_protocol({"ref": "STATE/1", "schema": "bare-schema"}, turns=turns)
+    assert resolved_schema_raw["schema"] == "bare-schema"
+
+    # Overlay tools as list
+    tools_overlay = {
+        "ref": "STATE/1",
+        "tools": ["read_file", "shell"],
+    }
+    resolved_tools = resolve_state_turn_protocol(tools_overlay, turns=turns)
+    assert resolved_tools["tools"]["available"] == ["read_file", "shell"]
+    assert set(resolved_tools["tools"]["definitions"].keys()) == {"read_file", "shell"}
+
+    # Overlay tools as dict
+    tools_dict_overlay = {
+        "ref": "STATE/1",
+        "tools": {"policy": "strict"},
+    }
+    resolved_tools_dict = resolve_state_turn_protocol(tools_dict_overlay, turns=turns)
+    assert resolved_tools_dict["tools"]["policy"] == "strict"
+
+    # Overlay tools as scalar/other
+    tools_scalar = {
+        "ref": "STATE/1",
+        "tools": "any_tool",
+    }
+    resolved_tools_scalar = resolve_state_turn_protocol(tools_scalar, turns=turns)
+    assert resolved_tools_scalar["tools"] == "any_tool"
+
+    # Overlay without ref
+    no_ref = {
+        "instructions": "Direct custom",
+        "schema": {"k": "v"},
+        "tools": ["read_file"],
+        "extra": True,
+    }
+    resolved_no_ref = resolve_state_turn_protocol(no_ref)
+    assert resolved_no_ref["instructions"] == "Direct custom"
+    assert resolved_no_ref["schema"]["k"] == "v"
+    assert resolved_no_ref["tools"]["available"] == ["read_file"]
+    assert resolved_no_ref["extra"] is True
+
+    # Turn with top-level instructions and no protocol
+    legacy_turn = {"role": "state", "content": "instructions: legacy custom\nstate: {}"}
+    resolved_legacy = resolve_state_turn_protocol(legacy_turn)
+    assert resolved_legacy["instructions"] == "legacy custom"
+
+    # Turn with protocol and top-level instructions
+    turn_with_proto_and_inst = {
+        "role": "state",
+        "content": "protocol: toas.state-step/1\ninstructions: top-level override\nstate: {}",
+    }
+    resolved_override = resolve_state_turn_protocol(turn_with_proto_and_inst)
+    assert resolved_override["instructions"] == "top-level override"
+
+    # Turn without protocol or instructions
+    empty_turn = {"role": "state", "content": "state: {}"}
+    assert resolve_state_turn_protocol(empty_turn)["instructions"] != ""
+
+
+def test_state_history_points_preserve_and_project_protocol():
+    from toas.runtime.state_step import extract_state_history_points, project_state_history_points
+
+    turns = [
+        {
+            "role": "state",
+            "content": "protocol: toas.state-step/1\nstate: {step: 1}",
+            "marker": "## TOAS:STATE/1",
+        },
+        {
+            "role": "state-diff",
+            "content": "protocol:\n  ref: STATE/1\nstate_patch: {step: 2}",
+            "marker": "## TOAS:STATE-DIFF [[1->2]]",
+        },
+        {
+            "role": "state",
+            "content": "protocol:\n  ref: STATE/1\nstate: {step: 2}",
+            "marker": "## TOAS:STATE/2",
+        },
+    ]
+    points = extract_state_history_points(turns)
+    assert len(points) == 2
+    assert points[0].protocol == "toas.state-step/1"
+    assert points[1].protocol == {"ref": "STATE/1"}
+
+    projected = project_state_history_points(points, snapshots="all", diffs="none")
+    assert len(projected) == 2
+    assert "protocol: toas.state-step/1" in projected[0]["content"]
+    assert "ref: STATE/1" in projected[1]["content"]
+
+
+def test_build_state_step_packet_hydrates_protocol_and_overlays(tmp_path):
+    from toas.runtime.state_step import build_state_step_packet
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+
+    session_text = (
+        "## TOAS:STATE/1\n\nprotocol: toas.state-step/1\nstate: {step: 1}\n\n"
+        "## TOAS:STATE/2\n\nprotocol:\n  ref: STATE/1\n  instructions: Special instructions\n  tools: [read_file]\nstate: {step: 2}\n"
+    )
+
+    packet = build_state_step_packet(
+        events_path=events_path,
+        state={"step": 2},
+        observation="ready",
+        session_text=session_text,
+    )
+    assert packet["instructions"] == "Special instructions"
+    assert packet["tools"]["available"] == ["read_file"]
+    assert set(packet["tools"]["definitions"].keys()) == {"read_file"}
+
+    # Explicit instructions parameter overrides
+    packet_override = build_state_step_packet(
+        events_path=events_path,
+        state={"step": 2},
+        observation="ready",
+        instructions="Overridden instructions",
+        session_text=session_text,
+    )
+    assert packet_override["instructions"] == "Overridden instructions"
+    assert packet_override["tools"]["available"] == ["read_file"]
+
+
+def test_build_multi_state_sequence_packet_hydrates_protocol(tmp_path):
+    from toas.runtime.state_step import build_multi_state_sequence_packet
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+
+    turns = [
+        {"role": "state", "content": "protocol: toas.state-step/1\nstate: {s: 1}", "marker": "## TOAS:STATE/1"},
+        {"role": "user", "content": "advance"},
+        {"role": "state", "content": "protocol:\n  ref: STATE/1\n  tools: [read_file]\n  schema:\n    outcome: [continue]\nstate: {s: 2}", "marker": "## TOAS:STATE/2"},
+    ]
+
+    packet = build_multi_state_sequence_packet(
+        events_path=events_path,
+        state={"s": 2},
+        turns=turns,
+        start_index=0,
+    )
+    assert packet["tools"]["available"] == ["read_file"]
+    assert packet["schema"]["outcome"] == ["continue"]
+    assert "Return one JSON object matching schema:" in packet["request_messages"][0]["content"]
+
+
+def test_preview_and_step_state_thread_protocol(tmp_path):
+    from toas.runtime.state_step import preview_state_request, step_state
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+
+    custom_proto = {
+        "instructions": "Echo protocol instruction",
+        "schema": {"state_patch": "object", "tool_calls": "array"},
+        "tools": {"available": ["read_file"], "definitions": {}, "protocol": "batch"},
+    }
+
+    # Preview
+    preview = preview_state_request(
+        events_path=events_path,
+        state={"x": 1},
+        observation="obs",
+        protocol=custom_proto,
+    )
+    assert preview["phase"] == "infer"
+    req_body = json.loads(preview["request_messages"][0]["content"])
+    assert req_body["instructions"] == "Echo protocol instruction"
+    assert req_body["tools"]["available"] == ["read_file"]
+
+    # Step
+    received_packet = {}
+
+    def _generate(pkt):
+        received_packet.update(pkt)
+        return {"content": json.dumps({"state_patch": {"x": 2}, "tool_calls": []})}
+
+    result = step_state(
+        events_path=events_path,
+        state={"x": 1},
+        observation="obs",
+        protocol=custom_proto,
+        generate=_generate,
+        execute_call=lambda _c: None,
+    )
+    assert result["phase"] == "infer"
+    assert received_packet["instructions"] == "Echo protocol instruction"
+    assert received_packet["tools"]["available"] == ["read_file"]
+
+
+def test_protocol_coverage_edge_branches(tmp_path):
+    from toas.runtime.state_step import (
+        build_multi_state_sequence_packet,
+        build_state_step_packet,
+        extract_state_history_points,
+        render_state_turn,
+        resolve_state_turn_protocol,
+    )
+
+    # Line 348: render_state_turn with standalone instructions
+    rendered = render_state_turn({"g": 1}, instructions="standalone instructions")
+    assert "standalone instructions" in rendered
+
+    # Lines 642, 644: state-diff updating existing handle with protocol & instructions
+    turns = [
+        {"role": "state", "content": "state: {step: 1}", "marker": "## TOAS:STATE [[alpha]]"},
+        {
+            "role": "state-diff",
+            "content": "protocol: toas.state-step/1\ninstructions: updated\nstate_patch: {step: 2}",
+            "marker": "## TOAS:STATE-DIFF [[alpha->alpha]]",
+        },
+    ]
+    points = extract_state_history_points(turns)
+    assert len(points) == 1
+    assert points[0].protocol == "toas.state-step/1"
+    assert points[0].instructions == "updated"
+
+    # Line 1478: resolve_state_turn_protocol without ref and non-dict schema
+    proto_no_ref_schema = resolve_state_turn_protocol({"schema": "scalar-schema"})
+    assert proto_no_ref_schema["schema"] == "scalar-schema"
+
+    # Line 1496: resolve_state_turn_protocol without ref and scalar tools
+    proto_no_ref_tools = resolve_state_turn_protocol({"tools": "scalar-tools"})
+    assert proto_no_ref_tools["tools"] == "scalar-tools"
+
+    # Lines 1528-1530: build_state_step_packet with session_text state turn having legacy instructions
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+    session_text = "## TOAS:STATE/1\n\ninstructions: legacy only\nstate: {x: 1}\n"
+    pkt = build_state_step_packet(
+        events_path=events_path,
+        state={"x": 1},
+        observation="o",
+        session_text=session_text,
+    )
+    assert pkt["instructions"] == "legacy only"
+
+    # Malformed session_text triggers lines 1529-1530 (except Exception: pass)
+    pkt_malformed = build_state_step_packet(
+        events_path=events_path,
+        state={"x": 1},
+        observation="o",
+        session_text="malformed session without state markers",
+    )
+    assert pkt_malformed["state"] == {"x": 1}
+
+    # Lines 1610-1611: build_multi_state_sequence_packet with explicit instructions override
+    seq_turns = [
+        {"role": "state", "content": "state: {s: 1}", "marker": "## TOAS:STATE/1"},
+    ]
+    seq_pkt = build_multi_state_sequence_packet(
+        events_path=events_path,
+        state={"s": 1},
+        turns=seq_turns,
+        start_index=0,
+        instructions="seq override",
+    )
+    assert seq_pkt["instructions"] == "seq override"
+
+
+
 

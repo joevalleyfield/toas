@@ -600,6 +600,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             state=current_state,
             observation=current_observation,
             instructions=parsed_turn.get("instructions"),
+            protocol=parsed_turn.get("protocol"),
             session_text=normalized_transcript,
             infer_from=effective_infer_from,
             transcript_turns=cleaned_all_turns if effective_infer_from else None,
@@ -727,6 +728,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         result = step_state(
             events_path=events_path, state=current_state, observation=current_observation,
             instructions=parsed_turn.get("instructions"),
+            protocol=parsed_turn.get("protocol"),
             session_text=normalized_transcript,
             pending_tool_calls=parsed_turn.get("pending_tools") if not cleaned_input_turns and not effective_infer_from else None,
             generate=generate_state_packet, execute_call=execute_call,
@@ -754,11 +756,16 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         raise
     if result["phase"] == "infer":
         prior_state_number = parsed_turn.get("state_number", 1)
+        prior_handle = parsed_turn.get("handle") or str(prior_state_number)
         tool_calls = result.get("tool_calls") or None
+        if prior_handle and not prior_handle.isdigit() and not prior_handle.upper().startswith("STATE/"):
+            ref_handle = prior_handle
+        else:
+            ref_handle = f"STATE/{prior_state_number}"
         rendered = render_state_turn(
             result["state"], observation=None,
             format=parsed_turn.get("format", "yaml"),
-            instructions=parsed_turn.get("instructions"),
+            protocol={"ref": ref_handle},
             pending_tools=tool_calls,
             state_number=prior_state_number + 1,
         )

@@ -661,14 +661,14 @@ def test_state_seed_emits_to_stdout_with_blank_goal_and_instructions(capsys):
     assert out_md.startswith("## TOAS:STATE/1\n\n```yaml\n")
     parsed_md = parse_state_turn(out_md)
     assert parsed_md["state"]["goal"] == ""
-    assert "instructions" in parsed_md
+    assert "protocol" in parsed_md
 
     cli_session_commands.run_state_seed(format="yaml")
     out_yaml = capsys.readouterr().out
-    assert out_yaml.startswith("## TOAS:STATE/1\n\ninstructions:")
+    assert out_yaml.startswith("## TOAS:STATE/1\n\nprotocol: toas.state-step/1")
     parsed_yaml = parse_state_turn(out_yaml)
     assert parsed_yaml["state"]["goal"] == ""
-    assert "instructions" in parsed_yaml
+    assert "protocol" in parsed_yaml
 
 
 def test_cli_seed_wrapper_forwards_format(monkeypatch):
@@ -2506,6 +2506,48 @@ def test_generation_runner_state_packet_fires_on_llm_completion(tmp_path):
     assert len(completions) == 2
     assert completions[1].reasoning_content is None
     assert completions[1].content_origin == "answer"
+
+
+def test_state_step_infers_turn_referencing_named_handle(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from toas import cli_session_commands
+    from toas.runtime.state_step import parse_state_turn
+
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:STATE [[alpha]]\n\nprotocol: toas.state-step/1\nstate:\n  goal: test named handle\n\n",
+        encoding="utf-8",
+    )
+
+    deltas = []
+
+    def _gen(_packet, **_kwargs):
+        return {"content": '{"state_patch": {"step": 2}, "tool_calls": []}'}
+
+    config = SimpleNamespace(
+        workdir=tmp_path,
+        log_file=tmp_path / ".toas" / "events.jsonl",
+        session_file=session,
+    )
+    monkeypatch.setattr(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        lambda **_kwargs: (config, {}, SimpleNamespace(generate_state_packet=_gen), {}),
+    )
+
+    from toas import step as step_mod
+
+    monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _working: {})
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda *_args: ())
+
+    cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
+    assert len(deltas) > 0
+    inferred_text = deltas[-1]
+    assert "ref: alpha" in inferred_text
+    parsed = parse_state_turn(inferred_text)
+    assert parsed["protocol"] == {"ref": "alpha"}
+
 
 
 

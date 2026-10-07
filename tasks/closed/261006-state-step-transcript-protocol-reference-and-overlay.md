@@ -22,3 +22,14 @@ This creates an asymmetry: the operator in `session.md` does not see the effecti
 5. Hydrate model inference packets from the resolved transcript protocol, eliminating hidden prompt injection.
 6. Ensure all protocol references adhere strictly to standard, legal YAML syntax without custom pre-parser requirements.
 7. Maintain 100.00% statement test coverage across all test suites.
+
+## Closure
+
+- Implemented `default_protocol()` and `resolve_state_turn_protocol()` in `src/toas/runtime/state_step.py`, grouping instructions, schema, and tool definitions into a unified capability envelope.
+- Supported initial rendition using named asset handles (`"toas.state-step/1"`) or full protocol mappings, and subsequent showings emitting compact references (`protocol: {ref: STATE/1}` or `protocol: {ref: alpha}`).
+- Supported targeted Base + Overlay customizations (`protocol: {ref: <handle>, instructions: ..., schema: ..., tools: ...}`) allowing operators to adjust instructions or constrain available tools to a named subset without modifying referenced parents.
+- Hydrated model inference packets in `build_state_step_packet` and `build_multi_state_sequence_packet` directly from the resolved transcript protocol.
+- Preserved strict standard YAML parsing and serialization, with forgiving preprocessing of unquoted `(ref: ...)` to `{ref: ...}` for operator ergonomics.
+- Integrated into `src/toas/cli_session_commands.py` (`preview_state_request`, `step_state`, and inferred turn rendering) and `src/toas/operator_api.py`.
+- Verified with targeted and full test suites; 100.00% statement coverage achieved across all 151 source files via `./scripts/check.sh`.
+
