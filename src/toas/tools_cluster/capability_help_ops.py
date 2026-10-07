@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from typing import Any
 
 CAPABILITY_TOPICS: dict[str, tuple[str, ...]] = {
     "core": ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script", "procedure"),
@@ -114,7 +116,38 @@ def tool_summary(name: str) -> str:
         return "return capability/tool detail by topic or tool name"
     if name == "procedure":
         return "load and execute a named reusable procedure asset"
+    if name == "capture_task_thread":
+        return "synchronously defer side threads, cleanup, risks, or blockers to the task tracker"
+    if name == "python_script":
+        return "run Python scripts inside the workspace"
+    if name == "powershell_script":
+        return "run PowerShell scripts inside the workspace"
+    if name == "interpreter_script":
+        return "run language scripts via configured runtime inside the workspace"
     return name
+
+
+def tool_definitions(registry: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    """Return structured argument definitions and summaries for registered tools."""
+    if registry is None:
+        from ..tools import REGISTRY
+
+        effective_registry: Mapping[str, Any] = REGISTRY
+    else:
+        effective_registry = registry
+    definitions: dict[str, dict[str, Any]] = {}
+    for name in sorted(effective_registry):
+        tool = effective_registry[name]
+        defn: dict[str, Any] = {
+            "description": tool_summary(name),
+            "required_args": list(getattr(tool, "required_args", ())),
+            "optional_args": list(getattr(tool, "optional_args", ())),
+        }
+        default_args = list(getattr(tool, "default_args", ()))
+        if default_args:
+            defn["default_args"] = default_args
+        definitions[name] = defn
+    return definitions
 
 
 def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:

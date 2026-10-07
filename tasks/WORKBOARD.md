@@ -362,10 +362,10 @@ continuation, and authority concerns without reopening completed slices.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261006-tool-execution-progress-updates]** Tool Execution Progress Updates During Plan And State Execution
+- **[T261006-state-step-tool-argument-guidance]** State-Step Tool Argument Guidance
 - **[T261006-clarify-execution-generation-facets]** Clarify Execution and Generation Facet Boundaries
 - **[T261005-vim-frontier-tool-heuristic-and-kind-latch]** Vim Frontier Tool Heuristic And Rigid Run-Kind Latch
 - **[T261005-state-step-streaming-and-transient-preview]** State-Step Streaming And Transient Delta Preview
-- **[T261004-state-step-documentation-graduation]** Graduate State-Step Architecture And Projection Geometry
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

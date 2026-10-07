@@ -20,6 +20,7 @@ from .tools_cluster.basic_ops import run_search as run_cluster_search
 from .tools_cluster.basic_ops import run_write_file as run_cluster_write_file
 from .tools_cluster.capability_help_ops import CapabilityHelpDeps
 from .tools_cluster.capability_help_ops import run_capability_help as run_cluster_capability_help
+from .tools_cluster.capability_help_ops import tool_definitions as cluster_tool_definitions
 from .tools_cluster.execution import execute_plan_calls
 from .tools_cluster.interpreter_ops import run_interpreter_script as run_interpreter_script_cluster
 from .tools_cluster.powershell_ops import run_powershell_script as run_powershell_script_cluster
@@ -657,3 +658,8 @@ def execute_plan(
 
 def shape_result_content(result: dict) -> str:
     return shape_tool_result_content(result)
+
+
+def tool_definitions(registry: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    return cluster_tool_definitions(registry if registry is not None else REGISTRY)
+

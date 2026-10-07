@@ -1041,6 +1041,12 @@ def test_build_multi_state_sequence_packet_expands_references(tmp_path):
     user_msg = packet["request_messages"][2]["content"]
     assert "def sequence_code():" in user_msg
     assert "def sequence_code():" in packet["state"]["code_block"]
+    assert "definitions" in packet["tools"]
+    assert packet["tools"]["definitions"]["read_file"]["required_args"] == ["path"]
+    sys_msg = packet["request_messages"][0]["content"]
+    assert "Available tools and argument definitions:" in sys_msg
+    assert '"read_file"' in sys_msg
+
 
 
 def test_extract_inert_blocks_by_id_handles_nested_structures():
@@ -1814,5 +1820,45 @@ def test_step_state_emits_tool_lifecycle_stream_events(tmp_path):
         ("tool_start", {"operation": "write_file", "index": 2, "total": 2}),
         ("tool_done", {"operation": "write_file", "ok": True, "index": 2, "total": 2}),
     ]
+
+
+def test_state_step_packet_includes_tool_argument_definitions(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.touch()
+    packet = build_state_step_packet(
+        events_path=events_path,
+        state={"goal": "inspect"},
+        observation={"info": "started"},
+    )
+    tools = packet["tools"]
+    assert "available" in tools
+    assert "definitions" in tools
+    definitions = tools["definitions"]
+
+    # Verify read_file definition
+    assert "read_file" in definitions
+    rf = definitions["read_file"]
+    assert rf["required_args"] == ["path"]
+    assert "start_line" in rf["optional_args"]
+    assert "read UTF-8" in rf["description"]
+
+    # Verify write_file definition
+    assert "write_file" in definitions
+    wf = definitions["write_file"]
+    assert wf["required_args"] == ["path", "content"]
+    assert "append" in wf["optional_args"]
+    assert "force" in wf["optional_args"]
+    assert "append=false" in wf["default_args"]
+
+    # Verify search definition
+    assert "search" in definitions
+    srch = definitions["search"]
+    assert srch["required_args"] == ["query"]
+    assert "limit" in srch["optional_args"]
+    assert any("limit=20" in d for d in srch["default_args"])
+
+    # Verify instructions reference tool argument definitions
+    assert "argument definitions" in packet["instructions"]
+
 
 

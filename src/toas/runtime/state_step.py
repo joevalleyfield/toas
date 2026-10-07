@@ -70,13 +70,13 @@ STATE_INSTRUCTIONS = """Advance the supplied TOAS state using the latest observa
 Return one JSON object with these fields:
 - state_patch: an object containing the changes to the current state. Use null to
   remove a key.
-- tool_calls: an array of batch tool calls, each with tool_name and args. Use an
-  empty array when no tools are needed.
+- tool_calls: an array of batch tool calls, each with tool_name and args matching
+  the tool argument definitions. Use an empty array when no tools are needed.
 - outcome: optional; use continue or complete. A complete outcome means the
   goal is done and cannot include tool calls.
 
-Available tools and the tool protocol are supplied alongside the state. Propose
-tool calls only; TOAS validates and executes them on a later explicit step.
+Available tools, argument definitions, and the tool protocol are supplied alongside
+the state. Propose tool calls only; TOAS validates and executes them on a later explicit step.
 Inference and tool execution are separate operations. Return JSON only."""
 
 
@@ -1156,7 +1156,7 @@ def build_state_step_packet(
 ) -> dict[str, Any]:
     """Build the shared state-only packet used by preview and inference."""
     records = read_log(str(events_path))
-    from ..tools import REGISTRY
+    from ..tools import REGISTRY, tool_definitions
 
     compound = _compound_observation(records, observation, session_text=session_text)
     blocks_by_id = extract_inert_blocks_by_id(records)
@@ -1181,6 +1181,7 @@ def build_state_step_packet(
         },
         "tools": {
             "available": sorted(REGISTRY),
+            "definitions": tool_definitions(REGISTRY),
             "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
         },
         "state": state,
@@ -1261,19 +1262,20 @@ def build_multi_state_sequence_packet(
     session_text: str | None = None,
 ) -> dict[str, Any]:
     """Build model-facing sequence projection from start_index through the transcript frontier."""
-    from ..tools import REGISTRY
+    from ..tools import REGISTRY, tool_definitions
 
     selected_turns = turns[start_index:]
     system_instructions = STATE_INSTRUCTIONS if instructions is None else instructions
     tools_available = sorted(REGISTRY)
+    tool_defs = tool_definitions(REGISTRY)
 
     schema_block = (
         "Return one JSON object with these fields:\n"
         "- state_patch: an object containing changes to the current state. Use null to remove a key.\n"
-        "- tool_calls: an array of batch tool calls, each with tool_name and args. Use empty array when no tools are needed.\n"
+        "- tool_calls: an array of batch tool calls, each with tool_name and args matching tool argument definitions. Use empty array when no tools are needed.\n"
         "- outcome: optional; use continue or complete."
     )
-    tools_block = f"Available tools:\n{json.dumps(tools_available, indent=2)}"
+    tools_block = f"Available tools and argument definitions:\n{json.dumps(tool_defs, indent=2)}"
 
     system_content = f"{system_instructions}\n\n{schema_block}\n\n{tools_block}"
     messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
@@ -1318,6 +1320,7 @@ def build_multi_state_sequence_packet(
         },
         "tools": {
             "available": tools_available,
+            "definitions": tool_defs,
             "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
         },
         "state": state,

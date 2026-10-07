@@ -2101,3 +2101,12 @@ def test_resolve_workspace_roots_empty(tmp_path, monkeypatch):
 
     result = _resolve_workspace_roots([])
     assert result == [tmp_path.resolve()]
+
+
+def test_tool_definitions_exposed():
+    from toas.tools import tool_definitions
+    defs = tool_definitions()
+    assert "read_file" in defs
+    assert defs["read_file"]["required_args"] == ["path"]
+    assert "start_line" in defs["read_file"]["optional_args"]
+

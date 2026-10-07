@@ -9,6 +9,7 @@ from toas.tools_cluster.capability_help_ops import (
     resolve_capability_topic,
     run_capability_help,
     select_tools_for_topic,
+    tool_definitions,
     tool_detail_lines,
     tool_summary,
 )
@@ -78,3 +79,33 @@ def test_capability_help_all_and_unknown_topic_selection_errors():
     assert select_tools_for_topic("write_file", deps=deps) == ("write_file",)
     with pytest.raises(RuntimeError, match="unknown capability_help topic"):
         select_tools_for_topic("nope", deps=deps)
+
+
+def test_tool_summary_script_and_task_tools():
+    assert "defer side threads" in tool_summary("capture_task_thread")
+    assert "Python scripts" in tool_summary("python_script")
+    assert "PowerShell scripts" in tool_summary("powershell_script")
+    assert "language scripts" in tool_summary("interpreter_script")
+
+
+def test_tool_definitions_default_and_custom_registry():
+    defs = tool_definitions()
+    assert "read_file" in defs
+    assert defs["read_file"]["required_args"] == ["path"]
+    assert "start_line" in defs["read_file"]["optional_args"]
+    assert "read UTF-8" in defs["read_file"]["description"]
+    assert "search" in defs
+    assert defs["search"]["required_args"] == ["query"]
+    assert "default_args" in defs["search"]
+
+    # Custom registry with minimal ToolSpec
+    from toas.tools_cluster.registry import ToolSpec
+    custom_registry = {
+        "dummy": ToolSpec("dummy", ("arg1", "arg2"), None),
+    }
+    custom_defs = tool_definitions(custom_registry)
+    assert "dummy" in custom_defs
+    assert custom_defs["dummy"]["required_args"] == ["arg1", "arg2"]
+    assert custom_defs["dummy"]["optional_args"] == []
+    assert "default_args" not in custom_defs["dummy"]
+
