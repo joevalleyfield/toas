@@ -142,9 +142,6 @@ REPLAY_SCRIPT_USAGE = "usage: toas replay-script <script_path> [--output <path>]
 DEBUG_USAGE = "usage: toas debug cancel-latency <jsonl_path>"
 
 
-STATE_SEED_USAGE = "usage: toas state-seed [--yaml|--markdown]"
-
-
 _SUBCOMMAND_HELP: dict[str, str] = {
     "step": STEP_HELP,
     "heads": HEADS_USAGE,
@@ -170,7 +167,6 @@ _SUBCOMMAND_HELP: dict[str, str] = {
     "transport": HOST_USAGE,
     "replay-script": REPLAY_SCRIPT_USAGE,
     "debug": DEBUG_USAGE,
-    "state-seed": STATE_SEED_USAGE,
 }
 
 

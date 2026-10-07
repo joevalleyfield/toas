@@ -8,7 +8,12 @@ from toas import cli_session_commands
 from toas.config import OperatorConfig
 from toas.graph import append_state_step_records, read_log
 from toas.runtime.result_nodes import make_result_node
-from toas.runtime.state_step import parse_state_turn, partition_state_transcript, render_state_turn
+from toas.runtime.state_step import (
+    parse_state_turn,
+    partition_state_transcript,
+    render_state_template,
+    render_state_turn,
+)
 from toas.transcript import render_transcript
 
 
@@ -26,8 +31,7 @@ def test_regular_step_routes_typed_state_turn_through_state_runtime(monkeypatch,
     )
     monkeypatch.setattr(cli_session_commands, "_build_step_cli_deps", lambda: deps)
     monkeypatch.setattr(cli_session_commands, "read_log", lambda _path: [])
-    cli_session_commands.run_state_seed(format="markdown")
-    seed_out = capsys.readouterr().out
+    seed_out = render_state_template("swe_v1", format="markdown")
     session.write_text(session.read_text() + "\n\n" + seed_out)
     seeded = parse_state_turn(session.read_text())
     state = dict(seeded["state"])
@@ -655,29 +659,18 @@ def test_state_diff_requires_a_prior_accepted_snapshot(tmp_path):
         )
 
 
-def test_state_seed_emits_to_stdout_with_blank_goal_and_instructions(capsys):
-    cli_session_commands.run_state_seed(format="markdown")
-    out_md = capsys.readouterr().out
+def test_render_state_template_emits_yaml_and_markdown():
+    out_md = render_state_template("swe_v1", format="markdown")
     assert out_md.startswith("## TOAS:STATE/1\n\n```yaml\n")
     parsed_md = parse_state_turn(out_md)
     assert parsed_md["state"]["goal"] == ""
     assert "protocol" in parsed_md
 
-    cli_session_commands.run_state_seed(format="yaml")
-    out_yaml = capsys.readouterr().out
+    out_yaml = render_state_template("swe_v1", format="yaml")
     assert out_yaml.startswith("## TOAS:STATE/1\n\nprotocol: toas.state-step/1")
     parsed_yaml = parse_state_turn(out_yaml)
     assert parsed_yaml["state"]["goal"] == ""
     assert "protocol" in parsed_yaml
-
-
-def test_cli_seed_wrapper_forwards_format(monkeypatch):
-    from toas import cli
-
-    seen = []
-    monkeypatch.setattr(cli, "_run_state_seed_impl", lambda **kwargs: seen.append(kwargs))
-    cli.run_state_seed(format="markdown")
-    assert seen == [{"format": "markdown"}]
 
 
 def test_state_step_progresses_ordinal_and_preserves_unfolding_history(monkeypatch, tmp_path):

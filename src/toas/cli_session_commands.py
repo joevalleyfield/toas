@@ -290,14 +290,6 @@ def run_step(
     )
 
 
-def run_state_seed(*, format: str = "yaml", session_path: str | None = None) -> None:
-    """Output a fresh editable state turn with instructions and blank goal to stdout."""
-    from .runtime.state_step import seed_state_turn
-
-    rendered = seed_state_turn(format=format)
-    print(rendered, end="")
-
-
 def _resolve_state_input_turns(
     *, deps, events_path: Path, session_path: Path, session_newline: str,
     normalized_transcript: str,

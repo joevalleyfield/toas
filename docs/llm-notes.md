@@ -159,8 +159,8 @@ reconstruction from mutable transcript text. Older failed state-step calls
 that predate this evidence cannot be reconstructed exactly from minimal trace
 records alone.
 
-`toas state-seed` includes the complete editable `instructions` string in its
-state YAML. Each accepted state turn and tool-outcome update carries that same
+State templates (e.g. instantiated via `toas prompt state/swe_v1`) provide the
+editable state YAML and protocol. Each accepted state turn and tool-outcome update carries that same
 string forward. Preview and inference put it into the request packet unchanged;
 the runtime does not summarize or regenerate it. The schema and live tool
 advertisement remain separate packet fields.

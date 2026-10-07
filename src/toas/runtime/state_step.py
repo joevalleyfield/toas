@@ -370,35 +370,84 @@ def render_state_turn(  # noqa: PLR0913
     return f"{marker}\n\n```yaml\n{body}\n```\n"
 
 
-def initial_state() -> dict[str, Any]:
-    """Return the editable alpha seed; the operator supplies the goal."""
-    return {
-        "goal": "",
-        "progress": [],
-        "next_steps": [],
-        "artifacts": [],
-        "blockers": [],
-        "notes": {
-            "constraints": [],
-            "accepted_decisions": [],
-            "pending_proposals": [],
-            "uncertainties": [],
-        },
-    }
+def list_state_templates() -> list[str]:
+    """List available state template names in the asset catalog."""
+    from ..assets.loader import list_packaged_assets
+
+    return list_packaged_assets("state", suffix=".yaml")
+
+
+def load_state_template(name_or_ref: str = "swe_v1") -> dict[str, Any]:
+    """Load a state template definition from the packaged asset catalog."""
+    from ..assets.loader import load_packaged_asset, normalize_asset_ref
+
+    raw = name_or_ref.strip()
+    if not raw:
+        raise RuntimeError(f"invalid state template: {name_or_ref}")
+    normalized = normalize_asset_ref(raw)
+    if normalized.startswith("state/"):
+        normalized = normalized[len("state/") :]
+    try:
+        raw_text = load_packaged_asset("state", normalized, suffix=".yaml").content
+    except RuntimeError as exc:
+        if str(exc) == f"missing state asset: {normalized}":
+            raise RuntimeError(f"missing state template: {normalized}") from exc
+        raise
+    try:
+        data = yaml.safe_load(raw_text) or {}
+    except yaml.YAMLError as exc:
+        raise RuntimeError(f"invalid state template yaml: {normalized}") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError(f"invalid state template: {normalized}")
+    return data
+
+
+def render_state_template(
+    name: str = "swe_v1",
+    *,
+    format: str | None = None,
+    observation: Any = None,
+) -> str:
+    """Render a fresh state turn from a template definition."""
+    data = load_state_template(name)
+    state = data.get("state_template")
+    if not isinstance(state, dict):
+        raise RuntimeError(f"invalid state template: {name} (missing state_template)")
+    protocol = data.get("protocol", "toas.state-step/1")
+    resolved_format = format if format is not None else data.get("format", "yaml")
+    return render_state_turn(
+        copy.deepcopy(state),
+        format=resolved_format,
+        observation=observation,
+        protocol=protocol,
+    )
+
+
+def initial_state(template: str = "swe_v1") -> dict[str, Any]:
+    """Return the editable initial state from a template; defaults to swe_v1."""
+    data = load_state_template(template)
+    state = data.get("state_template")
+    if not isinstance(state, dict):
+        raise RuntimeError(f"invalid state template: {template} (missing state_template)")
+    return copy.deepcopy(state)
 
 
 def seed_state_turn(
     *,
+    template: str = "swe_v1",
     format: str = "yaml",
     observation: Any = None,
     protocol: Any = None,
 ) -> str:
     """Render a fresh state turn with an intentionally blank operator goal."""
+    if protocol is None:
+        return render_state_template(template, format=format, observation=observation)
+    state = initial_state(template)
     return render_state_turn(
-        initial_state(),
+        state,
         observation=observation,
         format=format,
-        protocol=protocol if protocol is not None else "toas.state-step/1",
+        protocol=protocol,
     )
 
 
@@ -1405,6 +1454,13 @@ def resolve_state_turn_protocol(
 
         if target_clean in {"toas.state-step/1", "default"}:
             return default_protocol()
+
+        template_candidate = target_clean[6:] if target_clean.startswith("state/") else target_clean
+        if template_candidate in list_state_templates():
+            tmpl = load_state_template(template_candidate)
+            proto = tmpl.get("protocol")
+            if proto is not None:
+                return resolve_state_turn_protocol(proto, turns=turns, seen_refs=seen_refs)
 
         if turns is None:
             raise ValueError(f"cannot resolve protocol reference {target!r} without transcript turns")

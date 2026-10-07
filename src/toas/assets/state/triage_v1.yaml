@@ -1,0 +1,17 @@
+name: Triage State Template
+description: Lightweight triage and investigation state template with hypotheses, status, and next actions.
+category: state
+protocol:
+  ref: toas.state-step/1
+  tools:
+    - read_file
+    - shell
+  instructions: |
+    Maintain the minimal triage state during investigation. Record hypotheses,
+    status, and next actions. Be concise and empirical.
+state_template:
+  goal: ""
+  status: investigating
+  summary: ""
+  hypotheses: []
+  next_actions: []

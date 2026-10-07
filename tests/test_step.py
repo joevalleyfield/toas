@@ -1607,7 +1607,8 @@ def test_operator_prompts_supports_top_level_browse():
                     "/prompt repair\n"
                     "/prompt section\n"
                     "/prompt session-start\n"
-                "/prompt shared"
+                    "/prompt shared\n"
+                    "/prompt state"
             ),
             transcript_inert=False,
         )

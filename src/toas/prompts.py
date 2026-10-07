@@ -594,6 +594,21 @@ def load_prompt_asset(
             content=f"{prefix}\n\n{render_tools_guidance_compact()}",
             metadata={"category": "constraint"},
         )
+    if normalized.startswith("state/"):
+        template_name = normalized[len("state/") :]
+        from .runtime.state_step import load_state_template, render_state_template
+
+        try:
+            data = load_state_template(template_name)
+        except RuntimeError as exc:
+            raise RuntimeError(f"missing prompt: {normalized}") from exc
+        content = render_state_template(template_name)
+        metadata = {
+            "name": data.get("name", template_name),
+            "description": data.get("description", ""),
+            "category": data.get("category", "state"),
+        }
+        return PromptAsset(ref=normalized, content=content, metadata=metadata)
     try:
         raw = load_packaged_asset("prompts", normalized, suffix=".txt").content
     except RuntimeError as exc:
@@ -693,6 +708,19 @@ def list_prompt_assets(prefix: str | None = None) -> list[PromptAsset]:
         if ref in _DYNAMIC_PROMPTS:
             continue
         assets.append(load_prompt_asset(ref))
+
+    from .runtime.state_step import list_state_templates
+
+    state_refs = [f"state/{name}" for name in list_state_templates()]
+    if normalized_prefix is not None:
+        state_refs = [
+            ref
+            for ref in state_refs
+            if ref == normalized_prefix or ref.startswith(f"{normalized_prefix}/")
+        ]
+    for ref in state_refs:
+        assets.append(load_prompt_asset(ref))
+
     if not assets and normalized_prefix is not None:
         raise RuntimeError(f"missing prompt prefix: {normalized_prefix}")
     assets.sort(key=lambda asset: asset.ref)

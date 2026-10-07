@@ -1,0 +1,15 @@
+name: SWE State Template
+description: Standard software engineering state workboard with progress, next steps, artifacts, blockers, and categorized notes.
+category: state
+protocol: toas.state-step/1
+state_template:
+  goal: ""
+  progress: []
+  next_steps: []
+  artifacts: []
+  blockers: []
+  notes:
+    constraints: []
+    accepted_decisions: []
+    pending_proposals: []
+    uncertainties: []

@@ -34,13 +34,17 @@ from toas.runtime.state_step import (
     find_state_turn_index_by_label,
     initial_state,
     is_state_turn_marker,
+    list_state_templates,
+    load_state_template,
     materialize_state_turns,
     observation_with_user_turns,
     parse_state_marker,
     parse_state_turn,
     partition_state_transcript,
     reconcile_state_lineage,
+    render_state_template,
     render_state_turn,
+    resolve_state_turn_protocol,
     seed_state_turn,
     state_delta,
     state_records,
@@ -128,6 +132,121 @@ def test_seed_leaves_goal_open_for_operator_edit():
     state = initial_state()
     assert state["goal"] == ""
     assert parse_state_turn(seed_state_turn(format="markdown"))["state"] == state
+
+
+def test_state_templates_catalog_listing_and_loading():
+    templates = list_state_templates()
+    assert "swe_v1" in templates
+    assert "triage_v1" in templates
+
+    swe = load_state_template("swe_v1")
+    assert swe["name"] == "SWE State Template"
+    assert swe["category"] == "state"
+    assert swe["protocol"] == "toas.state-step/1"
+    assert "notes" in swe["state_template"]
+
+    triage = load_state_template("triage_v1")
+    assert triage["name"] == "Triage State Template"
+    assert triage["state_template"]["status"] == "investigating"
+    assert "hypotheses" in triage["state_template"]
+    assert triage["protocol"]["tools"] == ["read_file", "shell"]
+
+    # Loading with state/ prefix
+    assert load_state_template("state/swe_v1") == swe
+
+    # Error handling
+    with pytest.raises(RuntimeError, match="invalid state template"):
+        load_state_template("")
+
+    with pytest.raises(RuntimeError, match="missing state template: nonexistent"):
+        load_state_template("nonexistent")
+
+
+def test_template_driven_initial_state_and_rendering():
+    # Default is swe_v1
+    swe_state = initial_state()
+    assert "notes" in swe_state
+    assert swe_state["goal"] == ""
+
+    # Explicit template
+    triage_state = initial_state("triage_v1")
+    assert triage_state["status"] == "investigating"
+    assert "hypotheses" in triage_state
+
+    # Render swe_v1
+    swe_turn = render_state_template("swe_v1")
+    assert swe_turn.startswith("## TOAS:STATE/1\n\nprotocol: toas.state-step/1")
+    parsed_swe = parse_state_turn(swe_turn)
+    assert parsed_swe["state"]["goal"] == ""
+
+    # Render triage_v1
+    triage_turn = render_state_template("triage_v1")
+    assert "tools:" in triage_turn
+    assert "read_file" in triage_turn
+    parsed_triage = parse_state_turn(triage_turn)
+    assert parsed_triage["state"]["status"] == "investigating"
+
+    # Seed state turn with triage
+    seeded_triage = seed_state_turn(template="triage_v1")
+    assert parse_state_turn(seeded_triage)["state"]["status"] == "investigating"
+
+    # Seed state turn with explicit protocol override
+    custom_seed = seed_state_turn(template="triage_v1", protocol="custom/1")
+    assert parse_state_turn(custom_seed)["protocol"] == "custom/1"
+
+
+def test_resolve_state_turn_protocol_with_state_templates():
+    proto = resolve_state_turn_protocol("triage_v1")
+    assert proto["tools"]["available"] == ["read_file", "shell"]
+    assert "Maintain the minimal triage state" in proto["instructions"]
+
+    # With state/ prefix
+    proto_prefix = resolve_state_turn_protocol("state/triage_v1")
+    assert proto_prefix["tools"]["available"] == ["read_file", "shell"]
+
+    # Overlay on top of template
+    overlay = resolve_state_turn_protocol({"ref": "triage_v1", "instructions": "Triage network errors only."})
+    assert overlay["tools"]["available"] == ["read_file", "shell"]
+    assert overlay["instructions"] == "Triage network errors only."
+
+
+def test_load_state_template_and_initial_state_validation(monkeypatch):
+    from toas.assets.loader import PackagedAsset
+
+    # Other RuntimeError from asset loader is re-raised
+    monkeypatch.setattr(
+        "toas.assets.loader.load_packaged_asset",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("corrupt asset store")),
+    )
+    with pytest.raises(RuntimeError, match="corrupt asset store"):
+        load_state_template("swe_v1")
+
+    # Invalid yaml syntax
+    monkeypatch.setattr(
+        "toas.assets.loader.load_packaged_asset",
+        lambda *args, **kwargs: PackagedAsset("state", "bad", ".yaml", ": invalid: yaml:"),
+    )
+    with pytest.raises(RuntimeError, match="invalid state template yaml: bad"):
+        load_state_template("bad")
+
+    # Not a mapping
+    monkeypatch.setattr(
+        "toas.assets.loader.load_packaged_asset",
+        lambda *args, **kwargs: PackagedAsset("state", "bad", ".yaml", "just a string"),
+    )
+    with pytest.raises(RuntimeError, match="invalid state template: bad"):
+        load_state_template("bad")
+
+    # Missing state_template
+    monkeypatch.setattr(
+        "toas.assets.loader.load_packaged_asset",
+        lambda *args, **kwargs: PackagedAsset("state", "bad", ".yaml", "name: bad\n"),
+    )
+    with pytest.raises(RuntimeError, match="invalid state template: bad \\(missing state_template\\)"):
+        initial_state("bad")
+
+    with pytest.raises(RuntimeError, match="invalid state template: bad \\(missing state_template\\)"):
+        render_state_template("bad")
 
 
 def test_operator_api_route_and_explicit_model_packet_boundary(tmp_path):

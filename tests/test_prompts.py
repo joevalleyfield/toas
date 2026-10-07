@@ -755,3 +755,33 @@ def test_prompts_additional_coverage(monkeypatch):
     assert list_prompt_assets("dynamic/capabilities/overview_v1")
     with pytest.raises(RuntimeError, match="missing prompt prefix: nonexistent"):
         list_prompt_assets("nonexistent")
+
+
+def test_state_template_prompts_loading_and_listing():
+    swe_asset = load_prompt_asset("state/swe_v1")
+    assert swe_asset.ref == "state/swe_v1"
+    assert swe_asset.metadata["category"] == "state"
+    assert swe_asset.metadata["name"] == "SWE State Template"
+    assert swe_asset.content.startswith("## TOAS:STATE/1\n\nprotocol: toas.state-step/1")
+
+    triage_asset = load_prompt_asset("state/triage_v1")
+    assert triage_asset.ref == "state/triage_v1"
+    assert "investigating" in triage_asset.content
+    assert "read_file" in triage_asset.content
+
+    composed = load_prompt_ref("state/swe_v1")
+    assert composed.startswith("## TOAS:STATE/1")
+
+    # Listing by state prefix
+    state_assets = list_prompt_assets("state")
+    refs = [a.ref for a in state_assets]
+    assert "state/swe_v1" in refs
+    assert "state/triage_v1" in refs
+
+    single = list_prompt_assets("state/swe_v1")
+    assert len(single) == 1 and single[0].ref == "state/swe_v1"
+
+    # Missing state template prompt
+    with pytest.raises(RuntimeError, match="missing prompt: state/nonexistent"):
+        load_prompt_asset("state/nonexistent")
+
