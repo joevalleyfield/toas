@@ -853,4 +853,99 @@ def test_shape_result_content_search_error():
     assert "path.py" in rendered_with_excerpts
 
 
+def test_render_read_file_intentional_bounded_spill_policy(tmp_path):
+    from toas.tools_cluster.rendering import render_read_file_success
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+
+    # 1. Unbounded exploratory read of 60 lines (> 40 lines): spills!
+    unbounded_result = {
+        "tool_name": "read_file",
+        "path": "big.txt",
+        "summary": "big.txt",
+        "content": "\n".join(f"line_{i}" for i in range(1, 61)),
+        "bounded": False,
+    }
+    rendered_unbounded = render_read_file_success(
+        unbounded_result, status="OK", tool_name="read_file", scratch_dir=scratch_dir
+    )
+    assert "Output exceeded threshold (" in rendered_unbounded
+    assert "60 lines); spilled to `" in rendered_unbounded
+    assert "lines=1..30 of 60" in rendered_unbounded
+
+    # 2. Intentional bounded read of 100 lines: allowed under 500 lines, does NOT spill!
+    bounded_result_100 = {
+        "tool_name": "read_file",
+        "path": "big.txt",
+        "summary": "big.txt:1-100",
+        "content": "\n".join(f"line_{i}" for i in range(1, 101)),
+        "bounded": True,
+        "line_start": 1,
+        "line_end": 100,
+    }
+    rendered_bounded_100 = render_read_file_success(
+        bounded_result_100, status="OK", tool_name="read_file", scratch_dir=scratch_dir
+    )
+    assert "Output exceeded threshold" not in rendered_bounded_100
+    assert "line_100" in rendered_bounded_100
+    assert "path=big.txt:1-100" in rendered_bounded_100
+
+    # 3. Intentional bounded read of 600 lines (> 500 lines): spills!
+    bounded_result_600 = {
+        "tool_name": "read_file",
+        "path": "huge.txt",
+        "summary": "huge.txt:1-600",
+        "content": "\n".join(f"line_{i}" for i in range(1, 601)),
+        "bounded": True,
+        "line_start": 1,
+        "line_end": 600,
+    }
+    rendered_bounded_600 = render_read_file_success(
+        bounded_result_600, status="OK", tool_name="read_file", scratch_dir=scratch_dir
+    )
+    assert "Output exceeded threshold (" in rendered_bounded_600
+    assert "600 lines); spilled to `" in rendered_bounded_600
+
+
+def test_render_fenced_output_scratch_addressability_and_safety_brake(tmp_path):
+    from toas.tools_cluster.rendering import render_fenced_output
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+
+    # Writing an unspilled block with block_id ensures scratch file exists
+    content = "symbol_a\nsymbol_b\n"
+    rendered = render_fenced_output(
+        content=content,
+        kind="result",
+        block_id="ib_test_scratch_1",
+        scratch_dir=scratch_dir,
+    )
+    assert "block_id=ib_test_scratch_1" in rendered
+    scratch_file = scratch_dir / "ib_test_scratch_1.txt"
+    assert scratch_file.is_file()
+    assert scratch_file.read_text(encoding="utf-8") == content
+
+    # Safety brake: even if threshold_lines is passed as 2000, capped at 1000
+    oversized = "\n".join(f"line_{i}" for i in range(1, 1050))
+    rendered_spill = render_fenced_output(
+        content=oversized,
+        kind="result",
+        threshold_lines=2000,
+        scratch_dir=scratch_dir,
+    )
+    assert "Output exceeded threshold" in rendered_spill
+
+    # OSError on unwritable directory passes gracefully
+    unwritable = tmp_path / "blocked_file"
+    unwritable.write_text("not_a_dir")
+    rendered_oserr = render_fenced_output(
+        content="data\n",
+        kind="result",
+        block_id="ib_oserr",
+        scratch_dir=unwritable / "sub",
+    )
+    assert "block_id=ib_oserr" in rendered_oserr
+
+
+
 

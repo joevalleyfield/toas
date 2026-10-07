@@ -80,13 +80,31 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
     return "\n".join(lines)
 
 
-def render_read_file_success(result: dict, *, status: str, tool_name: str) -> str:
+def render_read_file_success(
+    result: dict,
+    *,
+    status: str,
+    tool_name: str,
+    allow_spill: bool = True,
+    scratch_dir: Path | None = None,
+) -> str:
     path = str(result["path"])
     rendered_path = str(result.get("summary") or path)
     content = str(result.get("display_content", result["content"]))
+    is_bounded = (
+        result.get("bounded") is True
+        or result.get("start_line") is not None
+        or result.get("end_line") is not None
+        or result.get("max_lines") is not None
+        or result.get("line_start") is not None
+        or result.get("line_end") is not None
+        or (isinstance(result.get("summary"), str) and ":" in result["summary"] and "-" in result["summary"])
+    )
+    threshold_lines = DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES if is_bounded else DEFAULT_SPILL_THRESHOLD_LINES
+    threshold_bytes = DEFAULT_BOUNDED_SPILL_THRESHOLD_BYTES if is_bounded else DEFAULT_SPILL_THRESHOLD_BYTES
     return (
         f"[{status}] {tool_name}: {path}\n"
-        f"{render_import_block(content=content, path=rendered_path, source='workspace')}"
+        f"{render_import_block(content=content, path=rendered_path, source='workspace', line_start=result.get('line_start'), line_end=result.get('line_end'), allow_spill=allow_spill, threshold_lines=threshold_lines, threshold_bytes=threshold_bytes, scratch_dir=scratch_dir)}"
     )
 
 
@@ -102,6 +120,10 @@ def infer_fence_language(path: str | None) -> str:
 DEFAULT_SPILL_THRESHOLD_LINES = 40
 DEFAULT_SPILL_THRESHOLD_BYTES = 4000
 DEFAULT_SPILL_PREVIEW_LINES = 30
+DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES = 500
+DEFAULT_BOUNDED_SPILL_THRESHOLD_BYTES = 50_000
+DEFAULT_SPILL_SAFETY_BRAKE_LINES = 1000
+DEFAULT_SPILL_SAFETY_BRAKE_BYTES = 100_000
 
 
 def _format_size(byte_count: int) -> str:
@@ -198,19 +220,31 @@ def render_fenced_output(  # noqa: PLR0913
     lines = content.splitlines()
     total_lines = len(lines)
     total_bytes = len(content.encode("utf-8"))
+    effective_threshold_lines = min(threshold_lines, DEFAULT_SPILL_SAFETY_BRAKE_LINES)
+    effective_threshold_bytes = min(threshold_bytes, DEFAULT_SPILL_SAFETY_BRAKE_BYTES)
     should_allow_spill = (kind in {"result", "stdout", "stderr"} and not source.startswith("command.")) if allow_spill is None else allow_spill
-    if should_allow_spill and (total_lines > threshold_lines or total_bytes > threshold_bytes):
+    if should_allow_spill and (total_lines > effective_threshold_lines or total_bytes > effective_threshold_bytes):
         spilled_text, _, _ = spill_inert_block(
             content,
             kind=kind,
             language=language,
             scratch_dir=scratch_dir,
-            threshold_lines=threshold_lines,
-            threshold_bytes=threshold_bytes,
+            threshold_lines=effective_threshold_lines,
+            threshold_bytes=effective_threshold_bytes,
             preview_lines=preview_lines,
             block_id=block_id,
         )
         return spilled_text
+
+    if block_id:
+        target_dir = scratch_dir or default_scratch_dir()
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+            scratch_file = target_dir / f"{block_id}.txt"
+            if not scratch_file.exists():
+                scratch_file.write_text(content, encoding="utf-8")
+        except OSError:
+            pass
 
     fence = _sized_backtick_fence(content)
     info_parts = [
@@ -234,7 +268,7 @@ def render_fenced_output(  # noqa: PLR0913
     return f"{fence}{' '.join(info_parts)}\n{body}{fence}"
 
 
-def render_import_block(
+def render_import_block(  # noqa: PLR0913
     *,
     content: str,
     path: str | None = None,
@@ -244,8 +278,24 @@ def render_import_block(
     line_start: int | None = None,
     line_end: int | None = None,
     block_id: str | None = None,
+    allow_spill: bool | None = None,
+    scratch_dir: Path | None = None,
+    threshold_lines: int | None = None,
+    threshold_bytes: int | None = None,
+    preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
 ) -> str:
     effective_source = source or "workspace"
+    is_bounded = line_start is not None or line_end is not None or (isinstance(path, str) and ":" in path and "-" in path)
+    effective_threshold_lines = (
+        threshold_lines
+        if threshold_lines is not None
+        else (DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES if is_bounded else DEFAULT_SPILL_THRESHOLD_LINES)
+    )
+    effective_threshold_bytes = (
+        threshold_bytes
+        if threshold_bytes is not None
+        else (DEFAULT_BOUNDED_SPILL_THRESHOLD_BYTES if is_bounded else DEFAULT_SPILL_THRESHOLD_BYTES)
+    )
     return render_fenced_output(
         content=content,
         kind=kind,
@@ -263,6 +313,11 @@ def render_import_block(
             line_end=line_end,
             content=content,
         ),
+        allow_spill=allow_spill,
+        scratch_dir=scratch_dir,
+        threshold_lines=effective_threshold_lines,
+        threshold_bytes=effective_threshold_bytes,
+        preview_lines=preview_lines,
     )
 
 

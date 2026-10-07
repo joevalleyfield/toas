@@ -1143,6 +1143,131 @@ def test_expand_inert_blocks_nested_and_cycles():
     assert "ib_D" in expanded_cycle
 
 
+def test_expand_inert_blocks_bounded_slice_notation(tmp_path):
+    block_body = "line 1\nline 2\nline 3\nline 4\nline 5\n"
+    full_block = f"```python toas-output kind=result block_id=ib_src\n{block_body}```"
+    blocks = {"ib_src": block_body}
+    full_blocks = {"ib_src": full_block}
+
+    # 1. Parens slice ref: (ref: ib_src:2-4)
+    ref_parens = "(ref: ib_src:2-4)"
+    expanded_parens = expand_inert_blocks(
+        ref_parens, blocks, full_blocks, workspace_root=tmp_path
+    )
+    assert "line_start=2 line_end=4" in expanded_parens
+    assert "path=ib_src:2-4" in expanded_parens
+    assert "line 2\nline 3\nline 4\n" in expanded_parens
+    assert "line 1" not in expanded_parens
+    assert "line 5" not in expanded_parens
+
+    # 2. Prefixed slice ref: ref: ib_src:2-4
+    ref_prefix = "ref: ib_src:2-4"
+    expanded_prefix = expand_inert_blocks(
+        ref_prefix, blocks, full_blocks, workspace_root=tmp_path
+    )
+    assert "path=ib_src:2-4" in expanded_prefix
+    assert "line 2\nline 3\nline 4\n" in expanded_prefix
+
+    # 3. Direct slice ref: ib_src:2-4
+    ref_direct = "ib_src:2-4"
+    expanded_direct = expand_inert_blocks(
+        ref_direct, blocks, full_blocks, workspace_root=tmp_path
+    )
+    assert "path=ib_src:2-4" in expanded_direct
+    assert "line 2\nline 3\nline 4\n" in expanded_direct
+
+    # 4. File-backed slice: sample.py:2-3
+    sample_file = tmp_path / "sample.py"
+    sample_file.write_text("print(1)\nprint(2)\nprint(3)\nprint(4)\n", encoding="utf-8")
+
+    ref_file = "(ref: sample.py:2-3)"
+    expanded_file = expand_inert_blocks(
+        ref_file, {}, {}, workspace_root=tmp_path
+    )
+    assert "path=sample.py:2-3" in expanded_file
+    assert "```python" in expanded_file
+    assert "print(2)\nprint(3)\n" in expanded_file
+    assert "print(1)" not in expanded_file
+
+    # 5. Scratch file fallback for ib_... when not in blocks_by_id
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    scratch_dir.mkdir(parents=True)
+    scratch_file = scratch_dir / "ib_from_scratch.txt"
+    scratch_file.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    ref_scratch = "ib_from_scratch:2-3"
+    expanded_scratch = expand_inert_blocks(
+        ref_scratch, {}, {}, workspace_root=tmp_path
+    )
+    assert "path=ib_from_scratch:2-3" in expanded_scratch
+    assert "beta\ngamma\n" in expanded_scratch
+
+    # 6. Fenced block containing slice ref
+    fenced_slice = "```text block_id=ib_src\n(ref: ib_src:1-2)\n```"
+    expanded_fenced = expand_inert_blocks(
+        fenced_slice, blocks, full_blocks, workspace_root=tmp_path
+    )
+    assert "line 1\nline 2\n" in expanded_fenced
+
+    # 7. Out of range / fail-soft
+    ref_out_of_range = "ib_src:20-30"
+    expanded_out_of_range = expand_inert_blocks(
+        ref_out_of_range, blocks, full_blocks, workspace_root=tmp_path
+    )
+    assert "path=ib_src:20-30" in expanded_out_of_range
+
+    ref_missing = "missing_file.py:1-5"
+    assert expand_inert_blocks(ref_missing, {}, {}, workspace_root=tmp_path) == ref_missing
+
+    # File without slice: (ref: sample.py)
+    expanded_whole_file = expand_inert_blocks(
+        "(ref: sample.py)", {}, {}, workspace_root=tmp_path
+    )
+    assert "print(1)" in expanded_whole_file
+
+
+def test_build_state_step_packet_observation_ephemerality_and_bounded_persistence(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        '{"kind": "state_observation", "observation": {"text": "observed"}}\n',
+        encoding="utf-8",
+    )
+
+    sample_file = tmp_path / "core.py"
+    sample_file.write_text("def fn_a():\n    pass\ndef fn_b():\n    return 42\n", encoding="utf-8")
+
+    state = {
+        "notes": [
+            "Observations are ephemeral: noted fact here",
+        ],
+        "artifacts": {
+            "fn_slice": "core.py:3-4",
+            "dict_ref": {"ref": "core.py:1-2"},
+        },
+    }
+
+    packet = build_state_step_packet(
+        events_path=events_path,
+        state=state,
+        observation={"text": "observed"},
+    )
+
+    # 1. State instructions declare observation ephemerality and persistence strategies
+    assert "Observation Ephemerality and Persistence:" in packet["instructions"]
+    assert "strictly single-turn ephemeral" in packet["instructions"]
+    assert "state.notes" in packet["instructions"]
+    assert "state.artifacts" in packet["instructions"]
+    assert "500 lines" in packet["instructions"]
+
+    # 2. Bounded slice references in state artifacts are expanded into model input
+    expanded_state = packet["state"]
+    assert "def fn_b():\n    return 42" in expanded_state["artifacts"]["fn_slice"]
+    assert "path=core.py:3-4" in expanded_state["artifacts"]["fn_slice"]
+    assert "def fn_a():\n    pass" in expanded_state["artifacts"]["dict_ref"]
+    assert "path=core.py:1-2" in expanded_state["artifacts"]["dict_ref"]
+
+
+
 def test_reconcile_state_lineage_and_materialize(tmp_path):
     events_path = tmp_path / "events.jsonl"
     events_path.touch()

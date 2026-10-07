@@ -5,6 +5,7 @@ events.jsonl
 .toas.vim-port
 .toas-rpc-debug.log
 .toas/*.log
+.toas/scratch/
 events.idx
 .pytest_cache/
 .coverage*

@@ -67,6 +67,18 @@ def parse_state_marker(marker_str: str) -> dict[str, Any] | None:
     }
 STATE_INSTRUCTIONS = """Advance the supplied TOAS state using the latest observation.
 
+Observation Ephemerality and Persistence:
+- Observations are strictly single-turn ephemeral: tool results disappear from view
+  after this step unless you persist relevant information into state.
+- Retain insights, facts, and conclusions by summarizing them into state.notes.
+- Retain code or data slices in state.artifacts using bounded slice references
+  (<target>:<start>-<end> or (ref: <target>:<start>-<end>), e.g. ib_8f2a1c:23-85 or
+  src/toas/cli.py:100-145) or full block references ((ref: <block_id>)). Bounded references
+  expand automatically during state-step packet preparation.
+- Tool outputs exceeding thresholds spill to .toas/scratch/<block_id>.txt with a preview.
+  Inspect or sip spilled contents via read_file (with start_line/end_line or max_lines),
+  grep, or shell. Intentional bounded reads permit up to 500 lines without spilling.
+
 Return one JSON object with these fields:
 - state_patch: an object containing the changes to the current state. Use null to
   remove a key.
@@ -773,7 +785,8 @@ def condense_inert_blocks(content: str) -> str:
 
     def repl(m: re.Match) -> str:
         fence, header, block_id, body = m.group(1), m.group(2), m.group(3), m.group(4)
-        if body.strip() == f"(ref: {block_id})":
+        stripped = body.strip()
+        if stripped == f"(ref: {block_id})" or stripped.startswith(f"(ref: {block_id}:"):
             return m.group(0)
         if "lines=" in header or ".toas/scratch/" in header:
             return m.group(0)
@@ -782,8 +795,97 @@ def condense_inert_blocks(content: str) -> str:
     return pattern.sub(repl, content)
 
 
-_FENCED_REF_PATTERN = re.compile(r'(?ms)^(`{3,})([^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*)\n\(ref: \3\)\n\1$')
-_STANDALONE_REF_PATTERN = re.compile(r'^\s*\(ref:\s*([a-zA-Z0-9_-]+)\)\s*$')
+_FENCED_REF_PATTERN = re.compile(
+    r'(?ms)^(`{3,})([^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*)\n\(ref:\s*([^\s)]+)\)\n\1$'
+)
+_STANDALONE_REF_PATTERN = re.compile(
+    r'^\s*(?:\(ref:\s*([^\s)]+)\)|ref:\s*([^\s)]+)|([a-zA-Z0-9_./@+-]+:\d+-\d+))\s*$'
+)
+
+
+def _resolve_reference_target(
+    ref_str: str,
+    blocks_by_id: dict[str, str],
+    full_blocks_by_id: dict[str, str] | None = None,
+    workspace_root: Path | None = None,
+) -> str | None:
+    match = re.match(r"^(.*?):(\d+)-(\d+)$", ref_str.strip())
+    if match:
+        target = match.group(1).strip()
+        start_line = int(match.group(2))
+        end_line = int(match.group(3))
+    else:
+        target = ref_str.strip()
+        start_line = None
+        end_line = None
+
+    if start_line is None or end_line is None:
+        if full_blocks_by_id and target in full_blocks_by_id:
+            return full_blocks_by_id[target]
+        if target in blocks_by_id:
+            return blocks_by_id[target]
+        target_path = (workspace_root / target) if workspace_root else Path(target)
+        if target_path.is_file():
+            from ..tools_cluster.rendering import render_import_block
+
+            content = target_path.read_text(encoding="utf-8")
+            return render_import_block(content=content, path=target, kind="file")
+        return None
+
+    text: str | None = None
+    language: str | None = None
+    kind = "result"
+    if target in blocks_by_id:
+        text = blocks_by_id[target]
+        if full_blocks_by_id and target in full_blocks_by_id:
+            header_line = full_blocks_by_id[target].splitlines()[0] if full_blocks_by_id[target] else ""
+            lang_match = re.match(r"^`+([a-zA-Z0-9_-]+)", header_line)
+            if lang_match:
+                language = lang_match.group(1)
+            kind_match = re.search(r'kind="?([a-zA-Z0-9_-]+)"?', header_line)
+            if kind_match:
+                kind = kind_match.group(1)
+    elif target.startswith("ib_"):
+        scratch_file = Path(".toas/scratch") / f"{target}.txt"
+        if workspace_root:
+            candidate = workspace_root / ".toas" / "scratch" / f"{target}.txt"
+            if candidate.is_file():
+                scratch_file = candidate
+        if scratch_file.is_file():
+            text = scratch_file.read_text(encoding="utf-8")
+    else:
+        target_path = (workspace_root / target) if workspace_root else Path(target)
+        if target_path.is_file():
+            text = target_path.read_text(encoding="utf-8")
+            from ..tools_cluster.rendering import infer_fence_language
+
+            language = infer_fence_language(target)
+            kind = "file"
+
+    if text is None:
+        return None
+
+    lines = text.splitlines(keepends=True)
+    effective_start = max(1, start_line)
+    effective_end = min(len(lines), end_line)
+    if effective_start <= len(lines) and effective_start <= effective_end:
+        sliced_lines = lines[effective_start - 1 : effective_end]
+    else:
+        sliced_lines = []
+    sliced_content = "".join(sliced_lines)
+
+    from ..tools_cluster.rendering import render_import_block
+
+    slice_path = f"{target}:{start_line}-{end_line}"
+    return render_import_block(
+        content=sliced_content,
+        path=slice_path,
+        kind=kind,
+        language=language,
+        line_start=start_line,
+        line_end=end_line,
+        source="workspace",
+    )
 
 
 def expand_inert_blocks(
@@ -791,6 +893,7 @@ def expand_inert_blocks(
     blocks_by_id: dict[str, str],
     full_blocks_by_id: dict[str, str] | None = None,
     *,
+    workspace_root: Path | None = None,
     max_depth: int = 5,
 ) -> str:
     """Expand unexpanded block references when the full block body or full block is available."""
@@ -802,11 +905,22 @@ def expand_inert_blocks(
 
         def repl_fenced(m: re.Match) -> str:
             nonlocal matched
-            fence, header, block_id = m.group(1), m.group(2), m.group(3)
+            fence, header, block_id, ref_target = m.group(1), m.group(2), m.group(3), m.group(4)
             if "lines=" in header or ".toas/scratch/" in header:
                 return m.group(0)
-            if block_id in seen_ids:
+            if block_id in seen_ids or ref_target in seen_ids:
                 return m.group(0)
+            if ":" in ref_target:
+                resolved = _resolve_reference_target(
+                    ref_target,
+                    blocks_by_id,
+                    full_blocks_by_id,
+                    workspace_root,
+                )
+                if resolved is not None:
+                    matched = True
+                    seen_ids.add(ref_target)
+                    return resolved
             body = blocks_by_id.get(block_id)
             if body is not None:
                 matched = True
@@ -816,19 +930,22 @@ def expand_inert_blocks(
 
         current = _FENCED_REF_PATTERN.sub(repl_fenced, current)
 
-        if full_blocks_by_id or blocks_by_id:
+        if full_blocks_by_id or blocks_by_id or workspace_root:
             def repl_standalone(m: re.Match) -> str:
                 nonlocal matched
-                block_id = m.group(1)
-                if block_id in seen_ids:
+                ref_target = m.group(1) or m.group(2) or m.group(3)
+                if ref_target in seen_ids:
                     return m.group(0)
-                expanded_val = (
-                    full_blocks_by_id.get(block_id) if full_blocks_by_id else None
-                ) or blocks_by_id.get(block_id)
-                if expanded_val is not None:
+                resolved = _resolve_reference_target(
+                    ref_target,
+                    blocks_by_id,
+                    full_blocks_by_id,
+                    workspace_root,
+                )
+                if resolved is not None:
                     matched = True
-                    seen_ids.add(block_id)
-                    return expanded_val
+                    seen_ids.add(ref_target)
+                    return resolved
                 return m.group(0)
 
             current = _STANDALONE_REF_PATTERN.sub(repl_standalone, current)
@@ -865,19 +982,34 @@ def _expand_compound_observation(
     observation: Any,
     blocks_by_id: dict[str, str],
     full_blocks_by_id: dict[str, str] | None = None,
+    workspace_root: Path | None = None,
 ) -> Any:
     if isinstance(observation, dict):
+        if len(observation) == 1 and "ref" in observation and isinstance(observation["ref"], str):
+            resolved = _resolve_reference_target(
+                observation["ref"],
+                blocks_by_id,
+                full_blocks_by_id,
+                workspace_root,
+            )
+            if resolved is not None:
+                return resolved
         return {
-            k: _expand_compound_observation(v, blocks_by_id, full_blocks_by_id)
+            k: _expand_compound_observation(v, blocks_by_id, full_blocks_by_id, workspace_root)
             for k, v in observation.items()
         }
     if isinstance(observation, list):
         return [
-            _expand_compound_observation(item, blocks_by_id, full_blocks_by_id)
+            _expand_compound_observation(item, blocks_by_id, full_blocks_by_id, workspace_root)
             for item in observation
         ]
     if isinstance(observation, str):
-        return expand_inert_blocks(observation, blocks_by_id, full_blocks_by_id)
+        return expand_inert_blocks(
+            observation,
+            blocks_by_id,
+            full_blocks_by_id,
+            workspace_root=workspace_root,
+        )
     return observation
 
 
@@ -1163,10 +1295,15 @@ def build_state_step_packet(
     full_blocks_by_id = extract_inert_blocks_by_id(records, full_blocks=True)
     if session_text:
         blocks_by_id.update(extract_inert_blocks_by_id(session_text))
-        full_blocks_by_id.update(extract_inert_blocks_by_id(session_text, full_blocks=True))
-    if blocks_by_id:
-        compound = _expand_compound_observation(compound, blocks_by_id, full_blocks_by_id)
-        state = _expand_compound_observation(state, blocks_by_id, full_blocks_by_id)
+    events_file = Path(events_path)
+    workspace_root = events_file.parent.parent if events_file.parent.name == ".toas" else events_file.parent
+    if blocks_by_id or workspace_root:
+        compound = _expand_compound_observation(
+            compound, blocks_by_id, full_blocks_by_id, workspace_root=workspace_root
+        )
+        state = _expand_compound_observation(
+            state, blocks_by_id, full_blocks_by_id, workspace_root=workspace_root
+        )
 
     if isinstance(compound, dict) and "tool_outcomes" in compound:
         compound = dict(compound)
