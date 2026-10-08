@@ -235,22 +235,29 @@ def test_expand_state_turn_protocol():
     expanded_swe = expand_state_turn_protocol("swe_v1")
     assert expanded_swe["handle"] == "toas.state-step/1"
     assert "Advance the supplied TOAS state" in expanded_swe["instructions"]
-    assert expanded_swe["tools"] == ["read_file", "replace_block", "shell", "write_file"]
+    assert set(expanded_swe["tools"].keys()) == {"read_file", "replace_block", "shell", "write_file"}
+    assert expanded_swe["tools"]["read_file"]["required_args"] == ["path"]
+    assert "start_line" in expanded_swe["tools"]["read_file"]["optional_args"]
+    assert expanded_swe["tools"]["shell"]["required_args"] == ["argv"]
     assert expanded_swe["schema"]["state_patch"] == "object"
+    assert expanded_swe["schema"]["tool_calls"] == [{"tool_name": "string", "args": "object"}]
 
     expanded_triage = expand_state_turn_protocol("triage_v1")
     assert expanded_triage["handle"] == "toas.state-step/triage_v1"
     assert "Maintain the minimal triage state" in expanded_triage["instructions"]
-    assert expanded_triage["tools"] == ["read_file", "shell"]
+    assert set(expanded_triage["tools"].keys()) == {"read_file", "shell"}
+    assert expanded_triage["tools"]["shell"]["required_args"] == ["argv"]
 
     # Target as None defaults to base
     expanded_none = expand_state_turn_protocol()
     assert expanded_none["handle"] == "toas.state-step/1"
     assert "read_file" in expanded_none["tools"]
+    assert "required_args" in expanded_none["tools"]["read_file"]
 
     # Target as overlay with custom tools list
     custom = expand_state_turn_protocol({"tools": ["echo"]})
-    assert custom["tools"] == ["echo"]
+    assert "echo" in custom["tools"]
+    assert custom["tools"]["echo"]["required_args"] == ["text"]
 
     # Target with custom schema
     custom_schema = expand_state_turn_protocol({"schema": {"extra": "string"}})
@@ -2160,7 +2167,7 @@ def test_default_protocol_structure():
     assert proto["instructions"] == STATE_INSTRUCTIONS
     assert proto["schema"] == {
         "state_patch": "object",
-        "tool_calls": "array",
+        "tool_calls": [{"tool_name": "string", "args": "object"}],
         "outcome": ["continue", "complete"],
     }
     assert proto["tools"]["available"] == sorted(REGISTRY)
@@ -2292,6 +2299,26 @@ def test_resolve_state_turn_protocol_overlays():
     }
     resolved_tools_scalar = resolve_state_turn_protocol(tools_scalar, turns=turns)
     assert resolved_tools_scalar["tools"] == "any_tool"
+
+    # Overlay tools as list with unknown tool
+    tools_unknown = resolve_state_turn_protocol({"ref": "STATE/1", "tools": ["read_file", "unknown_tool"]}, turns=turns)
+    assert tools_unknown["tools"]["available"] == ["read_file", "unknown_tool"]
+    assert tools_unknown["tools"]["definitions"]["unknown_tool"]["description"] == "unknown_tool"
+
+    # Overlay tools as dict with available and unknown tool
+    tools_avail = resolve_state_turn_protocol({"ref": "STATE/1", "tools": {"available": ["read_file", "unknown_avail"]}}, turns=turns)
+    assert tools_avail["tools"]["available"] == ["read_file", "unknown_avail"]
+    assert tools_avail["tools"]["definitions"]["unknown_avail"]["description"] == "unknown_avail"
+
+    # Overlay tools as dict with definitions only
+    tools_defs = resolve_state_turn_protocol({"ref": "STATE/1", "tools": {"definitions": {"custom_def": {"description": "d", "required_args": []}}}}, turns=turns)
+    assert tools_defs["tools"]["available"] == ["custom_def"]
+    assert tools_defs["tools"]["definitions"]["custom_def"]["description"] == "d"
+
+    # Overlay tools as tool map
+    tools_map = resolve_state_turn_protocol({"ref": "STATE/1", "tools": {"custom_map": {"description": "m", "required_args": ["x"]}}}, turns=turns)
+    assert tools_map["tools"]["available"] == ["custom_map"]
+    assert tools_map["tools"]["definitions"]["custom_map"]["required_args"] == ["x"]
 
     # Overlay without ref
     no_ref = {

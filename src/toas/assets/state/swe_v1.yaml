@@ -11,7 +11,9 @@ protocol:
     - shell
   schema:
     state_patch: object
-    tool_calls: array
+    tool_calls:
+      - tool_name: string
+        args: object
     outcome:
       - continue
       - complete

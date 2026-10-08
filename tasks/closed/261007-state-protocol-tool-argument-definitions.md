@@ -32,3 +32,12 @@ This violates the state protocol contract:
    - Step into the operator's shoes to verify that tool argument signatures are clear, self-describing, and ergonomically sound.
 5. **Maintain 100.00% Statement Test Coverage**:
    - Pass `./scripts/check.sh` with 100.00% statement coverage across all test suites.
+
+## Outcome
+
+- Updated `expand_state_turn_protocol()` in `src/toas/runtime/state_step.py` to expand `tools` into concrete argument definitions (`description`, `required_args`, `optional_args`, `default_args`) for every active tool on Turn 1.
+- Implemented `_normalize_resolved_tools()` to symmetrically resolve tools from concise name lists (templates/overlays), expanded tool definition dictionaries (transcripts), container dictionaries, and metadata overlays.
+- Clarified `schema.tool_calls` item shape (`- tool_name: string, args: object`) in `default_protocol()` and `swe_v1.yaml`.
+- Verified end-to-end output of `toas prompt state/swe_v1` and `toas prompt state/triage_v1`: all tool arguments and descriptions are fully self-describing, and triage correctly scopes to `read_file` and `shell`.
+- Passed `./scripts/check.sh` with 100.00% statement test coverage across all 151 files.
+

@@ -89,7 +89,7 @@ def default_protocol() -> dict[str, Any]:
         "instructions": load_state_instructions("state/instructions_v1"),
         "schema": {
             "state_patch": "object",
-            "tool_calls": "array",
+            "tool_calls": [{"tool_name": "string", "args": "object"}],
             "outcome": ["continue", "complete"],
         },
         "tools": {
@@ -405,7 +405,11 @@ def expand_state_turn_protocol(
     """Expand a protocol target into a concrete, self-describing protocol mapping for turn 1."""
     resolved = resolve_state_turn_protocol(target, turns=turns)
     tools = resolved.get("tools")
-    tools_val = tools.get("available", []) if isinstance(tools, dict) else tools
+    tools_val = (
+        tools["definitions"]
+        if isinstance(tools, dict) and "definitions" in tools
+        else tools
+    )
     expanded = {
         "handle": resolved.get("handle") or "toas.state-step/1",
         "instructions": resolved["instructions"],
@@ -1454,6 +1458,60 @@ def find_state_turn_index_by_label(turns: list[dict[str, Any]], label: str) -> i
     raise ValueError(f"state turn with label {label!r} not found in transcript")
 
 
+def _normalize_resolved_tools(
+    tools_val: Any,
+    base_tools: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    from ..tools import REGISTRY, tool_definitions
+
+    base = dict(base_tools or {})
+    proto_str = base.get("protocol") or "TOAS batch calls; validate and execute only on a later explicit step"
+
+    if isinstance(tools_val, list):
+        filtered_registry = {k: v for k, v in REGISTRY.items() if k in tools_val}
+        defs = tool_definitions(filtered_registry)
+        for name in tools_val:
+            if name not in defs:
+                defs[name] = {"description": name, "required_args": [], "optional_args": []}
+        return {
+            **base,
+            "available": sorted(tools_val),
+            "definitions": defs,
+            "protocol": proto_str,
+        }
+    if isinstance(tools_val, dict):
+        if "definitions" in tools_val or "available" in tools_val:
+            merged = {**base, **tools_val}
+            if "available" in tools_val and "definitions" not in tools_val:
+                avail = tools_val["available"]
+                filtered_registry = {k: v for k, v in REGISTRY.items() if k in avail}
+                defs = tool_definitions(filtered_registry)
+                for name in avail:
+                    if name not in defs:
+                        defs[name] = {"description": name, "required_args": [], "optional_args": []}
+                merged["definitions"] = defs
+                merged["available"] = sorted(avail)
+            elif "definitions" in tools_val and "available" not in tools_val:
+                merged["available"] = sorted(tools_val["definitions"].keys())
+            return merged
+
+        is_tool_map = bool(tools_val) and all(
+            isinstance(v, dict) and ("required_args" in v or "description" in v or k in REGISTRY)
+            for k, v in tools_val.items()
+        )
+        if is_tool_map:
+            return {
+                **base,
+                "available": sorted(tools_val.keys()),
+                "definitions": copy.deepcopy(tools_val),
+                "protocol": proto_str,
+            }
+
+        return {**base, **tools_val}
+
+    return tools_val
+
+
 def resolve_state_turn_protocol(
     target: Any = None,
     turns: list[dict[str, Any]] | None = None,
@@ -1522,23 +1580,7 @@ def resolve_state_turn_protocol(
                 else:
                     result["schema"] = target["schema"]
             if "tools" in target:
-                tools_val = target["tools"]
-                if isinstance(tools_val, list):
-                    from ..tools import REGISTRY, tool_definitions
-
-                    filtered_registry = {k: v for k, v in REGISTRY.items() if k in tools_val}
-                    result["tools"] = {
-                        "available": sorted(tools_val),
-                        "definitions": tool_definitions(filtered_registry),
-                        "protocol": result.get("tools", {}).get(
-                            "protocol",
-                            "TOAS batch calls; validate and execute only on a later explicit step",
-                        ),
-                    }
-                elif isinstance(tools_val, dict):
-                    result["tools"] = {**result.get("tools", {}), **tools_val}
-                else:
-                    result["tools"] = tools_val
+                result["tools"] = _normalize_resolved_tools(target["tools"], result.get("tools"))
             for k, v in target.items():
                 if k not in {"ref", "instructions", "instructions_ref", "schema", "tools"}:
                     result[k] = v
@@ -1556,23 +1598,7 @@ def resolve_state_turn_protocol(
                 else:
                     result["schema"] = target["schema"]
             if "tools" in target:
-                tools_val = target["tools"]
-                if isinstance(tools_val, list):
-                    from ..tools import REGISTRY, tool_definitions
-
-                    filtered_registry = {k: v for k, v in REGISTRY.items() if k in tools_val}
-                    result["tools"] = {
-                        "available": sorted(tools_val),
-                        "definitions": tool_definitions(filtered_registry),
-                        "protocol": result.get("tools", {}).get(
-                            "protocol",
-                            "TOAS batch calls; validate and execute only on a later explicit step",
-                        ),
-                    }
-                elif isinstance(tools_val, dict):
-                    result["tools"] = {**result.get("tools", {}), **tools_val}
-                else:
-                    result["tools"] = tools_val
+                result["tools"] = _normalize_resolved_tools(target["tools"], result.get("tools"))
             for k, v in target.items():
                 if k not in {"instructions", "instructions_ref", "schema", "tools"}:
                     result[k] = v
