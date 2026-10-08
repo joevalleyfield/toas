@@ -24,6 +24,9 @@ Return one JSON object with these fields:
   the tool argument definitions. Use an empty array when no tools are needed.
 - outcome: optional; use continue or complete. A complete outcome means the
   goal is done and cannot include tool calls.
+- report: optional string; provide a concise user-facing report or direct answer
+  to the user's goal when completing the task (outcome: complete) or sharing
+  intermediate progress.
 
 Available tools, argument definitions, and the tool protocol are supplied alongside
 the state. Propose tool calls only; TOAS validates and executes them on a later explicit step.

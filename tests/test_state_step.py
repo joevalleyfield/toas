@@ -241,6 +241,7 @@ def test_expand_state_turn_protocol():
     assert expanded_swe["tools"]["shell"]["required_args"] == ["argv"]
     assert expanded_swe["schema"]["state_patch"] == "object"
     assert expanded_swe["schema"]["tool_calls"] == [{"tool_name": "string", "args": "object"}]
+    assert expanded_swe["schema"]["report"] == "string"
 
     expanded_triage = expand_state_turn_protocol("triage_v1")
     assert expanded_triage["handle"] == "toas.state-step/triage_v1"
@@ -2062,10 +2063,10 @@ def test_sync_directive_and_step_execution(tmp_path):
         {"role": "state-diff", "content": "state_patch: {step: 1}", "marker": "## TOAS:STATE-DIFF [[alpha->bravo]]"},
         {
             "role": "state",
-            "content": "state: {step: 1}\ninstructions: do something\npending_tools: []\nobservation: obs_1",
+            "content": "state: {step: 1}\ninstructions: do something\npending_tools: []\nobservation: obs_1\noutcome: continue\nreport: rep_1",
             "marker": "## TOAS:STATE [[bravo]]",
         },
-        {"role": "state-diff", "content": "state_patch: {step: 2}", "marker": "## TOAS:STATE-DIFF [[bravo->bravo]]"},
+        {"role": "state-diff", "content": "state_patch: {step: 2}\noutcome: complete\nreport: rep_2", "marker": "## TOAS:STATE-DIFF [[bravo->bravo]]"},
     ]
     edge_pts = extract_state_history_points(edge_turns)
     assert len(edge_pts) == 2
@@ -2073,6 +2074,8 @@ def test_sync_directive_and_step_execution(tmp_path):
     assert edge_pts[1].pending_tools == []
     assert edge_pts[1].observation == "obs_1"
     assert edge_pts[1].state == {"step": 2}
+    assert edge_pts[1].outcome == "complete"
+    assert edge_pts[1].report == "rep_2"
 
 
 def test_step_state_emits_tool_lifecycle_stream_events(tmp_path):
@@ -2169,6 +2172,7 @@ def test_default_protocol_structure():
         "state_patch": "object",
         "tool_calls": [{"tool_name": "string", "args": "object"}],
         "outcome": ["continue", "complete"],
+        "report": "string",
     }
     assert proto["tools"]["available"] == sorted(REGISTRY)
     assert set(proto["tools"]["definitions"].keys()) == set(REGISTRY.keys())
@@ -2577,6 +2581,112 @@ def test_is_stale_pending_with_malformed_session_text(tmp_path):
         pending, records, session_text="not a state transcript", pending_tool_calls=None
     )
     assert stale is False
+
+
+def test_state_step_with_report_and_terminal_outcome(tmp_path):
+    from toas.graph import read_log
+    from toas.runtime.state_step import preview_state_request, step_state
+
+    events = tmp_path / "events.jsonl"
+    result = step_state(
+        events_path=events,
+        state={"goal": "list tasks"},
+        observation="here are tasks",
+        generate=lambda _p: {
+            "content": json.dumps({
+                "state_patch": {"progress": ["done"]},
+                "tool_calls": [],
+                "outcome": "complete",
+                "report": "Found 46 open tasks in repository.",
+            })
+        },
+        execute_call=lambda _c: None,
+    )
+    assert result["phase"] == "infer"
+    assert result["outcome"] == "complete"
+    assert result["report"] == "Found 46 open tasks in repository."
+    records = read_log(str(events))
+    st = [r for r in records if r.get("kind") == "state_transition"][-1]
+    assert st["outcome"] == "complete"
+    assert st["report"] == "Found 46 open tasks in repository."
+
+    # Next step on completed horizon is terminal
+    next_result = step_state(
+        events_path=events,
+        state={"goal": "list tasks", "progress": ["done"]},
+        observation="already done",
+        generate=lambda _p: pytest.fail("should not infer"),
+        execute_call=lambda _c: None,
+    )
+    assert next_result["phase"] == "terminal"
+    assert next_result["status"] == "completed"
+    assert next_result["report"] == "Found 46 open tasks in repository."
+
+    # Preview on completed horizon returns terminal with report
+    preview = preview_state_request(
+        events_path=events,
+        state={"goal": "list tasks", "progress": ["done"]},
+        observation=None,
+    )
+    assert preview["phase"] == "terminal"
+    assert preview["status"] == "completed"
+    assert preview["report"] == "Found 46 open tasks in repository."
+
+
+def test_state_step_invalid_report_type_raises(tmp_path):
+    from toas.runtime.state_step import step_state
+
+    events = tmp_path / "events.jsonl"
+    with pytest.raises(ValueError, match="report must be a string"):
+        step_state(
+            events_path=events,
+            state={"goal": "test"},
+            observation=None,
+            generate=lambda _p: {
+                "content": json.dumps({
+                    "state_patch": {},
+                    "tool_calls": [],
+                    "report": 12345,
+                })
+            },
+            execute_call=lambda _c: None,
+        )
+
+
+def test_parse_and_render_state_turn_with_report_and_outcome():
+    from toas.runtime.state_step import parse_state_turn, render_state_turn
+
+    rendered = render_state_turn(
+        {"goal": "completed task"},
+        outcome="complete",
+        report="Line 1 of report\nLine 2 of report",
+        format="markdown",
+    )
+    assert "outcome: complete" in rendered
+    assert "report: |-" in rendered
+    assert "Line 1 of report" in rendered
+
+    parsed = parse_state_turn(rendered)
+    assert parsed["outcome"] == "complete"
+    assert parsed["report"] == "Line 1 of report\nLine 2 of report"
+
+    # Single-line report
+    single_rendered = render_state_turn(
+        {"goal": "completed task"},
+        outcome="complete",
+        report="Single line summary",
+        format="yaml",
+    )
+    assert "report: Single line summary" in single_rendered
+    single_parsed = parse_state_turn(single_rendered)
+    assert single_parsed["report"] == "Single line summary"
+
+    # Invalid outcome or report types in parse_state_turn
+    with pytest.raises(ValueError, match="state turn outcome must be a string"):
+        parse_state_turn("## TOAS:STATE/1\n\nstate:\n  goal: x\noutcome: 123\n")
+    with pytest.raises(ValueError, match="state turn report must be a string"):
+        parse_state_turn("## TOAS:STATE/1\n\nstate:\n  goal: x\nreport: [1, 2]\n")
+
 
 
 

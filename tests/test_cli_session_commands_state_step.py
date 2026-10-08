@@ -2709,6 +2709,56 @@ def test_state_preview_request_does_not_report_execute_batch_for_reseeded_turn(
     assert '"phase": "execute_batch"' not in out
 
 
+def test_cli_state_step_renders_report_and_terminal_message(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    session.write_text(
+        "## TOAS:STATE/1\n\n"
+        "state:\n  goal: List tasks\n\n"
+        "## TOAS:USER\n\n"
+        "Please list the tasks.\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas import cli
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            return {
+                "content": json.dumps({
+                    "state_patch": {"progress": ["enumerated"]},
+                    "tool_calls": [],
+                    "outcome": "complete",
+                    "report": "Found 46 tasks in repository.",
+                })
+            }
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        cli.run_step(session_path=str(session))
+
+    out = capsys.readouterr().out
+    assert "outcome: complete" in out
+    assert "Found 46 tasks in repository." in out
+
+    # Append the rendered state turn to session file and step again on terminal state
+    session.write_text(session.read_text() + "\n\n" + out.strip() + "\n")
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        cli.run_step(session_path=str(session))
+
+    out_terminal = capsys.readouterr().out
+    assert "[COMPLETED] state goal completed" in out_terminal
+    assert "Found 46 tasks in repository." in out_terminal
+
+
+
 
 
 

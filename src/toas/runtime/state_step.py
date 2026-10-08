@@ -91,6 +91,7 @@ def default_protocol() -> dict[str, Any]:
             "state_patch": "object",
             "tool_calls": [{"tool_name": "string", "args": "object"}],
             "outcome": ["continue", "complete"],
+            "report": "string",
         },
         "tools": {
             "available": sorted(REGISTRY),
@@ -288,6 +289,10 @@ def parse_state_turn(target: dict[str, Any] | str) -> dict[str, Any]:
         or not all(isinstance(call, dict) for call in payload["tool_calls"])
     ):
         raise ValueError("state turn tool_calls must be an array of objects")
+    if "outcome" in payload and not isinstance(payload["outcome"], str):
+        raise ValueError("state turn outcome must be a string")
+    if "report" in payload and not isinstance(payload["report"], str):
+        raise ValueError("state turn report must be a string")
 
     calls = payload.get("pending_tools") or payload.get("tool_calls")
     if calls is not None:
@@ -323,6 +328,8 @@ def render_state_turn(  # noqa: PLR0913
     handle: str | None = None,
     vector: tuple[str, str] | None = None,
     is_key: bool = False,
+    outcome: str | None = None,
+    report: str | None = None,
 ) -> str:
     if format not in {"yaml", "markdown"}:
         raise ValueError("state format must be 'yaml' or 'markdown'")
@@ -350,6 +357,10 @@ def render_state_turn(  # noqa: PLR0913
         payload["pending_tools"] = calls
     if observation is not None:
         payload["observation"] = observation
+    if outcome is not None:
+        payload["outcome"] = outcome
+    if report is not None:
+        payload["report"] = _LiteralString(report) if "\n" in report else report
     marker_name = "STATE-DIFF" if is_diff else "STATE"
     if vector is not None:
         marker = f"## TOAS:{marker_name} [[{vector[0]}->{vector[1]}]]"
@@ -641,6 +652,8 @@ class StateHistoryPoint:
     protocol: Any = None
     pending_tools: list[dict[str, Any]] | None = None
     observation: Any = None
+    outcome: str | None = None
+    report: str | None = None
 
 
 def extract_state_history_points(
@@ -666,6 +679,8 @@ def extract_state_history_points(
         pending_tools = parsed.get("pending_tools")
         obs = parsed.get("observation")
         snum = parsed.get("state_number")
+        outcome = parsed.get("outcome")
+        report = parsed.get("report")
 
         if role == "state":
             st = parsed["state"]
@@ -682,6 +697,10 @@ def extract_state_history_points(
                     pt.pending_tools = pending_tools
                 if obs is not None:
                     pt.observation = obs
+                if outcome is not None:
+                    pt.outcome = outcome
+                if report is not None:
+                    pt.report = report
             else:
                 pt = StateHistoryPoint(
                     handle=handle,
@@ -693,6 +712,8 @@ def extract_state_history_points(
                     protocol=protocol,
                     pending_tools=pending_tools,
                     observation=obs,
+                    outcome=outcome,
+                    report=report,
                 )
                 points.append(pt)
                 points_by_handle[handle] = pt
@@ -714,6 +735,10 @@ def extract_state_history_points(
                     pt.protocol = protocol
                 if instructions is not None:
                     pt.instructions = instructions
+                if outcome is not None:
+                    pt.outcome = outcome
+                if report is not None:
+                    pt.report = report
             else:
                 pt = StateHistoryPoint(
                     handle=target_handle,
@@ -725,6 +750,8 @@ def extract_state_history_points(
                     protocol=protocol,
                     pending_tools=pending_tools,
                     observation=obs,
+                    outcome=outcome,
+                    report=report,
                 )
                 points.append(pt)
                 points_by_handle[target_handle] = pt
@@ -760,6 +787,8 @@ def project_state_history_points(
             pending_tools=pt.pending_tools,
             observation=pt.observation,
             state_number=pt.state_number,
+            outcome=pt.outcome,
+            report=pt.report,
         )
         from ..transcript import parse_transcript
         parsed = parse_transcript(rendered)
@@ -1727,7 +1756,8 @@ def build_multi_state_sequence_packet(
             "Return one JSON object with these fields:\n"
             "- state_patch: an object containing changes to the current state. Use null to remove a key.\n"
             "- tool_calls: an array of batch tool calls, each with tool_name and args matching tool argument definitions. Use empty array when no tools are needed.\n"
-            "- outcome: optional; use continue or complete."
+            "- outcome: optional; use continue or complete.\n"
+            "- report: optional; user-facing summary or direct answer to the user's goal."
         )
     )
     tools_block = f"Available tools and argument definitions:\n{json.dumps(tool_defs, indent=2)}"
@@ -1837,7 +1867,10 @@ def preview_state_request(
             and latest.get("status") == "completed"
             and state == latest.get("state_after")
         ):
-            return {"phase": "terminal", "status": "completed"}
+            term_res: dict[str, Any] = {"phase": "terminal", "status": "completed"}
+            if latest.get("report"):
+                term_res["report"] = latest["report"]
+            return term_res
     if infer_from is not None and transcript_turns:
         start_idx = find_state_turn_index_by_label(transcript_turns, infer_from)
         packet = build_multi_state_sequence_packet(
@@ -2016,13 +2049,16 @@ def step_state(  # noqa: PLR0913
         and state == transitions[-1].get("state_after")
         and user_turn_digest is None
     ):
-        return {
+        term_res = {
             "phase": "terminal",
             "transition_id": transitions[-1]["transition_id"],
             "state": state,
             "outcomes": [],
             "status": "completed",
         }
+        if transitions[-1].get("report"):
+            term_res["report"] = transitions[-1]["report"]
+        return term_res
     pending = _latest_pending(records)
     if pending is not None and _is_stale_pending(
         pending,
@@ -2430,12 +2466,16 @@ def step_state(  # noqa: PLR0913
     patch = response.get("state_patch", {})
     calls = response.get("tool_calls", [])
     outcome = response.get("outcome", "continue")
+    report = response.get("report")
     if (
         not isinstance(patch, dict)
         or not isinstance(calls, list)
         or not all(isinstance(c, dict) for c in calls)
+        or (report is not None and not isinstance(report, str))
     ):
         error = "state-step response requires an object state_patch and an array of tool_calls"
+        if report is not None and not isinstance(report, str):
+            error = "state-step response report must be a string if provided"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
         raise ValueError(error)
     if outcome not in {"continue", "complete"}:
@@ -2466,6 +2506,8 @@ def step_state(  # noqa: PLR0913
         "tool_calls": calls,
         "outcome": outcome,
     }
+    if report is not None:
+        transition["report"] = report
     if message_id is not None:
         transition["message_id"] = message_id
     if isinstance(answer, dict) and isinstance(answer.get("_llm_call"), dict):
@@ -2501,6 +2543,7 @@ def step_state(  # noqa: PLR0913
         "tool_calls": calls,
         "status": status,
         "outcome": outcome,
+        "report": report,
     }
 
 

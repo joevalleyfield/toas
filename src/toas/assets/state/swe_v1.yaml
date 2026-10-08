@@ -17,6 +17,7 @@ protocol:
     outcome:
       - continue
       - complete
+    report: string
 state_template:
   goal: ""
   progress: []

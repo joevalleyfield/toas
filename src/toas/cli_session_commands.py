@@ -765,6 +765,8 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             protocol={"ref": ref_handle},
             pending_tools=tool_calls,
             state_number=prior_state_number + 1,
+            outcome=result.get("outcome") if result.get("outcome") == "complete" else None,
+            report=result.get("report"),
         )
         if not preview and not preview_response:
             inferred_parsed = parse_transcript(rendered)
@@ -792,44 +794,50 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             on_projection_delta(output_chunk)
         else:
             print(output_chunk, end="")
-    elif result["phase"] == "execute_batch":
-        result_nodes = [
-            node for outcome in result.get("outcomes", [])
-            for node in (outcome.get("result") or [])
-            if isinstance(node, dict) and node.get("role") == "result"
-        ]
-        outcome_failure_lines = []
-        for outcome in result.get("outcomes", []):
-            if outcome.get("status") != "completed":
-                idx = outcome.get("index", 0)
-                st = outcome.get("status", "failed")
-                tname = outcome.get("tool_name")
-                tool_label = f"tool {idx} ({tname})" if tname else f"tool {idx}"
-                err = outcome.get("error")
-                summary = err or f"status={st}"
-                outcome_failure_lines.append(f"[{st.upper()}] {tool_label}: {summary}")
-
-        if result_nodes:
-            from .runtime.rendering_edges import render_transcript_blocks
-            rendered_results = render_transcript_blocks(result_nodes).strip()
-            if outcome_failure_lines:
-                rendered_results += "\n\n" + "\n".join(outcome_failure_lines)
-            if on_projection_nodes is not None:
-                on_projection_nodes(result_nodes)
+    elif result["phase"] == "execute_batch" or result.get("phase") == "terminal":
+        if result.get("phase") == "terminal":
+            msg = f"[{result.get('status', 'completed').upper()}] state goal completed"
+            report_text = result.get("report")
+            if report_text:
+                msg += f"\n\n{report_text}"
+            rendered_results = "## TOAS:USER\n\n## RESULT\n\n" + msg
         else:
-            outcome_lines = []
+            result_nodes = [
+                node for outcome in result.get("outcomes", [])
+                for node in (outcome.get("result") or [])
+                if isinstance(node, dict) and node.get("role") == "result"
+            ]
+            outcome_failure_lines = []
             for outcome in result.get("outcomes", []):
-                idx = outcome.get("index", 0)
-                st = outcome.get("status", "failed")
-                tname = outcome.get("tool_name")
-                tool_label = f"tool {idx} ({tname})" if tname else f"tool {idx}"
-                err = outcome.get("error")
-                summary = err or f"status={st}"
-                outcome_lines.append(f"[{st.upper()}] {tool_label}: {summary}")
-            if not outcome_lines:
-                outcome_lines = [f"[{result.get('status', 'completed').upper()}] batch execution completed"]
-            rendered_results = "## TOAS:USER\n\n## RESULT\n\n" + "\n".join(outcome_lines)
+                if outcome.get("status") != "completed":
+                    idx = outcome.get("index", 0)
+                    st = outcome.get("status", "failed")
+                    tname = outcome.get("tool_name")
+                    tool_label = f"tool {idx} ({tname})" if tname else f"tool {idx}"
+                    err = outcome.get("error")
+                    summary = err or f"status={st}"
+                    outcome_failure_lines.append(f"[{st.upper()}] {tool_label}: {summary}")
 
+            if result_nodes:
+                from .runtime.rendering_edges import render_transcript_blocks
+                rendered_results = render_transcript_blocks(result_nodes).strip()
+                if outcome_failure_lines:
+                    rendered_results += "\n\n" + "\n".join(outcome_failure_lines)
+                if on_projection_nodes is not None:
+                    on_projection_nodes(result_nodes)
+            else:
+                outcome_lines = []
+                for outcome in result.get("outcomes", []):
+                    idx = outcome.get("index", 0)
+                    st = outcome.get("status", "failed")
+                    tname = outcome.get("tool_name")
+                    tool_label = f"tool {idx} ({tname})" if tname else f"tool {idx}"
+                    err = outcome.get("error")
+                    summary = err or f"status={st}"
+                    outcome_lines.append(f"[{st.upper()}] {tool_label}: {summary}")
+                if not outcome_lines:
+                    outcome_lines = [f"[{result.get('status', 'completed').upper()}] batch execution completed"]
+                rendered_results = "## TOAS:USER\n\n## RESULT\n\n" + "\n".join(outcome_lines)
 
         transcript = normalized_transcript
         prefix = ""
