@@ -596,6 +596,14 @@ def load_prompt_asset(
         )
     if normalized.startswith("state/"):
         template_name = normalized[len("state/") :]
+        # Check if there is a static packaged prompt asset first (e.g. instructions)
+        try:
+            raw = load_packaged_asset("prompts", normalized, suffix=".txt").content
+            metadata, content = _split_frontmatter(raw)
+            return PromptAsset(ref=normalized, content=content, metadata=metadata)
+        except RuntimeError:
+            pass
+
         from .runtime.state_step import load_state_template, render_state_template
 
         try:

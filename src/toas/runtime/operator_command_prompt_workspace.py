@@ -110,6 +110,8 @@ def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext
     except RuntimeError:
         exact = None
     if exact is not None:
+        if exact.startswith("## TOAS:STATE"):
+            return [_result_node(exact, step_mod=step_mod, context=context, transcript_render="raw_turn", transcript_inert=False)]
         frontier_role = context.working[-1]["role"] if context.working else "user"
         if frontier_role == "control":
             return [_result_node(f"## TOAS:USER\n\n{exact}", step_mod=step_mod, context=context, transcript_render="raw")]

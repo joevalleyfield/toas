@@ -110,6 +110,10 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
                 lines.append(escape_transcript_content(node["content"]))
                 lines.append("")
                 continue
+            if node.get("transcript_render") == "raw_turn":
+                lines.append(node["content"].rstrip())
+                lines.append("")
+                continue
             projection_lane = str(node["projection_lane"])
             lines.append(render_transcript_marker(projection_lane))
             lines.append("")

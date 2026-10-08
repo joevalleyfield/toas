@@ -667,10 +667,11 @@ def test_render_state_template_emits_yaml_and_markdown():
     assert "protocol" in parsed_md
 
     out_yaml = render_state_template("swe_v1", format="yaml")
-    assert out_yaml.startswith("## TOAS:STATE/1\n\nprotocol: toas.state-step/1")
+    assert out_yaml.startswith("## TOAS:STATE/1\n\nprotocol:\n  handle: toas.state-step/1")
     parsed_yaml = parse_state_turn(out_yaml)
     assert parsed_yaml["state"]["goal"] == ""
     assert "protocol" in parsed_yaml
+    assert parsed_yaml["protocol"]["handle"] == "toas.state-step/1"
 
 
 def test_state_step_progresses_ordinal_and_preserves_unfolding_history(monkeypatch, tmp_path):

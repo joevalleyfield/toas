@@ -762,12 +762,19 @@ def test_state_template_prompts_loading_and_listing():
     assert swe_asset.ref == "state/swe_v1"
     assert swe_asset.metadata["category"] == "state"
     assert swe_asset.metadata["name"] == "SWE State Template"
-    assert swe_asset.content.startswith("## TOAS:STATE/1\n\nprotocol: toas.state-step/1")
+    assert swe_asset.content.startswith("## TOAS:STATE/1\n\nprotocol:\n  handle: toas.state-step/1")
+    assert "Advance the supplied TOAS state" in swe_asset.content
+    assert "read_file" in swe_asset.content
 
     triage_asset = load_prompt_asset("state/triage_v1")
     assert triage_asset.ref == "state/triage_v1"
     assert "investigating" in triage_asset.content
     assert "read_file" in triage_asset.content
+    assert "Maintain the minimal triage state" in triage_asset.content
+
+    inst_asset = load_prompt_asset("state/instructions_v1")
+    assert inst_asset.ref == "state/instructions_v1"
+    assert "Advance the supplied TOAS state" in inst_asset.content
 
     composed = load_prompt_ref("state/swe_v1")
     assert composed.startswith("## TOAS:STATE/1")

@@ -183,3 +183,16 @@ def test_maybe_inert_wrap_result_content_edge_paths():
     assert maybe_inert_wrap_result_content("/help tools", transcript_inert=False) == "/help tools"
     fenced = "```yaml\n/help tools\n```\n$ pwd"
     assert maybe_inert_wrap_result_content(fenced).startswith("```inert\n")
+
+
+def test_render_transcript_blocks_allows_raw_turn_result_rendering():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "user", "content": "/prompt state/swe_v1"},
+            _result("## TOAS:STATE/1\n\nprotocol: toas.state-step/1\nstate: {}\n", transcript_render="raw_turn"),
+        ]
+    )
+    assert rendered == (
+        "## TOAS:USER\n\n/prompt state/swe_v1\n\n"
+        "## TOAS:STATE/1\n\nprotocol: toas.state-step/1\nstate: {}\n\n"
+    )

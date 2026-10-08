@@ -65,31 +65,19 @@ def parse_state_marker(marker_str: str) -> dict[str, Any] | None:
         "is_key": is_key,
         "state_number": state_number,
     }
-STATE_INSTRUCTIONS = """Advance the supplied TOAS state using the latest observation.
+def load_state_instructions(ref: str = "state/instructions_v1") -> str:
+    """Load operational instructions prose from a packaged prompt asset."""
+    from ..assets.loader import load_packaged_asset
 
-Observation Ephemerality and Persistence:
-- Observations are strictly single-turn ephemeral: tool results disappear from view
-  after this step unless you persist relevant information into state.
-- Retain insights, facts, and conclusions by summarizing them into state.notes.
-- Retain code or data slices in state.artifacts using bounded slice references
-  (<target>:<start>-<end> or (ref: <target>:<start>-<end>), e.g. ib_8f2a1c:23-85 or
-  src/toas/cli.py:100-145) or full block references ((ref: <block_id>)). Bounded references
-  expand automatically during state-step packet preparation.
-- Tool outputs exceeding thresholds spill to .toas/scratch/<block_id>.txt with a preview.
-  Inspect or sip spilled contents via read_file (with start_line/end_line or max_lines),
-  grep, or shell. Intentional bounded reads permit up to 500 lines without spilling.
-
-Return one JSON object with these fields:
-- state_patch: an object containing the changes to the current state. Use null to
-  remove a key.
-- tool_calls: an array of batch tool calls, each with tool_name and args matching
-  the tool argument definitions. Use an empty array when no tools are needed.
-- outcome: optional; use continue or complete. A complete outcome means the
-  goal is done and cannot include tool calls.
-
-Available tools, argument definitions, and the tool protocol are supplied alongside
-the state. Propose tool calls only; TOAS validates and executes them on a later explicit step.
-Inference and tool execution are separate operations. Return JSON only."""
+    normalized = ref.strip()
+    try:
+        raw = load_packaged_asset("prompts", normalized, suffix=".txt").content
+    except RuntimeError as exc:
+        raise RuntimeError(f"missing state instructions asset: {normalized}") from exc
+    match = re.match(r"\A---\n(.*?)\n---\n?", raw, re.DOTALL)
+    if match:
+        return raw[match.end() :].strip()
+    return raw.strip()
 
 
 def default_protocol() -> dict[str, Any]:
@@ -97,7 +85,8 @@ def default_protocol() -> dict[str, Any]:
     from ..tools import REGISTRY, tool_definitions
 
     return {
-        "instructions": STATE_INSTRUCTIONS,
+        "handle": "toas.state-step/1",
+        "instructions": load_state_instructions("state/instructions_v1"),
         "schema": {
             "state_patch": "object",
             "tool_calls": "array",
@@ -109,6 +98,9 @@ def default_protocol() -> dict[str, Any]:
             "protocol": "TOAS batch calls; validate and execute only on a later explicit step",
         },
     }
+
+
+STATE_INSTRUCTIONS = default_protocol()["instructions"]
 
 
 def is_state_turn_marker(line: str) -> bool:
@@ -267,8 +259,12 @@ def parse_state_turn(target: dict[str, Any] | str) -> dict[str, Any]:
         if not isinstance(protocol_val, (str, dict)):
             raise ValueError("state turn protocol must be a string or mapping")
         if isinstance(protocol_val, dict):
+            if "handle" in protocol_val and not isinstance(protocol_val["handle"], str):
+                raise ValueError("protocol handle must be a string")
             if "instructions" in protocol_val and not isinstance(protocol_val["instructions"], str):
                 raise ValueError("protocol instructions must be a string")
+            if "instructions_ref" in protocol_val and not isinstance(protocol_val["instructions_ref"], str):
+                raise ValueError("protocol instructions_ref must be a string")
             if "ref" in protocol_val and not isinstance(protocol_val["ref"], str):
                 raise ValueError("protocol ref must be a string")
             if "schema" in protocol_val and not isinstance(protocol_val["schema"], dict):
@@ -402,6 +398,24 @@ def load_state_template(name_or_ref: str = "swe_v1") -> dict[str, Any]:
     return data
 
 
+def expand_state_turn_protocol(
+    target: Any = None,
+    turns: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Expand a protocol target into a concrete, self-describing protocol mapping for turn 1."""
+    resolved = resolve_state_turn_protocol(target, turns=turns)
+    tools = resolved.get("tools")
+    tools_val = tools.get("available", []) if isinstance(tools, dict) else tools
+    expanded = {
+        "handle": resolved.get("handle") or "toas.state-step/1",
+        "instructions": resolved["instructions"],
+        "tools": tools_val,
+    }
+    if "schema" in resolved:
+        expanded["schema"] = resolved["schema"]
+    return expanded
+
+
 def render_state_template(
     name: str = "swe_v1",
     *,
@@ -414,12 +428,13 @@ def render_state_template(
     if not isinstance(state, dict):
         raise RuntimeError(f"invalid state template: {name} (missing state_template)")
     protocol = data.get("protocol", "toas.state-step/1")
+    expanded_protocol = expand_state_turn_protocol(protocol)
     resolved_format = format if format is not None else data.get("format", "yaml")
     return render_state_turn(
         copy.deepcopy(state),
         format=resolved_format,
         observation=observation,
-        protocol=protocol,
+        protocol=expanded_protocol,
     )
 
 
@@ -443,11 +458,15 @@ def seed_state_turn(
     if protocol is None:
         return render_state_template(template, format=format, observation=observation)
     state = initial_state(template)
+    try:
+        resolved_proto = expand_state_turn_protocol(protocol)
+    except Exception:
+        resolved_proto = protocol
     return render_state_turn(
         state,
         observation=observation,
         format=format,
-        protocol=protocol,
+        protocol=resolved_proto,
     )
 
 
@@ -1493,6 +1512,8 @@ def resolve_state_turn_protocol(
             ref_target = str(target["ref"]).strip()
             base = resolve_state_turn_protocol(ref_target, turns=turns, seen_refs=seen_refs)
             result = copy.deepcopy(base)
+            if "instructions_ref" in target and isinstance(target["instructions_ref"], str):
+                result["instructions"] = load_state_instructions(target["instructions_ref"])
             if "instructions" in target and isinstance(target["instructions"], str):
                 result["instructions"] = target["instructions"]
             if "schema" in target:
@@ -1519,12 +1540,14 @@ def resolve_state_turn_protocol(
                 else:
                     result["tools"] = tools_val
             for k, v in target.items():
-                if k not in {"ref", "instructions", "schema", "tools"}:
+                if k not in {"ref", "instructions", "instructions_ref", "schema", "tools"}:
                     result[k] = v
             return result
         else:
             base = default_protocol()
             result = copy.deepcopy(base)
+            if "instructions_ref" in target and isinstance(target["instructions_ref"], str):
+                result["instructions"] = load_state_instructions(target["instructions_ref"])
             if "instructions" in target and isinstance(target["instructions"], str):
                 result["instructions"] = target["instructions"]
             if "schema" in target:
@@ -1551,7 +1574,7 @@ def resolve_state_turn_protocol(
                 else:
                     result["tools"] = tools_val
             for k, v in target.items():
-                if k not in {"instructions", "schema", "tools"}:
+                if k not in {"instructions", "instructions_ref", "schema", "tools"}:
                     result[k] = v
             return result
 

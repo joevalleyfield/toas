@@ -1,0 +1,7 @@
+---
+name: State Step Triage Instructions v1
+description: Lightweight triage and investigation operational instructions for state turns.
+category: state
+---
+Maintain the minimal triage state during investigation. Record hypotheses,
+status, and next actions. Be concise and empirical.

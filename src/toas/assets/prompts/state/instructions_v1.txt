@@ -1,0 +1,30 @@
+---
+name: State Step Instructions v1
+description: Core operational instructions for advancing TOAS typed state turns.
+category: state
+---
+Advance the supplied TOAS state using the latest observation.
+
+Observation Ephemerality and Persistence:
+- Observations are strictly single-turn ephemeral: tool results disappear from view
+  after this step unless you persist relevant information into state.
+- Retain insights, facts, and conclusions by summarizing them into state.notes.
+- Retain code or data slices in state.artifacts using bounded slice references
+  (<target>:<start>-<end> or (ref: <target>:<start>-<end>), e.g. ib_8f2a1c:23-85 or
+  src/toas/cli.py:100-145) or full block references ((ref: <block_id>)). Bounded references
+  expand automatically during state-step packet preparation.
+- Tool outputs exceeding thresholds spill to .toas/scratch/<block_id>.txt with a preview.
+  Inspect or sip spilled contents via read_file (with start_line/end_line or max_lines),
+  grep, or shell. Intentional bounded reads permit up to 500 lines without spilling.
+
+Return one JSON object with these fields:
+- state_patch: an object containing the changes to the current state. Use null to
+  remove a key.
+- tool_calls: an array of batch tool calls, each with tool_name and args matching
+  the tool argument definitions. Use an empty array when no tools are needed.
+- outcome: optional; use continue or complete. A complete outcome means the
+  goal is done and cannot include tool calls.
+
+Available tools, argument definitions, and the tool protocol are supplied alongside
+the state. Propose tool calls only; TOAS validates and executes them on a later explicit step.
+Inference and tool execution are separate operations. Return JSON only.

@@ -1582,6 +1582,20 @@ def test_operator_prompt_renders_selected_prompt():
     assert "search or read files in the workspace" in out[0]["content"]
 
 
+def test_operator_prompt_renders_state_template_as_raw_turn():
+    transcript = """\
+## TOAS:USER
+/prompt state/swe_v1
+"""
+    new_nodes, out = step(transcript, [])
+    assert new_nodes[0] == {"role": "user", "content": "/prompt state/swe_v1", "provenance": {"source": "user_authored"}}
+    assert len(new_nodes) == 2
+    assert out[0]["role"] == "result"
+    assert out[0]["transcript_render"] == "raw_turn"
+    assert out[0]["content"].startswith("## TOAS:STATE/1\n\nprotocol:\n  handle: toas.state-step/1")
+    assert not out[0]["content"].endswith("## TOAS:USER\n\n")
+
+
 def test_operator_prompts_supports_top_level_browse():
     transcript = """\
 ## TOAS:USER

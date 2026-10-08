@@ -35,3 +35,24 @@ In `261006-unify-state-templates-and-retire-state-seed` and `261006-state-step-t
 
 5. **Maintain 100.00% Statement Test Coverage**:
    - Keep 100.00% statement coverage across all test suites via `./scripts/check.sh`.
+
+## Outcome
+
+- Externalized state operational prose from Python constants into packaged prompt assets under `src/toas/assets/prompts/state/`:
+  - `instructions_v1.txt`: Comprehensive operational instructions (turn anatomy, state contract, note retention, patch hygiene, bounded tool usage) with catalog frontmatter.
+  - `triage_instructions_v1.txt`: Targeted triage instructions focused on investigation, hypothesis testing, and minimal note persistence with catalog frontmatter.
+- Updated state template definitions in `src/toas/assets/state/` (`swe_v1.yaml` and `triage_v1.yaml`) to reference external prompt assets via `instructions_ref: state/instructions_v1` and `state/triage_instructions_v1`, explicitly declare scoped tools, and define schemas.
+- Enhanced state protocol resolution and expansion in `src/toas/runtime/state_step.py`:
+  - Added `load_state_instructions(ref)` to dynamically load prose from the prompt asset catalog.
+  - Updated `default_protocol()` to set `handle: toas.state-step/1` and resolve `instructions` dynamically via `load_state_instructions()`.
+  - Added `expand_state_turn_protocol()` to expand the full protocol (`handle`, multiline `instructions`, `tools`, `schema`) on initial transcript rendition (`render_state_template`, `seed_state_turn`).
+  - Updated `resolve_state_turn_protocol()` to resolve `instructions_ref` and validate explicit protocol `handle`.
+  - Preserved compact back-references (`protocol: {ref: STATE/1}`) on subsequent turns.
+- Unified prompt catalog asset routing in `src/toas/prompts.py`:
+  - `load_prompt_asset()` prioritizes packaged text assets under `state/` (such as `state/instructions_v1`), falling back to rendered state templates (`load_state_template`).
+- Refined in-band state prompt rendering into `session.md`:
+  - Updated `_handle_prompt()` in `src/toas/runtime/operator_command_prompt_workspace.py` to tag state turn templates with `transcript_render="raw_turn"`.
+  - Updated `render_transcript_blocks()` in `src/toas/runtime/rendering_edges.py` to project `raw_turn` nodes directly onto the transcript frontier without conversational scaffolding (`## RESULT`) or trailing `## TOAS:USER` prompts.
+- Verified test suite:
+  - All 3,483 tests passed with 100.00% statement test coverage across all 151 files via `./scripts/check.sh`.
+
