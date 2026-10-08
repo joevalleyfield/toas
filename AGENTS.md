@@ -233,3 +233,29 @@ uv run python scripts/targeted_coverage.py \
   --max-missing-files 0 \
   -- tests/test_runtime_local_request_handler_edges.py -q
 ```
+
+### Mechanical vs. Operator-Perspective Verification
+
+Passing `./scripts/check.sh` and achieving 100.00% statement coverage are
+necessary mechanical prerequisites, but they are not sufficient on their own.
+Tests only assert what the author thought to check; they can easily canonize
+flawed, incomplete, or amputated contracts.
+
+Whenever a change touches user-facing surfaces, transcript formats, prompt
+templates, protocol representations, or CLI output:
+
+1. **Mandatory End-to-End Artifact Inspection**:
+   Run the actual command (e.g. `toas prompt ...`, `toas step`, or transcript
+   renderers) and inspect the concrete generated output before closing the
+   task. Do not rely solely on unit test assertions, mocks, or synthetic fixtures.
+2. **Adopt the Operator's Perspective**:
+   Step into the operator's shoes and actively critique the rendered output
+   from their point of view before declaring the work complete:
+   - Does this output fulfill the promises made in its instructions, schemas,
+     and documentation?
+   - Is it completely self-describing, or does it leave hidden assumptions or
+     hallucination traps for models and human operators?
+   - Are contracts and schemas explicit, cohesive, and ergonomically sound?
+   Evaluate the artifact critically as an operator before concluding that the
+   work is complete.
+

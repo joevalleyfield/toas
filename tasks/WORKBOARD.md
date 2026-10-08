@@ -361,11 +361,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261007-operator-perspective-verification-protocol]** Operator Perspective Verification Protocol
 - **[T261007-harmonize-state-protocol-composition]** Harmonize State Protocol Composition With Prompt Library
 - **[T261006-unify-state-templates-and-retire-state-seed]** Unify State Templates And Retire State-Seed
 - **[T261006-tool-execution-progress-updates]** Tool Execution Progress Updates During Plan And State Execution
 - **[T261006-state-step-transcript-protocol-reference-and-overlay]** State-Step Transcript Protocol Reference And Overlay
-- **[T261006-state-step-tool-argument-guidance]** State-Step Tool Argument Guidance
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
