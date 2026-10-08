@@ -968,7 +968,7 @@ _FENCED_REF_PATTERN = re.compile(
     r'(?ms)^(`{3,})([^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*)\n\(ref:\s*([^\s)]+)\)\n\1$'
 )
 _STANDALONE_REF_PATTERN = re.compile(
-    r'^\s*(?:\(ref:\s*([^\s)]+)\)|ref:\s*([^\s)]+)|([a-zA-Z0-9_./@+-]+:\d+-\d+))\s*$'
+    r'^\s*(?:\(ref:\s*([^\s)]+)\)|ref:\s*([^\s)]+)|([a-zA-Z0-9_./@+-]+:\d+-\d+)|((?:\.toas/)?scratch/[a-zA-Z0-9_.-]+)|(ib_[a-zA-Z0-9_-]+))\s*$'
 )
 
 
@@ -988,40 +988,73 @@ def _resolve_reference_target(
         start_line = None
         end_line = None
 
+    scratch_m = re.match(r"^(?:\.toas/)?scratch/(ib_[a-zA-Z0-9_-]+)\.txt$", target)
+    effective_block_id = scratch_m.group(1) if scratch_m else (target if target.startswith("ib_") else None)
+
     if start_line is None or end_line is None:
-        if full_blocks_by_id and target in full_blocks_by_id:
-            return full_blocks_by_id[target]
-        if target in blocks_by_id:
-            return blocks_by_id[target]
+        if effective_block_id:
+            if full_blocks_by_id and effective_block_id in full_blocks_by_id:
+                return full_blocks_by_id[effective_block_id]
+            if effective_block_id in blocks_by_id:
+                return blocks_by_id[effective_block_id]
+            scratch_file = (
+                (workspace_root / ".toas" / "scratch" / f"{effective_block_id}.txt")
+                if workspace_root
+                else (Path(".toas/scratch") / f"{effective_block_id}.txt")
+            )
+            if scratch_file.is_file():
+                from ..tools_cluster.rendering import (
+                    DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES,
+                    render_import_block,
+                )
+
+                content = scratch_file.read_text(encoding="utf-8")
+                return render_import_block(
+                    content=content,
+                    path=f".toas/scratch/{effective_block_id}.txt",
+                    kind="result",
+                    block_id=effective_block_id,
+                    threshold_lines=DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES,
+                )
         target_path = (workspace_root / target) if workspace_root else Path(target)
         if target_path.is_file():
-            from ..tools_cluster.rendering import render_import_block
+            from ..tools_cluster.rendering import (
+                DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES,
+                render_import_block,
+            )
 
             content = target_path.read_text(encoding="utf-8")
-            return render_import_block(content=content, path=target, kind="file")
+            return render_import_block(
+                content=content,
+                path=target,
+                kind="file",
+                threshold_lines=DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES,
+            )
         return None
 
     text: str | None = None
     language: str | None = None
     kind = "result"
-    if target in blocks_by_id:
-        text = blocks_by_id[target]
-        if full_blocks_by_id and target in full_blocks_by_id:
-            header_line = full_blocks_by_id[target].splitlines()[0] if full_blocks_by_id[target] else ""
-            lang_match = re.match(r"^`+([a-zA-Z0-9_-]+)", header_line)
-            if lang_match:
-                language = lang_match.group(1)
-            kind_match = re.search(r'kind="?([a-zA-Z0-9_-]+)"?', header_line)
-            if kind_match:
-                kind = kind_match.group(1)
-    elif target.startswith("ib_"):
-        scratch_file = Path(".toas/scratch") / f"{target}.txt"
-        if workspace_root:
-            candidate = workspace_root / ".toas" / "scratch" / f"{target}.txt"
-            if candidate.is_file():
-                scratch_file = candidate
-        if scratch_file.is_file():
-            text = scratch_file.read_text(encoding="utf-8")
+    if effective_block_id:
+        if effective_block_id in blocks_by_id:
+            text = blocks_by_id[effective_block_id]
+            if full_blocks_by_id and effective_block_id in full_blocks_by_id:
+                header_line = full_blocks_by_id[effective_block_id].splitlines()[0] if full_blocks_by_id[effective_block_id] else ""
+                lang_match = re.match(r"^`+([a-zA-Z0-9_-]+)", header_line)
+                if lang_match:
+                    language = lang_match.group(1)
+                kind_match = re.search(r'kind="?([a-zA-Z0-9_-]+)"?', header_line)
+                if kind_match:
+                    kind = kind_match.group(1)
+        else:
+            scratch_file = (
+                (workspace_root / ".toas" / "scratch" / f"{effective_block_id}.txt")
+                if workspace_root
+                else (Path(".toas/scratch") / f"{effective_block_id}.txt")
+            )
+            if scratch_file.is_file():
+                text = scratch_file.read_text(encoding="utf-8")
+                kind = "result"
     else:
         target_path = (workspace_root / target) if workspace_root else Path(target)
         if target_path.is_file():
@@ -1102,7 +1135,7 @@ def expand_inert_blocks(
         if full_blocks_by_id or blocks_by_id or workspace_root:
             def repl_standalone(m: re.Match) -> str:
                 nonlocal matched
-                ref_target = m.group(1) or m.group(2) or m.group(3)
+                ref_target = m.group(1) or m.group(2) or m.group(3) or m.group(4) or m.group(5)
                 if ref_target in seen_ids:
                     return m.group(0)
                 resolved = _resolve_reference_target(
@@ -1792,9 +1825,15 @@ def build_multi_state_sequence_packet(
     if session_text:
         blocks_by_id.update(extract_inert_blocks_by_id(session_text))
         full_blocks_by_id.update(extract_inert_blocks_by_id(session_text, full_blocks=True))
-    if blocks_by_id:
-        state = _expand_compound_observation(state, blocks_by_id, full_blocks_by_id)
-        messages = _expand_compound_observation(messages, blocks_by_id, full_blocks_by_id)
+    events_file = Path(events_path)
+    workspace_root = events_file.parent.parent if events_file.parent.name == ".toas" else events_file.parent
+    if blocks_by_id or workspace_root:
+        state = _expand_compound_observation(
+            state, blocks_by_id, full_blocks_by_id, workspace_root=workspace_root
+        )
+        messages = _expand_compound_observation(
+            messages, blocks_by_id, full_blocks_by_id, workspace_root=workspace_root
+        )
 
     return {
         "instructions": system_instructions,

@@ -11,15 +11,15 @@ Parent: `260926-state-step-requirements`
 Depends on: `261008-state-step-terminal-reporting-channel`
 Related: `261004-state-observation-reference-addressing`; `260926-state-step-requirements`
 
-Status: ACTIVE implementation slice; addresses the single-turn ephemerality amnesia trap when ingesting spilled tool outputs and enables scratch file paths as first-class artifact references.
+Status: CLOSED; enabled scratch file paths and bare block IDs as first-class expandable artifact references and enhanced spill trailers and instructions to eliminate tail-sipping ephemerality amnesia.
 
 ## Context
 
 In dogfood (`session-20261007-1946-state-seed.md`), `shell` returned 47 lines, spilling to `.toas/scratch/ib_479396b18eb5ca83.txt`.
-- The spill footer advised: `[17 lines remaining. Inspect with read_file, grep, or script via path=".toas/scratch/ib_479396b18eb5ca83.txt"]`.
+- The spill footer previously advised: `[17 lines remaining. Inspect with read_file, grep, or script via path=".toas/scratch/ib_479396b18eb5ca83.txt"]`.
 - The model followed this hint literally by issuing `read_file` with `start_line: 30`, `end_line: 47`.
 - Because observations are strictly single-turn ephemeral, once Turn 6 executed, the preview containing lines 1..30 vanished from context. In Turn 7, the model saw only lines 30..47 and concluded there were only 18 open tasks in the repository instead of 46.
-- In Turn 6, the model attempted to preserve context by adding `.toas/scratch/ib_479396b18eb5ca83.txt` to `state.artifacts`, but the packet preparer only expands block references (`(ref: ib_...)`), ignoring raw scratch file paths.
+- In Turn 6, the model attempted to preserve context by adding `.toas/scratch/ib_479396b18eb5ca83.txt` to `state.artifacts`, but the packet preparer only expanded `(ref: ib_...)` block references, ignoring raw scratch file paths.
 
 ## Objectives
 
@@ -32,3 +32,12 @@ In dogfood (`session-20261007-1946-state-seed.md`), `shell` returned 47 lines, s
    - Test artifact expansion for scratch file paths.
    - Verify prompt instructions and spill notifications in end-to-end tests.
    - Maintain 100.00% statement coverage.
+
+## Outcome
+
+- Updated `_STANDALONE_REF_PATTERN` and `_resolve_reference_target` in `src/toas/runtime/state_step.py` to recognize bare scratch file paths (`.toas/scratch/<block_id>.txt`), bare block IDs (`ib_<block_id>`), and sliced scratch paths (`.toas/scratch/<block_id>.txt:start-end`), expanding them into full or sliced inert result blocks during state-step packet preparation.
+- Ensured `build_multi_state_sequence_packet` computes `workspace_root` from `events_path` so scratch and workspace artifact references expand consistently across multi-turn sequences.
+- Updated `spill_inert_block` in `src/toas/tools_cluster/rendering.py` to clarify that intentional reads permit up to 500 lines without spilling, and explicitly warned models that under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state.
+- Updated `instructions_v1.txt` to explicitly guide models on persisting spilled lists into `state.artifacts` or reading complete spilled files.
+- Added comprehensive unit tests in `tests/test_state_step.py` verifying scratch path, slice, and block ID expansion in both single-step and multi-turn sequence packet generation.
+- Verified `./scripts/check.sh` passes with 100.00% statement coverage across all 22,678 statements.

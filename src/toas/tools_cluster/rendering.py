@@ -186,12 +186,13 @@ def spill_inert_block(
     if remaining_lines > 0:
         trailer = (
             f"[{remaining_lines} lines remaining. "
-            f"Inspect with `read_file`, `grep`, or script via path=\"{scratch_rel_path}\"]"
+            f"Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\"{scratch_rel_path}\"; "
+            "under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state]"
         )
     else:
         trailer = (
             f"[Output truncated by byte size ({size_str}). "
-            f"Inspect with `read_file`, `grep`, or script via path=\"{scratch_rel_path}\"]"
+            f"Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\"{scratch_rel_path}\"]"
         )
 
     spilled_text = f"{banner}\n\n{fence}{' '.join(info_parts)}\n{preview_body}{fence}\n{trailer}"

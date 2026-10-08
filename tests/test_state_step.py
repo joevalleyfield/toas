@@ -2698,6 +2698,109 @@ def test_parse_and_render_state_turn_with_report_and_outcome():
         parse_state_turn("## TOAS:STATE/1\n\nstate:\n  goal: x\nreport: [1, 2]\n")
 
 
+def test_build_state_step_packet_expands_scratch_artifact_references(tmp_path):
+    from toas.runtime.state_step import build_state_step_packet
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    block_id = "ib_spill12345678"
+    scratch_file = scratch_dir / f"{block_id}.txt"
+    lines = [f"task_item_{i}" for i in range(1, 10)]
+    scratch_file.write_text("\n".join(lines), encoding="utf-8")
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.touch()
+
+    # 1. Bare scratch path in artifacts
+    state1 = {
+        "goal": "read spilled tasks",
+        "artifacts": [f".toas/scratch/{block_id}.txt"],
+    }
+    packet1 = build_state_step_packet(
+        events_path=events,
+        state=state1,
+        observation=None,
+    )
+    expanded_art1 = packet1["state"]["artifacts"][0]
+    assert "task_item_1" in expanded_art1
+    assert "task_item_9" in expanded_art1
+    assert f"block_id={block_id}" in expanded_art1
+    assert f"path=.toas/scratch/{block_id}.txt" in expanded_art1
+
+    # 2. Sliced scratch path in artifacts
+    state2 = {
+        "goal": "read slice",
+        "artifacts": [f".toas/scratch/{block_id}.txt:2-5"],
+    }
+    packet2 = build_state_step_packet(
+        events_path=events,
+        state=state2,
+        observation=None,
+    )
+    expanded_art2 = packet2["state"]["artifacts"][0]
+    assert "task_item_2" in expanded_art2
+    assert "task_item_5" in expanded_art2
+    assert "task_item_1" not in expanded_art2
+    assert "task_item_6" not in expanded_art2
+
+    # 3. Bare block ID in artifacts
+    state3 = {
+        "goal": "read block ID",
+        "artifacts": [block_id],
+    }
+    packet3 = build_state_step_packet(
+        events_path=events,
+        state=state3,
+        observation=None,
+    )
+    expanded_art3 = packet3["state"]["artifacts"][0]
+    assert "task_item_1" in expanded_art3
+
+    # 4. (ref: .toas/scratch/...) wrapper in artifacts
+    state4 = {
+        "goal": "read ref wrapped",
+        "artifacts": [f"(ref: .toas/scratch/{block_id}.txt)"],
+    }
+    packet4 = build_state_step_packet(
+        events_path=events,
+        state=state4,
+        observation=None,
+    )
+    expanded_art4 = packet4["state"]["artifacts"][0]
+    assert "task_item_1" in expanded_art4
+
+
+def test_build_multi_state_sequence_packet_expands_scratch_artifact_references(tmp_path):
+    from toas.runtime.state_step import build_multi_state_sequence_packet
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    block_id = "ib_multi98765432"
+    (scratch_dir / f"{block_id}.txt").write_text("item_alpha\nitem_beta\nitem_gamma", encoding="utf-8")
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.touch()
+
+    turns = [
+        {"role": "state", "content": "state: {step: 1}", "marker": "## TOAS:STATE [[t1]]"},
+        {"role": "user", "content": "Advance."},
+    ]
+    state = {
+        "step": 1,
+        "artifacts": [f".toas/scratch/{block_id}.txt"],
+    }
+    packet = build_multi_state_sequence_packet(
+        events_path=events,
+        state=state,
+        turns=turns,
+        start_index=0,
+    )
+    expanded = packet["state"]["artifacts"][0]
+    assert "item_alpha" in expanded
+    assert "item_gamma" in expanded
+    assert f"block_id={block_id}" in expanded
+
+
 
 
 

@@ -716,7 +716,7 @@ def test_spill_inert_block_lines_threshold(tmp_path):
     assert "symbol_1\n" in spilled
     assert "symbol_30\n" in spilled
     assert "symbol_31" not in spilled
-    assert f'[70 lines remaining. Inspect with `read_file`, `grep`, or script via path="{rel_path}"]' in spilled
+    assert f'[70 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path="{rel_path}"; under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state]' in spilled
 
 
 def test_spill_inert_block_bytes_threshold(tmp_path):
@@ -736,7 +736,7 @@ def test_spill_inert_block_bytes_threshold(tmp_path):
     assert (scratch_dir / f"{block_id}.txt").read_text(encoding="utf-8") == content
     assert "5 lines); spilled to" in spilled
     assert f'```text toas-output kind=stdout block_id={block_id} path="{rel_path}" lines=1..5 of 5' in spilled
-    assert f'[Output truncated by byte size (5 KB). Inspect with `read_file`, `grep`, or script via path="{rel_path}"]' in spilled
+    assert f'[Output truncated by byte size (5 KB). Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path="{rel_path}"]' in spilled
 
 
 def test_render_fenced_output_spillover_and_opt_out(tmp_path):
@@ -793,7 +793,7 @@ def test_shape_result_content_get_structure_spills_oversized(tmp_path, monkeypat
     assert rendered.startswith("[OK] get_structure: found 100 symbols\nOutput exceeded threshold (")
     assert "100 lines); spilled to `.toas/scratch/ib_" in rendered
     assert "lines=1..30 of 100" in rendered
-    assert "[70 lines remaining. Inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
+    assert "[70 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
     assert "def.func_1 (10-15) mod.py" in rendered
     assert "def.func_30 (300-305) mod.py" in rendered
     assert "def.func_31" not in rendered
@@ -813,7 +813,7 @@ def test_shape_result_content_shell_stdout_spills_oversized(tmp_path, monkeypatc
     rendered = shape_result_content(result)
     assert "[OK] shell: exit=0\nstdout:\nOutput exceeded threshold (" in rendered
     assert "lines=1..30 of 79" in rendered
-    assert "[49 lines remaining. Inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
+    assert "[49 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
 
 
 def test_spill_inert_block_size_mb_and_default_dir_and_oserror(tmp_path):

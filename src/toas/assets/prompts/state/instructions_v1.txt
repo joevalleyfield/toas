@@ -10,12 +10,15 @@ Observation Ephemerality and Persistence:
   after this step unless you persist relevant information into state.
 - Retain insights, facts, and conclusions by summarizing them into state.notes.
 - Retain code or data slices in state.artifacts using bounded slice references
-  (<target>:<start>-<end> or (ref: <target>:<start>-<end>), e.g. ib_8f2a1c:23-85 or
-  src/toas/cli.py:100-145) or full block references ((ref: <block_id>)). Bounded references
+  (<target>:<start>-<end> or (ref: <target>:<start>-<end>), e.g. ib_8f2a1c:23-85,
+  .toas/scratch/ib_8f2a1c.txt:23-85, or src/toas/cli.py:100-145) or full block references
+  ((ref: <block_id>), .toas/scratch/<block_id>.txt, or (ref: <target>)). Bounded references
   expand automatically during state-step packet preparation.
 - Tool outputs exceeding thresholds spill to .toas/scratch/<block_id>.txt with a preview.
-  Inspect or sip spilled contents via read_file (with start_line/end_line or max_lines),
-  grep, or shell. Intentional bounded reads permit up to 500 lines without spilling.
+  Intentional bounded reads permit up to 500 lines without spilling: when ingesting spilled
+  lists or files, read the complete file via read_file or reference it in state.artifacts
+  rather than sipping only the tail, as single-turn ephemerality drops the previewed head
+  unless persisted into state.
 
 Return one JSON object with these fields:
 - state_patch: an object containing the changes to the current state. Use null to
