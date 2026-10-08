@@ -1525,7 +1525,7 @@ def _normalize_resolved_tools(
             return merged
 
         is_tool_map = bool(tools_val) and all(
-            isinstance(v, dict) and ("required_args" in v or "description" in v or k in REGISTRY)
+            isinstance(v, dict) and ("required_args" in v or "description" in v or "arg_types" in v or k in REGISTRY)
             for k, v in tools_val.items()
         )
         if is_tool_map:
@@ -1755,12 +1755,12 @@ def build_multi_state_sequence_packet(
         else (
             "Return one JSON object with these fields:\n"
             "- state_patch: an object containing changes to the current state. Use null to remove a key.\n"
-            "- tool_calls: an array of batch tool calls, each with tool_name and args matching tool argument definitions. Use empty array when no tools are needed.\n"
+            "- tool_calls: an array of batch tool calls, each with tool_name and args matching tool argument definitions and type signatures. Use empty array when no tools are needed.\n"
             "- outcome: optional; use continue or complete.\n"
             "- report: optional; user-facing summary or direct answer to the user's goal."
         )
     )
-    tools_block = f"Available tools and argument definitions:\n{json.dumps(tool_defs, indent=2)}"
+    tools_block = f"Available tools, argument definitions, and type signatures:\n{json.dumps(tool_defs, indent=2)}"
 
     system_content = f"{system_instructions}\n\n{schema_block}\n\n{tools_block}"
     messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]

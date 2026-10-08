@@ -275,7 +275,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261008-state-spill-ingestion-and-artifact-references]** Status: ACTIVE implementation slice; addresses the single-turn ephemerality amnesia trap when ingesting spilled tool outputs and enables scratch file ...
-- **[T261008-state-tool-argument-type-signatures]** Status: ACTIVE implementation slice; advertises explicit type signatures for tool arguments in state-step protocol definitions to prevent model guessi...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -363,11 +362,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261008-state-tool-argument-type-signatures]** Status: CLOSED; advertised explicit type signatures for tool arguments in state-step protocol definitions across all registry tools.
 - **[T261008-state-step-terminal-reporting-channel]** Status: CLOSED; defined and implemented user-facing reporting channel for state-step with completion projection in transcripts and CLI output.
 - **[T261008-scope-pending-state-transitions]** Scope Pending State Transitions To Frontier Lineage And Invalidate Stale Proposals
 - **[T261007-state-protocol-tool-argument-definitions]** State Protocol Tool Argument Definitions
 - **[T261007-operator-perspective-verification-protocol]** Operator Perspective Verification Protocol
-- **[T261007-harmonize-state-protocol-composition]** Harmonize State Protocol Composition With Prompt Library
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

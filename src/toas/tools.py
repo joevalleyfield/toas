@@ -1,7 +1,7 @@
 import sys
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -55,6 +55,7 @@ class Tool:
     runner: Callable[[dict], dict]
     optional_args: tuple[str, ...] = ()
     default_args: tuple[str, ...] = ()
+    arg_types: dict[str, str] = field(default_factory=dict)
 
 
 def _run_echo(args: dict) -> dict:
@@ -488,6 +489,7 @@ REGISTRY = {
         name="echo",
         required_args=("text",),
         runner=_run_echo,
+        arg_types={"text": "str"},
     ),
     "shell": Tool(
         name="shell",
@@ -495,6 +497,12 @@ REGISTRY = {
         runner=_run_shell,
         optional_args=("cwd", "timeout_s", "env"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
+        arg_types={
+            "argv": "list[str]",
+            "cwd": "str",
+            "timeout_s": "float",
+            "env": "dict[str, str]",
+        },
     ),
     "shell_script": Tool(
         name="shell_script",
@@ -502,6 +510,12 @@ REGISTRY = {
         runner=_run_shell_script,
         optional_args=("cwd", "timeout_s", "env"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
+        arg_types={
+            "script": "str",
+            "cwd": "str",
+            "timeout_s": "float",
+            "env": "dict[str, str]",
+        },
     ),
     "python_script": Tool(
         name="python_script",
@@ -509,6 +523,15 @@ REGISTRY = {
         runner=_run_python_script,
         optional_args=("cwd", "timeout_s", "runtime", "persist", "path", "overwrite"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
+        arg_types={
+            "script": "str",
+            "cwd": "str",
+            "timeout_s": "float",
+            "runtime": "list[str]",
+            "persist": "bool",
+            "path": "str",
+            "overwrite": "bool",
+        },
     ),
     "powershell_script": Tool(
         name="powershell_script",
@@ -516,6 +539,15 @@ REGISTRY = {
         runner=_run_powershell_script,
         optional_args=("cwd", "timeout_s", "runtime", "persist", "path", "overwrite"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
+        arg_types={
+            "script": "str",
+            "cwd": "str",
+            "timeout_s": "float",
+            "runtime": "list[str]",
+            "persist": "bool",
+            "path": "str",
+            "overwrite": "bool",
+        },
     ),
     "interpreter_script": Tool(
         name="interpreter_script",
@@ -523,12 +555,29 @@ REGISTRY = {
         runner=_run_interpreter_script,
         optional_args=("cwd", "timeout_s", "persist", "path", "overwrite"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
+        arg_types={
+            "language": "str",
+            "script": "str",
+            "runtime": "list[str]",
+            "cwd": "str",
+            "timeout_s": "float",
+            "persist": "bool",
+            "path": "str",
+            "overwrite": "bool",
+        },
     ),
     "read_file": Tool(
         name="read_file",
         required_args=("path",),
         runner=_run_read_file,
         optional_args=("start_line", "end_line", "max_lines", "show_line_numbers"),
+        arg_types={
+            "path": "str",
+            "start_line": "int",
+            "end_line": "int",
+            "max_lines": "int",
+            "show_line_numbers": "bool",
+        },
     ),
     "search": Tool(
         name="search",
@@ -536,6 +585,13 @@ REGISTRY = {
         runner=_run_search,
         optional_args=("path", "limit", "regex", "timeout_s"),
         default_args=("path=.", "limit=20", "regex=false", "timeout_s=shell.assistant_timeout_s"),
+        arg_types={
+            "query": "str",
+            "path": "str",
+            "limit": "int",
+            "regex": "bool",
+            "timeout_s": "float",
+        },
     ),
     "write_file": Tool(
         name="write_file",
@@ -543,17 +599,25 @@ REGISTRY = {
         runner=_run_write_file,
         optional_args=("append", "force"),
         default_args=("append=false", "force=false"),
+        arg_types={
+            "path": "str",
+            "content": "str",
+            "append": "bool",
+            "force": "bool",
+        },
     ),
     "echo_block": Tool(
         name="echo_block",
         required_args=("block",),
         runner=_run_echo_block,
+        arg_types={"block": "str"},
     ),
     "capability_help": Tool(
         name="capability_help",
         required_args=(),
         runner=_run_capability_help,
         optional_args=("topic",),
+        arg_types={"topic": "str"},
     ),
     "procedure": Tool(
         name="procedure",
@@ -561,11 +625,17 @@ REGISTRY = {
         runner=_run_procedure,
         optional_args=("arguments", "dry_run"),
         default_args=("arguments={}", "dry_run=false"),
+        arg_types={
+            "name": "str",
+            "arguments": "dict[str, Any]",
+            "dry_run": "bool",
+        },
     ),
     "get_structure": Tool(
         name="get_structure",
         required_args=("path",),
         runner=_run_get_structure,
+        arg_types={"path": "str"},
     ),
     "code_survey": Tool(
         name="code_survey",
@@ -573,13 +643,23 @@ REGISTRY = {
         runner=_run_code_survey,
         optional_args=("path", "top_n"),
         default_args=("path=src", "top_n=20"),
+        arg_types={"path": "str", "top_n": "int"},
     ),
     "replace_range": Tool(
         name="replace_range",
         required_args=("path", "start_line", "end_line", "replacement_block"),
         runner=_run_replace_range,
         optional_args=("indent", "context_start", "context_end"),
-        default_args=("indent=\"\"",),
+        default_args=('indent=""',),
+        arg_types={
+            "path": "str",
+            "start_line": "int",
+            "end_line": "int",
+            "replacement_block": "str",
+            "indent": "str",
+            "context_start": "int",
+            "context_end": "int",
+        },
     ),
     "replace_block": Tool(
         name="replace_block",
@@ -593,18 +673,38 @@ REGISTRY = {
             "ensure_trailing_newline",
         ),
         default_args=("expected_count=1", "match_mode=default", "ensure_trailing_newline=true"),
+        arg_types={
+            "path": "str",
+            "search_block": "str",
+            "replacement_block": "str",
+            "expected_count": "int",
+            "match_mode": "str",
+            "search_indent": "str",
+            "replacement_indent": "str",
+            "ensure_trailing_newline": "bool",
+        },
     ),
     "apply_patch": Tool(
         name="apply_patch",
         required_args=("patch",),
         runner=_run_apply_patch,
+        arg_types={"patch": "str"},
     ),
     "capture_task_thread": Tool(
         name="capture_task_thread",
         required_args=("title", "kind"),
         runner=_run_capture_task_thread,
         optional_args=("evidence", "blocks_progress", "active_task_id", "scope_hint", "capture_id"),
-        default_args=("evidence=\"\"", "blocks_progress=false", "active_task_id=null", "scope_hint=\"\"", "capture_id=null"),
+        default_args=('evidence=""', "blocks_progress=false", "active_task_id=null", 'scope_hint=""', "capture_id=null"),
+        arg_types={
+            "title": "str",
+            "kind": "str",
+            "evidence": "str",
+            "blocks_progress": "bool",
+            "active_task_id": "str",
+            "scope_hint": "str",
+            "capture_id": "str",
+        },
     ),
 }
 

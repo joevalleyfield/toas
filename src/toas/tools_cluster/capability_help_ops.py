@@ -146,6 +146,9 @@ def tool_definitions(registry: Mapping[str, Any] | None = None) -> dict[str, dic
         default_args = list(getattr(tool, "default_args", ()))
         if default_args:
             defn["default_args"] = default_args
+        arg_types = dict(getattr(tool, "arg_types", {}))
+        if arg_types:
+            defn["arg_types"] = arg_types
         definitions[name] = defn
     return definitions
 

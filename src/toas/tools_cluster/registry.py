@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -8,6 +8,9 @@ class ToolSpec:
     name: str
     required_args: tuple[str, ...]
     runner: Any
+    optional_args: tuple[str, ...] = ()
+    default_args: tuple[str, ...] = ()
+    arg_types: dict[str, str] = field(default_factory=dict)
 
 
 def get_tool(registry: Mapping[str, ToolSpec], name: str) -> ToolSpec:

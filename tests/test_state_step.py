@@ -238,7 +238,9 @@ def test_expand_state_turn_protocol():
     assert set(expanded_swe["tools"].keys()) == {"read_file", "replace_block", "shell", "write_file"}
     assert expanded_swe["tools"]["read_file"]["required_args"] == ["path"]
     assert "start_line" in expanded_swe["tools"]["read_file"]["optional_args"]
+    assert expanded_swe["tools"]["read_file"]["arg_types"]["path"] == "str"
     assert expanded_swe["tools"]["shell"]["required_args"] == ["argv"]
+    assert expanded_swe["tools"]["shell"]["arg_types"]["argv"] == "list[str]"
     assert expanded_swe["schema"]["state_patch"] == "object"
     assert expanded_swe["schema"]["tool_calls"] == [{"tool_name": "string", "args": "object"}]
     assert expanded_swe["schema"]["report"] == "string"
@@ -248,17 +250,25 @@ def test_expand_state_turn_protocol():
     assert "Maintain the minimal triage state" in expanded_triage["instructions"]
     assert set(expanded_triage["tools"].keys()) == {"read_file", "shell"}
     assert expanded_triage["tools"]["shell"]["required_args"] == ["argv"]
+    assert expanded_triage["tools"]["shell"]["arg_types"]["argv"] == "list[str]"
 
     # Target as None defaults to base
     expanded_none = expand_state_turn_protocol()
     assert expanded_none["handle"] == "toas.state-step/1"
     assert "read_file" in expanded_none["tools"]
     assert "required_args" in expanded_none["tools"]["read_file"]
+    assert "arg_types" in expanded_none["tools"]["read_file"]
 
     # Target as overlay with custom tools list
     custom = expand_state_turn_protocol({"tools": ["echo"]})
     assert "echo" in custom["tools"]
     assert custom["tools"]["echo"]["required_args"] == ["text"]
+    assert custom["tools"]["echo"]["arg_types"]["text"] == "str"
+
+    # Target with custom tool map including arg_types
+    custom_map = expand_state_turn_protocol({"tools": {"custom_tool": {"arg_types": {"k": "str"}}}})
+    assert "custom_tool" in custom_map["tools"]
+    assert custom_map["tools"]["custom_tool"]["arg_types"] == {"k": "str"}
 
     # Target with custom schema
     custom_schema = expand_state_turn_protocol({"schema": {"extra": "string"}})
@@ -1218,7 +1228,7 @@ def test_build_multi_state_sequence_packet_expands_references(tmp_path):
     assert "definitions" in packet["tools"]
     assert packet["tools"]["definitions"]["read_file"]["required_args"] == ["path"]
     sys_msg = packet["request_messages"][0]["content"]
-    assert "Available tools and argument definitions:" in sys_msg
+    assert "Available tools, argument definitions, and type signatures:" in sys_msg
     assert '"read_file"' in sys_msg
 
 

@@ -2109,4 +2109,8 @@ def test_tool_definitions_exposed():
     assert "read_file" in defs
     assert defs["read_file"]["required_args"] == ["path"]
     assert "start_line" in defs["read_file"]["optional_args"]
+    assert defs["read_file"]["arg_types"]["path"] == "str"
+    assert defs["shell"]["arg_types"]["argv"] == "list[str]"
+    assert defs["write_file"]["arg_types"]["content"] == "str"
+    assert defs["replace_block"]["arg_types"]["ensure_trailing_newline"] == "bool"
 

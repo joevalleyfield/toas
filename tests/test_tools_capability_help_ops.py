@@ -97,6 +97,8 @@ def test_tool_definitions_default_and_custom_registry():
     assert "search" in defs
     assert defs["search"]["required_args"] == ["query"]
     assert "default_args" in defs["search"]
+    assert defs["read_file"]["arg_types"]["path"] == "str"
+    assert defs["shell"]["arg_types"]["argv"] == "list[str]"
 
     # Custom registry with minimal ToolSpec
     from toas.tools_cluster.registry import ToolSpec
@@ -108,4 +110,5 @@ def test_tool_definitions_default_and_custom_registry():
     assert custom_defs["dummy"]["required_args"] == ["arg1", "arg2"]
     assert custom_defs["dummy"]["optional_args"] == []
     assert "default_args" not in custom_defs["dummy"]
+    assert "arg_types" not in custom_defs["dummy"]
 

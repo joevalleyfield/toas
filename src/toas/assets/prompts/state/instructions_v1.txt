@@ -21,13 +21,13 @@ Return one JSON object with these fields:
 - state_patch: an object containing the changes to the current state. Use null to
   remove a key.
 - tool_calls: an array of batch tool calls, each with tool_name and args matching
-  the tool argument definitions. Use an empty array when no tools are needed.
+  the tool argument definitions and type signatures. Use an empty array when no tools are needed.
 - outcome: optional; use continue or complete. A complete outcome means the
   goal is done and cannot include tool calls.
 - report: optional string; provide a concise user-facing report or direct answer
   to the user's goal when completing the task (outcome: complete) or sharing
   intermediate progress.
 
-Available tools, argument definitions, and the tool protocol are supplied alongside
+Available tools, argument definitions, type signatures, and the tool protocol are supplied alongside
 the state. Propose tool calls only; TOAS validates and executes them on a later explicit step.
 Inference and tool execution are separate operations. Return JSON only.
