@@ -489,6 +489,8 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
         state_index=state_index,
     )
     current_state_message_id = None
+    if reconciliation.lineage and state_index < len(reconciliation.lineage):
+        current_state_message_id = reconciliation.lineage[state_index].get("id")
     if not preview and not preview_response:
         events_path.parent.mkdir(parents=True, exist_ok=True)
         if not events_path.exists():
@@ -596,6 +598,8 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             session_text=normalized_transcript,
             infer_from=effective_infer_from,
             transcript_turns=cleaned_all_turns if effective_infer_from else None,
+            pending_tool_calls=[] if cleaned_input_turns else parsed_turn.get("pending_tools"),
+            state_message_id=current_state_message_id,
         )
         if request.get("phase") != "infer":
             print(json.dumps(request, ensure_ascii=False, indent=2))
@@ -722,9 +726,10 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             instructions=parsed_turn.get("instructions"),
             protocol=parsed_turn.get("protocol"),
             session_text=normalized_transcript,
-            pending_tool_calls=parsed_turn.get("pending_tools") if not cleaned_input_turns and not effective_infer_from else None,
+            pending_tool_calls=[] if cleaned_input_turns else parsed_turn.get("pending_tools"),
             generate=generate_state_packet, execute_call=execute_call,
             message_id=inferred_message_id,
+            state_message_id=current_state_message_id,
             infer_from=effective_infer_from,
             transcript_turns=cleaned_all_turns if effective_infer_from else None,
             on_delta=on_llm_answer_delta,

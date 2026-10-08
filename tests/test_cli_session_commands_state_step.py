@@ -2543,5 +2543,172 @@ def test_state_step_infers_turn_referencing_named_handle(tmp_path, monkeypatch):
     assert parsed["protocol"] == {"ref": "alpha"}
 
 
+def test_state_pending_transition_from_earlier_turn_does_not_execute_on_reseeded_turn_with_user_input(
+    monkeypatch, tmp_path, capsys
+):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    append_state_step_records(
+        str(events_path),
+        [
+            {
+                "kind": "state_snapshot",
+                "transition_id": "st_earlier",
+                "state": {"goal": "earlier goal"},
+                "message_id": "n17",
+            },
+            {
+                "kind": "state_transition",
+                "transition_id": "st_earlier",
+                "source": "model",
+                "status": "pending",
+                "tool_calls": [{"tool_name": "shell", "args": {"command": "echo ghost-tool-executed"}}],
+                "message_id": "n17",
+            },
+        ],
+    )
+    from toas.graph import append_nodes
+
+    append_nodes(
+        str(events_path),
+        [{"id": "n18", "parent": "n17", "role": "user", "content": "/prompt state"}],
+    )
+
+    session.write_text(
+        "## TOAS:STATE/1\n\n"
+        "state:\n  goal: ''\n\n"
+        "## TOAS:USER\n\n"
+        "List open tasks.\n\n"
+        "## TOAS:USER\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas import cli
+    from toas.graph import read_log
+
+    inferred_packet = []
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            inferred_packet.append(packet)
+            return {
+                "content": json.dumps(
+                    {"state_patch": {"progress": ["listed tasks"]}, "tool_calls": []}
+                )
+            }
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        cli.run_step(session_path=str(session))
+
+    out = capsys.readouterr().out
+    assert "ghost-tool-executed" not in out
+    assert "listed tasks" in out
+    assert len(inferred_packet) == 1
+    obs = inferred_packet[0]["observation"]
+    assert "List open tasks." in str(obs)
+
+    records = read_log(str(events_path))
+    cancelled = [
+        r
+        for r in records
+        if r.get("kind") == "state_transition"
+        and r.get("transition_id") == "st_earlier"
+        and r.get("status") == "cancelled"
+    ]
+    assert len(cancelled) == 1
+
+
+def test_state_pending_transition_cancelled_when_pending_tools_deleted_by_operator(
+    monkeypatch, tmp_path, capsys
+):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    append_state_step_records(
+        str(events_path),
+        [
+            {
+                "kind": "state_snapshot",
+                "transition_id": "st1",
+                "state": {"goal": "test"},
+                "message_id": "m1",
+            },
+            {
+                "kind": "state_transition",
+                "transition_id": "st1",
+                "status": "pending",
+                "tool_calls": [{"tool_name": "shell", "args": {"command": "echo ghost-tool-deleted"}}],
+                "message_id": "m1",
+            },
+        ],
+    )
+    session.write_text("## TOAS:STATE/1\n\nstate:\n  goal: test\n")
+    monkeypatch.chdir(tmp_path)
+    from toas import cli
+    from toas.graph import read_log
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            return {"content": json.dumps({"state_patch": {"done": True}, "tool_calls": []})}
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        cli.run_step(session_path=str(session))
+
+    out = capsys.readouterr().out
+    assert "ghost-tool-deleted" not in out
+    records = read_log(str(events_path))
+    cancelled = [
+        r
+        for r in records
+        if r.get("kind") == "state_transition"
+        and r.get("transition_id") == "st1"
+        and r.get("status") == "cancelled"
+    ]
+    assert len(cancelled) == 1
+
+
+def test_state_preview_request_does_not_report_execute_batch_for_reseeded_turn(
+    monkeypatch, tmp_path, capsys
+):
+    session = tmp_path / "session.md"
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    append_state_step_records(
+        str(events_path),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": "st_earlier",
+                "status": "pending",
+                "tool_calls": [{"tool_name": "shell", "args": {"command": "echo ghost"}}],
+                "message_id": "n17",
+            },
+        ],
+    )
+    session.write_text(
+        "## TOAS:STATE/1\n\n"
+        "state:\n  goal: ''\n\n"
+        "## TOAS:USER\n\n"
+        "List open tasks.\n\n"
+        "## TOAS:USER\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas import cli
+
+    cli.run_step(session_path=str(session), preview=True)
+    out = capsys.readouterr().out
+    assert '"phase": "infer"' in out
+    assert '"phase": "execute_batch"' not in out
+
+
+
 
 

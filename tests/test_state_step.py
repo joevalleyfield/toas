@@ -2552,5 +2552,33 @@ def test_protocol_coverage_edge_branches(tmp_path):
     assert seq_pkt["instructions"] == "seq override"
 
 
+def test_preview_state_request_with_operator_authored_pending_tools_without_prior_transition(tmp_path):
+    from toas.runtime.state_step import preview_state_request
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+    preview = preview_state_request(
+        events_path=events_path,
+        state={"goal": "test"},
+        observation="obs",
+        pending_tool_calls=[{"tool_name": "shell", "args": {"argv": ["echo", "hi"]}}],
+    )
+    assert preview["phase"] == "execute_batch"
+    assert preview["status"] == "pending"
+    assert preview["transition_id"] is None
+
+
+def test_is_stale_pending_with_malformed_session_text(tmp_path):
+    from toas.runtime.state_step import _is_stale_pending
+
+    pending = {"transition_id": "st1", "tool_calls": [{"tool_name": "shell"}]}
+    records = [{"kind": "state_transition", "transition_id": "st1", "status": "pending"}]
+    stale = _is_stale_pending(
+        pending, records, session_text="not a state transcript", pending_tool_calls=None
+    )
+    assert stale is False
+
+
+
 
 

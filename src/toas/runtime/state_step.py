@@ -1775,6 +1775,48 @@ def build_multi_state_sequence_packet(
     }
 
 
+def _is_stale_pending(
+    pending: dict[str, Any],
+    records: list[dict[str, Any]],
+    *,
+    session_text: str | None = None,
+    pending_tool_calls: list[dict[str, Any]] | None = None,
+    infer_from: str | None = None,
+) -> bool:
+    """Return True if a pending transition is stale or overtaken by transcript state."""
+    if infer_from is not None or pending_tool_calls == []:
+        return True
+
+    pending_id = pending.get("transition_id")
+    pending_idx = next(
+        (
+            i
+            for i, r in enumerate(records)
+            if r.get("kind") == "state_transition" and r.get("transition_id") == pending_id
+        ),
+        -1,
+    )
+    if pending_idx >= 0:
+        has_later_seed = any(
+            r.get("kind") == "state_snapshot" and str(r.get("transition_id", "")).startswith("seed_")
+            for r in records[pending_idx + 1 :]
+        )
+        if has_later_seed:
+            return True
+
+    if session_text is not None:
+        if pending_tool_calls is not None:
+            return pending.get("tool_calls") != pending_tool_calls
+        try:
+            _prefix, active_turn, _suffix = partition_state_transcript(session_text)
+            parsed = parse_state_turn(active_turn)
+            return parsed.get("turn_type") == "state" and "pending_tools" not in parsed
+        except Exception:
+            return False
+
+    return False
+
+
 def preview_state_request(
     *, events_path: str | Path, state: dict, observation: Any,
     instructions: str | None = None,
@@ -1782,6 +1824,8 @@ def preview_state_request(
     session_text: str | None = None,
     infer_from: str | None = None,
     transcript_turns: list[dict[str, Any]] | None = None,
+    pending_tool_calls: list[dict[str, Any]] | None = None,
+    state_message_id: str | None = None,
 ) -> dict[str, Any]:
     """Return the request messages step would send, without generation or writes."""
     records = read_log(str(events_path))
@@ -1810,11 +1854,25 @@ def preview_state_request(
             "request_messages": packet["request_messages"],
         }
     pending = _latest_pending(records)
+    if pending is not None and _is_stale_pending(
+        pending,
+        records,
+        session_text=session_text,
+        pending_tool_calls=pending_tool_calls,
+        infer_from=infer_from,
+    ):
+        pending = None
     if pending is not None:
         return {
             "phase": "execute_batch",
             "status": pending.get("status"),
             "transition_id": pending.get("transition_id"),
+        }
+    if pending_tool_calls and infer_from is None:
+        return {
+            "phase": "execute_batch",
+            "status": "pending",
+            "transition_id": None,
         }
     packet = build_state_step_packet(
         events_path=events_path, state=state, observation=observation,
@@ -1843,6 +1901,7 @@ def step_state(  # noqa: PLR0913
     execute_call: Callable[[dict], Any],
     execute_user_call: Callable[[dict], Any] | None = None,
     message_id: str | None = None,
+    state_message_id: str | None = None,
     infer_from: str | None = None,
     transcript_turns: list[dict[str, Any]] | None = None,
     on_delta: Callable[[str], None] | None = None,
@@ -1965,36 +2024,43 @@ def step_state(  # noqa: PLR0913
             "status": "completed",
         }
     pending = _latest_pending(records)
-    if pending is not None:
-        if infer_from is not None or (pending_tool_calls == [] and not user_tool_calls):
-            append_state_step_records(
-                path,
-                [
-                    {
-                        "kind": "state_transition",
-                        "transition_id": pending["transition_id"],
-                        "status": "cancelled",
-                    }
-                ],
-            )
-            pending = None
-    elif pending_tool_calls and infer_from is None:
-        transition_id = f"st_{uuid.uuid4().hex}"
+    if pending is not None and _is_stale_pending(
+        pending,
+        records,
+        session_text=session_text,
+        pending_tool_calls=pending_tool_calls,
+        infer_from=infer_from,
+    ):
         append_state_step_records(
             path,
             [
                 {
                     "kind": "state_transition",
-                    "transition_id": transition_id,
-                    "source": "operator",
-                    "status": "pending",
-                    "state_before": state,
-                    "state_after": state,
-                    "state_patch": {},
-                    "observation": observation,
-                    "tool_calls": pending_tool_calls,
+                    "transition_id": pending["transition_id"],
+                    "status": "cancelled",
                 }
             ],
+        )
+        pending = None
+
+    if pending is None and pending_tool_calls and infer_from is None:
+        transition_id = f"st_{uuid.uuid4().hex}"
+        transition_record: dict[str, Any] = {
+            "kind": "state_transition",
+            "transition_id": transition_id,
+            "source": "operator",
+            "status": "pending",
+            "state_before": state,
+            "state_after": state,
+            "state_patch": {},
+            "observation": observation,
+            "tool_calls": pending_tool_calls,
+        }
+        if state_message_id is not None:
+            transition_record["message_id"] = state_message_id
+        append_state_step_records(
+            path,
+            [transition_record],
         )
         pending = {
             "transition_id": transition_id,
