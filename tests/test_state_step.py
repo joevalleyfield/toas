@@ -2711,10 +2711,10 @@ def test_build_state_step_packet_expands_scratch_artifact_references(tmp_path):
     events = tmp_path / ".toas" / "events.jsonl"
     events.touch()
 
-    # 1. Bare scratch path in artifacts
+    # 1. Explicit ref object in artifacts
     state1 = {
         "goal": "read spilled tasks",
-        "artifacts": [f".toas/scratch/{block_id}.txt"],
+        "artifacts": [{"ref": f".toas/scratch/{block_id}.txt"}],
     }
     packet1 = build_state_step_packet(
         events_path=events,
@@ -2743,31 +2743,62 @@ def test_build_state_step_packet_expands_scratch_artifact_references(tmp_path):
     assert "task_item_1" not in expanded_art2
     assert "task_item_6" not in expanded_art2
 
-    # 3. Bare block ID in artifacts
+    # 3. Structured artifact dict with metadata and ref: only ref expands, id and path preserved
     state3 = {
-        "goal": "read block ID",
-        "artifacts": [block_id],
+        "goal": "structured artifact with ref",
+        "artifacts": [
+            {
+                "id": block_id,
+                "path": f".toas/scratch/{block_id}.txt",
+                "description": "Full task listing",
+                "ref": block_id,
+            }
+        ],
     }
     packet3 = build_state_step_packet(
         events_path=events,
         state=state3,
         observation=None,
     )
-    expanded_art3 = packet3["state"]["artifacts"][0]
-    assert "task_item_1" in expanded_art3
+    art3 = packet3["state"]["artifacts"][0]
+    assert art3["id"] == block_id
+    assert art3["path"] == f".toas/scratch/{block_id}.txt"
+    assert art3["description"] == "Full task listing"
+    assert "task_item_1" in art3["ref"]
 
-    # 4. (ref: .toas/scratch/...) wrapper in artifacts
+    # 4. Structured artifact dict without ref: metadata strings are never corrupted into file blocks
     state4 = {
-        "goal": "read ref wrapped",
-        "artifacts": [f"(ref: .toas/scratch/{block_id}.txt)"],
+        "goal": "structured artifact without ref",
+        "artifacts": [
+            {
+                "id": block_id,
+                "path": f".toas/scratch/{block_id}.txt",
+                "description": "Full task listing",
+            }
+        ],
     }
     packet4 = build_state_step_packet(
         events_path=events,
         state=state4,
         observation=None,
     )
-    expanded_art4 = packet4["state"]["artifacts"][0]
-    assert "task_item_1" in expanded_art4
+    art4 = packet4["state"]["artifacts"][0]
+    assert art4["id"] == block_id
+    assert art4["path"] == f".toas/scratch/{block_id}.txt"
+    assert art4["description"] == "Full task listing"
+
+    # 5. (ref: .toas/scratch/...) wrapper in artifacts
+    state5 = {
+        "goal": "read ref wrapped",
+        "artifacts": [f"(ref: .toas/scratch/{block_id}.txt)"],
+    }
+    packet5 = build_state_step_packet(
+        events_path=events,
+        state=state5,
+        observation=None,
+    )
+    expanded_art5 = packet5["state"]["artifacts"][0]
+    assert "task_item_1" in expanded_art5
 
 
 def test_build_multi_state_sequence_packet_expands_scratch_artifact_references(tmp_path):
@@ -2787,7 +2818,7 @@ def test_build_multi_state_sequence_packet_expands_scratch_artifact_references(t
     ]
     state = {
         "step": 1,
-        "artifacts": [f".toas/scratch/{block_id}.txt"],
+        "artifacts": [f"(ref: .toas/scratch/{block_id}.txt)"],
     }
     packet = build_multi_state_sequence_packet(
         events_path=events,
@@ -2799,6 +2830,111 @@ def test_build_multi_state_sequence_packet_expands_scratch_artifact_references(t
     assert "item_alpha" in expanded
     assert "item_gamma" in expanded
     assert f"block_id={block_id}" in expanded
+
+
+def test_terminal_report_reference_expansion(tmp_path):
+    from toas.runtime.state_step import (
+        append_state_step_records,
+        preview_state_request,
+        step_state,
+    )
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    block_id = "ib_tasks_report_99"
+    (scratch_dir / f"{block_id}.txt").write_text("task_1.md\ntask_2.md\ntask_3.md\n", encoding="utf-8")
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.touch()
+
+    report_with_ref = f"Summary of tasks:\n(ref: .toas/scratch/{block_id}.txt)"
+    state = {"goal": "list tasks"}
+
+    append_state_step_records(
+        str(events_path),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": "st_term_report",
+                "status": "completed",
+                "outcome": "complete",
+                "state_before": state,
+                "state_after": state,
+                "report": report_with_ref,
+            }
+        ],
+    )
+
+    # 1. preview_state_request expands report references
+    req = preview_state_request(
+        events_path=events_path,
+        state=state,
+        observation=None,
+    )
+    assert req["phase"] == "terminal"
+    assert "Summary of tasks:" in req["report"]
+    assert f"block_id={block_id}" in req["report"]
+    assert "task_1.md\ntask_2.md\ntask_3.md" in req["report"]
+
+    # 2. step_state expands report references
+    step_res = step_state(
+        events_path=events_path,
+        state=state,
+        observation=None,
+        generate=lambda _: {},
+        execute_call=lambda _: {},
+    )
+    assert step_res["phase"] == "terminal"
+    assert "Summary of tasks:" in step_res["report"]
+    assert f"block_id={block_id}" in step_res["report"]
+    assert "task_1.md\ntask_2.md\ntask_3.md" in step_res["report"]
+
+    # 3. Whole-string fenced block reference in report
+    fenced_report = f"```text block_id={block_id}\n(ref: {block_id})\n```"
+    append_state_step_records(
+        str(events_path),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": "st_term_fenced",
+                "status": "completed",
+                "outcome": "complete",
+                "state_before": state,
+                "state_after": state,
+                "report": fenced_report,
+            }
+        ],
+    )
+    req_fenced = preview_state_request(
+        events_path=events_path,
+        state=state,
+        observation=None,
+    )
+    assert "task_1.md" in req_fenced["report"]
+
+    # 4. Report containing code fence and unresolved reference
+    mixed_report = "Notes:\n```python\nprint(1)\n```\n(ref: ib_nonexistent)"
+    append_state_step_records(
+        str(events_path),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": "st_term_mixed",
+                "status": "completed",
+                "outcome": "complete",
+                "state_before": state,
+                "state_after": state,
+                "report": mixed_report,
+            }
+        ],
+    )
+    req_mixed = preview_state_request(
+        events_path=events_path,
+        state=state,
+        observation=None,
+    )
+    assert "```python\nprint(1)\n```" in req_mixed["report"]
+    assert "(ref: ib_nonexistent)" in req_mixed["report"]
 
 
 

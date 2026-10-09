@@ -12,13 +12,16 @@ Observation Ephemerality and Persistence:
 - Retain code or data slices in state.artifacts using bounded slice references
   (<target>:<start>-<end> or (ref: <target>:<start>-<end>), e.g. ib_8f2a1c:23-85,
   .toas/scratch/ib_8f2a1c.txt:23-85, or src/toas/cli.py:100-145) or full block references
-  ((ref: <block_id>), .toas/scratch/<block_id>.txt, or (ref: <target>)). Bounded references
+  ((ref: <block_id>), (ref: .toas/scratch/<block_id>.txt), or (ref: <target>)). Bounded references
   expand automatically during state-step packet preparation.
 - Tool outputs exceeding thresholds spill to .toas/scratch/<block_id>.txt with a preview.
   Intentional bounded reads permit up to 500 lines without spilling: when ingesting spilled
   lists or files, read the complete file via read_file or reference it in state.artifacts
   rather than sipping only the tail, as single-turn ephemerality drops the previewed head
   unless persisted into state.
+- Do not manually transcribe file listings, diffs, or raw tool outputs into state.notes
+  or report. Storing explicit references in state preserves them across turns, and references
+  in report expand into complete user output upon completion.
 
 Return one JSON object with these fields:
 - state_patch: an object containing the changes to the current state. Use null to
@@ -29,7 +32,8 @@ Return one JSON object with these fields:
   goal is done and cannot include tool calls.
 - report: optional string; provide a concise user-facing report or direct answer
   to the user's goal when completing the task (outcome: complete) or sharing
-  intermediate progress.
+  intermediate progress. Explicit references (such as (ref: <target>) or
+  (ref: <target>:<start>-<end>)) expand automatically in the final report.
 
 Available tools, argument definitions, type signatures, and the tool protocol are supplied alongside
 the state. Propose tool calls only; TOAS validates and executes them on a later explicit step.

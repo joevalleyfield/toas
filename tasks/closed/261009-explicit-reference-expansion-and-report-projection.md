@@ -11,7 +11,17 @@ Parent: `260926-state-step-requirements`
 Depends on: `261008-state-step-terminal-reporting-channel`; `261008-state-spill-ingestion-and-artifact-references`
 Related: `261009-read-file-eof-truncation-and-soft-bounds`
 
-Status: OPEN; constrain reference expansion to explicit syntax, expand references in report, and update model instructions
+Status: CLOSED
+
+## Outcome
+
+- Kept state schema fully user-defined and schema-agnostic by driving reference expansion strictly via explicit syntax:
+  - Constrained `_STANDALONE_REF_PATTERN` to explicit reference syntax: `(ref: <target>)`, `ref: <target>`, and line-bounded slices `<target>:<start>-<end>`.
+  - Disallowed bare `ib_...` and bare `.toas/scratch/...` strings from triggering automatic expansion as standalone tokens, preventing accidental inflation of metadata fields (e.g., `id: ib_...` or `path: .toas/scratch/...`).
+  - Added support for structured dicts containing explicit `{"ref": "<target>"}`.
+- Added terminal report reference expansion (`_expand_report_references`) so that explicit references inside the terminal `report` channel expand automatically into complete inert blocks upon projection.
+- Updated `instructions_v1.txt` with clear operator instructions advising models against manual transcription and explaining that references round-trip in state and expand in final reports.
+- Added comprehensive unit tests in `tests/test_state_step.py` and maintained 100.00% statement coverage across the repository.
 
 ## Context
 

@@ -968,7 +968,7 @@ _FENCED_REF_PATTERN = re.compile(
     r'(?ms)^(`{3,})([^\n]*block_id="?([a-zA-Z0-9_-]+)"?[^\n]*)\n\(ref:\s*([^\s)]+)\)\n\1$'
 )
 _STANDALONE_REF_PATTERN = re.compile(
-    r'^\s*(?:\(ref:\s*([^\s)]+)\)|ref:\s*([^\s)]+)|([a-zA-Z0-9_./@+-]+:\d+-\d+)|((?:\.toas/)?scratch/[a-zA-Z0-9_.-]+)|(ib_[a-zA-Z0-9_-]+))\s*$'
+    r'^\s*(?:\(ref:\s*([^\s)]+)\)|ref:\s*([^\s)]+)|([a-zA-Z0-9_./@+-]+:\d+-\d+))\s*$'
 )
 
 
@@ -1128,6 +1128,16 @@ def expand_inert_blocks(
                 matched = True
                 seen_ids.add(block_id)
                 return f"{fence}{header}\n{body}\n{fence}"
+            resolved = _resolve_reference_target(
+                ref_target,
+                blocks_by_id,
+                full_blocks_by_id,
+                workspace_root,
+            )
+            if resolved is not None:
+                matched = True
+                seen_ids.add(ref_target)
+                return resolved
             return m.group(0)
 
         current = _FENCED_REF_PATTERN.sub(repl_fenced, current)
@@ -1135,7 +1145,7 @@ def expand_inert_blocks(
         if full_blocks_by_id or blocks_by_id or workspace_root:
             def repl_standalone(m: re.Match) -> str:
                 nonlocal matched
-                ref_target = m.group(1) or m.group(2) or m.group(3) or m.group(4) or m.group(5)
+                ref_target = m.group(1) or m.group(2) or m.group(3)
                 if ref_target in seen_ids:
                     return m.group(0)
                 resolved = _resolve_reference_target(
@@ -1156,6 +1166,53 @@ def expand_inert_blocks(
             break
 
     return current
+
+
+def _expand_report_references(
+    report_str: str,
+    records: list[dict[str, Any]],
+    events_path: Path,
+) -> str:
+    blocks_by_id = extract_inert_blocks_by_id(records, full_blocks=False)
+    full_blocks_by_id = extract_inert_blocks_by_id(records, full_blocks=True)
+    workspace_root = events_path.parent.parent if events_path.parent.name == ".toas" else events_path.parent
+    expanded = expand_inert_blocks(
+        report_str,
+        blocks_by_id=blocks_by_id,
+        full_blocks_by_id=full_blocks_by_id,
+        workspace_root=workspace_root,
+    )
+    if expanded != report_str:
+        return expanded
+
+    lines = report_str.splitlines(keepends=True)
+    out_lines: list[str] = []
+    in_fence = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            out_lines.append(line)
+        elif not in_fence and _STANDALONE_REF_PATTERN.match(stripped):
+            m = _STANDALONE_REF_PATTERN.match(stripped)
+            target = m.group(1) or m.group(2) or m.group(3) if m else None
+            resolved = (
+                _resolve_reference_target(
+                    target,
+                    blocks_by_id=blocks_by_id,
+                    full_blocks_by_id=full_blocks_by_id,
+                    workspace_root=workspace_root,
+                )
+                if target
+                else None
+            )
+            if resolved is not None:
+                out_lines.append(resolved + ("\n" if not resolved.endswith("\n") else ""))
+            else:
+                out_lines.append(line)
+        else:
+            out_lines.append(line)
+    return "".join(out_lines)
 
 
 def extract_inert_blocks_by_id(text_or_records: Any, *, full_blocks: bool = False) -> dict[str, str]:
@@ -1196,10 +1253,19 @@ def _expand_compound_observation(
             )
             if resolved is not None:
                 return resolved
-        return {
-            k: _expand_compound_observation(v, blocks_by_id, full_blocks_by_id, workspace_root)
-            for k, v in observation.items()
-        }
+        expanded_dict = {}
+        for k, v in observation.items():
+            if k == "ref" and isinstance(v, str):
+                resolved = _resolve_reference_target(
+                    v,
+                    blocks_by_id,
+                    full_blocks_by_id,
+                    workspace_root,
+                )
+                expanded_dict[k] = resolved if resolved is not None else v
+            else:
+                expanded_dict[k] = _expand_compound_observation(v, blocks_by_id, full_blocks_by_id, workspace_root)
+        return expanded_dict
     if isinstance(observation, list):
         return [
             _expand_compound_observation(item, blocks_by_id, full_blocks_by_id, workspace_root)
@@ -1908,7 +1974,9 @@ def preview_state_request(
         ):
             term_res: dict[str, Any] = {"phase": "terminal", "status": "completed"}
             if latest.get("report"):
-                term_res["report"] = latest["report"]
+                term_res["report"] = _expand_report_references(
+                    latest["report"], records, Path(events_path)
+                )
             return term_res
     if infer_from is not None and transcript_turns:
         start_idx = find_state_turn_index_by_label(transcript_turns, infer_from)
@@ -2096,7 +2164,9 @@ def step_state(  # noqa: PLR0913
             "status": "completed",
         }
         if transitions[-1].get("report"):
-            term_res["report"] = transitions[-1]["report"]
+            term_res["report"] = _expand_report_references(
+                transitions[-1]["report"], records, Path(path)
+            )
         return term_res
     pending = _latest_pending(records)
     if pending is not None and _is_stale_pending(
