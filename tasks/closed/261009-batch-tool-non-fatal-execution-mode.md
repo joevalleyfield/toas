@@ -10,7 +10,7 @@ keywords: tools, runtime, batch, execution, error-disposition, exploration
 Parent: `260926-state-step-requirements`
 Related: `261009-read-file-eof-truncation-and-soft-bounds`
 
-Status: OPEN; support non-fatal exploratory batch tool execution without model instruction fatigue
+Status: CLOSED; implemented batch tool continue_on_error mode across runtime, protocol, and projection
 
 ## Context
 
@@ -43,3 +43,15 @@ While fail-fast is desirable for sequential dependency chains (acting as an ad-h
 4. **Validation and Coverage**:
    - Add unit tests for non-fatal batch execution across raised and returned failures.
    - Maintain 100.00% statement coverage.
+
+## Outcome
+
+- Added low-friction `continue_on_error: bool = False` support to `execute_plan_calls` in `src/toas/tools_cluster/execution.py`, accepting both batch-level disposition and per-call overrides across raised exceptions (`TimeoutError`, `ConnectionError`, `ChildProcessError`, `RuntimeError`, generic `Exception`) and returned failures (`ok: False`).
+- Threaded `continue_on_error` through `execute_plan` (`src/toas/tools.py`), `_execute_plan` (`src/toas/step.py`), `step_state` (`src/toas/runtime/state_step.py`), `step_state_once` (`src/toas/operator_api.py`), and CLI session runner (`src/toas/cli_session_commands.py`).
+- Updated `default_protocol()["schema"]` to accept optional `continue_on_error: "boolean (optional)"` at the batch level.
+- Updated `parse_state_turn` and `render_state_turn` to parse, validate, and serialize `continue_on_error`.
+- Updated state prompt instructions (`src/toas/assets/prompts/state/instructions_v1.txt`) to concisely document `continue_on_error: true` for speculative or exploratory batches without causing model instruction fatigue.
+- Verified stdout and RESULT projections in session runner project both success blocks and failed outcome lines for non-fatal batches.
+- Added comprehensive unit tests in `tests/test_tools_execution.py`, `tests/test_tools.py`, `tests/test_step.py`, `tests/test_state_step.py`, and `tests/test_cli_session_commands_state_step.py`.
+- Conducted operator-perspective end-to-end artifact inspection (`toas prompt state/instructions_v1`).
+- Passed full test suite and check script (`./scripts/check.sh`) at 100.00% statement coverage.

@@ -737,6 +737,7 @@ def execute_plan(
     assistant_timeout_source: str = "default",
     executable_grant_policy: ExecutableGrantPolicy | None = None,
     authority: str = "assistant",
+    continue_on_error: bool = False,
 ) -> list[dict]:
     with (
         workspace_policy(roots=workspace_roots, mode=workspace_mode, base=default_shell_cwd),
@@ -753,6 +754,7 @@ def execute_plan(
             default_shell_env=default_shell_env,
             default_shell_timeout_s=assistant_timeout_s,
             default_timeout_s=assistant_timeout_s,
+            continue_on_error=continue_on_error,
         )
 
 

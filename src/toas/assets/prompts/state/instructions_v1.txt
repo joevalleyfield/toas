@@ -28,6 +28,8 @@ Return one JSON object with these fields:
   remove a key.
 - tool_calls: an array of batch tool calls, each with tool_name and args matching
   the tool argument definitions and type signatures. Use an empty array when no tools are needed.
+- continue_on_error: optional boolean; set true (or set continue_on_error: true on
+  individual tool calls) to execute all batch calls without aborting on tool failure (useful for speculative or exploratory batches).
 - outcome: optional; use continue or complete. A complete outcome means the
   goal is done and cannot include tool calls.
 - report: optional string; provide a concise user-facing report or direct answer

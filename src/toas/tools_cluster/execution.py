@@ -121,6 +121,7 @@ def execute_plan_calls(
     default_shell_env: dict[str, str | None] | None = None,
     default_shell_timeout_s: int | None = None,
     default_timeout_s: int | None = None,
+    continue_on_error: bool = False,
 ) -> list[dict]:
     if default_process_env is None:
         default_process_env = default_shell_env
@@ -128,6 +129,11 @@ def execute_plan_calls(
         results = []
         total = len(plan)
         for idx, raw_call in enumerate(plan, start=1):
+            call_continue_on_error = bool(
+                raw_call.get("continue_on_error")
+                if "continue_on_error" in raw_call
+                else continue_on_error
+            )
             call = adapt_call_for_execution(
                 raw_call,
                 default_shell_cwd=default_shell_cwd,
@@ -153,7 +159,9 @@ def execute_plan_calls(
                 )
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
-                break
+                if not call_continue_on_error:
+                    break
+                continue
             except ConnectionError as exc:
                 results.append(
                     _apply_intention(
@@ -168,7 +176,9 @@ def execute_plan_calls(
                 )
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
-                break
+                if not call_continue_on_error:
+                    break
+                continue
             except ChildProcessError as exc:
                 results.append(
                     _apply_intention(
@@ -183,7 +193,9 @@ def execute_plan_calls(
                 )
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
-                break
+                if not call_continue_on_error:
+                    break
+                continue
             except RuntimeError as exc:
                 failure_kind, outcome = _classify_runtime_failure(str(exc))
                 error_result = _raised_failure_result(
@@ -198,7 +210,9 @@ def execute_plan_calls(
                 results.append(_apply_intention(error_result, raw_call))
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status=outcome, index=idx, total=total)
-                break
+                if not call_continue_on_error:
+                    break
+                continue
             except Exception as exc:
                 failure_kind, outcome = _classify_runtime_failure(str(exc))
                 error_result = _raised_failure_result(
@@ -211,14 +225,16 @@ def execute_plan_calls(
                 results.append(_apply_intention(error_result, raw_call))
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status=outcome, index=idx, total=total)
-                break
+                if not call_continue_on_error:
+                    break
+                continue
             projected = _apply_intention(_annotate_returned_failure(output), raw_call)
             results.append(projected)
             if not is_tool_done_emitted():
                 ok = projected.get("ok") is not False
                 status = None if ok else str(projected.get("outcome") or "error")
                 emit_tool_done(operation=tool_name, ok=ok, status=status, index=idx, total=total)
-            if projected.get("ok") is False:
+            if projected.get("ok") is False and not call_continue_on_error:
                 break
         return results
 

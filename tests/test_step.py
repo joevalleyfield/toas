@@ -4639,6 +4639,27 @@ def test_execute_plan_user_context_stops_after_non_shell_failure():
     assert nodes[0]["payload"]["tool_name"] == "missing"
 
 
+def test_execute_plan_continue_on_error(tmp_path):
+    from toas.step import _execute_plan
+
+    nodes = _execute_plan(
+        [
+            {"tool_name": "read_file", "args": {"path": "missing.txt"}},
+            {"tool_name": "write_file", "args": {"path": "out.txt", "content": "done"}},
+        ],
+        origin_role="assistant",
+        command_cwd=str(tmp_path),
+        workspace_mode="strict",
+        workspace_roots=[str(tmp_path)],
+        continue_on_error=True,
+    )
+    assert len(nodes) == 2
+    assert nodes[0]["payload"]["ok"] is False
+    assert nodes[1]["payload"]["ok"] is True
+    assert (tmp_path / "out.txt").read_text(encoding="utf-8") == "done"
+
+
+
 # --- _annotate_branch_parent same-tip guard (line 968) ---
 
 def test_annotate_branch_parent_same_continuation_and_storage_tip():

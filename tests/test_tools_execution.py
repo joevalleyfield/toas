@@ -342,3 +342,68 @@ def test_execute_plan_calls_emits_tool_lifecycle_stream_events():
     ]
 
 
+@pytest.mark.parametrize(
+    "exception_cls,exc_args",
+    [
+        (TimeoutError, ("command timed out",)),
+        (ConnectionError, ("connection dropped",)),
+        (ChildProcessError, ("child exited unexpectedly",)),
+        (RuntimeError, ("failed runtime operation",)),
+        (Exception, ("generic error",)),
+    ],
+)
+def test_execute_plan_calls_continue_on_error_across_exceptions(exception_cls, exc_args):
+    plan = [
+        {"tool_name": "tool_fail", "args": {}},
+        {"tool_name": "tool_succeed", "args": {}},
+    ]
+
+    def _execute(call):
+        if call["tool_name"] == "tool_fail":
+            raise exception_cls(*exc_args)
+        return {"tool_name": call["tool_name"], "ok": True, "result": "ok"}
+
+    # Default continue_on_error=False stops after first failure
+    results_fail_fast = execute_plan_calls(plan, execute_call=_execute, continue_on_error=False)
+    assert len(results_fail_fast) == 1
+    assert results_fail_fast[0]["ok"] is False
+
+    # continue_on_error=True runs both calls
+    results_continue = execute_plan_calls(plan, execute_call=_execute, continue_on_error=True)
+    assert len(results_continue) == 2
+    assert results_continue[0]["ok"] is False
+    assert results_continue[1]["ok"] is True
+
+
+def test_execute_plan_calls_continue_on_error_returned_failure_and_call_override():
+    plan = [
+        {"tool_name": "tool_a", "args": {}, "continue_on_error": True},
+        {"tool_name": "tool_b", "args": {}},
+        {"tool_name": "tool_c", "args": {}},
+    ]
+
+    def _execute(call):
+        name = call["tool_name"]
+        if name == "tool_a":
+            return {"tool_name": name, "ok": False, "summary": "failure a"}
+        if name == "tool_b":
+            return {"tool_name": name, "ok": False, "summary": "failure b"}
+        return {"tool_name": name, "ok": True, "summary": "success c"}
+
+    # tool_a has continue_on_error=True override, but tool_b fails with batch default continue_on_error=False
+    results = execute_plan_calls(plan, execute_call=_execute, continue_on_error=False)
+    assert len(results) == 2
+    assert results[0]["ok"] is False
+    assert results[1]["ok"] is False
+
+    # When batch default is True, but tool_a overrides to False:
+    plan_override_false = [
+        {"tool_name": "tool_a", "args": {}, "continue_on_error": False},
+        {"tool_name": "tool_b", "args": {}},
+    ]
+    results_override = execute_plan_calls(plan_override_false, execute_call=_execute, continue_on_error=True)
+    assert len(results_override) == 1
+    assert results_override[0]["ok"] is False
+
+
+

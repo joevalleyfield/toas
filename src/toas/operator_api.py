@@ -82,6 +82,7 @@ def step_state_once(
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
     on_prompt_progress: Callable[[object], None] | None = None,
+    continue_on_error: bool = False,
 ) -> dict:
     """Advance the independent, typed state-step runtime once."""
     from .runtime.state_step import step_state
@@ -98,6 +99,7 @@ def step_state_once(
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
         on_prompt_progress=on_prompt_progress,
+        continue_on_error=continue_on_error,
     )
 
 

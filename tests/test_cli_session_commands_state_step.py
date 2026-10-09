@@ -2758,6 +2758,50 @@ def test_cli_state_step_renders_report_and_terminal_message(monkeypatch, tmp_pat
     assert "Found 46 tasks in repository." in out_terminal
 
 
+def test_run_step_state_batch_continue_on_error_projects_failures_and_successes(monkeypatch, tmp_path, capsys):
+    from toas import cli
+    from toas.config import OperatorConfig
+
+    monkeypatch.chdir(tmp_path)
+    events_dir = tmp_path / ".toas"
+    events_dir.mkdir(parents=True, exist_ok=True)
+    events = events_dir / "events.jsonl"
+    events.touch()
+
+    session = events_dir / "session.md"
+    session.write_text(
+        "## TOAS:STATE/1\n\n"
+        "state:\n"
+        "  goal: survey\n\n"
+        "continue_on_error: true\n"
+        "pending_tools:\n"
+        "  - tool_name: read_file\n"
+        "    args: {path: nonexistent.txt}\n"
+        "  - tool_name: write_file\n"
+        "    args: {path: output.txt, content: 'created'}\n"
+    )
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            return {"content": "{}"}
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        cli.run_step(session_path=str(session))
+
+    out = capsys.readouterr().out
+    # 1. output.txt was written by the second tool (not aborted)
+    assert (tmp_path / "output.txt").read_text(encoding="utf-8") == "created"
+
+    # 2. Both success block and failure outcome line are projected
+    assert "[OK] write_file" in out
+    assert "[FAILED] tool 0 (read_file):" in out
+
+
+
 
 
 

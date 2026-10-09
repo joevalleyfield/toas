@@ -632,6 +632,7 @@ def _execute_plan(
     stream_stdout_enabled: bool | None = None,
     assistant_timeout_s: int | None = 5,
     assistant_timeout_source: str = "default",
+    continue_on_error: bool = False,
 ) -> list[dict]:
     effective_env = dict(env_modifiers or {})
     if stream_stdout_enabled is not None and "TOAS_STREAM_STDOUT" not in effective_env:
@@ -653,6 +654,7 @@ def _execute_plan(
             assistant_timeout_s=assistant_timeout_s,
             assistant_timeout_source=assistant_timeout_source,
             authority=origin_role,
+            continue_on_error=continue_on_error,
         )
     ]
 

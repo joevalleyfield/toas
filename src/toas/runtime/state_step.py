@@ -90,6 +90,7 @@ def default_protocol() -> dict[str, Any]:
         "schema": {
             "state_patch": "object",
             "tool_calls": [{"tool_name": "string", "args": "object"}],
+            "continue_on_error": "boolean (optional)",
             "outcome": ["continue", "complete"],
             "report": "string",
         },
@@ -293,6 +294,8 @@ def parse_state_turn(target: dict[str, Any] | str) -> dict[str, Any]:
         raise ValueError("state turn outcome must be a string")
     if "report" in payload and not isinstance(payload["report"], str):
         raise ValueError("state turn report must be a string")
+    if "continue_on_error" in payload and not isinstance(payload["continue_on_error"], bool):
+        raise ValueError("state turn continue_on_error must be a boolean")
 
     calls = payload.get("pending_tools") or payload.get("tool_calls")
     if calls is not None:
@@ -330,6 +333,7 @@ def render_state_turn(  # noqa: PLR0913
     is_key: bool = False,
     outcome: str | None = None,
     report: str | None = None,
+    continue_on_error: bool | None = None,
 ) -> str:
     if format not in {"yaml", "markdown"}:
         raise ValueError("state format must be 'yaml' or 'markdown'")
@@ -355,6 +359,8 @@ def render_state_turn(  # noqa: PLR0913
     calls = pending_tools if pending_tools is not None else tool_calls
     if calls:
         payload["pending_tools"] = calls
+    if continue_on_error is not None:
+        payload["continue_on_error"] = continue_on_error
     if observation is not None:
         payload["observation"] = observation
     if outcome is not None:
@@ -2047,6 +2053,7 @@ def step_state(  # noqa: PLR0913
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
     on_prompt_progress: Callable[[object], None] | None = None,
+    continue_on_error: bool = False,
 ) -> dict[str, Any]:
     """Run one explicit phase: user consolidation, pending batch, or inference."""
     path = str(events_path)
@@ -2201,6 +2208,8 @@ def step_state(  # noqa: PLR0913
             "observation": observation,
             "tool_calls": pending_tool_calls,
         }
+        if continue_on_error:
+            transition_record["continue_on_error"] = True
         if state_message_id is not None:
             transition_record["message_id"] = state_message_id
         append_state_step_records(
@@ -2213,6 +2222,8 @@ def step_state(  # noqa: PLR0913
             "source": "operator",
             "tool_calls": pending_tool_calls,
         }
+        if continue_on_error:
+            pending["continue_on_error"] = True
 
     if pending is not None:
         if pending.get("status") == "running":
@@ -2250,7 +2261,13 @@ def step_state(  # noqa: PLR0913
             else pending["tool_calls"]
         )
         total = len(calls_to_execute)
+        batch_continue_on_error = bool(pending.get("continue_on_error", False) or continue_on_error)
         for index, call in enumerate(calls_to_execute):
+            call_continue_on_error = bool(
+                call.get("continue_on_error")
+                if "continue_on_error" in call
+                else batch_continue_on_error
+            )
             call_source = pending.get("source", "model")
             tool_name = call.get("tool_name") or call.get("operation") or "unknown"
             emit_tool_start(operation=str(tool_name), index=index + 1, total=total)
@@ -2329,7 +2346,7 @@ def step_state(  # noqa: PLR0913
                 ],
             )
             outcomes.append(outcome)
-            if outcome["status"] != "completed":
+            if outcome["status"] != "completed" and not call_continue_on_error:
                 break
 
         status = (
@@ -2391,7 +2408,13 @@ def step_state(  # noqa: PLR0913
                 path,
                 [{"kind": "state_tool_request", "transition_id": transition_id, "source": "user", "tool_calls": calls}],
             )
+        batch_continue_on_error = bool(continue_on_error)
         for index, call in enumerate(calls):
+            call_continue_on_error = bool(
+                call.get("continue_on_error")
+                if "continue_on_error" in call
+                else batch_continue_on_error
+            )
             tool_name = call.get("tool_name") or call.get("operation") or "unknown"
             try:
                 if execute_user_call is None:
@@ -2481,7 +2504,7 @@ def step_state(  # noqa: PLR0913
                 [{"kind": "state_tool_result", "transition_id": transition_id, **execution_outcome}],
             )
             outcomes.append(execution_outcome)
-            if execution_outcome["status"] != "completed":
+            if execution_outcome["status"] != "completed" and not call_continue_on_error:
                 break
 
         if calls:
@@ -2576,6 +2599,12 @@ def step_state(  # noqa: PLR0913
     calls = response.get("tool_calls", [])
     outcome = response.get("outcome", "continue")
     report = response.get("report")
+    continue_on_error_val = response.get("continue_on_error")
+    if continue_on_error_val is not None and not isinstance(continue_on_error_val, bool):
+        error = "state-step response continue_on_error must be a boolean if provided"
+        _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
+        raise ValueError(error)
+    continue_on_error = bool(continue_on_error_val)
     if (
         not isinstance(patch, dict)
         or not isinstance(calls, list)
@@ -2615,6 +2644,8 @@ def step_state(  # noqa: PLR0913
         "tool_calls": calls,
         "outcome": outcome,
     }
+    if continue_on_error:
+        transition["continue_on_error"] = True
     if report is not None:
         transition["report"] = report
     if message_id is not None:
@@ -2645,7 +2676,7 @@ def step_state(  # noqa: PLR0913
             path,
             [{"kind": "state_tool_request", "transition_id": transition_id, "source": "model", "tool_calls": calls}],
         )
-    return {
+    infer_result: dict[str, Any] = {
         "phase": "infer",
         "transition_id": transition_id,
         "state": accepted,
@@ -2654,6 +2685,9 @@ def step_state(  # noqa: PLR0913
         "outcome": outcome,
         "report": report,
     }
+    if continue_on_error:
+        infer_result["continue_on_error"] = True
+    return infer_result
 
 
 def _record_invalid_response(

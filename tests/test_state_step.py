@@ -2181,6 +2181,7 @@ def test_default_protocol_structure():
     assert proto["schema"] == {
         "state_patch": "object",
         "tool_calls": [{"tool_name": "string", "args": "object"}],
+        "continue_on_error": "boolean (optional)",
         "outcome": ["continue", "complete"],
         "report": "string",
     }
@@ -2935,6 +2936,171 @@ def test_terminal_report_reference_expansion(tmp_path):
     )
     assert "```python\nprint(1)\n```" in req_mixed["report"]
     assert "(ref: ib_nonexistent)" in req_mixed["report"]
+
+
+def test_parse_and_render_state_turn_continue_on_error():
+    from toas.runtime.state_step import parse_state_turn, render_state_turn
+
+    # Invalid non-bool continue_on_error
+    with pytest.raises(ValueError, match="state turn continue_on_error must be a boolean"):
+        parse_state_turn("## TOAS:STATE/1\n\nstate: {}\ncontinue_on_error: 'yes'")
+
+    # Valid bool in render and parse roundtrip
+    rendered = render_state_turn({"goal": "explore"}, continue_on_error=True)
+    assert "continue_on_error: true" in rendered
+    parsed = parse_state_turn(rendered)
+    assert parsed["continue_on_error"] is True
+
+    # Omitted when None
+    rendered_none = render_state_turn({"goal": "explore"})
+    assert "continue_on_error" not in rendered_none
+
+
+def test_step_state_invalid_continue_on_error_in_model_response(tmp_path):
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(ValueError, match="state-step response continue_on_error must be a boolean"):
+        step_state(
+            events_path=events,
+            state={},
+            observation=None,
+            generate=lambda _p: {
+                "content": '{"state_patch": {}, "tool_calls": [], "continue_on_error": "not-bool"}'
+            },
+            execute_call=lambda _c: None,
+        )
+
+    records = read_log(str(events))
+    assert any(
+        r.get("kind") == "state_transition"
+        and r.get("status") == "failed"
+        and "continue_on_error must be a boolean" in str(r.get("error"))
+        for r in records
+    )
+
+
+def test_step_state_model_batch_continue_on_error(tmp_path):
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True, exist_ok=True)
+
+    # Turn 1: model returns batch with continue_on_error=True
+    infer_res = step_state(
+        events_path=events,
+        state={"goal": "survey"},
+        observation=None,
+        generate=lambda _p: {
+            "content": json.dumps({
+                "state_patch": {"step": 1},
+                "tool_calls": [
+                    {"tool_name": "read_file", "args": {"path": "missing.txt"}},
+                    {"tool_name": "echo", "args": {"text": "hello"}},
+                ],
+                "continue_on_error": True,
+            })
+        },
+        execute_call=lambda _c: None,
+    )
+    assert infer_res["phase"] == "infer"
+    assert infer_res["continue_on_error"] is True
+    assert len(infer_res["tool_calls"]) == 2
+
+    # Turn 2: execute_batch executes both calls despite first failing
+    def _execute(call):
+        name = call.get("tool_name")
+        if name == "read_file":
+            raise ToolOutcomeError("failed", "file not found: missing.txt", tool_name="read_file")
+        return [{"role": "result", "content": "hello"}]
+
+    batch_res = step_state(
+        events_path=events,
+        state={"goal": "survey", "step": 1},
+        observation=None,
+        generate=lambda _p: None,
+        execute_call=_execute,
+    )
+    assert batch_res["phase"] == "execute_batch"
+    assert batch_res["status"] == "failed"
+    assert len(batch_res["outcomes"]) == 2
+    assert batch_res["outcomes"][0]["status"] == "failed"
+    assert batch_res["outcomes"][0]["tool_name"] == "read_file"
+    assert batch_res["outcomes"][1]["status"] == "completed"
+    assert batch_res["outcomes"][1]["tool_name"] == "echo"
+
+    # Turn 3: next preview packet includes outcomes from BOTH tools in compound observation
+    from toas.runtime.state_step import build_state_step_packet
+
+    packet = build_state_step_packet(
+        events_path=events,
+        state={"goal": "survey", "step": 1},
+        observation=None,
+    )
+    obs = packet["observation"]
+    assert len(obs["tool_outcomes"]) == 2
+    assert obs["tool_outcomes"][0]["status"] == "failed"
+    assert obs["tool_outcomes"][1]["status"] == "completed"
+
+
+def test_step_state_operator_batch_continue_on_error(tmp_path):
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True, exist_ok=True)
+
+    calls = [
+        {"tool_name": "tool_fail", "args": {}},
+        {"tool_name": "tool_ok", "args": {}},
+    ]
+
+    def _execute(call):
+        if call.get("tool_name") == "tool_fail":
+            raise RuntimeError("fail")
+        return [{"role": "result", "content": "ok"}]
+
+    # With continue_on_error=True
+    res = step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        pending_tool_calls=calls,
+        continue_on_error=True,
+        generate=lambda _p: None,
+        execute_call=_execute,
+    )
+    assert res["phase"] == "execute_batch"
+    assert len(res["outcomes"]) == 2
+    assert res["outcomes"][0]["status"] == "failed"
+    assert res["outcomes"][1]["status"] == "completed"
+
+
+def test_step_state_user_batch_continue_on_error(tmp_path):
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True, exist_ok=True)
+
+    calls = [
+        {"tool_name": "tool_fail", "args": {}},
+        {"tool_name": "tool_ok", "args": {}},
+    ]
+
+    def _execute_user(call):
+        if call.get("tool_name") == "tool_fail":
+            return [{"payload": {"ok": False, "summary": "fail", "tool_name": "tool_fail"}}]
+        return [{"payload": {"ok": True, "result": "ok"}}]
+
+    res = step_state(
+        events_path=events,
+        state={},
+        observation="user action",
+        user_turn_digest="digest_123",
+        user_tool_calls=calls,
+        continue_on_error=True,
+        generate=lambda _p: None,
+        execute_call=lambda _c: None,
+        execute_user_call=_execute_user,
+    )
+    assert res["phase"] == "consolidate_user"
+    assert len(res["outcomes"]) == 2
+    assert res["outcomes"][0]["status"] == "failed"
+    assert res["outcomes"][1]["status"] == "completed"
+
 
 
 

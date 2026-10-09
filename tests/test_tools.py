@@ -1201,6 +1201,24 @@ def test_execute_plan_resolves_read_file_path_from_command_context(tmp_path, mon
     assert result[0]["content"] == "hello\n"
 
 
+def test_execute_plan_continue_on_error(tmp_path):
+    plan = [
+        {"tool_name": "read_file", "args": {"path": "nonexistent.txt"}},
+        {"tool_name": "write_file", "args": {"path": "output.txt", "content": "done"}},
+    ]
+    results = execute_plan(
+        plan,
+        default_shell_cwd=str(tmp_path),
+        workspace_roots=[str(tmp_path)],
+        continue_on_error=True,
+    )
+    assert len(results) == 2
+    assert results[0]["ok"] is False
+    assert results[1]["ok"] is True
+    assert (tmp_path / "output.txt").read_text(encoding="utf-8") == "done"
+
+
+
 def test_replace_block_tool_replaces_unique_match(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     path = tmp_path / "note.txt"
