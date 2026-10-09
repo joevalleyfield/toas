@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-08
+> **Last Sync:** 2026-10-09
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -274,6 +274,9 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti...
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
+- **[T261009-batch-tool-non-fatal-execution-mode]** Status: OPEN; support non-fatal exploratory batch tool execution without model instruction fatigue
+- **[T261009-explicit-reference-expansion-and-report-projection]** Status: OPEN; constrain reference expansion to explicit syntax, expand references in report, and update model instructions
+- **[T261009-read-file-eof-truncation-and-soft-bounds]** Status: OPEN; implement read_file clean EOF truncation and soft line bounds
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
