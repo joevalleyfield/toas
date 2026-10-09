@@ -276,7 +276,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261009-batch-tool-non-fatal-execution-mode]** Status: OPEN; support non-fatal exploratory batch tool execution without model instruction fatigue
 - **[T261009-explicit-reference-expansion-and-report-projection]** Status: OPEN; constrain reference expansion to explicit syntax, expand references in report, and update model instructions
-- **[T261009-read-file-eof-truncation-and-soft-bounds]** Status: OPEN; implement read_file clean EOF truncation and soft line bounds
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -364,11 +363,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261009-read-file-eof-truncation-and-soft-bounds]** Status: CLOSED; implemented read_file clean EOF truncation and soft line bounds
 - **[T261008-state-tool-argument-type-signatures]** Status: CLOSED; advertised explicit type signatures for tool arguments in state-step protocol definitions across all registry tools.
 - **[T261008-state-step-terminal-reporting-channel]** Status: CLOSED; defined and implemented user-facing reporting channel for state-step with completion projection in transcripts and CLI output.
 - **[T261008-state-spill-ingestion-and-artifact-references]** Status: CLOSED; enabled scratch file paths and bare block IDs as first-class expandable artifact references and enhanced spill trailers and instructio...
 - **[T261008-scope-pending-state-transitions]** Scope Pending State Transitions To Frontier Lineage And Invalidate Stale Proposals
-- **[T261007-state-protocol-tool-argument-definitions]** State Protocol Tool Argument Definitions
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -10,7 +10,7 @@ keywords: tools, read_file, ergonomics, contract, usability
 Parent: `260926-state-step-requirements`
 Related: `261008-state-spill-ingestion-and-artifact-references`
 
-Status: OPEN; implement read_file clean EOF truncation and soft line bounds
+Status: CLOSED; implemented read_file clean EOF truncation and soft line bounds
 
 ## Context
 
@@ -45,5 +45,15 @@ For a read operation, reading past EOF is a standard occurrence (analogous to Py
 3. **Preserve Hard Errors for True Contract Violations**:
    - Continue raising `RuntimeError` for invalid arguments: `start_line < 1`, `end_line < start_line`, non-integer line arguments, non-existent files, and directory paths.
 4. **Validation and Coverage**:
-   - Update tests in `tests/test_tools_basic_ops.py` and `tests/test_tools_registry.py`.
+   - Update tests in `tests/test_tools_basic_ops.py` and `tests/test_tools_rendering.py`.
    - Maintain 100.00% statement coverage across all modified modules.
+
+## Outcome
+
+- Updated `run_read_file` in `src/toas/tools_cluster/basic_ops.py` to:
+  - Truncate cleanly to EOF when `end_line > len(lines)`, returning content up to EOF and reporting actual read bounds in `summary` (`f"{path}:{effective_start}-{effective_end}"`).
+  - Fail soft when `effective_start > len(lines)` or on empty files, returning `ok: True`, `content: ""`, and reporting the requested bounds alongside actual file line count in `summary` (e.g. `f"{path}:{effective_start}-{requested_end} (0 lines; file has {total_lines} lines)"`).
+  - Preserve hard errors for invalid arguments (`start_line < 1`, `end_line < start_line`, non-integers, missing files, directories).
+- Added comprehensive unit tests in `tests/test_tools_basic_ops.py` and rendered output verification in `tests/test_tools_rendering.py`.
+- Conducted operator-perspective end-to-end artifact inspection across boundary conditions (47 lines with `end_line=50`, start past EOF, and empty files).
+- Passed full check suite (`./scripts/check.sh`) with 100.00% statement coverage.

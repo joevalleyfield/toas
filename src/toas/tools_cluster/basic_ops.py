@@ -196,20 +196,23 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
         raise RuntimeError(f"tool read_file requires a file: {path_arg}")
 
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    total_lines = len(lines)
     if start_line is None and end_line is None and max_lines is None:
         content = "".join(lines)
         summary = path_arg
     else:
         effective_start = 1 if start_line is None else start_line
         requested_end = effective_start + max_lines - 1 if max_lines is not None else end_line
-        effective_end = len(lines) if requested_end is None else requested_end
-        if effective_start > len(lines):
-            raise RuntimeError(f"start_line {effective_start} is beyond file length {len(lines)}")
-        if max_lines is None and effective_end > len(lines):
-            raise RuntimeError(f"end_line {effective_end} is beyond file length {len(lines)}")
-        effective_end = min(effective_end, len(lines))
-        content = "".join(lines[effective_start - 1 : effective_end])
-        summary = f"{path_arg}:{effective_start}-{effective_end}"
+        if effective_start > total_lines:
+            content = ""
+            if requested_end is not None:
+                summary = f"{path_arg}:{effective_start}-{requested_end} (0 lines; file has {total_lines} lines)"
+            else:
+                summary = f"{path_arg}:{effective_start} (0 lines; file has {total_lines} lines)"
+        else:
+            effective_end = total_lines if requested_end is None else min(requested_end, total_lines)
+            content = "".join(lines[effective_start - 1 : effective_end])
+            summary = f"{path_arg}:{effective_start}-{effective_end}"
 
     display_content = content
     if show_line_numbers:

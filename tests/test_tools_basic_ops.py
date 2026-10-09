@@ -153,6 +153,12 @@ def test_overwrite_history_checks_fail_closed_for_out_of_root_or_missing_tools(t
     assert _jj_captures_current_file_text(path=path, workspace_root=outside_root) is False
     assert _git_head_captures_current_file_text(path=path, workspace_root=outside_root) is False
 
+    monkeypatch.setattr(
+        "toas.tools_cluster.basic_ops.subprocess.run",
+        lambda *args, **kwargs: type("Completed", (), {"returncode": 1, "stdout": b""})(),
+    )
+    assert _git_head_captures_current_file_text(path=path, workspace_root=tmp_path) is False
+
     monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *args, **kwargs: (_ for _ in ()).throw(FileNotFoundError()))
     assert _existing_file_overwrite_is_safe(path=path, workspace_root=tmp_path) is False
 
@@ -272,10 +278,56 @@ def test_run_read_file_max_lines_and_numbered_output_preserve_raw_content(tmp_pa
     assert short["display_content"] == "   2: beta\n   3: gamma\n"
     assert short["summary"] == "x.txt:2-3"
 
-    with pytest.raises(RuntimeError, match="start_line 4 is beyond file length 3"):
-        run_read_file({"path": "x.txt", "start_line": 4}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
-    with pytest.raises(RuntimeError, match="end_line 4 is beyond file length 3"):
-        run_read_file({"path": "x.txt", "end_line": 4}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+    beyond_end = run_read_file(
+        {"path": "x.txt", "end_line": 4},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert beyond_end["ok"] is True
+    assert beyond_end["content"] == "alpha\nbeta\ngamma\n"
+    assert beyond_end["summary"] == "x.txt:1-3"
+
+    beyond_start = run_read_file(
+        {"path": "x.txt", "start_line": 4},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert beyond_start["ok"] is True
+    assert beyond_start["content"] == ""
+    assert beyond_start["display_content"] == ""
+    assert beyond_start["summary"] == "x.txt:4 (0 lines; file has 3 lines)"
+
+    beyond_start_and_end = run_read_file(
+        {"path": "x.txt", "start_line": 4, "end_line": 10},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert beyond_start_and_end["ok"] is True
+    assert beyond_start_and_end["content"] == ""
+    assert beyond_start_and_end["summary"] == "x.txt:4-10 (0 lines; file has 3 lines)"
+
+    empty_file = tmp_path / "empty.txt"
+    empty_file.write_text("", encoding="utf-8")
+    empty_out = run_read_file(
+        {"path": "empty.txt"},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert empty_out["ok"] is True
+    assert empty_out["content"] == ""
+    assert empty_out["summary"] == "empty.txt"
+
+    empty_ranged = run_read_file(
+        {"path": "empty.txt", "start_line": 1, "end_line": 5},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert empty_ranged["ok"] is True
+    assert empty_ranged["content"] == ""
+    assert empty_ranged["summary"] == "empty.txt:1-5 (0 lines; file has 0 lines)"
+
+    empty_max_lines = run_read_file(
+        {"path": "empty.txt", "max_lines": 5},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert empty_max_lines["ok"] is True
+    assert empty_max_lines["content"] == ""
+    assert empty_max_lines["summary"] == "empty.txt:1-5 (0 lines; file has 0 lines)"
 
 
 def test_run_read_file_line_start_end_aliases_and_scratch_path(tmp_path):

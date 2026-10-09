@@ -906,6 +906,22 @@ def test_render_read_file_intentional_bounded_spill_policy(tmp_path):
     assert "Output exceeded threshold (" in rendered_bounded_600
     assert "600 lines); spilled to `" in rendered_bounded_600
 
+    # 4. Soft-bounded empty read: renders cleanly with actual bounds in header
+    soft_bounded_empty = {
+        "tool_name": "read_file",
+        "path": "small.txt",
+        "summary": "small.txt:50-60 (0 lines; file has 47 lines)",
+        "content": "",
+        "bounded": True,
+        "line_start": 50,
+        "line_end": 60,
+    }
+    rendered_empty = render_read_file_success(
+        soft_bounded_empty, status="OK", tool_name="read_file", scratch_dir=scratch_dir
+    )
+    assert "[OK] read_file: small.txt" in rendered_empty
+    assert 'path="small.txt:50-60 (0 lines; file has 47 lines)"' in rendered_empty
+
 
 def test_render_fenced_output_scratch_addressability_and_safety_brake(tmp_path):
     from toas.tools_cluster.rendering import render_fenced_output
