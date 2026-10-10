@@ -5,7 +5,7 @@ Legacy index:
 
 keywords: runtime, investigation, active, contract, projection, frontier, provenance
 Depends on: `260926-state-simulation-checkpoint`
-Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260803-session-rotation-lifecycle`; `260927-state-step-history-projections`; `260928-state-user-control-turn-lifecycle`; `261002-state-transcript-branching-and-modification`
+Related: `260926-state-step-contract-spike`; `260926-state-experiment-harness`; `260926-state-experiment-plan-tools`; `260803-session-rotation-lifecycle`; `260927-state-step-history-projections`; `260928-state-user-control-turn-lifecycle`; `261002-state-transcript-branching-and-modification`; `261010-state-inference-response-resilience`; `261010-state-result-history-sideslip`
 
 # State-Transition Step: Requirements And Implementation Straw Man
 

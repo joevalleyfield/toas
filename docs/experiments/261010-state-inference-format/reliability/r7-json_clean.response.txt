@@ -1,0 +1,9 @@
+Let me look at the key sections of the code to understand the current implementation.
+
+<tool_call>
+<function=shell>
+<parameter=argv>
+["sed", "-n", "195,270p", "src/toas/cli.py"]
+</parameter>
+</function>
+</tool_call>

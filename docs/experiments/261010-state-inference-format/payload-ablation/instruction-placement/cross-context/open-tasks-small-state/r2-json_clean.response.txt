@@ -1,0 +1,19 @@
+{
+  "state_patch": {
+    "goal": "List open tasks",
+    "notes": {
+      "uncertainties": [
+        "No information provided about which tool, file, or system stores the 'open tasks'. Common candidates include a TODO.md file, a task manager CLI (e.g., todoist, taskwarrior), or a specific project management file, but this is unknown."
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": "ls -la"
+      }
+    }
+  ],
+  "outcome": "continue"
+}

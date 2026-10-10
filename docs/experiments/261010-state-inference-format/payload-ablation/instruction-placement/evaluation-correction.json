@@ -1,0 +1,81 @@
+{
+  "reason": "Original diagnostic scanner could count a single JSON object twice after a blank line because whitespace matching crossed line boundaries. Restrict indentation to spaces/tabs. Strict-parser metrics unchanged.",
+  "changed_trials": [
+    {
+      "run_id": "r2-instructions_plaintext",
+      "changes": {
+        "valid_proposal_after_prose": {
+          "before": false,
+          "after": true
+        },
+        "proposal_error": {
+          "before": "proposal is not an object",
+          "after": ""
+        },
+        "nonempty_state_patch": {
+          "before": false,
+          "after": true
+        },
+        "proposal": {
+          "before": null,
+          "after": {
+            "state_patch": {
+              "artifacts": [
+                "src/toas/cli.py:196-275"
+              ],
+              "progress": [
+                "Read AGENTS.md to understand project structure and conventions",
+                "Read task file to understand requirements and motivation",
+                "Grep'd for --preview-request in src/toas/cli.py to locate the implementation"
+              ],
+              "next_steps": [
+                "Read src/toas/cli.py around lines 196-275 to see full _run_step and run_step implementation",
+                "Identify where the request payload is constructed and output (likely in step.py or operator_api.py)",
+                "Implement --pretty flag that parses and pretty-prints the request messages",
+                "Add tests for the new pretty-print functionality",
+                "Update task file with progress"
+              ],
+              "notes": {
+                "constraints": [
+                  "Use `uv run pytest` for verification",
+                  "Follow task/commit discipline: update task file in same commit",
+                  "Prefer red/green/refactor cadence"
+                ],
+                "accepted_decisions": [
+                  "Flag name should be `--pretty` or similar inspection option"
+                ],
+                "pending_proposals": [],
+                "uncertainties": []
+              }
+            },
+            "tool_calls": [
+              {
+                "tool_name": "read_file",
+                "args": {
+                  "path": "src/toas/cli.py",
+                  "start_line": 196,
+                  "end_line": 275,
+                  "show_line_numbers": true
+                }
+              },
+              {
+                "tool_name": "shell",
+                "args": {
+                  "argv": [
+                    "grep",
+                    "-rn",
+                    "preview_request",
+                    "src/toas/"
+                  ],
+                  "timeout_s": 10
+                }
+              }
+            ],
+            "continue_on_error": false,
+            "outcome": "continue"
+          }
+        }
+      }
+    }
+  ]
+}

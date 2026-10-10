@@ -1,0 +1,44 @@
+{
+  "state_patch": {
+    "goal": "Implement `--pretty` flag for `toas step --preview-request` to unpack and format model request messages for human inspection.",
+    "progress": [
+      "Reviewed AGENTS.md for project conventions and implementation bias.",
+      "Reviewed task file 261010-preview-request-pretty-inspection.md for intent and context."
+    ],
+    "next_steps": [
+      "Locate the CLI entry point for `toas step` and how `--preview-request` is currently handled.",
+      "Identify the function that generates the preview request payload.",
+      "Design a 'pretty' transformation that unpacks stringified content and pretty-prints inner JSON.",
+      "Implement the transformation and wire it to the CLI flag."
+    ],
+    "artifacts": [],
+    "blockers": [],
+    "notes": {
+      "constraints": [
+        "Use `uv run pytest` for verification.",
+        "Follow 'spike, then TDD' workflow.",
+        "Task file must be updated when work is committed."
+      ],
+      "accepted_decisions": [],
+      "pending_proposals": [],
+      "uncertainties": []
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": ["rg", "preview-request", "src/toas/"]
+      }
+    },
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": ["rg", "preview_request", "src/toas/"]
+      }
+    }
+  ],
+  "continue_on_error": true,
+  "outcome": "continue",
+  "report": "Starting implementation for task 261010-preview-request-pretty-inspection. First locating the CLI and handler code for `--preview-request`."
+}

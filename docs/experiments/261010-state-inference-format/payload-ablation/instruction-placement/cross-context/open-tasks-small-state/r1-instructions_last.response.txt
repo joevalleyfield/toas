@@ -1,0 +1,27 @@
+{
+  "state_patch": {
+    "goal": "List open tasks",
+    "next_steps": [
+      "Identify the task management system or file where tasks are stored",
+      "Read the relevant file or query the system",
+      "Filter for open tasks"
+    ],
+    "notes": {
+      "constraints": [],
+      "accepted_decisions": [],
+      "pending_proposals": [],
+      "uncertainties": [
+        "The specific location or format of the task storage is unknown."
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": ["ls", "-la"]
+      }
+    }
+  ],
+  "outcome": "continue"
+}

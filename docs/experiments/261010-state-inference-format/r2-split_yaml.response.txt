@@ -1,0 +1,4 @@
+Let me read the full `_run_step` function and the `run_operator_step_once` function to understand the current implementation.
+
+<tool_call>
+{"tool_calls": [{"args": {"end_line": 270, "path": "src/toas/cli.py", "show_line_numbers": true, "start_line": 196}, "tool_name": "read_file"}, {"args": {"argv": ["grep", "-rn", "preview_request", "src/toas/"]}, "tool_name": "shell"}, {"args": {"argv": ["grep", "-rn", "def step_once", "src/toas/operator_api.py"]}, "tool_name": "shell"}], "continue_on_error": true}

@@ -1,0 +1,25 @@
+{
+  "state_patch": {
+    "notes": {
+      "cli_structure": "src/toas/cli.py: `_run_step` (line 198) handles `preview_request` flag and calls `run_operator_step_once`. `run_step` (line 235) is the CLI entry point that parses args and calls `_run_step`."
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/cli.py",
+        "start_line": 196,
+        "end_line": 270
+      }
+    },
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/operator_api.py",
+        "start_line": 1,
+        "end_line": 100
+      }
+    }
+  ]
+}

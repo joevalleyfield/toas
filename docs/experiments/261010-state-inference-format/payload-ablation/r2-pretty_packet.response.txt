@@ -1,0 +1,9 @@
+Let me examine the key files to understand the current implementation before making changes.
+
+<tool_call>
+<function=shell>
+<parameter=argv>
+["find", "src", "tests", "-name", "*.py", "-type", "f", "-not", "-path", "*/__pycache__/*", "-not", "-path", "*/.tox/*", "-not", "-path", "*/.venv/*"]
+</parameter>
+</function>
+</tool_call>

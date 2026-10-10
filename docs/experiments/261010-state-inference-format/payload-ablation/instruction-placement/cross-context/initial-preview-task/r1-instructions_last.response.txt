@@ -1,0 +1,33 @@
+{
+  "state_patch": {
+    "goal": "Implement near-literal pretty-printed inspection of model request messages for `toas step --preview-request` (Task 261010-preview-request-pretty-inspection)",
+    "next_steps": [
+      "Investigate current `--preview-request` implementation in `src/toas/cli.py`",
+      "Design the unpacking logic for stringified message contents",
+      "Implement `--pretty` or `--format pretty` flag",
+      "Add tests for the new inspection option",
+      "Run verification (pytest, check.sh)"
+    ],
+    "artifacts": [
+      "(ref: ib_a249bd2b7a7609c0)"
+    ],
+    "notes": {
+      "constraints": [
+        "Task requires unpacking stringified message contents",
+        "Must render multiline text with unescaped newlines",
+        "Must pretty-print inner JSON structures"
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/cli.py"
+      }
+    }
+  ],
+  "continue_on_error": false,
+  "outcome": "continue",
+  "report": "Starting implementation of pretty inspection for `toas step --preview-request`. Investigating current CLI implementation."
+}

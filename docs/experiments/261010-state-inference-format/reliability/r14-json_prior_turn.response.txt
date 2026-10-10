@@ -1,0 +1,27 @@
+{
+  "state_patch": {
+    "notes": {
+      "uncertainties": [],
+      "constraints": [
+        "Use `uv run pytest` for verification",
+        "Follow task/commit discipline: update task file in same commit",
+        "Prefer red/green/refactor cadence"
+      ],
+      "accepted_decisions": [
+        "Flag name should be `--pretty` or similar inspection option"
+      ],
+      "pending_proposals": []
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/cli.py",
+        "start_line": 196,
+        "end_line": 270
+      }
+    }
+  ],
+  "outcome": "continue"
+}

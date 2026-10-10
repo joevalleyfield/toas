@@ -278,6 +278,9 @@ continuation, and authority concerns without reopening completed slices.
 - **[T261010-preview-request-pretty-inspection]** Status: OPEN; support near-literal pretty-printed inspection of model request messages in toas step --preview-request
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-scratch-read-file-ingestion-threshold]** Status: OPEN; apply 500-line ingestion threshold when read_file targets scratch files without explicit bounds
+- **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
+- **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
+- **[T261010-vim-control-result-empty-user]** Status: OPEN; preserve already scoped result projections when Vim finalizes a successful run
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

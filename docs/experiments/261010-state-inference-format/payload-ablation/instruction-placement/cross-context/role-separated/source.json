@@ -1,0 +1,6 @@
+{
+  "source_transition": "st_e0f9806dfae9441ba3c6434ec399eeae",
+  "message_id": "n17",
+  "request_sha256": "47f9d8e44813eced63163f36ee30881d7fe020cee92f1f8900e81f7da65e12af",
+  "packet": "same decoded fields across arms; role_messages moves the exact instructions string into system role"
+}

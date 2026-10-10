@@ -1,0 +1,18 @@
+I'll explore the current implementation to understand where the request payload is constructed and output.
+
+<tool_call>
+<function=read_file>
+<parameter=path>
+src/toas/cli.py
+</parameter>
+<parameter=start_line>
+196
+</parameter>
+<parameter=end_line>
+275
+</parameter>
+<parameter=show_line_numbers>
+true
+</parameter>
+</function>
+</tool_call>

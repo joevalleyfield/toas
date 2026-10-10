@@ -1,0 +1,13 @@
+I now have a good map of `src/toas/cli.py`. Key findings:
+- Line 198: `_run_step` function signature starts
+- Line 202: `preview_request: bool = False` param
+- Line 228: `if preview or preview_request:`
+- Line 254-255: passes `preview_request=True` to kwargs
+- Line 239: `run_step` (public) signature, also has `preview_request`
+- Line 246: condition checking preview_request among others
+- Help text at 91, 129
+
+I need to read the actual `_run_step` and `run_step` bodies (lines ~198-275) to see how `preview_request` flows and where the request messages get printed. Also need to see `run_operator_step_once` and the arg parsing (typer/click) for the CLI flags. Let me read the full relevant regions.
+
+<tool_call>
+{"state_patch": {"artifacts": ["(ref: ib_a1:src/toas/cli.py:90-135)", "(ref: ib_a2:src/toas/cli.py:196-275)"], "notes": {"exploration": {"cli_step_lines": {"help_header": 90, "step_usage_line": 91, "preview_request_help": 129, "_run_step_def": 198, "preview_request_param": 202, "preview_check": 228, "run_step_def": 235, "run_step_preview_param": 239, "run_step_condition": 246, "run_step_preview_pass": 254, "run_operator_step_once_import": 39, "run_step_async": 269}, "observations": ["_run_step signature at 198-214, raises SystemExit if both session_path and surface_id set", "Line 228: if preview or preview_request: ...", "Line 232: run_operator_step_once(**kwargs)", "run_step (public) at 235, calls _run_step(**kwargs) at 262", "Line 264-266: _rpc_stdout check, then _run_step() fallback", "Need to read 198-275 fully to see kwargs construction and where preview_request messages are emitted"]}}}, "progress": ["Read AGENTS.md to understand project structure and conventions", "Read task file to understand requirements and motivation", "Grep'd src/toas/cli.py for preview_request to locate step implementation lines"], "next_steps": ["Read src/toas/cli.py lines 196-275 to see _run_step and run_step full bodies", "Find where CLI flags are registered (typer/click) and where preview_request messages are printed", "Trace how the request payload is constructed (likely in step.py / operator_api.py)"]}, "tool_calls": [{"tool_name": "read_file", "args": {"path": "src/toas/cli.py", "start_line": 196, "end_line": 275, "show_line_numbers": true}}, {"tool_name": "read_file", "args": {"path": "src/toas/cli.py", "start_line": 85, "end_line": 135, "show_line_numbers": true}}], "outcome": "continue", "report": null}

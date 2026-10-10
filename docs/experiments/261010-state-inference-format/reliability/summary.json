@@ -1,0 +1,89 @@
+{
+  "follow_up": {
+    "json_prior_turn": {
+      "trials": 18,
+      "strict_valid": 18,
+      "strict_wilson_95": [
+        0.824121,
+        1
+      ],
+      "current_parser_json": 18,
+      "terminal_json": 18,
+      "xml_syntax": 0,
+      "strict_patches_change_state": 17
+    },
+    "split_json": {
+      "trials": 18,
+      "strict_valid": 12,
+      "strict_wilson_95": [
+        0.437495,
+        0.837212
+      ],
+      "current_parser_json": 13,
+      "terminal_json": 13,
+      "xml_syntax": 5,
+      "strict_patches_change_state": 12
+    },
+    "json_clean": {
+      "trials": 8,
+      "strict_valid": 0,
+      "strict_wilson_95": [
+        0,
+        0.324408
+      ],
+      "current_parser_json": 0,
+      "terminal_json": 3,
+      "xml_syntax": 6,
+      "strict_patches_change_state": 0
+    }
+  },
+  "combined_including_discovery": {
+    "json_prior_turn": {
+      "trials": 20,
+      "strict_valid": 20,
+      "strict_wilson_95": [
+        0.838875,
+        1
+      ],
+      "current_parser_json": 20,
+      "terminal_json": 20,
+      "xml_syntax": 0,
+      "strict_patches_change_state": 19
+    },
+    "split_json": {
+      "trials": 20,
+      "strict_valid": 14,
+      "strict_wilson_95": [
+        0.481027,
+        0.854523
+      ],
+      "current_parser_json": 15,
+      "terminal_json": 15,
+      "xml_syntax": 5,
+      "strict_patches_change_state": 14
+    },
+    "json_clean": {
+      "trials": 10,
+      "strict_valid": 0,
+      "strict_wilson_95": [
+        0,
+        0.277533
+      ],
+      "current_parser_json": 0,
+      "terminal_json": 3,
+      "xml_syntax": 8,
+      "strict_patches_change_state": 0
+    }
+  },
+  "wilson_z": 1.959963984540054,
+  "returned_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+  "duration_s": 936.481,
+  "finish_reasons": {
+    "stop": 44
+  },
+  "fixed_sdk_request_sha256": {
+    "json_prior_turn": "71f8f5d71d2484fe66aba5b52edcad37f64f1e382981bd05ba6c07ee87a5ac75",
+    "split_json": "5d502dfd8529bde7e464fbf71125bc766d28c947506df10f2554bbd759ae9090",
+    "json_clean": "71b6f17b346bf7c42940f9c74ac1faf2ee3575544667ef4821c546944228bea6"
+  }
+}

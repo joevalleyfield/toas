@@ -1,0 +1,106 @@
+Let me analyze the current state and observation to determine the next steps.
+
+**Current state:**
+- Goal: Add a `--pretty` flag to `toas step --preview-request` that unpacks stringified message contents and pretty-prints inner JSON structures.
+- I've read the task file and AGENTS.md.
+- Next steps: Explore the current implementation of `toas step --preview-request` in `src/toas/cli.py`.
+
+**Observations from tool outcomes:**
+1. First tool outcome (index 0): `grep` results showing lines 91, 129, 202, 228, 239, 246, 254-255 from what appears to be `src/toas/cli.py`. This shows:
+   - Line 91: help text for `toas step [--preview-request] [--preview-response]`
+   - Line 129: description of `step --preview-request`
+   - Line 202: `preview_request: bool = False` parameter
+   - Line 228: `if preview or preview_request:`
+   - Line 239: another `preview_request: bool = False` parameter
+   - Line 246: condition checking various flags including `preview_request`
+   - Lines 254-255: `if preview_request:` → `kwargs["preview_request"] = True`
+
+2. Second tool outcome (index 1): `grep` results showing a broader view of `src/toas/cli.py`:
+   - Line 17: import `run_step_async as _run_step_async_command`
+   - Line 39: import `step_once as run_operator_step_once`
+   - Line 44: import `load_replay_steps`
+   - Line 65: import `render_session_help_full`
+   - Lines 90-92: help text
+   - Lines 129-134: help text for preview-request/response
+   - Line 196: `# --- step ---`
+   - Line 198: `def _run_step(`
+   - Line 214: error handling for session_path/surface_id
+   - Line 232: `run_operator_step_once(**kwargs)`
+   - Line 235: `def run_step(`
+   - Lines 262-266: `run_step` logic with `_rpc_stdout("step")` and `_run_step()`
+   - Line 269: `def run_step_async`
+   - Lines 271-274: `run_step_async` implementation
+   - Lines 516-541: some kind of registration/dict with `run_step=_run_step`, etc.
+
+Now I need to read the actual source code to understand:
+1. How `_run_step` constructs the request payload
+2. How `preview_request` works currently (what it prints)
+3. Where the message contents are stringified
+4. How to add the `--pretty` flag
+
+Let me read the relevant sections of `src/toas/cli.py` to get the full picture. I'll focus on the `_run_step` function and the `run_step` function, plus the help text.
+
+Let me also check `src/toas/operator_api.py` or wherever `step_once` / `run_operator_step_once` is defined, since that's what `_run_step` calls.
+
+First, let me read the key sections of `src/toas/cli.py`:
+- Lines around 196-266 (the `_run_step` and `run_step` functions)
+- The help text section (around lines 85-135)
+
+And I should also look at `src/toas/operator_api.py` to understand `step_once`.
+
+Let me batch these reads:
+1. Read `src/toas/cli.py` lines 85-135 (help text)
+2. Read `src/toas/cli.py` lines 196-270 (`_run_step` and `run_step`)
+3. Read `src/toas/operator_api.py` to find `step_once`
+
+Actually, let me be more strategic. I need to understand:
+- How `preview_request` currently outputs the request
+- What the request structure looks like (where stringified JSON is)
+- How to add `--pretty` flag to the CLI
+
+Let me read the full `_run_step` function and the `run_step` function, plus search for where `preview_request` is handled in the operator API.
+
+```json
+{
+  "state_patch": {
+    "notes": {
+      "cli_structure": {
+        "file": "src/toas/cli.py",
+        "_run_step": "lines 198-232, calls run_operator_step_once(**kwargs)",
+        "run_step": "lines 235-266, dispatches to _run_step",
+        "help_text": "lines 85-135, describes preview-request/response",
+        "preview_request_param": "appears at lines 202, 239; set in kwargs at 254-255",
+        "operator_api_import": "line 39: from .operator_api import step_once as run_operator_step_once"
+      }
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/cli.py",
+        "start_line": 85,
+        "end_line": 140,
+        "show_line_numbers": true
+      }
+    },
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/cli.py",
+        "start_line": 196,
+        "end_line": 270,
+        "show_line_numbers": true
+      }
+    },
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": ["grep", "-n", "preview_request", "src/toas/operator_api.py"]
+      }
+    }
+  ],
+  "continue_on_error": true,
+  "outcome": "continue"
+}
+```

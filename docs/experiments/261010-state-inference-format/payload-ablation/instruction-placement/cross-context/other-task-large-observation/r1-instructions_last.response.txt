@@ -1,0 +1,46 @@
+{
+  "state_patch": {
+    "next_steps": [
+      "Find where `run_state_seed` is wired into `DispatchDeps` (likely in a main CLI entry point like `src/toas/cli.py` or `main.py`).",
+      "Find where slash commands are registered/dispatched in the runtime (likely `src/toas/runtime/operator.py` or similar) to see if `handle_state_seed_commands` is already wired up.",
+      "If not wired up, add the registration for the `state-seed` slash command."
+    ],
+    "notes": {
+      "accepted_decisions": [
+        "Slash commands are implemented in `toas/runtime/operator_command_*.py`.",
+        "The `state-seed` slash command handler already exists in `toas/runtime/operator_command_state_seed.py`.",
+        "The CLI subcommand `state-seed` is already implemented in `cli_dispatch.py` and wired via `deps.run_state_seed`."
+      ],
+      "uncertainties": [
+        "Need to verify if the slash command is actually registered in the runtime dispatcher."
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "search",
+      "args": {
+        "query": "run_state_seed",
+        "path": "src",
+        "regex": false
+      }
+    },
+    {
+      "tool_name": "search",
+      "args": {
+        "query": "handle_state_seed_commands",
+        "path": "src",
+        "regex": false
+      }
+    },
+    {
+      "tool_name": "search",
+      "args": {
+        "query": "operator_command_state_seed",
+        "path": "src",
+        "regex": false
+      }
+    }
+  ],
+  "outcome": "continue"
+}
