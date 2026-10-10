@@ -1,0 +1,9 @@
+```json
+{
+  "state_patch": {},
+  "tool_calls": [],
+  "continue_on_error": false,
+  "outcome": "continue",
+  "report": "Starting the task. I will explore the current implementation of `toas step --preview-request` and then implement the `--pretty` flag."
+}
+```

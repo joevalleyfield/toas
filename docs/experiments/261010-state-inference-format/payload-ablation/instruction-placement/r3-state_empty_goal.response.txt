@@ -1,0 +1,26 @@
+{
+  "state_patch": {
+    "artifacts": [
+      "src/toas/cli.py:198-232",
+      "src/toas/operator_api.py:1-50"
+    ],
+    "notes": {
+      "observations": [
+        "`_run_step` in `src/toas/cli.py` handles `--preview-request` by calling `run_operator_step_once(**kwargs)`.",
+        "`run_operator_step_once` is imported from `.operator_api`.",
+        "The request construction and printing logic likely resides in `src/toas/operator_api.py`."
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/operator_api.py"
+      }
+    }
+  ],
+  "continue_on_error": false,
+  "outcome": "continue",
+  "report": null
+}

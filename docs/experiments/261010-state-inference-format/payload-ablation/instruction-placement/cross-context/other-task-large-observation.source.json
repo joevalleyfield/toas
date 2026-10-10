@@ -1,0 +1,20 @@
+{
+  "label": "other-task-large-observation",
+  "transition_id": "st_e0f9806dfae9441ba3c6434ec399eeae",
+  "message_id": "n17",
+  "goal": "Add a slash-command corresponding to the state-seed CLI subcommand.",
+  "recorded_request_length": 19712,
+  "request_keys": [
+    "instructions",
+    "schema",
+    "tools",
+    "state",
+    "observation"
+  ],
+  "request_sha256": "47f9d8e44813eced63163f36ee30881d7fe020cee92f1f8900e81f7da65e12af",
+  "state_bytes": 1008,
+  "observation_bytes": 13415,
+  "model_requested": "qwen3.5-35b-a3b",
+  "response_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+  "source": "pending state_transition record in ../toas-dogfood/.toas/events.jsonl"
+}

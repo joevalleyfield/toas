@@ -1,0 +1,8 @@
+{
+  "source_transition": "st_e0f9806dfae9441ba3c6434ec399eeae",
+  "message_id": "n17",
+  "source_request_sha256": "47f9d8e44813eced63163f36ee30881d7fe020cee92f1f8900e81f7da65e12af",
+  "source_request_length": 19712,
+  "state_goal": "Add a slash-command corresponding to the state-seed CLI subcommand.",
+  "only_change": "JSON object key order; each decoded packet remains equal"
+}

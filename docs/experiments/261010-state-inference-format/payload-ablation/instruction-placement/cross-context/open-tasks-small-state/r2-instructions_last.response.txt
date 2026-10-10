@@ -1,0 +1,24 @@
+{
+  "state_patch": {
+    "goal": "List open tasks from the workspace",
+    "next_steps": [
+      "Identify task storage locations (e.g., TODO.md, tasks.json, project files)",
+      "Read relevant files to extract open tasks"
+    ],
+    "notes": {
+      "uncertainties": [
+        "Location of task files is unknown"
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": ["find", ".", "-type", "f", "-name", "*.md", "-o", "-name", "*.json", "-o", "-name", "*.txt", "-o", "-name", "TODO*"],
+        "timeout_s": 10
+      }
+    }
+  ],
+  "outcome": "continue"
+}

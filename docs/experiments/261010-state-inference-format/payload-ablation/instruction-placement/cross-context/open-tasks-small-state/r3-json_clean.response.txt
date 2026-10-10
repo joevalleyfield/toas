@@ -1,0 +1,25 @@
+```json
+{
+  "state_patch": {
+    "goal": "List open tasks",
+    "next_steps": [
+      "Inspect the workspace for a task file (e.g., tasks.txt, TODO.md, .toas/tasks.json)"
+    ]
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": ["ls", "-la"]
+      }
+    },
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": ["find", ".", "-maxdepth", "3", "-type", "f", "-iname", "*task*", "-o", "-iname", "*todo*"]
+      }
+    }
+  ],
+  "outcome": "continue"
+}
+```

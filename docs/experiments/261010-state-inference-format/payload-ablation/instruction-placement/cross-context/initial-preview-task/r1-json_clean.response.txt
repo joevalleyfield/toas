@@ -1,0 +1,39 @@
+```json
+{
+  "state_patch": {
+    "goal": "Add a --pretty option to toas step --preview-request to render a near-literal, human-readable view of model request messages (unescaped newlines, formatted inner JSON).",
+    "next_steps": [
+      "Locate where 'toas step' and --preview-request are implemented in the CLI and related modules.",
+      "Understand the current output format and how the state-step packet is serialized into message content.",
+      "Design and implement a --pretty flag that unpacks stringified content and pretty-prints JSON."
+    ],
+    "notes": {
+      "constraints": [
+        "Follow the repo's TDD/spike-first guidance from AGENTS.md.",
+        "Any repo-modifying work needs an associated task in tasks/open; update the existing task file in the same commit."
+      ],
+      "accepted_decisions": [],
+      "pending_proposals": [],
+      "uncertainties": [
+        "Whether to call the new flag --pretty or --format pretty (task suggests either)."
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": [
+          "rg",
+          "-n",
+          "preview.request|preview_request|preview-request",
+          "src/toas",
+          "tests"
+        ]
+      }
+    }
+  ],
+  "outcome": "continue",
+  "report": "I've read the project guidelines and the task file. I'm now locating the existing `--preview-request` implementation to plan the `--pretty` addition. (ref: AGENTS.md) (ref: tasks/open/261010-preview-request-pretty-inspection.md)"
+}
+```

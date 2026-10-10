@@ -1,0 +1,85 @@
+Let me analyze the current state and observation to understand what's happening.
+
+Looking at the observation, I can see two shell command outputs related to `toas step` and `--preview-request`. The first shows grep-like matches and the second shows a more structured view of the CLI file.
+
+Let me review the key findings from the observation:
+
+**From index 0 (grep of cli.py):**
+- Line 91: `toas step [--preview-request] [--preview-response] [--session <transcript_path>]`
+- Line 129: `step --preview-request   print state-step request messages without calling the model`
+- Line 202: `preview_request: bool = False,` (in `_run_step`)
+- Line 228: `if preview or preview_request:`
+- Line 239: `preview_request: bool = False,` (in `run_step`)
+- Lines 246, 254-255: `if preview_request: kwargs["preview_request"] = True`
+
+**From index 1 (read_file of cli.py, lines 17-541):**
+- Line 17: `run_step_async as _run_step_async_command,`
+- Line 39: `from .operator_api import step_once as run_operator_step_once`
+- Lines 90-92: CLI help text
+- Lines 129-134: Documentation of `--preview-request`
+- Lines 196-232: `_run_step` function definition and body
+- Lines 235-266: `run_step` function definition and body
+- Lines 269-274: `run_step_async` function
+- Lines 516-541: Registration of `run_step` and `run_step_async`
+
+**Key insights to persist:**
+1. `_run_step` (line 198) is the internal implementation; `run_step` (line 235) is the CLI-facing wrapper.
+2. `preview_request` flag flows: CLI → `run_step` → `_run_step` → `run_operator_step_once(**kwargs)` with `kwargs["preview_request"] = True`.
+3. The actual request construction and output happens inside `operator_api.step_once` (imported as `run_operator_step_once` from `.operator_api`).
+4. I need to look at `operator_api.py` to find where the request payload is constructed and printed.
+
+**Current state assessment:**
+- Progress: Read AGENTS.md and task file
+- Next steps: Explore `toas step --preview-request` in src/toas/cli.py → DONE (partially), identify where request payload is constructed and output → need to look at `operator_api.py`
+- I need to read `operator_api.py` to understand how the request is built and printed.
+
+Let me persist the findings and move on to reading `operator_api.py`.
+
+```json
+{
+  "state_patch": {
+    "progress": [
+      "Read AGENTS.md to understand project structure and conventions",
+      "Read task file to understand requirements and motivation",
+      "Explored cli.py: _run_step (line 198) delegates to run_operator_step_once from .operator_api with preview_request kwarg; run_step (line 235) is CLI wrapper passing preview_request=True into kwargs"
+    ],
+    "next_steps": [
+      "Read operator_api.py to find where the state-step request messages are constructed and printed for --preview-request",
+      "Implement --pretty flag that parses and pretty-prints the request messages",
+      "Add tests for the new pretty-print functionality",
+      "Update task file with progress"
+    ],
+    "notes": {
+      "constraints": [
+        "Use `uv run pytest` for verification",
+        "Follow task/commit discipline: update task file in same commit",
+        "Prefer red/green/refactor cadence"
+      ],
+      "accepted_decisions": [
+        "Flag name should be `--pretty` or similar inspection option"
+      ],
+      "pending_proposals": [],
+      "uncertainties": [],
+      "cli_structure": {
+        "cli.py:91": "toas step [--preview-request] [--preview-response] [--session <transcript_path>]",
+        "cli.py:129": "step --preview-request: print state-step request messages without calling the model",
+        "cli.py:198": "_run_step: internal step runner",
+        "cli.py:235": "run_step: CLI-facing wrapper",
+        "cli.py:255": 'kwargs["preview_request"] = True',
+        "cli.py:39": "from .operator_api import step_once as run_operator_step_once",
+        "cli.py:232": "run_operator_step_once(**kwargs) is the final call"
+      },
+      "request_flow": "CLI --preview-request → run_step → _run_step → operator_api.step_once(preview_request=True)"
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/operator_api.py"
+      }
+    }
+  ],
+  "outcome": "continue"
+}
+```

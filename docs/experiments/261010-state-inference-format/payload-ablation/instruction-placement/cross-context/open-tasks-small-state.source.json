@@ -1,0 +1,20 @@
+{
+  "label": "open-tasks-small-state",
+  "transition_id": "st_9e620f98ede546d384a13cb08333aa80",
+  "message_id": "n26",
+  "goal": "",
+  "recorded_request_length": 3260,
+  "request_keys": [
+    "instructions",
+    "schema",
+    "tools",
+    "state",
+    "observation"
+  ],
+  "request_sha256": "65bb3a4c590a05376deac9e8105c0dbc0dbe338265ecec2326795413c6e579cf",
+  "state_bytes": 181,
+  "observation_bytes": 101,
+  "model_requested": "qwen3.5-35b-a3b",
+  "response_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+  "source": "pending state_transition record in ../toas-dogfood/.toas/events.jsonl"
+}

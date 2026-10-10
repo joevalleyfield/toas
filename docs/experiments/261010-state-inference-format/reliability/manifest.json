@@ -1,0 +1,73 @@
+{
+  "source_transition": "st_0fd3c8cc81064c2c86e8edb0a75d701e",
+  "model": "qwen3.5-35b-a3b",
+  "provider": "openai",
+  "destination": {
+    "host": "localhost",
+    "port": 8080,
+    "path": "/v1"
+  },
+  "transport": "chat_messages",
+  "stream": "enabled",
+  "generation_extra_body": {
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "max_tokens": 1800,
+  "rounds": 18,
+  "condition_counts": {
+    "split_json": 18,
+    "json_prior_turn": 18,
+    "json_clean": 8
+  },
+  "start_round": 3,
+  "order": [
+    "r3-split_json",
+    "r3-json_clean",
+    "r3-json_prior_turn",
+    "r4-json_prior_turn",
+    "r4-json_clean",
+    "r4-split_json",
+    "r5-split_json",
+    "r5-json_clean",
+    "r5-json_prior_turn",
+    "r6-split_json",
+    "r6-json_clean",
+    "r6-json_prior_turn",
+    "r7-json_prior_turn",
+    "r7-json_clean",
+    "r7-split_json",
+    "r8-json_clean",
+    "r8-split_json",
+    "r8-json_prior_turn",
+    "r9-split_json",
+    "r9-json_clean",
+    "r9-json_prior_turn",
+    "r10-json_prior_turn",
+    "r10-split_json",
+    "r10-json_clean",
+    "r11-json_prior_turn",
+    "r11-split_json",
+    "r12-split_json",
+    "r12-json_prior_turn",
+    "r13-json_prior_turn",
+    "r13-split_json",
+    "r14-json_prior_turn",
+    "r14-split_json",
+    "r15-split_json",
+    "r15-json_prior_turn",
+    "r16-split_json",
+    "r16-json_prior_turn",
+    "r17-json_prior_turn",
+    "r17-split_json",
+    "r18-split_json",
+    "r18-json_prior_turn",
+    "r19-json_prior_turn",
+    "r19-split_json",
+    "r20-json_prior_turn",
+    "r20-split_json"
+  ],
+  "network_retries": 0,
+  "tools_executed": false
+}

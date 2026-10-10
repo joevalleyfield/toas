@@ -1,0 +1,27 @@
+I need to see the actual code around lines 202-262 in `src/toas/cli.py` to understand how `preview_request` currently works.
+
+```json
+{
+  "state_patch": {
+    "artifacts": [
+      "src/toas/cli.py:196-275"
+    ],
+    "notes": {
+      "exploration": "preview_request flag exists at cli.py:202,239,254-255. _run_step builds kwargs and calls run_operator_step_once (operator_api.step_once). Need to see how preview_request payload is rendered."
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/cli.py",
+        "start_line": 196,
+        "end_line": 280,
+        "show_line_numbers": true
+      }
+    }
+  ],
+  "continue_on_error": true,
+  "outcome": "continue"
+}
+```

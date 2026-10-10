@@ -1,0 +1,43 @@
+{
+  "source_transition": "st_e0f9806dfae9441ba3c6434ec399eeae",
+  "model": "qwen3.5-35b-a3b",
+  "provider": "openai",
+  "destination": {
+    "host": "localhost",
+    "port": 8080,
+    "path": "/v1"
+  },
+  "transport": "chat_messages",
+  "stream": "enabled",
+  "generation_extra_body": {
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "max_tokens": 1800,
+  "rounds": 3,
+  "condition_counts": {
+    "json_clean": 3,
+    "goal_last": 3,
+    "plan_last": 3,
+    "schema_last": 3
+  },
+  "start_round": 1,
+  "order": [
+    "r1-json_clean",
+    "r1-plan_last",
+    "r1-schema_last",
+    "r1-goal_last",
+    "r2-goal_last",
+    "r2-schema_last",
+    "r2-plan_last",
+    "r2-json_clean",
+    "r3-plan_last",
+    "r3-json_clean",
+    "r3-goal_last",
+    "r3-schema_last"
+  ],
+  "network_retries": 0,
+  "tools_executed": false,
+  "variant_file": "/Users/tim/Documents/Projects/toas/docs/experiments/261010-state-inference-format/payload-ablation/instruction-placement/cross-context/field-positioning/variants.json"
+}

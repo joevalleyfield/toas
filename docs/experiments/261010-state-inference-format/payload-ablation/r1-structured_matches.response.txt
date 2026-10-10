@@ -1,0 +1,2 @@
+<tool_call>
+{"tool_calls": [{"tool_name": "read_file", "args": {"path": "src/toas/cli.py", "start_line": 196, "end_line": 280, "show_line_numbers": true}}, {"tool_name": "read_file", "args": {"path": "src/toas/operator_api.py", "show_line_numbers": true, "max_lines": 300}}], "outcome": "continue"}

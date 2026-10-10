@@ -277,6 +277,9 @@ continuation, and authority concerns without reopening completed slices.
 - **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-scratch-read-file-ingestion-threshold]** Status: OPEN; apply 500-line ingestion threshold when read_file targets scratch files without explicit bounds
+- **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
+- **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
+- **[T261010-vim-control-result-empty-user]** Status: OPEN; preserve already scoped result projections when Vim finalizes a successful run
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

@@ -1,0 +1,29 @@
+{
+  "state_patch": {
+    "goal": "List open tasks",
+    "progress": [],
+    "next_steps": [
+      "Determine the task management system or file location for 'open tasks'",
+      "Retrieve the list of open tasks"
+    ],
+    "artifacts": [],
+    "blockers": [],
+    "notes": {
+      "constraints": [],
+      "accepted_decisions": [],
+      "pending_proposals": [],
+      "uncertainties": [
+        "Unknown location of the task list (e.g., file, CLI tool, database)"
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": "ls -la"
+      }
+    }
+  ],
+  "outcome": "continue"
+}

@@ -1,0 +1,43 @@
+{
+  "source_transition": "st_0fd3c8cc81064c2c86e8edb0a75d701e",
+  "model": "qwen3.5-35b-a3b",
+  "provider": "openai",
+  "destination": {
+    "host": "localhost",
+    "port": 8080,
+    "path": "/v1"
+  },
+  "transport": "chat_messages",
+  "stream": "enabled",
+  "generation_extra_body": {
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "max_tokens": 1800,
+  "rounds": 3,
+  "condition_counts": {
+    "json_clean": 3,
+    "state_empty_goal": 3,
+    "instructions_last": 3,
+    "instructions_plaintext": 3
+  },
+  "start_round": 1,
+  "order": [
+    "r1-json_clean",
+    "r1-instructions_last",
+    "r1-instructions_plaintext",
+    "r1-state_empty_goal",
+    "r2-state_empty_goal",
+    "r2-instructions_plaintext",
+    "r2-instructions_last",
+    "r2-json_clean",
+    "r3-instructions_last",
+    "r3-json_clean",
+    "r3-state_empty_goal",
+    "r3-instructions_plaintext"
+  ],
+  "network_retries": 0,
+  "tools_executed": false,
+  "variant_file": "/Users/tim/Documents/Projects/toas/docs/experiments/261010-state-inference-format/payload-ablation/instruction-placement/variants.json"
+}

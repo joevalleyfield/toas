@@ -1,0 +1,25 @@
+Let me read the relevant sections of the CLI file to understand the current implementation of `--preview-request`.
+
+<tool_call>
+<function=read_file>
+<parameter=path>
+src/toas/cli.py
+</parameter>
+<parameter=start_line>
+196
+</parameter>
+<parameter=end_line>
+265
+</parameter>
+<parameter=show_line_numbers>
+true
+</parameter>
+</function>
+</tool_call>
+<tool_call>
+<function=shell>
+<parameter=argv>
+["rg", "-n", "preview_request|preview_response|_render_preview|render_session_help", "src/toas/"]
+</parameter>
+</function>
+</tool_call>

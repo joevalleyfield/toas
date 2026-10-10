@@ -1,0 +1,251 @@
+{
+  "phases": {
+    "representation_screen": {
+      "pretty_packet": {
+        "trials": 3,
+        "strict_valid": 1,
+        "parser_json": 1,
+        "terminal_valid": 1,
+        "xml_syntax": 2,
+        "nonempty_strict_patches": 1,
+        "wilson_95": [
+          0.06149194472039621,
+          0.7923403991979522
+        ]
+      },
+      "state_empty_plan": {
+        "trials": 3,
+        "strict_valid": 1,
+        "parser_json": 1,
+        "terminal_valid": 1,
+        "xml_syntax": 2,
+        "nonempty_strict_patches": 1,
+        "wilson_95": [
+          0.06149194472039621,
+          0.7923403991979522
+        ]
+      },
+      "json_clean": {
+        "trials": 3,
+        "strict_valid": 0,
+        "parser_json": 0,
+        "terminal_valid": 1,
+        "xml_syntax": 2,
+        "nonempty_strict_patches": 0,
+        "wilson_95": [
+          5.551115123125783e-17,
+          0.5614970317550454
+        ]
+      },
+      "state_plaintext": {
+        "trials": 3,
+        "strict_valid": 0,
+        "parser_json": 0,
+        "terminal_valid": 1,
+        "xml_syntax": 2,
+        "nonempty_strict_patches": 0,
+        "wilson_95": [
+          5.551115123125783e-17,
+          0.5614970317550454
+        ]
+      },
+      "structured_stdout": {
+        "trials": 3,
+        "strict_valid": 1,
+        "parser_json": 1,
+        "terminal_valid": 2,
+        "xml_syntax": 1,
+        "nonempty_strict_patches": 1,
+        "wilson_95": [
+          0.06149194472039621,
+          0.7923403991979522
+        ]
+      },
+      "structured_matches": {
+        "trials": 3,
+        "strict_valid": 0,
+        "parser_json": 0,
+        "terminal_valid": 0,
+        "xml_syntax": 3,
+        "nonempty_strict_patches": 0,
+        "wilson_95": [
+          5.551115123125783e-17,
+          0.5614970317550454
+        ]
+      },
+      "no_tool_observations": {
+        "trials": 3,
+        "strict_valid": 2,
+        "parser_json": 2,
+        "terminal_valid": 2,
+        "xml_syntax": 1,
+        "nonempty_strict_patches": 1,
+        "wilson_95": [
+          0.2076596008020477,
+          0.9385080552796037
+        ]
+      },
+      "unfenced_outputs": {
+        "trials": 3,
+        "strict_valid": 0,
+        "parser_json": 0,
+        "terminal_valid": 0,
+        "xml_syntax": 3,
+        "nonempty_strict_patches": 0,
+        "wilson_95": [
+          5.551115123125783e-17,
+          0.5614970317550454
+        ]
+      },
+      "fixed_sdk_sha256": {
+        "pretty_packet": "fe03aa0c97ca69e9157e9883d251a121bb42cb9a89f0e4b0439aae246c66f6e7",
+        "state_empty_plan": "68561735b2b347ab32ff7761d36d72feee926c4b3f812300afb2e43f634f17d0",
+        "json_clean": "71b6f17b346bf7c42940f9c74ac1faf2ee3575544667ef4821c546944228bea6",
+        "state_plaintext": "e8db685539c5aef215a3200622785b751b3e6b0d8bc1bdc836b022bde1a9e119",
+        "structured_stdout": "5cb6b52b354f567c07d9e6435b00d5c16368d77c81a229fadae46c82f4989928",
+        "structured_matches": "6f70a43f3270fe6562197d878b8f9ac438038a9041f373c02ae5d3b2672546bf",
+        "no_tool_observations": "b947b616f13d4f4c0385cf38c6fd33b69ee62b06456f2e92539c120ab11bab75",
+        "unfenced_outputs": "617c5d01dd007cb31459127b6357a64a36e6ee60666287f8a5a287122a17bc79"
+      }
+    },
+    "placement_screen": {
+      "json_clean": {
+        "trials": 3,
+        "strict_valid": 0,
+        "parser_json": 0,
+        "terminal_valid": 0,
+        "xml_syntax": 3,
+        "nonempty_strict_patches": 0,
+        "wilson_95": [
+          5.551115123125783e-17,
+          0.5614970317550454
+        ]
+      },
+      "instructions_last": {
+        "trials": 3,
+        "strict_valid": 3,
+        "parser_json": 3,
+        "terminal_valid": 3,
+        "xml_syntax": 0,
+        "nonempty_strict_patches": 3,
+        "wilson_95": [
+          0.4385029682449546,
+          1
+        ]
+      },
+      "instructions_plaintext": {
+        "trials": 3,
+        "strict_valid": 1,
+        "parser_json": 1,
+        "terminal_valid": 2,
+        "xml_syntax": 1,
+        "nonempty_strict_patches": 1,
+        "wilson_95": [
+          0.06149194472039621,
+          0.7923403991979522
+        ]
+      },
+      "state_empty_goal": {
+        "trials": 3,
+        "strict_valid": 0,
+        "parser_json": 1,
+        "terminal_valid": 1,
+        "xml_syntax": 1,
+        "nonempty_strict_patches": 0,
+        "wilson_95": [
+          5.551115123125783e-17,
+          0.5614970317550454
+        ]
+      },
+      "fixed_sdk_sha256": {
+        "json_clean": "71b6f17b346bf7c42940f9c74ac1faf2ee3575544667ef4821c546944228bea6",
+        "instructions_last": "799c1956cb8deec1c26252dd950e3942e104fc93eff630a125c98e90da4fc402",
+        "instructions_plaintext": "8407bdc399999937fdb911dfbab9c85ee4b66272a60ab0a6e01e4b252eaed97e",
+        "state_empty_goal": "a14308a6b3e43c27e384593484a762aee7379ef3fe1d47a2e72f3f751698ab8e"
+      }
+    },
+    "placement_confirmation": {
+      "instructions_last": {
+        "trials": 4,
+        "strict_valid": 4,
+        "parser_json": 4,
+        "terminal_valid": 4,
+        "xml_syntax": 0,
+        "nonempty_strict_patches": 4,
+        "wilson_95": [
+          0.5101091635454027,
+          1
+        ]
+      },
+      "json_clean": {
+        "trials": 4,
+        "strict_valid": 0,
+        "parser_json": 0,
+        "terminal_valid": 2,
+        "xml_syntax": 3,
+        "nonempty_strict_patches": 0,
+        "wilson_95": [
+          0,
+          0.4898908364545973
+        ]
+      },
+      "fixed_sdk_sha256": {
+        "instructions_last": "799c1956cb8deec1c26252dd950e3942e104fc93eff630a125c98e90da4fc402",
+        "json_clean": "71b6f17b346bf7c42940f9c74ac1faf2ee3575544667ef4821c546944228bea6"
+      }
+    }
+  },
+  "evaluation_revision": "unique-line-start-prefix-v2",
+  "evidence_scope": "one fixed captured state on one local model; no proposed tools executed or patches applied",
+  "returned_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+  "finish_reasons": {
+    "stop": 44
+  },
+  "total_calls": 44,
+  "placement_combined": {
+    "json_clean": {
+      "trials": 7,
+      "strict_valid": 0,
+      "parser_json": 0,
+      "terminal_valid": 2,
+      "xml_syntax": 6,
+      "nonempty_strict_patches": 0,
+      "wilson_95": [
+        5.551115123125783e-17,
+        0.35433043506668743
+      ]
+    },
+    "instructions_last": {
+      "trials": 7,
+      "strict_valid": 7,
+      "parser_json": 7,
+      "terminal_valid": 7,
+      "xml_syntax": 0,
+      "nonempty_strict_patches": 7,
+      "wilson_95": [
+        0.6456695649333126,
+        1
+      ]
+    }
+  },
+  "instruction_order_identity": {
+    "decoded_packet_equal": true,
+    "character_length_equal": true,
+    "characters": 8108,
+    "original_member_order": [
+      "instructions",
+      "schema",
+      "tools",
+      "state",
+      "observation"
+    ],
+    "reordered_member_order": [
+      "schema",
+      "tools",
+      "state",
+      "observation",
+      "instructions"
+    ]
+  },
+  "instruction_last_effective_state_changes": 7
+}

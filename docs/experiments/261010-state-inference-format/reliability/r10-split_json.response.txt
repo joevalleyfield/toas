@@ -1,0 +1,26 @@
+{
+  "tool_calls": [
+    {
+      "args": {
+        "path": "src/toas/cli.py",
+        "start_line": 196,
+        "end_line": 270,
+        "show_line_numbers": true
+      },
+      "tool_name": "read_file"
+    },
+    {
+      "args": {
+        "argv": [
+          "grep",
+          "-rn",
+          "preview_request",
+          "src/",
+          "tests/"
+        ]
+      },
+      "tool_name": "shell"
+    }
+  ],
+  "outcome": "continue"
+}

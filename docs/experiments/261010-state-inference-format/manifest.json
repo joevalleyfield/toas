@@ -1,0 +1,35 @@
+{
+  "source_transition": "st_0fd3c8cc81064c2c86e8edb0a75d701e",
+  "model": "qwen3.5-35b-a3b",
+  "provider": "openai",
+  "destination": {
+    "host": "localhost",
+    "port": 8080,
+    "path": "/v1"
+  },
+  "transport": "chat_messages",
+  "stream": "enabled",
+  "generation_extra_body": {
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "max_tokens": 1800,
+  "rounds": 2,
+  "order": [
+    "r1-original_reference",
+    "r1-json_prior_turn",
+    "r1-split_yaml",
+    "r1-split_json",
+    "r1-json_clean",
+    "r1-json_example",
+    "r2-json_prior_turn",
+    "r2-json_example",
+    "r2-split_yaml",
+    "r2-split_json",
+    "r2-json_clean",
+    "r2-original_reference"
+  ],
+  "network_retries": 0,
+  "tools_executed": false
+}

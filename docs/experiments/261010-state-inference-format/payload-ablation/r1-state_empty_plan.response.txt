@@ -1,0 +1,16 @@
+I need to explore the relevant code to understand how `--preview-request` works and where I'd add `--pretty`. Let me look at the CLI and the step implementation.
+
+<tool_call>
+<function=shell>
+<parameter=argv>
+["grep", "-rn", "preview_request", "toas/"]
+</parameter>
+</function>
+</tool_call>
+<tool_call>
+<function=shell>
+<parameter=argv>
+["find", "toas", "-name", "*.py"]
+</parameter>
+</function>
+</tool_call>

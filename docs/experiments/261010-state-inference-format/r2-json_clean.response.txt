@@ -1,0 +1,15 @@
+Let me read the relevant sections of the CLI file to understand the current implementation.
+
+<tool_call>
+<function=read_file>
+<parameter=path>
+src/toas/cli.py
+</parameter>
+<parameter=start_line>
+195
+</parameter>
+<parameter=end_line>
+270
+</parameter>
+</function>
+</tool_call>

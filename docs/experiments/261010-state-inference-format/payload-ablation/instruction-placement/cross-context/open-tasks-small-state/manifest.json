@@ -1,0 +1,35 @@
+{
+  "source_transition": "st_9e620f98ede546d384a13cb08333aa80",
+  "model": "qwen3.5-35b-a3b",
+  "provider": "openai",
+  "destination": {
+    "host": "localhost",
+    "port": 8080,
+    "path": "/v1"
+  },
+  "transport": "chat_messages",
+  "stream": "enabled",
+  "generation_extra_body": {
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "max_tokens": 1800,
+  "rounds": 3,
+  "condition_counts": {
+    "json_clean": 3,
+    "instructions_last": 3
+  },
+  "start_round": 1,
+  "order": [
+    "r1-instructions_last",
+    "r1-json_clean",
+    "r2-instructions_last",
+    "r2-json_clean",
+    "r3-json_clean",
+    "r3-instructions_last"
+  ],
+  "network_retries": 0,
+  "tools_executed": false,
+  "variant_file": "/Users/tim/Documents/Projects/toas/docs/experiments/261010-state-inference-format/payload-ablation/instruction-placement/cross-context/open-tasks-small-state.variants.json"
+}
