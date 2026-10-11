@@ -42,7 +42,8 @@ GRAPH_USAGE = (
 
 
 STEP_USAGE = (
-    "usage: toas step [--preview-request] [--preview-response] [--stdin] "
+    "usage: toas step [--preview-request] [--preview-request-pretty] "
+    "[--preview-response] [--stdin] "
     "[--infer-from <state-label>] [--control <slash_command>] "
     "[--session <transcript_path>] [--surface <surface_id>]\n"
     "Run 'toas step --help' for details and examples."
@@ -65,6 +66,9 @@ STEP_HELP = (
     "Inspection & Previews:\n"
     "  --preview-request         Print model-input request messages without invoking the model.\n"
     "                            (Alias: --preview. Requires a typed state turn.)\n"
+    "  --preview-request-pretty  Print the same model-input request messages with stringified\n"
+    "                            JSON payloads unpacked for near-literal human inspection.\n"
+    "                            (Implies --preview-request. Requires a typed state turn.)\n"
     "  --preview-response        Invoke the model and print raw response content without\n"
     "                            writing results to transcript or durable history.\n"
     "                            (Requires a typed state turn.)\n\n"

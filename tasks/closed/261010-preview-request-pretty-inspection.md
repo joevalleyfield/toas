@@ -9,7 +9,7 @@ keywords: cli, inspection, preview-request, ergonomics, inception
 
 Parent: `260926-state-step-requirements`
 
-Status: OPEN; support near-literal pretty-printed inspection of model request messages in toas step --preview-request
+Status: CLOSED 2026-10-11; support near-literal pretty-printed inspection of model request messages in toas step --preview-request
 
 ## Context and Motivation
 
@@ -20,3 +20,7 @@ In this raw wire view, multiline instructions have escaped `\n` characters and J
 ## Intent
 
 Add an inspection option (such as `--pretty` or `--format pretty`) to `toas step --preview-request` that unpacks stringified message contents, rendering multiline text with unescaped newlines and pretty-printing inner JSON structures.
+
+## Resolution
+
+Added `toas step --preview-request-pretty`, which implies `--preview-request` and renders the same preview request with stringified JSON message payloads unpacked for human inspection. Raw `--preview-request` remains the exact wire payload.

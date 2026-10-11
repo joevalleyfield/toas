@@ -1769,6 +1769,46 @@ def test_state_intermediate_user_turn_edit_branches_dag(monkeypatch, tmp_path, c
     assert head_a in head_ids
 
 
+def test_preview_request_display_unpacks_stringified_json_payload():
+    request = {
+        "phase": "infer",
+        "request_messages": [
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "instructions": "line one\nline two",
+                        "schema": {"required": ["state_patch"]},
+                        "tools": [],
+                        "state": {"step": 1},
+                        "observation": {"tool_outcomes": [{"output": "raw"}]},
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        ],
+    }
+    raw = cli_session_commands._preview_request_display(request, pretty=False)
+    raw_obj = json.loads(raw)
+    assert isinstance(raw_obj["request_messages"][0]["content"], str)
+    assert "line one\\nline two" in raw_obj["request_messages"][0]["content"]
+    pretty = cli_session_commands._preview_request_display(request, pretty=True)
+    pretty_obj = json.loads(pretty)
+    content = pretty_obj["request_messages"][0]["content"]
+    assert isinstance(content, dict)
+    assert content["instructions"] == "line one\nline two"
+    assert content["schema"] == {"required": ["state_patch"]}
+    assert content["state"] == {"step": 1}
+    assert content["observation"]["tool_outcomes"][0]["output"] == "raw"
+
+    not_json = cli_session_commands._preview_request_display(
+        {"request_messages": [{"role": "user", "content": "{not-json"}]},
+        pretty=True,
+    )
+    not_json_obj = json.loads(not_json)
+    assert not_json_obj["request_messages"][0]["content"] == "{not-json"
+
+
 def test_state_infer_from_parses_directive_and_projects_sequence(monkeypatch, tmp_path, capsys):
     session = tmp_path / "session.md"
     session.write_text(
@@ -1824,6 +1864,35 @@ def test_state_infer_from_parses_directive_and_projects_sequence(monkeypatch, tm
         cli_session_commands.run_step(session_path=str(session), on_projection_delta=deltas.append)
         assert any("## TOAS:STATE/3" in d for d in deltas)
         assert any("rethought: true" in d for d in deltas)
+
+
+def test_state_infer_from_pretty_preview_request_preserves_sequence(monkeypatch, tmp_path, capsys):
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:STATE/1\n\nstate:\n  goal: original\n  step: 1\n\n"
+        "## TOAS:STATE/2\n\nstate:\n  goal: original\n  step: 2\n\n"
+        "## TOAS:USER\n\nPlease rethink direction.\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    from toas import cli
+
+    class MockRunner:
+        def generate_state_packet(self, packet):
+            return {"content": json.dumps({"state_patch": {"step": 3}, "tool_calls": []})}
+
+    with patch.object(
+        cli_session_commands,
+        "_resolve_runtime_generation_context",
+        return_value=(OperatorConfig(), {}, MockRunner(), {}),
+    ):
+        cli.run_step(session_path=str(session), preview_request=True, preview_request_pretty=True, infer_from="1")
+        preview_out = capsys.readouterr().out
+        preview_req = json.loads(preview_out)
+        req_messages = preview_req["request_messages"]
+        assert any("## TOAS:STATE/1" in m.get("content", "") for m in req_messages)
+        assert any("## TOAS:STATE/2" in m.get("content", "") for m in req_messages)
+        assert req_messages[-1]["role"] == "user"
+        assert req_messages[-1]["content"] == "Please rethink direction."
 
 
 def test_state_infer_from_cli_option_parity(monkeypatch, tmp_path, capsys):

@@ -200,6 +200,7 @@ def _run_step(
     stdin_mode: bool = False,
     preview: bool = False,
     preview_request: bool = False,
+    preview_request_pretty: bool = False,
     preview_response: bool = False,
     control: str | None = None,
     session_path: str | None = None,
@@ -227,6 +228,8 @@ def _run_step(
         kwargs["infer_from"] = infer_from
     if preview or preview_request:
         kwargs["preview"] = True
+    if preview_request_pretty:
+        kwargs["preview_request_pretty"] = True
     if preview_response:
         kwargs["preview_response"] = True
     run_operator_step_once(**kwargs)
@@ -237,6 +240,7 @@ def run_step(
     stdin_mode: bool = False,
     preview: bool = False,
     preview_request: bool = False,
+    preview_request_pretty: bool = False,
     preview_response: bool = False,
     control: str | None = None,
     session_path: str | None = None,
@@ -253,6 +257,8 @@ def run_step(
             kwargs["preview"] = True
         if preview_request:
             kwargs["preview_request"] = True
+        if preview_request_pretty:
+            kwargs["preview_request_pretty"] = True
         if preview_response:
             kwargs["preview_response"] = True
         if surface_id is not None:

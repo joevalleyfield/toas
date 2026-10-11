@@ -20,9 +20,10 @@ SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
 SURFACE_REBIND_USAGE = "usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>"
 
 
-def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, str | None, str | None, str | None]:
+def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, bool, str | None, str | None, str | None, str | None]:
     stdin_mode = False
     preview_request = False
+    preview_request_pretty = False
     preview_response = False
     control: str | None = None
     session_path: str | None = None
@@ -39,6 +40,11 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, s
             continue
         if arg in {"--preview", "--preview-request"}:
             preview_request = True
+            i += 1
+            continue
+        if arg == "--preview-request-pretty":
+            preview_request = True
+            preview_request_pretty = True
             i += 1
             continue
         if arg == "--preview-response":
@@ -70,7 +76,7 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, str | None, s
             i += 2
             continue
         raise SystemExit(f"unknown option: {arg}")
-    return stdin_mode, preview_request, preview_response, control, session_path, surface_id, infer_from
+    return stdin_mode, preview_request, preview_request_pretty, preview_response, control, session_path, surface_id, infer_from
 
 
 def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None]:

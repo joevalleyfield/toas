@@ -157,7 +157,7 @@ def test_dispatch_step_parses_infer_from_override():
 
 
 def test_dispatch_step_control_requires_value():
-    with pytest.raises(SystemExit, match="usage: toas step \\[--preview-request\\] \\[--preview-response\\] \\[--stdin\\] \\[--infer-from <state-label>\\] \\[--control <slash_command>\\] \\[--session <transcript_path>\\] \\[--surface <surface_id>\\]"):
+    with pytest.raises(SystemExit, match="usage: toas step \\[--preview-request\\] \\[--preview-request-pretty\\] \\[--preview-response\\] \\[--stdin\\] \\[--infer-from <state-label>\\] \\[--control <slash_command>\\] \\[--session <transcript_path>\\] \\[--surface <surface_id>\\]"):
         dispatch_main(["step", "--control"], deps=_deps([]))
 
 
@@ -400,10 +400,13 @@ def test_dispatch_step_forwards_each_preview_mode():
     calls = []
     deps = _deps(calls)
     dispatch_main(["step", "--preview-request"], deps=deps)
+    dispatch_main(["step", "--preview-request-pretty"], deps=deps)
     dispatch_main(["step", "--preview-response"], deps=deps)
     assert calls[0] == ("step", (), {"stdin_mode": False, "control": None, "session_path": None,
                                        "surface_id": None, "preview_request": True})
-    assert calls[1][-1]["preview_response"] is True
+    assert calls[1][-1]["preview_request"] is True
+    assert calls[1][-1]["preview_request_pretty"] is True
+    assert calls[2][-1]["preview_response"] is True
 
 
 def test_dispatch_debug_unknown_subcommand():

@@ -87,7 +87,7 @@ def dispatch_main(
             else:
                 deps.run_step_async(session_path=session_path)
         else:
-            stdin_mode, preview_request, preview_response, control, session_path, surface_id, infer_from = parse_step_options(argv)
+            stdin_mode, preview_request, preview_request_pretty, preview_response, control, session_path, surface_id, infer_from = parse_step_options(argv)
             if session_path is not None and surface_id is not None:
                 raise SystemExit("step accepts only one of --session or --surface")
             if not stdin_mode and not preview_request and not preview_response and control is None and session_path is None and infer_from is None:
@@ -106,6 +106,8 @@ def dispatch_main(
                     step_kwargs["infer_from"] = infer_from
                 if preview_request:
                     step_kwargs["preview_request"] = True
+                if preview_request_pretty:
+                    step_kwargs["preview_request_pretty"] = True
                 if preview_response:
                     step_kwargs["preview_response"] = True
                 deps.run_step(**step_kwargs)

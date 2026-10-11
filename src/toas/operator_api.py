@@ -172,6 +172,7 @@ def step_once(
     *,
     generate: Callable[[list[dict]], dict] | None = None,
     preview: bool = False,
+    preview_request_pretty: bool = False,
     preview_response: bool = False,
     stdin_mode: bool = False,
     control: str | None = None,
@@ -200,6 +201,7 @@ def step_once(
     if (
         stdin_mode
         or preview
+        or preview_request_pretty
         or preview_response
         or control is not None
         or session_path is not None
@@ -221,6 +223,7 @@ def step_once(
         run_step_fn(
             generate_override=generate,
             preview=preview,
+            preview_request_pretty=preview_request_pretty,
             preview_response=preview_response,
             stdin_mode=stdin_mode,
             control=control,

@@ -157,6 +157,7 @@ def run_step(
     *,
     generate_override: Callable[[list[dict]], dict] | None = None,
     preview: bool = False,
+    preview_request_pretty: bool = False,
     preview_response: bool = False,
     stdin_mode: bool = False,
     control: str | None = None,
@@ -203,6 +204,7 @@ def run_step(
             turns=turns,
             state_index=state_turn_indices[-1],
             preview=preview,
+            preview_request_pretty=preview_request_pretty,
             preview_response=preview_response,
             infer_from=infer_from,
             on_projection_nodes=on_projection_nodes,
@@ -428,11 +430,33 @@ def _resolve_state_input_turns(
     return normalized_transcript, resolved_input_turns, read_current_log(str(events_path)), intent_resolved
 
 
+def _preview_request_display(request: Any, *, pretty: bool) -> str:
+    if not pretty:
+        return json.dumps(request, ensure_ascii=False, indent=2)
+
+    def unpack_json_strings(value: Any) -> Any:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped[:1] in {"[", "{"}:
+                try:
+                    return unpack_json_strings(json.loads(stripped))
+                except (json.JSONDecodeError, ValueError):
+                    return value
+            return value
+        if isinstance(value, list):
+            return [unpack_json_strings(item) for item in value]
+        if isinstance(value, dict):
+            return {key: unpack_json_strings(item) for key, item in value.items()}
+        return value
+
+    return json.dumps(unpack_json_strings(request), ensure_ascii=False, indent=2)
+
+
 def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_transcript: str,
                     session_newline: str, events: list[dict],
                     turns: list[dict] | None = None, state_index: int | None = None,
                     parsed_turn: dict | None = None,
-                    preview: bool = False, preview_response: bool = False,
+                    preview: bool = False, preview_request_pretty: bool = False, preview_response: bool = False,
                     infer_from: str | None = None,
                     on_projection_nodes: Callable[[list[dict]], None] | None = None,
                     on_projection_delta: Callable[[str], None] | None = None,
@@ -602,10 +626,10 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
             state_message_id=current_state_message_id,
         )
         if request.get("phase") != "infer":
-            print(json.dumps(request, ensure_ascii=False, indent=2))
+            print(_preview_request_display(request, pretty=preview_request_pretty))
             return
         if preview:
-            print(json.dumps(request, ensure_ascii=False, indent=2))
+            print(_preview_request_display(request, pretty=preview_request_pretty))
         if not preview_response:
             return
     if cleaned_input_turns and not preview and not preview_response:
