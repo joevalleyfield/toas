@@ -14,8 +14,10 @@ from ..runtime.tool_stream_context import current_tool_stream_emitter
 
 
 def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str]) -> subprocess.Popen:
-    merged_env = os.environ.copy()
-    merged_env.update(env)
+    # ``env`` is already a complete process environment by the time it
+    # reaches this function (see run_subprocess). Do not merge in
+    # os.environ here: doing so would re-introduce variables that the
+    # caller intentionally removed, defeating the environment policy.
     return subprocess.Popen(
         argv,
         cwd=str(cwd),
@@ -24,7 +26,7 @@ def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str])
         stdin=subprocess.DEVNULL,
         text=False,
         bufsize=0,
-        env=merged_env,
+        env=env,
     )
 
 

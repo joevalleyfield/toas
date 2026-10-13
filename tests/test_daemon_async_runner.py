@@ -1846,7 +1846,7 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
             ],
             cwd=tmp_path,
             timeout_s=1,
-            env={"TOAS_STREAM_STDOUT": "1"},
+            stream_stdout_override=True,
         )
 
     dar._run_in_process_worker(
@@ -1937,7 +1937,7 @@ def test_run_in_process_worker_finalizes_when_windows_stream_reader_stays_alive(
             ["echo"],
             cwd=tmp_path,
             timeout_s=1,
-            env={"TOAS_STREAM_STDOUT": "1"},
+            stream_stdout_override=True,
         )
 
     dar._run_in_process_worker(
@@ -2019,7 +2019,7 @@ def test_run_in_process_worker_finalizes_when_posix_stream_reader_stays_alive(tm
             ["echo"],
             cwd=tmp_path,
             timeout_s=1,
-            env={"TOAS_STREAM_STDOUT": "1"},
+            stream_stdout_override=True,
         )
 
     dar._run_in_process_worker(

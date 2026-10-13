@@ -635,8 +635,6 @@ def _execute_plan(
     continue_on_error: bool = False,
 ) -> list[dict]:
     effective_env = dict(env_modifiers or {})
-    if stream_stdout_enabled is not None and "TOAS_STREAM_STDOUT" not in effective_env:
-        effective_env["TOAS_STREAM_STDOUT"] = "1" if stream_stdout_enabled else "0"
     return [
         make_result_node(
             shape_result_content(result),
@@ -655,6 +653,7 @@ def _execute_plan(
             assistant_timeout_source=assistant_timeout_source,
             authority=origin_role,
             continue_on_error=continue_on_error,
+            stream_stdout_enabled=stream_stdout_enabled,
         )
     ]
 
@@ -821,8 +820,6 @@ def _execute_user_shell(
     stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
     effective_env = dict(env_modifiers or {})
-    if stream_stdout_enabled is not None and "TOAS_STREAM_STDOUT" not in effective_env:
-        effective_env["TOAS_STREAM_STDOUT"] = "1" if stream_stdout_enabled else "0"
     result = execute_shell_call(
         shell_args,
         context="user",

@@ -14,6 +14,7 @@ from ..runtime.environment_policy import (
     apply_environment_policy,
     current_environment_overrides,
     current_environment_policy,
+    current_stream_stdout,
 )
 from ..runtime.tool_stream_context import emit_tool_done
 from ..shell_grants import shell_command_decision, shell_script_segment_commands
@@ -162,9 +163,9 @@ def run_subprocess(
         argv,
         policy=current_environment_policy(),
     )
-    stream_stdout = str(effective_env.get("TOAS_STREAM_STDOUT", "")).strip().lower() in {"1", "true", "yes", "on"}
+    stream_stdout = bool(current_stream_stdout())
     if stream_stdout_override is not None:
-        stream_stdout = stream_stdout_override
+        stream_stdout = bool(stream_stdout_override)
     try:
         if stream_stdout:
             completed = run_streaming_subprocess(
