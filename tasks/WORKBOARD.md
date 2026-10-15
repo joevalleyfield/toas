@@ -275,7 +275,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
-- **[T261010-preview-request-pretty-inspection]** Status: OPEN; support near-literal pretty-printed inspection of model request messages in toas step --preview-request
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-scratch-read-file-ingestion-threshold]** Status: OPEN; apply 500-line ingestion threshold when read_file targets scratch files without explicit bounds
 <!-- WORKBOARD:NOW:END -->
@@ -365,6 +364,7 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261010-preview-request-pretty-inspection]** Status: CLOSED; added `toas step --preview-request-pretty` for near-literal request inspection
 - **[T261009-read-file-eof-truncation-and-soft-bounds]** Status: CLOSED; implemented read_file clean EOF truncation and soft line bounds
 - **[T261009-explicit-reference-expansion-and-report-projection]** Status: CLOSED
 - **[T261009-batch-tool-non-fatal-execution-mode]** Status: CLOSED; implemented batch tool continue_on_error mode across runtime, protocol, and projection
