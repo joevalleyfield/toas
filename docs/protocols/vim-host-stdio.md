@@ -8,6 +8,15 @@ health observations and opt-in wire traces, see
 
 Vim owns the host lifecycle. `toas host` is a child process of Vim.
 
+Owner and recorded-host liveness checks must not signal the process. On Windows,
+the shared runtime query uses OpenProcess/GetExitCodeProcess rather than
+`os.kill(pid, 0)`, whose zero signal has console-control semantics. The daemon
+retains its existing query import as a compatibility surface. See
+[CPython's Windows implementation](https://github.com/python/cpython/blob/3.12/Modules/posixmodule.c#L8381-L8406).
+
+For native Windows and POSIX terminal verification, see the
+[Vim driver notes](../../tests/vim/README.md).
+
 ## Stream Purity
 
 Stdout is protocol-pure newline-delimited JSON. Every complete line on stdout must be exactly one JSON frame. No logs, banners, tracebacks, progress text, or human-readable diagnostics may be written to stdout.

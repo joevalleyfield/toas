@@ -15,6 +15,7 @@ from ..runtime.environment_policy import (
     current_environment_overrides,
     current_environment_policy,
 )
+from ..runtime.shell_runtime import configured_shell_runtime
 from ..runtime.tool_stream_context import emit_tool_done
 from ..shell_grants import shell_command_decision, shell_script_segment_commands
 from .shell_streaming import run_streaming_subprocess
@@ -283,12 +284,26 @@ def _expand_globs_in_argv(argv: list[str]) -> list[str]:
     return expanded
 
 
-def shell_launcher_argv(command: str) -> list[str]:
+def shell_launcher_argv(command: str, *, runtime: list[str] | None = None, workdir: Path | None = None) -> list[str]:
+    if runtime is not None:
+        if not isinstance(runtime, list) or not runtime or not all(isinstance(part, str) and part for part in runtime):
+            raise RuntimeError("shell runtime must be a non-empty list[str]")
+        return [*runtime, command]
+    configured = configured_shell_runtime(workdir or Path.cwd())
+    if configured:
+        return shell_launcher_argv(command, runtime=list(configured))
     if sys.platform.startswith("win"):
-        if shutil.which("bash"):
+        bash = shutil.which("bash")
+        # System32 bash.exe launches WSL, not a native Windows POSIX shell.
+        if bash and not bash.replace("\\", "/").lower().endswith("/system32/bash.exe"):
             return ["bash", "-lc", command]
         if shutil.which("sh"):
             return ["sh", "-lc", command]
+        git = shutil.which("git")
+        if git:
+            git_bash = Path(git).parent.parent / "bin" / "bash.exe"
+            if git_bash.is_file():
+                return [str(git_bash), "-lc", command]
         return ["cmd.exe", "/d", "/s", "/c", command]
     return ["sh", "-lc", command]
 
@@ -344,7 +359,7 @@ def run_user_shell(
         raise RuntimeError("user shell command requires cwd to be a directory")
 
     env = build_env_with_overrides(env_overrides)
-    shell_argv, shell_hint = _resolve_user_shell_execution(argv=argv, command=command)
+    shell_argv, shell_hint = _resolve_user_shell_execution(argv=argv, command=command, workdir=resolved_cwd)
     if shell_hint is not None:
         return _needs_shell_result(argv=argv, cwd=resolved_cwd, hint=shell_hint)
     assert shell_argv is not None
@@ -357,14 +372,14 @@ def run_user_shell(
     )
 
 
-def _resolve_user_shell_execution(*, argv: list[str], command: str | None) -> tuple[list[str] | None, str | None]:
+def _resolve_user_shell_execution(*, argv: list[str], command: str | None, workdir: Path | None = None) -> tuple[list[str] | None, str | None]:
     if isinstance(command, str) and command.strip() and needs_shell(command):
-        return shell_launcher_argv(command), None
+        return shell_launcher_argv(command, workdir=workdir), None
     operator = next((part for part in argv if part in SHELL_OPERATOR_TOKENS), None)
     if operator is None:
         return argv, None
     command_line = command.strip() if isinstance(command, str) and command.strip() else shlex.join(argv)
-    shell_hint = shlex.join(shell_launcher_argv(command_line))
+    shell_hint = shlex.join(shell_launcher_argv(command_line, workdir=workdir))
     return None, f"needs shell for operator {operator!r}; try: {shell_hint}"
 
 
@@ -451,7 +466,7 @@ def execute_shell_call(
     resolved_cwd = _resolve_user_cwd(args=args, base_cwd=base_cwd)
 
     if not isinstance(command, str) or not command.strip():
-        command = shlex.join(argv)
+        command = None
 
     return run_user_shell(
         argv,

@@ -15,7 +15,7 @@ from toas.tools_cluster.file_ops import run_replace_block, run_replace_range
 def test_run_replace_range_replaces_lines(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     test_file = Path("test.txt")
-    test_file.write_text("a\nb\nc\n", encoding="utf-8")
+    test_file.write_bytes(b"a\nb\nc\n")
 
     result = run_replace_range(
         {
@@ -29,6 +29,7 @@ def test_run_replace_range_replaces_lines(tmp_path, monkeypatch):
     assert result["ok"] is True
     assert test_file.read_text(encoding="utf-8") == "a\nB\nc\n"
     assert result["newline_style"] == "lf"
+    assert test_file.read_bytes() == b"a\nB\nc\n"
 
 
 def test_run_replace_range_auto_preserves_existing_crlf(tmp_path, monkeypatch):
@@ -252,7 +253,7 @@ def test_run_replace_range_context_mismatch_and_indent(tmp_path, monkeypatch):
 def test_run_replace_block_expected_count_and_indents(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     test_file = Path("test.txt")
-    test_file.write_text("k\nk\n", encoding="utf-8")
+    test_file.write_bytes(b"k\nk\n")
 
     with pytest.raises(RuntimeError, match="matched 2 blocks; expected 1"):
         run_replace_block(

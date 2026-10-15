@@ -1,0 +1,22 @@
+I need to look at the actual implementation of `_run_step` and `run_operator_step_once` to understand where the request is constructed and printed. Let me read those sections.
+
+<tool_call>
+<function=shell>
+<parameter=argv>
+["grep", "-rn", "def run_operator_step_once", "src/"]
+</parameter>
+</function>
+</tool_call>
+<tool_call>
+<function=read_file>
+<parameter=path>
+src/toas/cli.py
+</parameter>
+<parameter=start_line>
+196
+</parameter>
+<parameter=end_line>
+270
+</parameter>
+</function>
+</tool_call>

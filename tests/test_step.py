@@ -864,7 +864,8 @@ arguments:
     assert payload["tool_name"] == "shell"
     assert payload["ok"] is True
     assert payload["summary"] == "exit=0"
-    assert payload["argv"] == ["sh", "-lc", "printf hi"]
+    from toas.tools_cluster.shell_ops import shell_launcher_argv
+    assert payload["argv"] == shell_launcher_argv("printf hi")
     assert payload["exit_code"] == 0
 
 
@@ -1669,7 +1670,8 @@ EOF
     assert len(out) == 1
     assert out[0]["role"] == "result"
     assert out[0]["origin_kind"] == "user_shell"
-    assert out[0]["payload"]["argv"] == ["sh", "-lc", "cat <<'EOF'\nalpha\nEOF"]
+    from toas.tools_cluster.shell_ops import shell_launcher_argv
+    assert out[0]["payload"]["argv"] == shell_launcher_argv("cat <<'EOF'\nalpha\nEOF")
     assert out[0]["payload"]["stdout"] == "alpha"
 
 
@@ -3419,9 +3421,13 @@ def test_config_restore_returns_config_update_op():
     assert out[0]["config_update"] == {"__op__": "restore"}
 
 
-def test_config_load_returns_nested_config_update(tmp_path):
+@pytest.mark.parametrize("newline, digest", [
+    ("\n", "61e53a905dd6f64e53738a7993a43466fe2f9769a9e44f7241292db8bedecc33"),
+    ("\r\n", "3aa14be1d6435902ce52b4bdf6282907fcc315acdeb347a1003d64cfa1c1478b"),
+], ids=["lf", "crlf"])
+def test_config_load_returns_nested_config_update(tmp_path, newline, digest):
     cfg = tmp_path / "alt.toml"
-    cfg.write_text('[generation]\nmax_retries = 3\n', encoding="utf-8")
+    cfg.write_bytes(f'[generation]{newline}max_retries = 3{newline}'.encode())
     transcript = f"""\
 ## TOAS:USER
 /config load {cfg.as_posix()}
@@ -3430,7 +3436,7 @@ def test_config_load_returns_nested_config_update(tmp_path):
     assert out[0]["config_update"] == {"generation": {"max_retries": 3}}
     assert out[0]["config_load_resolution"] == {
         "path": str(cfg),
-        "input_digest": "61e53a905dd6f64e53738a7993a43466fe2f9769a9e44f7241292db8bedecc33",
+        "input_digest": digest,
         "delta": {"generation": {"max_retries": 3}},
         "reconstitution_eligible": True,
     }

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 import uuid
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .process_liveness import probe_process
 from .session_host_process import spawn_session_host
 
 
@@ -69,7 +69,7 @@ def process_alive(pid: int) -> bool:
     if pid <= 0:
         return False
     try:
-        os.kill(pid, 0)
+        probe_process(pid)
     except PermissionError:
         return True
     except OSError:

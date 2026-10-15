@@ -712,7 +712,7 @@ def route_and_capture(
         if not parent_file or not parent_file.exists():
             target = "inbox"
         else:
-            parent_path = str(parent_file.relative_to(adapter.workspace_root))
+            parent_path = parent_file.relative_to(adapter.workspace_root).as_posix()
 
     file_path = ""
     directive = "continue"

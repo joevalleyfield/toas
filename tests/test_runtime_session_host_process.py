@@ -60,11 +60,11 @@ def test_serve_session_host_delegates_to_stdio_json_when_enabled(monkeypatch):
 def test_serve_session_host_exits_when_owner_gone(monkeypatch):
     calls = []
 
-    def _kill(_pid: int, _sig: int):
+    def _kill(_pid: int):
         calls.append("kill")
         raise OSError("gone")
 
-    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp, "probe_process", _kill)
     monkeypatch.setattr(shp.time, "sleep", lambda _s: calls.append("sleep"))
     shp.serve_session_host(owner_pid=10, sleep_s=0.001)
     assert calls == ["kill"]
@@ -75,19 +75,19 @@ def test_serve_session_host_loops_until_owner_gone(monkeypatch):
     state = {"n": 0}
     sleeps: list[float] = []
 
-    def _kill(_pid: int, _sig: int):
+    def _kill(_pid: int):
         state["n"] += 1
         if state["n"] >= 3:
             raise OSError("gone")
 
-    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp, "probe_process", _kill)
     monkeypatch.setattr(shp.time, "sleep", lambda s: sleeps.append(s))
     shp.serve_session_host(owner_pid=10, sleep_s=0.123)
     assert sleeps == [0.123, 0.123]
 
 
 def test_serve_session_host_stdio_json_exits_when_owner_gone(monkeypatch):
-    monkeypatch.setattr(shp.os, "kill", lambda _pid, _sig: (_ for _ in ()).throw(OSError("gone")))
+    monkeypatch.setattr(shp, "probe_process", lambda _pid: (_ for _ in ()).throw(OSError("gone")))
     shp.serve_session_host_stdio_json(owner_pid=10, sleep_s=0.01)
 
 
@@ -95,7 +95,7 @@ def test_serve_session_host_stdio_json_sleeps_on_empty_stdin(monkeypatch):
     state = {"n": 0}
     sleeps: list[float] = []
 
-    def _kill(_pid: int, _sig: int):
+    def _kill(_pid: int):
         state["n"] += 1
         if state["n"] >= 2:
             raise OSError("gone")
@@ -104,7 +104,7 @@ def test_serve_session_host_stdio_json_sleeps_on_empty_stdin(monkeypatch):
         def readline(self):
             return b""
 
-    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp, "probe_process", _kill)
     monkeypatch.setattr(shp.sys, "stdin", type("_Stdin", (), {"buffer": _In()})())
     monkeypatch.setattr(shp.time, "sleep", lambda s: sleeps.append(s))
     shp.serve_session_host_stdio_json(owner_pid=10, sleep_s=0.25)
@@ -115,7 +115,7 @@ def test_serve_session_host_stdio_json_handles_line_and_flushes(monkeypatch):
     monkeypatch.setenv("TOAS_HOST_STDIO_OS_WRITE", "0")
     state = {"n": 0}
 
-    def _kill(_pid: int, _sig: int):
+    def _kill(_pid: int):
         state["n"] += 1
         if state["n"] >= 2:
             raise OSError("gone")
@@ -136,7 +136,7 @@ def test_serve_session_host_stdio_json_handles_line_and_flushes(monkeypatch):
         def flush(self):
             writes.append("flushed")
 
-    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp, "probe_process", _kill)
     monkeypatch.setattr(shp.sys, "stdin", type("_Stdin", (), {"buffer": _In()})())
     monkeypatch.setattr(shp.sys, "stdout", type("_Stdout", (), {"buffer": _Out()})())
     monkeypatch.setattr(
@@ -1295,13 +1295,13 @@ def test_serve_session_host_ignores_permission_error_and_keeps_looping(monkeypat
     state = {"n": 0}
     sleeps = []
 
-    def _kill(_pid, _sig):
+    def _kill(_pid):
         state["n"] += 1
         if state["n"] == 1:
             raise PermissionError("not allowed")
         raise OSError("gone")
 
-    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp, "probe_process", _kill)
     monkeypatch.setattr(shp.time, "sleep", lambda s: sleeps.append(s))
     shp.serve_session_host(owner_pid=10, sleep_s=0.01)
     assert sleeps == [0.01]
@@ -1318,10 +1318,10 @@ def test_owner_alive_returns_ignored_when_check_disabled(monkeypatch):
 def test_owner_alive_returns_permission_on_permission_error(monkeypatch):
     monkeypatch.delenv("TOAS_HOST_IGNORE_OWNER_CHECK", raising=False)
 
-    def _kill(_pid, _sig):
+    def _kill(_pid):
         raise PermissionError("not allowed")
 
-    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp, "probe_process", _kill)
     io = shp._build_sync_host_io(owner_pid=99, sleep_s=0.01)
     assert io.owner_alive_fn() == "permission"
 

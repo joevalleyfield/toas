@@ -1,0 +1,31 @@
+```json
+{
+  "state_patch": {
+    "goal": "List open tasks.",
+    "progress": [],
+    "next_steps": [
+      "Investigate available task tracking systems or files in the workspace to identify open tasks."
+    ],
+    "artifacts": [],
+    "blockers": [],
+    "notes": {
+      "constraints": [],
+      "accepted_decisions": [],
+      "pending_proposals": [],
+      "uncertainties": [
+        "The specific location or format of task data (e.g., JSON, Markdown, SQLite, external API) is unknown."
+      ]
+    }
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": ["find", ".", "-type", "f", "-name", "*task*", "-o", "-name", "*todo*"],
+        "cwd": "."
+      }
+    }
+  ],
+  "outcome": "continue"
+}
+```

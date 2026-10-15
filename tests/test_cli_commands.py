@@ -55,7 +55,7 @@ def test_resolve_events_path_falls_back_to_legacy(tmp_path, monkeypatch):
 def test_resolve_events_path_returns_preferred_when_neither_exists(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = clc.resolve_events_path()
-    assert str(result) == ".toas/events.jsonl"
+    assert result == Path(".toas") / "events.jsonl"
 
 
 # --- resolve_session_path ---
@@ -63,7 +63,7 @@ def test_resolve_events_path_returns_preferred_when_neither_exists(tmp_path, mon
 def test_resolve_session_path_no_events_returns_default(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = clc.resolve_session_path()
-    assert str(result) == ".toas/session.md"
+    assert result == Path(".toas") / "session.md"
 
 
 def test_resolve_session_path_events_with_transcript_path_override(tmp_path, monkeypatch):
@@ -95,7 +95,7 @@ def test_resolve_session_path_follows_surface_binding(tmp_path, monkeypatch):
 def test_resolve_session_path_events_no_surface_no_override_returns_default(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = clc.resolve_session_path([])
-    assert str(result) == ".toas/session.md"
+    assert result == Path(".toas") / "session.md"
 
 
 # --- _has_nested_key ---

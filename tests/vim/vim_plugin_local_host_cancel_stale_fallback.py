@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import tempfile
 from pathlib import Path
 
-import pexpect
+from vim_terminal import EOF, spawn
 
 
 def _vim_quote(path: Path) -> str:
-    return str(path).replace("'", "''")
+    return path.as_posix().replace("'", "''")
 
 
 def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
@@ -30,11 +31,11 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
                     "set shortmess+=I",
                     "let g:toas_notice_enabled = 0",
                     "let g:toas_transport_mode = 'local_host'",
-                    f"let g:ToasTestLocalHostStartCmd = ['python3', '{host_path}']",
+                    f"let g:ToasTestLocalHostStartCmd = ['{_vim_quote(Path(sys.executable))}', '{host_path}']",
                     f"source {plugin_path}",
                     "let g:toas_sid = ''",
                     "for g:script_line in split(execute('scriptnames'), \"\\n\")",
-                    "  if g:script_line =~# 'vim/plugin/toas\\.vim$'",
+                    "  if g:script_line =~# 'toas\\.vim$'",
                     "    let g:toas_sid = '<SNR>' . matchstr(g:script_line, '^\\s*\\zs\\d\\+\\ze:') . '_'",
                     "  endif",
                     "endfor",
@@ -53,14 +54,14 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
             + "\n",
             encoding="utf-8",
         )
-        child = pexpect.spawn(
+        child = spawn(
             vim_bin,
-            ["-Nu", "NONE", "-n", "-i", "NONE", "-S", str(script)],
+            ["-Nu", "NONE", "-n", "-i", "NONE", "-S", script.as_posix()],
             cwd=str(tdp),
             encoding="utf-8",
             timeout=timeout_s,
         )
-        child.expect(pexpect.EOF)
+        child.expect(EOF)
         child.close()
         if not out.exists():
             return {"ok": False, "result": None, "stdout_tail": child.before[-1200:] if isinstance(child.before, str) else ""}

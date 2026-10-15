@@ -1,0 +1,75 @@
+Let me analyze the observation to understand the current state and plan next steps.
+
+## Current Understanding
+
+The goal is to add a `--pretty` flag to `toas step --preview-request` that unpacks stringified message contents and pretty-prints inner JSON structures for human inspection.
+
+From the observations, I've gathered key information about the current implementation:
+
+1. **CLI entry point** (`src/toas/cli.py`):
+   - Line 91: `toas step [--preview-request] [--preview-response] [--session <transcript_path>]`
+   - Line 129: `step --preview-request   print state-step request messages without calling the model`
+   - Line 198: `def _run_step(`
+   - Line 239: `preview_request: bool = False,`
+   - Line 246: `if preview or preview_request or preview_response or ...:`
+   - Line 254-255: `if preview_request: kwargs["preview_request"] = True`
+   - Line 232: `run_operator_step_once(**kwargs)`
+
+2. **Key flow**:
+   - `_run_step()` handles the step command
+   - When `preview_request` is True, it passes it to `run_operator_step_once()`
+   - The actual preview logic is in `operator_api.step_once`
+
+I need to:
+1. Understand how `run_operator_step_once` handles `preview_request`
+2. Find where the request payload is actually printed
+3. Implement the `--pretty` flag in the CLI and pass it through
+4. Add the pretty-printing logic
+
+Let me explore the `operator_api` module to understand the `step_once` function and how it handles `preview_request`.
+
+```json
+{
+  "state_patch": {
+    "next_steps": [
+      "Explore operator_api.py to understand step_once and preview_request handling",
+      "Identify where request payload is constructed and printed in step_once",
+      "Add --pretty flag to CLI _run_step signature and pass through to step_once",
+      "Implement pretty-printing logic in operator_api.step_once when preview_request and pretty are set",
+      "Add tests for the new pretty-print functionality",
+      "Update task file with progress"
+    ],
+    "artifacts": [
+      "src/toas/cli.py:91-91",
+      "src/toas/cli.py:129-130",
+      "src/toas/cli.py:196-232",
+      "src/toas/cli.py:235-266",
+      "src/toas/operator_api.py:step_once"
+    ]
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "src/toas/operator_api.py",
+        "show_line_numbers": true
+      }
+    },
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": [
+          "grep",
+          "-n",
+          "-A",
+          "50",
+          "def step_once",
+          "src/toas/operator_api.py"
+        ],
+        "timeout_s": 10
+      }
+    }
+  ],
+  "outcome": "continue"
+}
+```

@@ -1,10 +1,36 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 from toas.tools_cluster import shell_streaming
+
+
+@pytest.mark.parametrize("stage", ["no-stream", "fileno", "set-blocking", "would-block", "read-error", "empty", "text"])
+def test_posix_tail_drain_is_bounded_and_handles_unavailable_or_text_tail(monkeypatch, stage):
+    monkeypatch.setattr(shell_streaming, "_is_windows", lambda: False)
+    reader = Mock()
+    reader.is_alive.return_value = True
+    proc = Mock()
+    proc.stdout.fileno.return_value = 7
+    if stage == "no-stream":
+        proc.stdout = None
+    elif stage == "fileno":
+        proc.stdout.fileno.side_effect = OSError("closed")
+    set_blocking = Mock(side_effect=OSError("unsupported") if stage == "set-blocking" else None)
+    read = Mock(return_value="tail" if stage == "text" else b"")
+    if stage == "would-block":
+        read.side_effect = BlockingIOError()
+    elif stage == "read-error":
+        read.side_effect = OSError("closed")
+    monkeypatch.setattr(shell_streaming._os, "set_blocking", set_blocking)
+    monkeypatch.setattr(shell_streaming._os, "read", read)
+    emitted = []
+    shell_streaming._drain_if_reader_alive(proc=proc, reader=reader, emit_chunk=emitted.append)
+    reader.join.assert_called_once_with(timeout=1.0)
+    assert emitted == ([b"tail"] if stage == "text" else [])
 
 
 def test_stream_debug_enabled_variants(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -64,6 +90,7 @@ def test_run_streaming_subprocess_reader_alive_nonblocking_drain_branch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(shell_streaming, "_is_windows", lambda: False)
     class _FakeThread:
         def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]
             self._target = target

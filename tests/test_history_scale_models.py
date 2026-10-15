@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from toas.graph import (
@@ -301,7 +303,7 @@ def test_selected_source_projection_names_corrupt_source_that_blocks_result(tmp_
         encoding="utf-8",
     )
 
-    with pytest.raises(SystemExit, match=f"selected projection source {corrupt_path.resolve()} failed integrity"):
+    with pytest.raises(SystemExit, match=re.escape(f"selected projection source {corrupt_path.resolve()} failed integrity")):
         history_lines(events_path=events_path, source_tokens=[str(corrupt_path), "hot"])
 
 

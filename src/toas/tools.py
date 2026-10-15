@@ -314,8 +314,16 @@ def _run_shell_script(args: dict) -> dict:
         workspace_path_fn=_workspace_path,
         effective_shell_allowed=_effective_shell_allowed(),
     )
+    from .runtime.shell_runtime import configured_shell_runtime
+
+    runtime = args.get("runtime") if "runtime" in args else list(configured_shell_runtime(_WORKSPACE_BASE or Path.cwd())) or None
+    if "runtime" in args and runtime is None:
+        raise RuntimeError("shell runtime must be a non-empty list[str]")
+    argv = shell_launcher_argv_cluster(script, runtime=runtime, workdir=cwd)
+    if runtime is not None:
+        _authorize_resolved_runtime(argv[:-1], tool_name="shell_script")
     result = run_subprocess_cluster(
-        _shell_launcher_argv(script),
+        argv,
         cwd=cwd,
         timeout_s=timeout_s,
         env=env,
@@ -323,6 +331,7 @@ def _run_shell_script(args: dict) -> dict:
     )
     result["tool_name"] = "shell_script"
     result["script"] = script
+    result["runtime_source"] = "explicit" if "runtime" in args else "configured" if runtime else "system-default"
     return result
 
 
@@ -508,13 +517,14 @@ REGISTRY = {
         name="shell_script",
         required_args=("script",),
         runner=_run_shell_script,
-        optional_args=("cwd", "timeout_s", "env"),
+        optional_args=("cwd", "timeout_s", "env", "runtime"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
         arg_types={
             "script": "str",
             "cwd": "str",
             "timeout_s": "float",
             "env": "dict[str, str]",
+            "runtime": "list[str]",
         },
     ),
     "python_script": Tool(

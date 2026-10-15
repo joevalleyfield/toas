@@ -1,0 +1,42 @@
+```json
+{
+  "state_patch": {
+    "notes": {
+      "observations": {
+        "cli_grep": "grep -n 'preview_request' toas/cli.py shows:\n91:  toas step [--preview-request] [--preview-response] [--session <transcript_path>]\n129:  step --preview-request   print state-step request messages without calling the model\n202:    preview_request: bool = False,\n228:    if preview or preview_request:\n239:    preview_request: bool = False,\n246:    if preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None or infer_from is not None:\n254:        if preview_request:\n255:            kwargs[\"preview_request\"] = True",
+        "cli_structure": "from .operator_api import step_once as run_operator_step_once\n65:from .step import render_session_help_full\n196:# --- step ---\n198:def _run_step(\n214:        raise SystemExit(\"step accepts only one of session_path or surface_id\")\n232:    run_operator_step_once(**kwargs)\n235:def run_step(\n262:        _run_step(**kwargs)  # type: ignore[arg-type]\n264:    if _rpc_stdout(\"step\"):\n266:    _run_step()\n269:def run_step_async(*, session_path: str | None = None, surface_id: str | None = None):"
+      }
+    },
+    "artifacts": [
+      {
+        "type": "code_slice",
+        "target": "toas/cli.py",
+        "start_line": 196,
+        "end_line": 275,
+        "purpose": "step command implementation with preview_request flag handling"
+      }
+    ],
+    "next_steps": [
+      "Read toas/cli.py lines 196-275 to see full _run_step and run_step implementations",
+      "Read toas/operator_api.py to see how preview_request is handled and messages are rendered",
+      "Implement --pretty flag in CLI",
+      "Implement pretty-printing logic in operator_api",
+      "Add tests",
+      "Verify with uv run pytest"
+    ]
+  },
+  "tool_calls": [
+    {
+      "tool_name": "read_file",
+      "args": {
+        "path": "toas/cli.py",
+        "start_line": 196,
+        "end_line": 275,
+        "show_line_numbers": true
+      }
+    }
+  ],
+  "continue_on_error": false,
+  "outcome": "continue"
+}
+```

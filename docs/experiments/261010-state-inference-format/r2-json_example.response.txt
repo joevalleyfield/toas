@@ -1,0 +1,20 @@
+Let me analyze the observation results. I now have a good picture of the CLI structure. I can see that `--preview-request` is defined at line 202 as `preview_request: bool = False`, and the handling logic is around lines 228-255. I need to read the actual implementation code to understand how the request is constructed and printed, so I can add the `--pretty` flag.
+
+Let me read the relevant sections of `src/toas/cli.py` more carefully.
+
+<tool_call>
+<function=read_file>
+<parameter=path>
+src/toas/cli.py
+</parameter>
+<parameter=start_line>
+196
+</parameter>
+<parameter=end_line>
+270
+</parameter>
+<parameter=show_line_numbers>
+true
+</parameter>
+</function>
+</tool_call>

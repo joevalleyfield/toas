@@ -22,6 +22,7 @@ from .frontier_resolution import (
     render_plan_recovery,
 )
 from .intent_arbitration_edges import select_user_intent_candidates
+from .operator_command_parse import split_operator_command
 from .reconciliation_handoff import (
     ReconciliationDiagnostics,
     ReconciliationHandoff,
@@ -554,7 +555,7 @@ def _branch_config_from_direct_declarations(*, step_mod, working: list[dict], ba
             if not line.startswith("/config "):
                 continue
             try:
-                args = shlex.split(line)
+                args = split_operator_command(line[1:])
             except ValueError:
                 continue
             if len(args) == 4 and args[1] == "set" and args[2] in step_mod.valid_config_keys():
@@ -626,7 +627,7 @@ def _branch_command_context_from_direct_declarations(
             if not line.startswith("/cd "):
                 continue
             try:
-                args = shlex.split(line[1:])
+                args = split_operator_command(line[1:])
             except ValueError:
                 continue
             if len(args) != 2 or args[0] != "cd":
@@ -666,7 +667,7 @@ def _branch_workspace_scope_from_direct_declarations(
             if not line.startswith("/workspace "):
                 continue
             try:
-                args = shlex.split(line[1:])
+                args = split_operator_command(line[1:])
             except ValueError:
                 continue
             if len(args) == 3 and args[1] in {"add", "remove"}:
@@ -773,34 +774,37 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         config=config,
         stream_stdout_enabled=stream_stdout_enabled,
     )
-    should_return_early = _route_frontier_consequence_path(
-        step_mod=step_mod,
-        frontier=frontier,
-        consequences=consequences,
-        plan=plan,
-        operator_command=operator_command,
-        operator_commands=operator_commands,
-        shell_command=shell_command,
-        shell_argv=shell_argv,
-        loose_command=loose_command,
-        loose_command_recovered=loose_command_recovered,
-        turn_inert=turn_inert,
-        execute=execute,
-        events=events,
-        working=working,
-        transcript=transcript,
-        command_cwd=command_cwd,
-        previous_command_cwd=previous_command_cwd,
-        workspace_mode=workspace_mode,
-        workspace_roots=workspace_roots,
-        config=config,
-        config_sources=config_sources,
-        already_executed_indices=already_executed_indices,
-        env_modifiers=env_modifiers,
-        stream_stdout_enabled=stream_stdout_enabled,
-        generate=generate,
-        baseline_config=baseline_config,
-    )
+    from .shell_runtime import active_shell_runtime
+
+    with active_shell_runtime(config.runtime.shell_runtime):
+        should_return_early = _route_frontier_consequence_path(
+            step_mod=step_mod,
+            frontier=frontier,
+            consequences=consequences,
+            plan=plan,
+            operator_command=operator_command,
+            operator_commands=operator_commands,
+            shell_command=shell_command,
+            shell_argv=shell_argv,
+            loose_command=loose_command,
+            loose_command_recovered=loose_command_recovered,
+            turn_inert=turn_inert,
+            execute=execute,
+            events=events,
+            working=working,
+            transcript=transcript,
+            command_cwd=command_cwd,
+            previous_command_cwd=previous_command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+            config=config,
+            config_sources=config_sources,
+            already_executed_indices=already_executed_indices,
+            env_modifiers=env_modifiers,
+            stream_stdout_enabled=stream_stdout_enabled,
+            generate=generate,
+            baseline_config=baseline_config,
+        )
     return consequences, should_return_early
 
 

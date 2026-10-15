@@ -1,0 +1,28 @@
+Let me analyze the current situation. I've explored the CLI code and found the key locations:
+- `_run_step` function at lines 198-232 in `src/toas/cli.py`
+- `run_step` function at lines 235-266
+- `run_step_async` at lines 269-274
+- The `--preview-request` flag is defined around line 202
+
+Now I need to understand the current implementation more deeply. Let me look at the specific code sections and also find the task file to understand requirements better.
+
+<tool_call>
+<function=read_file>
+<parameter=path>
+src/toas/cli.py
+</parameter>
+<parameter=start_line>
+196
+</parameter>
+<parameter=end_line>
+280
+</parameter>
+</function>
+</tool_call>
+<tool_call>
+<function=shell>
+<parameter=argv>
+["find", "tasks", "-name", "*.md", "-type", "f", "|", "head", "-20"]
+</parameter>
+</function>
+</tool_call>

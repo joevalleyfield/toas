@@ -7,7 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 
-import pexpect
+from vim_terminal import EOF, spawn
 
 
 def run_phase2(*, vim_bin: str, timeout_s: float, delay_ms: int) -> dict[str, object]:
@@ -18,7 +18,7 @@ def run_phase2(*, vim_bin: str, timeout_s: float, delay_ms: int) -> dict[str, ob
         out_path = td_path / "out_async.txt"
         vim_cmd = [vim_bin, "-X", "-Nu", "NONE", "-n"]
         logs.append("CMD " + " ".join(vim_cmd))
-        child = pexpect.spawn(vim_cmd[0], vim_cmd[1:], encoding="utf-8", timeout=timeout_s, env=os.environ)
+        child = spawn(vim_cmd[0], vim_cmd[1:], encoding="utf-8", timeout=timeout_s, env=os.environ)
         # Interactive setup after UI is alive (plugin-free)
         child.send(":set nocompatible noswapfile shortmess+=I\r")
         child.send(":file baseline-async.txt\r")
@@ -32,7 +32,7 @@ def run_phase2(*, vim_bin: str, timeout_s: float, delay_ms: int) -> dict[str, ob
         child.send(
             ":call timer_start("
             + str(delay_ms + 250)
-            + ", {-> execute('write! " + str(out_path).replace("'", "''") + "')})\r"
+            + ", {-> execute('write! " + out_path.as_posix().replace("'", "''") + "')})\r"
         )
         child.send(":call timer_start(" + str(delay_ms + 450) + ", {-> execute('qa!')})\r")
 
@@ -41,7 +41,7 @@ def run_phase2(*, vim_bin: str, timeout_s: float, delay_ms: int) -> dict[str, ob
         # Wait for vim to exit (timer fires qa!).
         # Don't use child.isalive() — pexpect doesn't reap the child until
         # expect() is called, so isalive() returns True even after process death.
-        child.expect(pexpect.EOF)
+        child.expect(EOF)
         child.close()
         rc = child.exitstatus if child.exitstatus is not None else -1
         elapsed_ms = int((time.time() - t0) * 1000)
@@ -51,7 +51,7 @@ def run_phase2(*, vim_bin: str, timeout_s: float, delay_ms: int) -> dict[str, ob
             "ok": ok,
             "rc": rc,
             "elapsed_ms": elapsed_ms,
-            "output_path": str(out_path),
+            "output_path": out_path.as_posix(),
             "output_text": text,
             "logs": logs,
         }

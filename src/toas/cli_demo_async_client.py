@@ -4,14 +4,14 @@ import argparse
 import asyncio
 import json
 import os
-import select
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from toas.rpc_client import rpc_request
+from toas.runtime.pipe_reader import PipeReader
 
 
 @dataclass
@@ -21,6 +21,7 @@ class HostClient:
     diag_path: Path | None = None
     request_timeout_s: float = 15.0
     rx_buffer: bytes = b""
+    _pipe_reader: PipeReader | None = field(default=None, init=False, repr=False)
 
     def request(self, op: str, payload: dict[str, Any], *, request_id: str | None = None) -> dict[str, Any]:
         req_id = request_id or f"{int(time.time() * 1000)}-{os.getpid()}"
@@ -39,7 +40,7 @@ class HostClient:
         if not line:
             rc = self.proc.poll()
             stderr_tail = b""
-            if self.proc.stderr is not None:
+            if rc is not None and self.proc.stderr is not None:
                 try:
                     stderr_tail = self.proc.stderr.read()[-4000:]
                 except Exception:
@@ -58,24 +59,19 @@ class HostClient:
 
     def _read_frame_bytes(self, *, timeout_s: float) -> bytes:
         assert self.proc.stdout is not None
-        fd = self.proc.stdout.fileno()
-        deadline = time.time() + timeout_s
-        while time.time() < deadline:
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
             for sep in (b"\n", b"\x00"):
                 pos = self.rx_buffer.find(sep)
                 if pos >= 0:
                     frame = self.rx_buffer[:pos]
                     self.rx_buffer = self.rx_buffer[pos + 1 :]
                     return frame
-            if self.proc.poll() is not None:
-                frame = self.rx_buffer
-                self.rx_buffer = b""
-                return frame
-            remaining = max(0.05, min(0.25, deadline - time.time()))
-            ready, _, _ = select.select([fd], [], [], remaining)
-            if not ready:
+            if self._pipe_reader is None:
+                self._pipe_reader = PipeReader(self.proc.stdout)
+            chunk = self._pipe_reader.read(timeout_s=deadline - time.monotonic())
+            if chunk is None:
                 continue
-            chunk = os.read(fd, 4096)
             if not chunk:
                 frame = self.rx_buffer
                 self.rx_buffer = b""

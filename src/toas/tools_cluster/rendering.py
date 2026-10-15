@@ -456,7 +456,7 @@ def render_search_excerpt_blocks(result: dict) -> list[str]:
         if parsed is None:
             return []
         path, line_no, text = parsed
-        rel_path = _make_relative(path, search_base)
+        rel_path = Path(_make_relative(path, search_base)).as_posix()
 
         groups.setdefault(rel_path, []).append((line_no, text))
 
@@ -492,15 +492,10 @@ def render_search_excerpt_blocks(result: dict) -> list[str]:
 def _parse_search_match(raw_match: object) -> tuple[str, int, str] | None:
     if not isinstance(raw_match, str):
         return None
-    path, sep, rest = raw_match.partition(":")
-    if not sep:
+    match = re.fullmatch(r"(.+?):([0-9]+):(.*)", raw_match)
+    if match is None:
         return None
-    line_text = rest.split(":", 1)
-    if len(line_text) != 2:
-        return None
-    line_no_text, text = line_text
-    if not path or not line_no_text.isdigit():
-        return None
+    path, line_no_text, text = match.groups()
     return path, int(line_no_text), text
 
 

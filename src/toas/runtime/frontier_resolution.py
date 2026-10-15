@@ -12,6 +12,7 @@ from ..shell_intent import (
     strip_inert_regions,
 )
 from ..tools import validate_call
+from .operator_command_parse import split_operator_command
 
 _STAGED_PLAN_RE = re.compile(r"```yaml staged\s*\n(.*?)\n```", re.DOTALL)
 _YAML_PLAN_RE = re.compile(r"```yaml(?: staged)?\s*\n(.*?)\n```", re.DOTALL)
@@ -238,7 +239,7 @@ def extract_operator_command(content: str) -> tuple[str, list[str]] | None:
         return None
 
     try:
-        argv = shlex.split(last_line[1:])
+        argv = split_operator_command(last_line[1:])
     except ValueError:
         return None
 
@@ -255,7 +256,7 @@ def extract_operator_commands(content: str) -> list[tuple[str, list[str]]]:
         if not line or not line.startswith("/"):
             continue
         try:
-            argv = shlex.split(line[1:])
+            argv = split_operator_command(line[1:])
         except ValueError:
             continue
         if not argv:

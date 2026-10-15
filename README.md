@@ -335,6 +335,27 @@ In session:
 /config backend capture local
 ```
 
+Choose the shell executable and its command-mode flags in project config:
+
+```toml
+[runtime]
+shell_runtime = ["/opt/openai_s_own_sh/bin/sh", "-lc"]
+```
+
+Use `["/bin/sh", "-lc"]` for the system shell, or `[]` for automatic selection.
+This applies to shell scripts and user commands that require shell syntax.
+Direct executable `argv` calls keep their own executable. A selected runtime
+that cannot start fails visibly; it does not fall back to a different shell.
+The script is appended as one argument, so include the shell's command-mode
+flags in the prefix. Environment profiles and PATH remain separate choices.
+
+For a session override, use `/config set runtime.shell_runtime '/bin/sh -lc'`.
+The `shell_script` tool also accepts `runtime: ["/bin/sh", "-c"]` for one call,
+and executable fences accept `sh exec runtime="/bin/sh -c"`. Per-call selection
+takes precedence over effective config, followed by automatic selection.
+Use TOML argv arrays for native Windows paths; in string forms quote paths
+containing spaces and use `/` separators (for example `C:/Program Files/...`).
+
 Project defaults (`.toas/config.toml` preferred, `toas.toml` compatibility):
 
 ```toml

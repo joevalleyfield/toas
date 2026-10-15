@@ -57,6 +57,15 @@ read or modify host paths or use the network. The reviewer must inspect such
 effects and reject anything not needed for the fixture task. Prefer focused
 tools when they suffice.
 
+Bash scripts honor an explicit `runtime.shell_runtime` argv prefix from fixture
+config. Without one, the runner discovers Bash (native Git Bash on Windows)
+and refuses to substitute cmd or another interpreter if Bash is unavailable.
+On Windows, choose a short external `--output` path: jj's long object filenames
+can exceed the Windows path limit even when the output directory itself is
+valid. The runner diagnoses this before creating the fixture. Portable tests
+use short temporary repository roots and exercise link containment with a real
+directory junction when symlink creation requires unavailable privileges.
+
 The state-only procedure explicitly says prior tool results are absent unless
 preserved in state. It asks for completed progress only after results arrive
 and permits concise plans to reduce inference turns. This makes instruction

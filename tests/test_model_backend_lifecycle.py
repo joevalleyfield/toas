@@ -359,7 +359,7 @@ def test_graph_event_writer_calls_write_record():
     writer(req, action="start", status="ok", pid=5)
     assert len(calls) == 1
     path, kw = calls[0]
-    assert ".toas/events.jsonl" in path
+    assert Path(path) == req.workdir / ".toas" / "events.jsonl"
     assert kw["action"] == "start"
     assert kw["pid"] == 5
 

@@ -29,6 +29,14 @@ def test_packaged_asset_loader_lists_and_loads_help_asset():
     assert "topics:" in asset.content
 
 
+def test_packaged_asset_loader_lists_portable_nested_refs_that_round_trip():
+    refs = list_packaged_assets("prompts", suffix=".txt")
+    ref = "session-start/start-here/blank-page_v1"
+    assert ref in refs
+    assert not any("\\" in item for item in refs)
+    assert load_packaged_asset("prompts", ref, suffix=".txt").content
+
+
 def test_packaged_asset_loader_rejects_empty_and_traversal_refs():
     with pytest.raises(RuntimeError, match="invalid asset ref"):
         normalize_asset_ref("../help")

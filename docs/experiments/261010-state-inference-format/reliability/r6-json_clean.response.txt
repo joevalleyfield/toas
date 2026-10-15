@@ -1,0 +1,11 @@
+I need to explore the implementation of `toas step --preview-request` to understand how the request payload is constructed and output.
+
+Let me look at the key files to understand the current implementation.
+
+<tool_call>
+<function=shell>
+<parameter=argv>
+["find", "src/toas", "-name", "*.py", "-type", "f"]
+</parameter>
+</function>
+</tool_call>

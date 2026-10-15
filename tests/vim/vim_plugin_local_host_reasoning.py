@@ -10,7 +10,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import pexpect
+from vim_terminal import EOF, spawn
 
 
 class _FakeReasoningHandler(BaseHTTPRequestHandler):
@@ -63,7 +63,7 @@ def _start_fake_llm_server() -> tuple[ThreadingHTTPServer, threading.Thread, str
 
 
 def _vim_quote(path: Path) -> str:
-    return str(path).replace("'", "''")
+    return path.as_posix().replace("'", "''")
 
 
 def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
@@ -88,6 +88,7 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
                         "set noswapfile",
                         "set shortmess+=I",
                         f"source {plugin_path}",
+                        f"let g:toas_workdir = '{_vim_quote(tdp)}'",
                         f"let g:ToasTestLocalHostStartCmd = ['{host_python}', '-m', 'toas', 'host', 'serve', '--stdio-json']",
                         "let g:toas_step_nonblocking = 1",
                         "let g:toas_notice_enabled = 0",
@@ -124,15 +125,15 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
             env["OPENAI_API_KEY"] = "not-needed"
             env["TOAS_STREAM_THINKING"] = "1"
 
-            child = pexpect.spawn(
+            child = spawn(
                 vim_bin,
-                ["-Nu", "NONE", "-n", "-i", "NONE", "-S", str(script)],
+                ["-Nu", "NONE", "-n", "-i", "NONE", "-S", script.as_posix()],
                 cwd=str(tdp),
                 env=env,
                 encoding="utf-8",
                 timeout=timeout_s,
             )
-            child.expect(pexpect.EOF)
+            child.expect(EOF)
             child.close()
             if not out.exists():
                 return {"ok": False, "result": None, "stdout_tail": child.before[-1200:] if isinstance(child.before, str) else ""}

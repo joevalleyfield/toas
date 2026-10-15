@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import tempfile
 from pathlib import Path
 
-import pexpect
+from vim_terminal import EOF, spawn
 
 
 def _vim_quote(path: Path) -> str:
-    return str(path).replace("'", "''")
+    return path.as_posix().replace("'", "''")
 
 
 def run(vim_bin: str, scenario: str, timeout_s: float, speed: str) -> dict:
@@ -28,7 +29,7 @@ def run(vim_bin: str, scenario: str, timeout_s: float, speed: str) -> dict:
             "set hidden",
             "set noswapfile",
             "set shortmess+=I",
-            f"let g:toas_stdio_contract_host = 'python3 {host_cmd}'",
+            f"let g:toas_stdio_contract_host = ['{_vim_quote(Path(sys.executable))}', '{host_cmd}']",
             f"source {plugin_path}",
             f"call writefile(['exists=' . exists('*ToasStdioContractRunFn')], '{dbg_path}')",
             "let g:r = -1",
@@ -44,8 +45,8 @@ def run(vim_bin: str, scenario: str, timeout_s: float, speed: str) -> dict:
             "qa!",
         ]) + "\n", encoding='utf-8')
 
-        child = pexpect.spawn(vim_bin, ['-Nu', 'NONE', '-n', '-i', 'NONE', '-S', str(script)], encoding='utf-8', timeout=timeout_s)
-        child.expect(pexpect.EOF)
+        child = spawn(vim_bin, ['-Nu', 'NONE', '-n', '-i', 'NONE', '-S', script.as_posix()], encoding='utf-8', timeout=timeout_s)
+        child.expect(EOF)
         child.close()
         if not out.exists():
             return {'ok': False, 'result': None, 'debug': dbg.read_text(encoding='utf-8') if dbg.exists() else ''}

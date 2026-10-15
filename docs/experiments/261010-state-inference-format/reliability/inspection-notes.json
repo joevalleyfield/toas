@@ -1,0 +1,21 @@
+{
+  "method": "Manual inspection of every follow-up parsed proposal, against captured state/observations and the older exchange; these notes identify notable defects, not a complete semantic validator.",
+  "notable_trials": {
+    "r5-split_json": "Valid envelope and fresh CLI artifacts; second grep argv has no file operand, so it cannot search the intended source.",
+    "r9-split_json": "Fresh CLI findings and a useful read; also invents .toas/scratch/ib_8f2a1c.txt without an observed source.",
+    "r8-json_prior_turn": "Fresh implementation insights and relevant requests; artifact associates CLI lines 196-266 with ib_876d18a0ab1bc9e3, the older AGENTS.md block.",
+    "r13-json_prior_turn": "Relevant requests; patch retains only an uncertainty naming _run_step and run_operator_step_once, rather than observed facts or line locations.",
+    "r14-json_prior_turn": "Relevant CLI read, but patch repeats identical notes. Applying it leaves state unchanged and retains no fresh finding.",
+    "r15-json_prior_turn": "Relevant requests and narrowed next steps; patch retains a question/plan rather than a factual summary of the fresh grep results.",
+    "r12-split_json": "Fresh locations retained, but attributes kwargs assignment at line 255 to _run_step, although the observation places it under run_step.",
+    "r18-split_json": "Fresh locations retained; again attributes line 254-255 handling to _run_step instead of run_step.",
+    "r3-json_clean": "Terminal JSON after prose and an unclosed tool_call tag; includes invented task/step-preview-pretty.md request.",
+    "r10-split_json": "Whole response is JSON with valid-looking tool calls but omits state_patch. Intended-contract failure; current runtime defaults the missing patch to {}.",
+    "r16-split_json": "Complete valid JSON proposal after prose and an unclosed tool_call tag. Diagnostic extraction succeeds; current parser rejects."
+  },
+  "prior_turn_limited_factual_retention": [
+    "r13-json_prior_turn",
+    "r14-json_prior_turn",
+    "r15-json_prior_turn"
+  ]
+}

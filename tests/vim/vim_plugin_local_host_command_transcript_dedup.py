@@ -5,11 +5,11 @@ import json
 import tempfile
 from pathlib import Path
 
-import pexpect
+from vim_terminal import EOF, spawn
 
 
 def _vim_quote(path: Path) -> str:
-    return str(path).replace("'", "''")
+    return path.as_posix().replace("'", "''")
 
 
 def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
@@ -56,14 +56,14 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
             encoding="utf-8",
         )
 
-        child = pexpect.spawn(
+        child = spawn(
             vim_bin,
-            ["-Nu", "NONE", "-n", "-i", "NONE", "-S", str(script)],
+            ["-Nu", "NONE", "-n", "-i", "NONE", "-S", script.as_posix()],
             cwd=str(tdp),
             encoding="utf-8",
             timeout=timeout_s,
         )
-        child.expect(pexpect.EOF)
+        child.expect(EOF)
         child.close()
         if not out.exists():
             return {

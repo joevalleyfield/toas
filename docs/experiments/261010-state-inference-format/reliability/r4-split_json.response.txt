@@ -1,0 +1,9 @@
+I need to inspect the actual request construction and output path for `--preview-request`. The CLI just passes a flag to `run_operator_step_once`.
+
+<tool_call>
+<function=shell>
+<parameter=argv>
+["grep", "-rn", "preview_request", "src/toas/operator_api.py"]
+</parameter>
+</function>
+</tool_call>

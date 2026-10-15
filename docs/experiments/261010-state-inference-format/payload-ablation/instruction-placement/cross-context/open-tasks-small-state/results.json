@@ -1,0 +1,347 @@
+[
+  {
+    "run_id": "r1-instructions_last",
+    "variant": "instructions_last",
+    "round": 1,
+    "current_parser_json": true,
+    "strict_valid_proposal": true,
+    "valid_proposal_after_prose": true,
+    "proposal_error": "",
+    "strict_error": "",
+    "xml_tool_syntax": false,
+    "nonempty_state_patch": true,
+    "proposal": {
+      "state_patch": {
+        "goal": "List open tasks",
+        "next_steps": [
+          "Identify the task management system or file where tasks are stored",
+          "Read the relevant file or query the system",
+          "Filter for open tasks"
+        ],
+        "notes": {
+          "constraints": [],
+          "accepted_decisions": [],
+          "pending_proposals": [],
+          "uncertainties": [
+            "The specific location or format of the task storage is unknown."
+          ]
+        }
+      },
+      "tool_calls": [
+        {
+          "tool_name": "shell",
+          "args": {
+            "argv": [
+              "ls",
+              "-la"
+            ]
+          }
+        }
+      ],
+      "outcome": "continue"
+    },
+    "returned_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+    "usage": null,
+    "finish_reasons": [
+      "stop"
+    ],
+    "duration_s": 11.813,
+    "advertised_tools": [
+      "read_file",
+      "replace_block",
+      "shell",
+      "write_file"
+    ],
+    "scorer_version": "captured-tools-advertisement-v2"
+  },
+  {
+    "run_id": "r1-json_clean",
+    "variant": "json_clean",
+    "round": 1,
+    "current_parser_json": true,
+    "strict_valid_proposal": true,
+    "valid_proposal_after_prose": true,
+    "proposal_error": "",
+    "strict_error": "",
+    "xml_tool_syntax": false,
+    "nonempty_state_patch": true,
+    "proposal": {
+      "state_patch": {
+        "goal": "List open tasks.",
+        "progress": [],
+        "next_steps": [
+          "Investigate available task tracking systems or files in the workspace to identify open tasks."
+        ],
+        "artifacts": [],
+        "blockers": [],
+        "notes": {
+          "constraints": [],
+          "accepted_decisions": [],
+          "pending_proposals": [],
+          "uncertainties": [
+            "The specific location or format of task data (e.g., JSON, Markdown, SQLite, external API) is unknown."
+          ]
+        }
+      },
+      "tool_calls": [
+        {
+          "tool_name": "shell",
+          "args": {
+            "argv": [
+              "find",
+              ".",
+              "-type",
+              "f",
+              "-name",
+              "*task*",
+              "-o",
+              "-name",
+              "*todo*"
+            ],
+            "cwd": "."
+          }
+        }
+      ],
+      "outcome": "continue"
+    },
+    "returned_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+    "usage": null,
+    "finish_reasons": [
+      "stop"
+    ],
+    "duration_s": 14.684,
+    "advertised_tools": [
+      "read_file",
+      "replace_block",
+      "shell",
+      "write_file"
+    ],
+    "scorer_version": "captured-tools-advertisement-v2"
+  },
+  {
+    "run_id": "r2-instructions_last",
+    "variant": "instructions_last",
+    "round": 2,
+    "current_parser_json": true,
+    "strict_valid_proposal": true,
+    "valid_proposal_after_prose": true,
+    "proposal_error": "",
+    "strict_error": "",
+    "xml_tool_syntax": false,
+    "nonempty_state_patch": true,
+    "proposal": {
+      "state_patch": {
+        "goal": "List open tasks from the workspace",
+        "next_steps": [
+          "Identify task storage locations (e.g., TODO.md, tasks.json, project files)",
+          "Read relevant files to extract open tasks"
+        ],
+        "notes": {
+          "uncertainties": [
+            "Location of task files is unknown"
+          ]
+        }
+      },
+      "tool_calls": [
+        {
+          "tool_name": "shell",
+          "args": {
+            "argv": [
+              "find",
+              ".",
+              "-type",
+              "f",
+              "-name",
+              "*.md",
+              "-o",
+              "-name",
+              "*.json",
+              "-o",
+              "-name",
+              "*.txt",
+              "-o",
+              "-name",
+              "TODO*"
+            ],
+            "timeout_s": 10
+          }
+        }
+      ],
+      "outcome": "continue"
+    },
+    "returned_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+    "usage": null,
+    "finish_reasons": [
+      "stop"
+    ],
+    "duration_s": 11.641,
+    "advertised_tools": [
+      "read_file",
+      "replace_block",
+      "shell",
+      "write_file"
+    ],
+    "scorer_version": "captured-tools-advertisement-v2"
+  },
+  {
+    "run_id": "r2-json_clean",
+    "variant": "json_clean",
+    "round": 2,
+    "current_parser_json": true,
+    "strict_valid_proposal": true,
+    "valid_proposal_after_prose": true,
+    "proposal_error": "",
+    "strict_error": "",
+    "xml_tool_syntax": false,
+    "nonempty_state_patch": true,
+    "proposal": {
+      "state_patch": {
+        "goal": "List open tasks",
+        "notes": {
+          "uncertainties": [
+            "No information provided about which tool, file, or system stores the 'open tasks'. Common candidates include a TODO.md file, a task manager CLI (e.g., todoist, taskwarrior), or a specific project management file, but this is unknown."
+          ]
+        }
+      },
+      "tool_calls": [
+        {
+          "tool_name": "shell",
+          "args": {
+            "argv": "ls -la"
+          }
+        }
+      ],
+      "outcome": "continue"
+    },
+    "returned_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+    "usage": null,
+    "finish_reasons": [
+      "stop"
+    ],
+    "duration_s": 8.792,
+    "advertised_tools": [
+      "read_file",
+      "replace_block",
+      "shell",
+      "write_file"
+    ],
+    "scorer_version": "captured-tools-advertisement-v2"
+  },
+  {
+    "run_id": "r3-json_clean",
+    "variant": "json_clean",
+    "round": 3,
+    "current_parser_json": true,
+    "strict_valid_proposal": true,
+    "valid_proposal_after_prose": true,
+    "proposal_error": "",
+    "strict_error": "",
+    "xml_tool_syntax": false,
+    "nonempty_state_patch": true,
+    "proposal": {
+      "state_patch": {
+        "goal": "List open tasks",
+        "next_steps": [
+          "Inspect the workspace for a task file (e.g., tasks.txt, TODO.md, .toas/tasks.json)"
+        ]
+      },
+      "tool_calls": [
+        {
+          "tool_name": "shell",
+          "args": {
+            "argv": [
+              "ls",
+              "-la"
+            ]
+          }
+        },
+        {
+          "tool_name": "shell",
+          "args": {
+            "argv": [
+              "find",
+              ".",
+              "-maxdepth",
+              "3",
+              "-type",
+              "f",
+              "-iname",
+              "*task*",
+              "-o",
+              "-iname",
+              "*todo*"
+            ]
+          }
+        }
+      ],
+      "outcome": "continue"
+    },
+    "returned_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+    "usage": null,
+    "finish_reasons": [
+      "stop"
+    ],
+    "duration_s": 10.511,
+    "advertised_tools": [
+      "read_file",
+      "replace_block",
+      "shell",
+      "write_file"
+    ],
+    "scorer_version": "captured-tools-advertisement-v2"
+  },
+  {
+    "run_id": "r3-instructions_last",
+    "variant": "instructions_last",
+    "round": 3,
+    "current_parser_json": true,
+    "strict_valid_proposal": true,
+    "valid_proposal_after_prose": true,
+    "proposal_error": "",
+    "strict_error": "",
+    "xml_tool_syntax": false,
+    "nonempty_state_patch": true,
+    "proposal": {
+      "state_patch": {
+        "goal": "List open tasks",
+        "progress": [],
+        "next_steps": [
+          "Determine the task management system or file location for 'open tasks'",
+          "Retrieve the list of open tasks"
+        ],
+        "artifacts": [],
+        "blockers": [],
+        "notes": {
+          "constraints": [],
+          "accepted_decisions": [],
+          "pending_proposals": [],
+          "uncertainties": [
+            "Unknown location of the task list (e.g., file, CLI tool, database)"
+          ]
+        }
+      },
+      "tool_calls": [
+        {
+          "tool_name": "shell",
+          "args": {
+            "argv": "ls -la"
+          }
+        }
+      ],
+      "outcome": "continue"
+    },
+    "returned_model": "/Users/tim/Applications/text-generation-webui/user_data/models/Qwen3.8-27B-Q8_0.gguf",
+    "usage": null,
+    "finish_reasons": [
+      "stop"
+    ],
+    "duration_s": 11.352,
+    "advertised_tools": [
+      "read_file",
+      "replace_block",
+      "shell",
+      "write_file"
+    ],
+    "scorer_version": "captured-tools-advertisement-v2"
+  }
+]

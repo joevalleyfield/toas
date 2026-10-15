@@ -20,11 +20,75 @@ _REJECT_NULL_MAX_TOKENS = False
 _FORCED_ERROR_RESPONSE: dict[str, object] | None = None
 
 
+class _ResubscribingStream:
+    """Keep observing across normal bounded host subscriptions."""
+
+    def __init__(self, client, payload, request_id, queue):
+        self.client = client
+        self.payload = dict(payload)
+        self.request_id = request_id
+        self.queue = queue
+        self.renewals = 0
+
+    async def get(self):
+        while True:
+            frame = await self.queue.get()
+            payload = frame.get("payload") or {}
+            if (payload.get("kind") != "push_complete" or payload.get("complete") is True
+                    or payload.get("reason") not in {"idle_timeout", "request_deadline"}):
+                return frame
+            observer = payload.get("observer") or {}
+            self.payload["since_seq"] = max(self.payload.get("since_seq", 0), observer.get("last_seq", 0))
+            self.renewals += 1
+            self.queue = await self.client.request_stream(
+                "stream_subscribe", self.payload,
+                request_id=f"{self.request_id}-renew-{self.renewals}",
+            )
+
+
+async def _subscribe(client, payload, *, request_id):
+    queue = await client.request_stream("stream_subscribe", payload, request_id=request_id)
+    return _ResubscribingStream(client, payload, request_id, queue)
+
+
+def test_subscription_renews_from_last_sequence_and_preserves_terminal_frames():
+    async def scenario():
+        calls = []
+        batches = [
+            [{"payload": {"kind": "push_complete", "complete": False,
+                           "reason": "idle_timeout", "observer": {"last_seq": 42}}}],
+            [{"payload": {"kind": "push_event", "event": {"seq": 43}}},
+             {"payload": {"kind": "push_complete", "complete": True}}],
+        ]
+
+        class Client:
+            async def request_stream(self, op, payload, *, request_id):
+                calls.append((op, dict(payload), request_id))
+                queue = asyncio.Queue()
+                for frame in batches.pop(0):
+                    queue.put_nowait(frame)
+                return queue
+
+        stream = await _subscribe(Client(), {"run_id": "r1"}, request_id="observe")
+        assert (await stream.get())["payload"]["event"]["seq"] == 43
+        assert (await stream.get())["payload"]["complete"] is True
+        assert calls == [
+            ("stream_subscribe", {"run_id": "r1"}, "observe"),
+            ("stream_subscribe", {"run_id": "r1", "since_seq": 42}, "observe-renew-1"),
+        ]
+        error = {"payload": {"kind": "push_complete", "complete": False, "reason": "upstream_error"}}
+        stream.queue.put_nowait(error)
+        assert await stream.get() == error
+        assert stream.renewals == 1
+
+    asyncio.run(scenario())
+
+
 def _host_env() -> dict[str, str]:
     env = dict(os.environ)
     project_root = Path(__file__).resolve().parents[1]
     existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = f"{project_root / 'src'}:{existing}" if existing else str(project_root / "src")
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(project_root / "src"), existing]))
     return env
 
 
@@ -200,8 +264,7 @@ async def _run_scenario(tmp_path: Path) -> None:
         run_id = (step.get("payload") or {}).get("run_id")
         assert isinstance(run_id, str) and run_id
 
-        q = await client.request_stream(
-            "stream_subscribe",
+        q = await _subscribe(client,
             {"run_id": run_id, "timeout_s": 3.0},
             request_id="llm-subscribe",
         )
@@ -253,8 +316,7 @@ async def _run_scenario(tmp_path: Path) -> None:
                     completion_payload = payload
                     saw_complete = True
                 else:
-                    q = await client.request_stream(
-                        "stream_subscribe",
+                    q = await _subscribe(client,
                         {"run_id": run_id, "timeout_s": 3.0},
                         request_id="llm-subscribe-catchup",
                     )
@@ -323,8 +385,7 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
         run_id = (step.get("payload") or {}).get("run_id")
         assert isinstance(run_id, str) and run_id
 
-        q = await client.request_stream(
-            "stream_subscribe",
+        q = await _subscribe(client,
             {"run_id": run_id, "timeout_s": 3.0},
             request_id="llm-subscribe-time",
         )
@@ -344,10 +405,14 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
                 delta_count += 1
                 break
 
-        # Time-as-ally variant: backend stream duration is ~8s, cancel RTT is << that.
+        # The first cancel records observation intent while tokens keep flowing.
+        # Escalate explicitly, then measure terminal cancellation against the
+        # remaining ~8s stream rather than mistaking subscription expiry for EOF.
         cancel_started = time.monotonic()
         cancel = await client.request("cancel", {"run_id": run_id}, request_id="llm-cancel-time")
         assert (cancel.get("payload") or {}).get("status") in {"cancelling", "cancelled"}
+        forced = await client.request("cancel", {"run_id": run_id}, request_id="llm-cancel-time-force")
+        assert (forced.get("payload") or {}).get("status") == "cancelled"
 
         terminal_statuses: list[str] = []
         saw_complete = False
@@ -364,6 +429,8 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
                     if isinstance(status, str) and status:
                         terminal_statuses.append(status)
             if kind == "push_complete":
+                assert payload.get("complete") is True
+                assert payload.get("status") == "cancelled"
                 complete_at = time.monotonic()
                 saw_complete = True
         if terminal_statuses:
@@ -454,8 +521,7 @@ async def _run_terminal_shape_scenario(
         assert step.get("ok") is True
         run_id = (step.get("payload") or {}).get("run_id")
         assert isinstance(run_id, str) and run_id
-        q = await client.request_stream(
-            "stream_subscribe",
+        q = await _subscribe(client,
             {"run_id": run_id, "timeout_s": 3.0},
             request_id="shape-subscribe",
         )
@@ -512,7 +578,7 @@ def test_host_stdio_explicit_shell_projects_after_provisional_output(tmp_path: P
         _run_terminal_shape_scenario(
             tmp_path,
             script=[],
-            prompt="$ printf /path/to/working-director\\n",
+            prompt=f'''$ "{Path(sys.executable).as_posix()}" -c "print('/path/to/working-director')"''',
         )
     )
 
@@ -736,8 +802,7 @@ async def _run_reasoning_cancel_scenario(tmp_path: Path) -> dict[str, object]:
         step = await client.request("step_async", {"workdir": str(tmp_path)}, request_id="reasoning-cancel-step")
         run_id = (step.get("payload") or {}).get("run_id")
         assert isinstance(run_id, str) and run_id
-        q = await client.request_stream(
-            "stream_subscribe",
+        q = await _subscribe(client,
             {"run_id": run_id, "timeout_s": 3.0},
             request_id="reasoning-cancel-subscribe",
         )
@@ -844,8 +909,7 @@ async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
         assert step.get("ok") is True
         run_id = (step.get("payload") or {}).get("run_id")
         assert isinstance(run_id, str) and run_id
-        q = await client.request_stream(
-            "stream_subscribe",
+        q = await _subscribe(client,
             {"run_id": run_id, "timeout_s": 5.0},
             request_id="tool-subscribe",
         )

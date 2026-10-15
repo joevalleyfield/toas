@@ -1,0 +1,4 @@
+I've found the key locations. Let me dig into the actual implementation of `_run_step`, `run_operator_step_once`, and the preview-request logic to understand how messages are constructed and printed.
+
+<tool_call>
+{"tool_calls": [{"tool_name": "read_file", "args": {"path": "src/toas/cli.py", "start_line": 196, "end_line": 280}}, {"tool_name": "shell", "args": {"argv": ["grep", "-rn", "preview_request", "src/toas/"]}}, {"tool_name": "shell", "args": {"argv": ["grep", "-rn", "def step_once", "src/toas/"]}}]}

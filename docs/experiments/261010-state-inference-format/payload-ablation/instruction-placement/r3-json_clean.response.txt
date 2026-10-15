@@ -1,0 +1,22 @@
+Let me analyze the current state. I need to:
+1. Understand the current implementation of `toas step --preview-request`
+2. Add a `--pretty` flag
+3. Implement pretty-printing logic
+4. Add tests
+5. Update task file
+
+Let me start by exploring the relevant files.
+
+<tool_call>
+<function=read_file>
+<parameter=path>
+"src/toas/cli.py"
+</parameter>
+<parameter=start_line>
+196
+</parameter>
+<parameter=end_line>
+268
+</parameter>
+</function>
+</tool_call>

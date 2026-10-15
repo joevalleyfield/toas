@@ -1,0 +1,59 @@
+{
+  "state_patch": {
+    "goal": "Add a pretty-print option to `toas step --preview-request` that unpacks the stringified message content, restores unescaped newlines, and formats inner JSON structures for operator inspection.",
+    "next_steps": [
+      "Inspect `src/toas/cli.py` to locate the implementation of `--preview-request` and how the payload is currently serialized.",
+      "Inspect the relevant state-step packet generation logic (likely in `src/toas/step.py` or `src/toas/operator_api.py`) to understand the message structure.",
+      "Draft a patch to add a `--pretty` flag and a helper function to unpack/pretty-print the request messages.",
+      "Run the test suite to ensure no regressions."
+    ],
+    "notes": {
+      "accepted_decisions": [
+        "Goal is to improve operator ergonomics for `toas step --preview-request`."
+      ],
+      "constraints": [
+        "Must follow TOAS development workflow (task file exists).",
+        "Keep CLI thin; prefer logic in appropriate modules (e.g., `step.py` or a new utility)."
+      ],
+      "uncertainties": [
+        "Exact location of the JSON serialization for the preview request.",
+        "Whether the 'pretty' format should be JSON or a specific markdown/text rendering as hinted by 'multiline text'."
+      ]
+    },
+    "artifacts": [
+      "(ref: AGENTS.md)",
+      "(ref: tasks/open/261010-preview-request-pretty-inspection.md)"
+    ]
+  },
+  "tool_calls": [
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": [
+          "grep",
+          "-n",
+          "--color=never",
+          "-A",
+          "5",
+          "preview.request",
+          "src/toas/cli.py"
+        ]
+      }
+    },
+    {
+      "tool_name": "shell",
+      "args": {
+        "argv": [
+          "grep",
+          "-n",
+          "--color=never",
+          "-A",
+          "5",
+          "preview.request",
+          "src/toas/step.py"
+        ]
+      }
+    }
+  ],
+  "outcome": "continue"
+}

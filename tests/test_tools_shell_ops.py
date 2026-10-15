@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -53,6 +54,21 @@ def test_shell_launcher_argv_windows_fallbacks(monkeypatch):
     assert shell_launcher_argv("echo hi") == ["cmd.exe", "/d", "/s", "/c", "echo hi"]
 
 
+def test_shell_launcher_avoids_wsl_shim_and_finds_native_git_bash(tmp_path, monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    git = tmp_path / "Git installation" / "cmd" / "git.exe"
+    bash = git.parent.parent / "bin" / "bash.exe"
+    bash.parent.mkdir(parents=True)
+    bash.touch()
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.shutil.which",
+        lambda name: {"bash": r"C:\Windows\System32\bash.exe", "git": str(git)}.get(name),
+    )
+    assert shell_launcher_argv("echo hi") == [str(bash), "-lc", "echo hi"]
+    bash.unlink()
+    assert shell_launcher_argv("echo hi") == ["cmd.exe", "/d", "/s", "/c", "echo hi"]
+
+
 def test_normalize_windows_shell_env_adds_common_aliases(monkeypatch):
     monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
     env = {"ONEDRIVE": "C:/one", "PROGRAMFILES": "C:/pf"}
@@ -78,12 +94,13 @@ def test_apply_environment_policy_resolves_outer_executable_and_composes_path(mo
         bindings=(RuntimeEnvironmentBinding("family:bash", "msys"),),
     )
     argv, env = apply_environment_policy(
-        {"PATH": "/msys/bin:/host:/HOST:/tail"},
+        {"PATH": os.pathsep.join(["/msys/bin", "/host", "/HOST", "/tail"])},
         ["bash", "-lc", "echo hi"],
         policy=policy,
     )
     assert argv == ["/bin/bash", "-lc", "echo hi"]
-    assert env["PATH"] == "/msys/bin:/host:/HOST:/tail"
+    expected = ["/msys/bin", "/host", "/tail"] if os.name == "nt" else ["/msys/bin", "/host", "/HOST", "/tail"]
+    assert env["PATH"] == os.pathsep.join(expected)
 
 
 def test_environment_policy_context_restores_previous_policy():
@@ -176,6 +193,25 @@ def test_run_subprocess_applies_case_insensitive_process_environment_overrides_o
     assert seen["env"]["toas_env_test"] == "transcript-value"
     assert "TOAS_ENV_TEST" not in seen["env"]
     assert seen["env"]["PATH"] == "C:/Transcript;C:/TRANSCRIPT"
+
+
+def test_posix_process_override_can_remove_inherited_environment(monkeypatch, tmp_path):
+    from toas.runtime.environment_policy import active_environment_overrides
+    from toas.tools_cluster.shell_ops import run_subprocess
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "linux")
+    monkeypatch.setenv("TOAS_REMOVE_TEST", "inherited")
+    seen = {}
+
+    def run(argv, **kwargs):
+        seen.update(kwargs["env"])
+        return subprocess.CompletedProcess(argv, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.subprocess.run", run)
+    with active_environment_overrides({"TOAS_REMOVE_TEST": None}):
+        run_subprocess(["/bin/echo", "ok"], cwd=tmp_path, timeout_s=1, stream_stdout_override=False)
+    assert "TOAS_REMOVE_TEST" not in seen
+    assert os.environ["TOAS_REMOVE_TEST"] == "inherited"
 
 
 def test_validate_shell_args_happy_and_errors(tmp_path):
@@ -439,7 +475,7 @@ def test_append_shell_diag_ignores_write_failures(monkeypatch):
     _append_shell_diag({"kind": "probe"})
 
 
-def test_execute_shell_call_user_blank_command_uses_joined_argv(monkeypatch, tmp_path):
+def test_execute_shell_call_user_blank_command_preserves_literal_argv(monkeypatch, tmp_path):
     seen: dict[str, object] = {}
 
     def _fake_run_user_shell(argv, *, cwd=".", timeout_s=None, command=None, env_overrides=None):  # type: ignore[no-untyped-def]
@@ -456,7 +492,7 @@ def test_execute_shell_call_user_blank_command_uses_joined_argv(monkeypatch, tmp
         base_cwd=str(tmp_path),
     )
     assert out["ok"] is True
-    assert seen["command"] == "echo hello"
+    assert seen["command"] is None
 
 
 def test_run_subprocess_timeout(monkeypatch, tmp_path):
@@ -551,7 +587,7 @@ def test_resolve_user_shell_execution_paths():
     assert hint is None
 
     argv, hint = _resolve_user_shell_execution(argv=["echo", "hi"], command="echo hi | wc")
-    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-lc"], ["cmd.exe", "/d"])
+    assert argv is not None and Path(argv[0]).stem in {"sh", "bash", "cmd"}
     assert hint is None
 
     argv, hint = _resolve_user_shell_execution(argv=["echo", "hi", "|", "wc"], command=None)
@@ -560,11 +596,11 @@ def test_resolve_user_shell_execution_paths():
 
     # Globbing support
     argv, hint = _resolve_user_shell_execution(argv=["ls"], command="ls tasks/open/566-*")
-    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-lc"], ["cmd.exe", "/d"])
+    assert argv is not None and Path(argv[0]).stem in {"sh", "bash", "cmd"}
     assert hint is None
 
     argv, hint = _resolve_user_shell_execution(argv=["cat", "foo-*.md"], command='cat "foo-*.md"')
-    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-lc"], ["cmd.exe", "/d"])
+    assert argv is not None and Path(argv[0]).stem in {"sh", "bash", "cmd"}
     assert argv[-1] == 'cat "foo-*.md"'
     assert hint is None
 

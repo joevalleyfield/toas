@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -24,6 +27,13 @@ from toas.experiments.state_execution import (
     run_pair,
     safe_path,
 )
+
+
+@pytest.fixture
+def short_tmp_path():
+    """jj appends long hashes; pytest's descriptive directory names exceed MAX_PATH."""
+    with tempfile.TemporaryDirectory(prefix="sx-") as directory:
+        yield Path(directory)
 
 
 def test_patch_recursive_merge_replacement_and_null_delete():
@@ -112,6 +122,37 @@ def test_action_read_write_path_and_shell_script_variants(tmp_path):
         act(root, {"type": "write", "path": "note.txt"}, timeout=3)
 
 
+def test_bash_runtime_selection_is_explicit_and_requires_bash_by_default(tmp_path, monkeypatch):
+    import toas.experiments.state_execution as experiment
+
+    monkeypatch.setattr(experiment, "configured_shell_runtime", lambda _root: ("/opt/own/bash", "-c"))
+    assert experiment._bash_command(tmp_path, "echo hi") == ["/opt/own/bash", "-c", "echo hi"]
+    monkeypatch.setattr(experiment, "configured_shell_runtime", lambda _root: ())
+    monkeypatch.setattr(experiment.sys, "platform", "linux")
+    monkeypatch.setattr(experiment.shutil, "which", lambda _name: "/bin/bash")
+    assert experiment._bash_command(tmp_path, "echo hi") == ["/bin/bash", "-c", "echo hi"]
+    monkeypatch.setattr(experiment.shutil, "which", lambda _name: None)
+    with pytest.raises(RuntimeError, match="Bash runtime unavailable"):
+        experiment._bash_command(tmp_path, "echo hi")
+    monkeypatch.setattr(experiment.sys, "platform", "win32")
+    monkeypatch.setattr(experiment, "shell_launcher_argv", lambda *a, **k: ["cmd.exe", "/c", "echo hi"])
+    with pytest.raises(RuntimeError, match="Bash runtime unavailable"):
+        experiment._bash_command(tmp_path, "echo hi")
+    monkeypatch.setattr(experiment, "shell_launcher_argv", lambda *a, **k: ["C:/Git/bin/bash.exe", "-lc", "echo hi"])
+    assert experiment._bash_command(tmp_path, "echo hi") == ["C:/Git/bin/bash.exe", "-lc", "echo hi"]
+    monkeypatch.setattr(experiment, "shell_launcher_argv", lambda *a, **k: ["bash", "-lc", "echo hi"])
+    monkeypatch.setattr(experiment.shutil, "which", lambda _name: "C:/Git/bin/bash.exe")
+    assert experiment._bash_command(tmp_path, "echo hi") == ["C:/Git/bin/bash.exe", "-lc", "echo hi"]
+
+
+def test_windows_fixture_long_path_has_actionable_diagnostic(tmp_path, monkeypatch):
+    import toas.experiments.state_execution as experiment
+
+    monkeypatch.setattr(experiment.sys, "platform", "win32")
+    with pytest.raises(ValueError, match="shorter --output"):
+        create_fixture(tmp_path / ("long" * 45))
+
+
 def test_proposal_requires_one_bounded_action():
     assert (
         parse_proposal('{"state_patch":{},"action":{"type":"continue"}}')["action"]["type"]
@@ -164,9 +205,21 @@ def test_path_traversal_and_symlink_cannot_escape_fixture(tmp_path):
     with pytest.raises(ValueError):
         safe_path(root, "../secret")
     link = root / "link"
-    link.symlink_to(outside)
+    try:
+        link.symlink_to(outside)
+        escaped = "link"
+    except OSError as exc:
+        if os.name != "nt" or exc.winerror != 1314:
+            raise
+        # Junctions test the same resolved-path boundary without symlink privileges.
+        outside_dir = tmp_path / "outside"
+        outside_dir.mkdir()
+        (outside_dir / "secret").write_text("secret")
+        subprocess.run(["cmd.exe", "/d", "/c", "mklink", "/J", str(link), str(outside_dir)],
+                       check=True, capture_output=True, timeout=5)
+        escaped = "link/secret"
     with pytest.raises(ValueError):
-        safe_path(root, "link")
+        safe_path(root, escaped)
     from toas.experiments.state_execution import act
 
     with pytest.raises(ValueError):
@@ -199,7 +252,8 @@ def test_missing_jj_has_clear_diagnostic(tmp_path, monkeypatch):
         _run(tmp_path, ["jj", "status"])
 
 
-def test_module_cli_runs_a_pair(tmp_path, capsys):
+def test_module_cli_runs_a_pair(short_tmp_path, capsys):
+    tmp_path = short_tmp_path
     result = main(["--output", str(tmp_path / "cli-run")])
     assert result == 0
     assert '"state_only"' in capsys.readouterr().out
@@ -233,7 +287,8 @@ def test_retry_exhaustion_is_failure(tmp_path):
     assert result["outcome"] == "failure"
 
 
-def test_module_entrypoint_guard_runs(tmp_path, monkeypatch):
+def test_module_entrypoint_guard_runs(short_tmp_path, monkeypatch):
+    tmp_path = short_tmp_path
     monkeypatch.setattr(sys, "argv", ["state_execution", "--output", str(tmp_path / "guard-run")])
     module_path = Path(__file__).resolve().parents[1] / "src/toas/experiments/state_execution.py"
     scope = {
@@ -247,11 +302,12 @@ def test_module_entrypoint_guard_runs(tmp_path, monkeypatch):
 
 
 @pytest.mark.skipif(shutil.which("jj") is None, reason="real jj fixture requires jj executable")
-def test_offline_pair_uses_independent_fixtures_and_real_commits(tmp_path):
+def test_offline_pair_uses_independent_fixtures_and_real_commits(short_tmp_path):
+    tmp_path = short_tmp_path
     result = run_pair(tmp_path / "run")
     assert result["same_initial_snapshot"] is True
     assert result["same_initial_model_input"] is True
-    assert result["results"]["state_only"]["evaluator"]["pass"] is True
+    assert result["results"]["state_only"]["evaluator"]["pass"] is True, result["results"]["state_only"]["evaluator"]["checks"]
     assert result["results"]["history_plus_state"]["evaluator"]["pass"] is True
     assert (tmp_path / "run" / "pair.json").is_file()
 
@@ -276,7 +332,8 @@ def test_invalid_response_retried_and_action_failure_is_observed(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("jj") is None, reason="real jj fixture requires jj executable")
-def test_state_only_drops_prior_observation_but_history_arm_keeps_it(tmp_path):
+def test_state_only_drops_prior_observation_but_history_arm_keeps_it(short_tmp_path):
+    tmp_path = short_tmp_path
     roots = []
     for mode in ("state_only", "history_plus_state"):
         root = tmp_path / mode

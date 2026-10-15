@@ -773,13 +773,15 @@ def test_capability_help_rejects_empty_topic():
 
 def test_shell_tool_runs_allowed_command(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    content = execute_call({"tool_name": "shell", "args": {"argv": ["echo", "hi"]}})
+    argv = [sys.executable, "-c", "print('hi', end='')"]
+    with shell_allow_policy(allowed_commands=["glob:" + sys.executable]):
+        content = execute_call({"tool_name": "shell", "args": {"argv": argv}})
 
     assert content == {
         "tool_name": "shell",
         "ok": True,
         "summary": "exit=0",
-        "argv": ["echo", "hi"],
+        "argv": argv,
         "cwd": str(Path.cwd().resolve()),
         "exit_code": 0,
         "stdout": "hi",
@@ -820,7 +822,7 @@ def test_shell_script_tool_runs_allowed_script():
     assert result["tool_name"] == "shell_script"
     assert result["ok"] is True
     assert result["argv"][2] == "echo hi | head -1"
-    assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-lc"])
+    assert Path(result["argv"][0]).stem in {"sh", "bash"}
     assert result["stdout"] == "hi"
 
 
@@ -868,7 +870,8 @@ def test_user_shell_reports_needs_shell_for_operator_tokens():
     assert content["ok"] is False
     assert content["summary"] == "needs shell"
     assert "operator '|'" in content["stderr"]
-    assert ("sh -lc" in content["stderr"]) or ("bash -lc" in content["stderr"])
+    assert _shell_launcher_argv("")[0] in content["stderr"]
+    assert "-lc" in content["stderr"] or "/c" in content["stderr"]
 
 
 def test_shell_launcher_argv_uses_cmd_on_windows(monkeypatch):
@@ -909,7 +912,7 @@ def test_user_shell_auto_executes_with_shell_when_command_needs_shell(fake_shell
     assert content["tool_name"] == "shell"
     assert content["ok"] is True
     assert content["argv"][2] == "find . -type f | head -1"
-    assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-lc"])
+    assert Path(content["argv"][0]).stem in {"sh", "bash"}
     assert content["exit_code"] == 0
     assert content["stdout"]
 
@@ -923,7 +926,7 @@ def test_user_shell_needs_shell_hint_preserves_escaped_grouping(fake_shell_subpr
     assert content["tool_name"] == "shell"
     assert content["ok"] is True
     assert content["argv"][2] == r"find . -type f \( -name \"*.py\" \) | head -1"
-    assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-lc"])
+    assert Path(content["argv"][0]).stem in {"sh", "bash"}
 
 
 def test_execute_shell_call_user_accepts_command_without_argv(fake_shell_subprocess):
@@ -948,7 +951,7 @@ def test_execute_shell_call_user_command_with_shell_operator_without_argv(fake_s
     assert result["tool_name"] == "shell"
     assert result["ok"] is True
     assert result["argv"][2] == "printf 'alpha\\n' | head -1"
-    assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-lc"])
+    assert Path(result["argv"][0]).stem in {"sh", "bash"}
 
 
 def test_execute_shell_call_user_forces_streaming_override(monkeypatch):
@@ -1153,7 +1156,8 @@ def test_execute_plan_allows_shell_cwd_under_added_workspace_root(tmp_path, monk
     monkeypatch.chdir(root_a)
 
     result = execute_plan(
-        [{"tool_name": "shell", "args": {"argv": ["pwd"]}}],
+        [{"tool_name": "shell", "args": {"argv": [sys.executable, "-c", "import os; print(os.getcwd())"]}}],
+        shell_allowed_commands=["glob:" + sys.executable],
         default_shell_cwd=str(root_b),
         workspace_roots=[str(root_a), str(root_b)],
         workspace_mode="strict",
@@ -1161,6 +1165,7 @@ def test_execute_plan_allows_shell_cwd_under_added_workspace_root(tmp_path, monk
 
     assert result[0]["ok"] is True
     assert result[0]["cwd"] == str(root_b)
+    assert result[0]["stdout"].strip() == str(root_b)
 
 
 def test_execute_plan_resolves_relative_shell_cwd_from_command_context(tmp_path, monkeypatch):
@@ -1171,7 +1176,8 @@ def test_execute_plan_resolves_relative_shell_cwd_from_command_context(tmp_path,
     monkeypatch.chdir(root)
 
     result = execute_plan(
-        [{"tool_name": "shell", "args": {"argv": ["pwd"], "cwd": "."}}],
+        [{"tool_name": "shell", "args": {"argv": [sys.executable, "-c", "import os; print(os.getcwd())"], "cwd": "."}}],
+        shell_allowed_commands=["glob:" + sys.executable],
         default_shell_cwd=str(child),
         workspace_roots=[str(root)],
         workspace_mode="strict",
@@ -1179,6 +1185,7 @@ def test_execute_plan_resolves_relative_shell_cwd_from_command_context(tmp_path,
 
     assert result[0]["ok"] is True
     assert result[0]["cwd"] == str(child)
+    assert result[0]["stdout"].strip() == str(child)
 
 
 def test_execute_plan_resolves_read_file_path_from_command_context(tmp_path, monkeypatch):

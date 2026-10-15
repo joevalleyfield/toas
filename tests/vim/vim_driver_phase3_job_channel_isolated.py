@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import tempfile
 import time
 from pathlib import Path
 
-import pexpect
+from vim_terminal import EOF, spawn
 
 
 def run_isolated(*, vim_bin: str, timeout_s: float) -> dict[str, object]:
@@ -24,7 +25,7 @@ def run_isolated(*, vim_bin: str, timeout_s: float) -> dict[str, object]:
                     "set hidden",
                     "set noswapfile",
                     "function! g:RunIsolated() abort",
-                    "  let l:job = job_start(['python3', '" + str(probe).replace("'", "''") + "'], {'in_io':'pipe','out_io':'pipe','err_io':'pipe'})",
+                    "  let l:job = job_start(['" + Path(sys.executable).as_posix().replace("'", "''") + "', '" + probe.as_posix().replace("'", "''") + "'], {'in_io':'pipe','out_io':'pipe','err_io':'pipe'})",
                     "  let l:ch = job_getchannel(l:job)",
                     "  call ch_setoptions(l:ch, {'mode': 'raw'})",
                     "  let l:job_status = job_status(l:job)",
@@ -94,7 +95,7 @@ def run_isolated(*, vim_bin: str, timeout_s: float) -> dict[str, object]:
                     "        \\ 'err': l:err,",
                     "        \\ 'stderr': l:stderr_chunk,",
                     "        \\ }",
-                    "  call writefile([json_encode(l:result)], '" + str(out_path).replace("'", "''") + "')",
+                    "  call writefile([json_encode(l:result)], '" + out_path.as_posix().replace("'", "''") + "')",
                     "endfunction",
                     "call g:RunIsolated()",
                     "qa!",
@@ -103,8 +104,8 @@ def run_isolated(*, vim_bin: str, timeout_s: float) -> dict[str, object]:
             + "\n",
             encoding="utf-8",
         )
-        child = pexpect.spawn(vim_bin, ["-Nu", "NONE", "-n", "-i", "NONE", "-S", str(script_path)], encoding="utf-8", timeout=timeout_s)
-        child.expect(pexpect.EOF)
+        child = spawn(vim_bin, ["-Nu", "NONE", "-n", "-i", "NONE", "-S", script_path.as_posix()], encoding="utf-8", timeout=timeout_s)
+        child.expect(EOF)
         child.close()
         rc = child.exitstatus if child.exitstatus is not None else -1
         elapsed_ms = int((time.time() - t0) * 1000)

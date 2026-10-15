@@ -1,0 +1,19 @@
+{
+  "source_transition": "st_0fd3c8cc81064c2c86e8edb0a75d701e",
+  "embedded_json_object_or_array_strings": [],
+  "markdown_fenced_output_paths": [
+    "observation.tool_outcomes[0].result[0].content",
+    "observation.tool_outcomes[1].result[0].content"
+  ],
+  "message_content_lengths": {
+    "json_clean": 8108,
+    "pretty_packet": 9536,
+    "unfenced_outputs": 8096,
+    "structured_stdout": 8250,
+    "structured_matches": 9218,
+    "state_plaintext": 8096,
+    "state_empty_plan": 7794,
+    "no_tool_observations": 5663
+  },
+  "structured_output_roundtrip": "exact, including source line whitespace and output metadata"
+}

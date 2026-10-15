@@ -1,0 +1,9 @@
+I have the key locations. Let me read the relevant sections of cli.py to understand the current implementation of `--preview-request` and where the output happens.
+
+<tool_call>
+{"function": "read_file"}
+{"parameter": "path": "src/toas/cli.py"}
+{"parameter": "start_line": 196}
+{"parameter": "end_line": 275}
+}
+</tool_call>

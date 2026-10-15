@@ -88,6 +88,15 @@ levels, so profile lists or profile inheritance are deferred.
 
 ## Progress Notes
 
+2026-10-15: `261015-shell-launcher-reader-portability`, under the Windows
+restoration master, verified real execution on this Windows machine. Native
+default selection avoids the System32 WSL shim and discovers Git Bash relative
+to Git without modifying PATH. Explicit WSL Bash, Git Bash, Windows PowerShell,
+and pwsh each passed environment/cwd/runtime tests; WSL uses declared WSLENV
+transfer. Bash tests exercise POSIX find; PowerShell tests inspect find.exe
+resolution. Keep exact runtime selection distinct from the native default;
+matching executable names do not imply matching environments or utility semantics.
+
 - 2026-06-22: Narrowed the remaining bug from "Windows verification pending" to
   a concrete `find`-resolution precedence issue.
 - 2026-06-22: Updated Windows shell-path shaping so the selected shell's

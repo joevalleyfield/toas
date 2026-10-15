@@ -327,6 +327,27 @@ def test_run_in_process_worker_does_not_emit_assistant_projection_stdout_as_tool
     assert not any(e["type"] == "tool_progress" for e in run.events)
 
 
+def test_run_in_process_worker_preserves_typed_cancellation(tmp_path):
+    run = AsyncRun(run_id="typed-cancel", workdir=str(tmp_path), process=None)
+    run.cancel_requested = True
+    run.status = "cancelled"
+    writes = []
+    dar._run_in_process_worker(
+        run,
+        emit_tool_events_from_line_fn=lambda *_a, **_k: None,
+        write_run_event_fn=lambda *args: writes.append(args),
+        runtime_step_fn=lambda: (_ for _ in ()).throw(dar._RunCancelledBrokenPipe("run cancelled by user")),
+        process_state_lock=threading.Lock(),
+    )
+    assert run.status == "cancelled"
+    assert run.returncode == 130
+    assert not any(event["type"] == "error" for event in run.events)
+    done = [event for event in run.events if event["type"] == "run_done"]
+    assert len(done) == 1
+    assert done[0]["payload"]["status"] == "cancelled"
+    assert writes
+
+
 def test_run_in_process_worker_exception_path_and_restore_failure(monkeypatch, tmp_path):
     run = AsyncRun(run_id="r3", workdir=str(tmp_path), process=None)
     writes = []
@@ -1964,6 +1985,8 @@ def test_run_in_process_worker_finalizes_when_posix_stream_reader_stays_alive(tm
     import toas.runtime.async_activity_store_impl as store
     from toas.tools_cluster import shell_streaming
     from toas.tools_cluster.shell_ops import run_subprocess
+
+    monkeypatch.setattr(shell_streaming, "_is_windows", lambda: False)
 
     class _FakeThread:
         def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]

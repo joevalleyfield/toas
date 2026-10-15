@@ -13,6 +13,10 @@ from pathlib import Path
 from ..runtime.tool_stream_context import current_tool_stream_emitter
 
 
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
 def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str]) -> subprocess.Popen:
     merged_env = os.environ.copy()
     merged_env.update(env)
@@ -61,7 +65,7 @@ def _reader_thread_target(
     stream = proc.stdout
     if stream is None:
         return
-    if os.name == "nt" and hasattr(stream, "read"):
+    if _is_windows() and hasattr(stream, "read"):
         _reader_event_loop_windows(
             stream=stream,
             stream_max_bytes=stream_max_bytes,
@@ -228,7 +232,7 @@ def _drain_if_reader_alive(*, proc: subprocess.Popen, reader: threading.Thread, 
     reader.join(timeout=1.0)
     if not reader.is_alive():
         return
-    if os.name == "nt":
+    if _is_windows():
         _stream_debug(
             "shell_stream_reader_still_alive",
             {

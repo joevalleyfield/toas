@@ -83,27 +83,27 @@ def test_process_alive_false_for_non_positive_pid():
 def test_process_alive_false_for_oserror(monkeypatch):
     from toas.runtime.session_host_state import process_alive
 
-    def _raise_oserror(_pid: int, _sig: int):
+    def _raise_oserror(_pid: int):
         raise OSError("dead")
 
-    monkeypatch.setattr("toas.runtime.session_host_state.os.kill", _raise_oserror)
+    monkeypatch.setattr("toas.runtime.session_host_state.probe_process", _raise_oserror)
     assert process_alive(123) is False
 
 
 def test_process_alive_true_for_permission_error(monkeypatch):
     from toas.runtime.session_host_state import process_alive
 
-    def _raise_permission(_pid: int, _sig: int):
+    def _raise_permission(_pid: int):
         raise PermissionError("not owner")
 
-    monkeypatch.setattr("toas.runtime.session_host_state.os.kill", _raise_permission)
+    monkeypatch.setattr("toas.runtime.session_host_state.probe_process", _raise_permission)
     assert process_alive(123) is True
 
 
 def test_process_alive_true_when_kill_succeeds(monkeypatch):
     from toas.runtime.session_host_state import process_alive
 
-    monkeypatch.setattr("toas.runtime.session_host_state.os.kill", lambda _pid, _sig: None)
+    monkeypatch.setattr("toas.runtime.session_host_state.probe_process", lambda _pid: None)
     assert process_alive(123) is True
 
 

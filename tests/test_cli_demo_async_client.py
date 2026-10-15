@@ -5,6 +5,7 @@ import asyncio
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from unittest import mock
 
@@ -558,6 +559,34 @@ class TestDaemonRpcClient:
 # ---------------------------------------------------------------------------
 
 class TestHostClient:
+    def test_live_silent_host_request_has_bounded_timeout(self):
+        proc = subprocess.Popen(
+            [sys.executable, "-u", "-c", "import sys,time; sys.stdin.readline(); time.sleep(10)"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        try:
+            client = HostClient(proc, request_timeout_s=0.1)
+            started = time.monotonic()
+            with pytest.raises(RuntimeError, match="empty response from host"):
+                client.request("status", {})
+            assert time.monotonic() - started < 2
+            assert proc.poll() is None
+        finally:
+            _close_proc(proc)
+
+    def test_exited_host_response_is_drained(self):
+        proc = subprocess.Popen(
+            [sys.executable, "-u", "-c", "import sys; sys.stdout.buffer.write(b'final\\n'); sys.stdout.flush()"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        try:
+            proc.wait(timeout=5)
+            client = HostClient(proc)
+            assert client._read_frame_bytes(timeout_s=1) == b"final"
+            assert client._read_frame_bytes(timeout_s=1) == b""
+        finally:
+            _close_proc(proc)
+
     def test_request_sends_json_frame_and_reads_response(self, tmp_path: Path):
         """HostClient.request writes a JSON frame and reads a response."""
         proc = subprocess.Popen(
@@ -1980,7 +2009,7 @@ def test_host_client_read_frame_bytes_edge_cases():
 
     from toas.cli_demo_async_client import HostClient
 
-    # 1. Test proc.poll() is not None -> returns rx_buffer (lines 71-73)
+    # EOF returns a final partial frame and clears the receive buffer.
     mock_proc1 = mock.Mock()
     mock_proc1.stdin = mock.Mock()
     mock_proc1.stdout = mock.Mock()
@@ -1989,12 +2018,14 @@ def test_host_client_read_frame_bytes_edge_cases():
     mock_proc1.stderr = None
     client1 = HostClient(mock_proc1, request_timeout_s=2.0)
     client1.rx_buffer = b"some-partial-frame"
+    client1._pipe_reader = mock.Mock()
+    client1._pipe_reader.read.return_value = b""
 
     frame = client1._read_frame_bytes(timeout_s=2.0)
     assert frame == b"some-partial-frame"
     assert client1.rx_buffer == b""
 
-    # 2. Test timeout / select timeout and continue / deadline reached returning b"" (lines 77, 84)
+    # An idle pipe reaches the deadline without invoking socket-only select.
     mock_proc2 = mock.Mock()
     mock_proc2.stdin = mock.Mock()
     mock_proc2.stdout = mock.Mock()
@@ -2004,11 +2035,13 @@ def test_host_client_read_frame_bytes_edge_cases():
     client2 = HostClient(mock_proc2, request_timeout_s=0.01)
     client2.rx_buffer = b""
 
-    with mock.patch("select.select", return_value=([], [], [])):
+    client2._pipe_reader = mock.Mock()
+    client2._pipe_reader.read.return_value = None
+    with mock.patch("select.select", side_effect=AssertionError("pipe select must not be used")):
         frame = client2._read_frame_bytes(timeout_s=0.01)
         assert frame == b""
 
-    # 3. Test stderr read raising exception (lines 45-46)
+    # Diagnostic read errors after process exit do not mask the empty response.
     mock_proc3 = mock.Mock()
     mock_proc3.stdin = mock.Mock()
     mock_proc3.stdout = mock.Mock()
@@ -2019,6 +2052,8 @@ def test_host_client_read_frame_bytes_edge_cases():
     mock_proc3.stderr = mock_stderr
     client3 = HostClient(mock_proc3, request_timeout_s=1.0)
     client3.rx_buffer = b""
+    client3._pipe_reader = mock.Mock()
+    client3._pipe_reader.read.return_value = b""
 
     with pytest.raises(RuntimeError, match="empty response from host") as exc:
         client3.request("status", {})

@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from ..llm import NO_THINKING, Settings, complete_chat_response
+from ..runtime.shell_runtime import configured_shell_runtime
+from ..tools_cluster.shell_ops import shell_launcher_argv
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3]
 PROCEDURE = """Organize all supplied dirty changes into coherent commits using the supplied repository customs. Preserve intended content and keep each task file with its change; maintain WORKBOARD references at every commit boundary. A task's WORKBOARD entry must not appear until its task file is committed; include the task file and its board update together. WORKBOARD entries are Markdown bullets exactly like `- task-slug`; preserve existing bullets when editing. Include each task's source, test, task file, and matching WORKBOARD update in its behavior commit. An empty jj working-copy commit is normal and clean; do not abandon it. Use explicit progress memory and do not repeat a tool call when its observation has not changed. State-only requests do not include prior observations: put important findings and completed work in state. Before finish, verify the working copy is clean and history is correct.
@@ -262,6 +264,8 @@ def _run(root: Path, args: list[str], *, timeout: float = 10) -> str:
 
 def create_fixture(root: Path) -> dict[str, Any]:
     root = _ensure_external_root(root)
+    if sys.platform == "win32" and len(str(root / ".jj/repo/op_store/operations" / ("0" * 128))) >= 260:
+        raise ValueError("jj fixture path exceeds the Windows path limit; choose a shorter --output directory")
     root.mkdir(parents=True, exist_ok=True)
     (root / "AGENTS.md").write_text(
         "Use conventional commits. Keep each task's task file and matching WORKBOARD reference in its commit.\n\n"
@@ -336,6 +340,21 @@ def safe_path(root: Path, rel: str) -> Path:
     return candidate
 
 
+def _bash_command(root: Path, content: str) -> list[str]:
+    configured = configured_shell_runtime(root)
+    if configured:
+        return shell_launcher_argv(content, runtime=list(configured))
+    if sys.platform == "win32":
+        command = shell_launcher_argv(content, workdir=root)
+        if Path(command[0]).stem.lower() == "bash":
+            return [shutil.which(command[0]) or command[0], *command[1:]]
+    else:
+        bash = shutil.which("bash")
+        if bash:
+            return [bash, "-c", content]
+    raise RuntimeError("Bash runtime unavailable; configure runtime.shell_runtime with a Bash argv prefix")
+
+
 def act(
     root: Path,
     action: dict[str, Any],
@@ -402,7 +421,7 @@ def act(
         cwd = root.resolve() if cwd_value == "." else safe_path(root, cwd_value)
         if cwd.is_symlink() or not cwd.is_dir():
             raise ValueError("script cwd must be a fixture directory")
-        command = [sys.executable, "-c", content] if language == "python" else ["/bin/bash", "-c", content]
+        command = [sys.executable, "-c", content] if language == "python" else _bash_command(root, content)
         completed = subprocess.run(
             command,
             cwd=cwd,
@@ -474,7 +493,7 @@ def evaluate(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
         and any(x.startswith(("feat(", "fix(")) for x in rows)
     )
     clean = "Working copy changes:" not in status
-    tracked = set(_run(root, ["jj", "file", "list"]).splitlines())
+    tracked = {Path(path).as_posix() for path in _run(root, ["jj", "file", "list"]).splitlines()}
     expected_paths = set(expected)
     commit_rows = _run(
         root,
@@ -504,6 +523,8 @@ def evaluate(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
             changed = _run(
                 root, ["jj", "diff", "--from", f"{revision}-", "--to", revision, "--summary"]
             )
+            # This is a path-only summary, not patch content or message text.
+            changed = changed.replace(os.sep, "/")
             task_path = "tasks/open/docs-guide.md" if family == "docs" else "tasks/open/subtract.md"
             task_slug = "docs-guide" if family == "docs" else "subtract"
             try:
@@ -511,7 +532,10 @@ def evaluate(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
                 task_text = _run(root, ["jj", "file", "show", task_path, "-r", revision])
             except RuntimeError:
                 board, task_text = "", ""
-            files_at_boundary = set(_run(root, ["jj", "file", "list", "-r", revision]).splitlines())
+            files_at_boundary = {
+                Path(path).as_posix()
+                for path in _run(root, ["jj", "file", "list", "-r", revision]).splitlines()
+            }
             if (
                 task_path not in files_at_boundary
                 or f"- {task_slug}" not in board

@@ -25,7 +25,7 @@ tools:
 - apply_patch (args: patch)
 - shell (args: argv, optional: cwd, timeout_s, env)
   defaults: cwd=., timeout_s=shell.assistant_timeout_s
-- shell_script (args: script, optional: cwd, timeout_s, env)
+- shell_script (args: script, optional: cwd, timeout_s, env, runtime)
   defaults: cwd=., timeout_s=shell.assistant_timeout_s
 - capability_help (args: none, optional: topic)
 - capture_task_thread (args: title, kind, optional: evidence, blocks_progress, active_task_id, scope_hint, capture_id)

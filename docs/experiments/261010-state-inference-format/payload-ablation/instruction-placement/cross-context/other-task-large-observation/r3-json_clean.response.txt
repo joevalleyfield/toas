@@ -1,0 +1,34 @@
+{
+  "state_patch": {
+    "progress": [
+      "Read `src/toas/runtime/operator_command_state_seed.py` to understand the implementation.",
+      "Read `src/toas/cli_dispatch.py` to see how CLI arguments are mapped to slash commands."
+    ],
+    "next_steps": [
+      "Search for where `handle_state_seed_commands` is registered or called.",
+      "Identify the list of available slash commands to determine if `state-seed` is already exposed.",
+      "Add or verify the registration of the `state-seed` slash command."
+    ]
+  },
+  "tool_calls": [
+    {
+      "tool_name": "search",
+      "args": {
+        "query": "handle_state_seed_commands",
+        "path": "src",
+        "regex": false,
+        "limit": 20
+      }
+    },
+    {
+      "tool_name": "search",
+      "args": {
+        "query": "state-seed",
+        "path": "src",
+        "regex": false,
+        "limit": 20
+      }
+    }
+  ],
+  "outcome": "continue"
+}

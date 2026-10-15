@@ -325,6 +325,15 @@ def test_route_and_capture_micro(tmp_path: Path) -> None:
     
     content = parent_file.read_text(encoding="utf-8")
     assert "## Risks\n- [ ] Possible Risk\n" in content
+    ledger = tmp_path / "tasks" / "events.jsonl"
+    event = json.loads(ledger.read_text(encoding="utf-8"))
+    assert event["outcome"]["file_path"] == res["path"]
+    repeated = route_and_capture(
+        tmp_path, "Possible Risk", "risk", active_task_id="5", scope_hint="micro"
+    )
+    assert repeated["path"] == res["path"]
+    assert parent_file.read_text(encoding="utf-8") == content
+    assert len(ledger.read_text(encoding="utf-8").splitlines()) == 1
 
 
 def test_route_and_capture_blocker(tmp_path: Path) -> None:

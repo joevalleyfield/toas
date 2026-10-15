@@ -2,6 +2,7 @@
 import os
 import re
 import shlex
+from pathlib import Path
 from collections.abc import Callable
 
 from .config import (
@@ -708,8 +709,10 @@ def _execute_plan_user_context(
                         )
                     )
                     break
-                shell_args["argv"] = ["sh", "-lc", script]
-                shell_args["command"] = script
+                from .tools_cluster.shell_ops import shell_launcher_argv
+
+                shell_args["argv"] = shell_launcher_argv(script, runtime=args.get("runtime"), workdir=Path(command_cwd))
+                shell_args.pop("command", None)
             else:
                 command = args.get("command")
                 if not isinstance(command, str) or not command.strip():

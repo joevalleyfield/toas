@@ -93,7 +93,8 @@ function! s:sc_start() abort
   if type(s:sc_job) != type(v:null) && job_status(s:sc_job) ==# 'run' && type(s:sc_ch) != type(v:null) && ch_status(s:sc_ch) ==# 'open'
     return 1
   endif
-  let l:cmd = split(g:toas_stdio_contract_host)
+  let l:cmd = type(g:toas_stdio_contract_host) == type([])
+        \ ? copy(g:toas_stdio_contract_host) : split(g:toas_stdio_contract_host)
   let s:sc_job = job_start(l:cmd, {
         \ 'in_io': 'pipe',
         \ 'out_io': 'pipe',

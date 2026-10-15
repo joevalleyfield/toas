@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from typing import Any
 
 from ..graph import normalize_tool_plan
@@ -26,7 +27,12 @@ def parse_bash_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | None:
     args: dict[str, Any] = {"script": script}
     for token in fence.info_tokens[2:]:
         key, value = token.split("=", 1)
-        if key == "timeout_s":
+        if key == "runtime":
+            try:
+                args[key] = shlex.split(value)
+            except ValueError:
+                return None
+        elif key == "timeout_s":
             if not value.isdigit() or int(value) <= 0:
                 return None
             args[key] = int(value)

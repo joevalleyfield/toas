@@ -620,6 +620,26 @@ def test_parse_search_match_returns_none_for_non_string():
     assert _parse_search_match(42) is None
 
 
+def test_parse_search_match_preserves_windows_drive_and_content_colons():
+    assert _parse_search_match(r"C:\work\src\a.py:12:value: detail") == (
+        r"C:\work\src\a.py", 12, "value: detail",
+    )
+
+
+def test_search_native_absolute_paths_render_grouped_workspace_relative_refs(tmp_path):
+    source = tmp_path / "src" / "a.py"
+    result = shape_result_content({
+        "tool_name": "search", "ok": True, "summary": "2 matches",
+        "path": str(tmp_path),
+        "matches": [f"{source}:12:value: detail", f"{source}:3:first"],
+        "content": f"{source}:12:value: detail\n{source}:3:first",
+    })
+    assert result.count("src/a.py\n") == 1
+    assert "    12: value: detail" in result
+    assert result.index("    3: first") < result.index("    12: value: detail")
+    assert result.count("block_id=ib_") == 1
+
+
 def test_parse_search_match_returns_none_when_no_colon_separator():
     assert _parse_search_match("nodivider") is None
 

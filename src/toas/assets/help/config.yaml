@@ -109,8 +109,8 @@ topics:
       plain:
         summary: "Runtime settings shape live execution, streaming deltas, prompt progress feedback, and async execution mechanics."
       config:
-        summary: "Adjust streaming, thinking streaming, prompt progress, and execution lifecycle behavior."
-        related_keys: [runtime.streaming_mode, runtime.thinking_stream_mode, runtime.prompt_progress_mode, runtime.async_runs, runtime.async_backend_mode, runtime.cancellation_mode, runtime.context_budget_mode]
+        summary: "Select a shell argv prefix and adjust streaming, thinking streaming, prompt progress, and execution lifecycle behavior."
+        related_keys: [runtime.streaming_mode, runtime.thinking_stream_mode, runtime.prompt_progress_mode, runtime.async_runs, runtime.async_backend_mode, runtime.cancellation_mode, runtime.context_budget_mode, runtime.shell_runtime]
         next_actions: [/config show runtime, /config set runtime.prompt_progress_mode enabled, /config set runtime.thinking_stream_mode enabled]
   - id: streaming
     aliases: [stream, stream-output, live-output]
@@ -165,6 +165,7 @@ key_descriptions:
   runtime.async_runs: "Enables or disables asynchronous execution for step runs."
   runtime.async_backend_mode: "Selects the asynchronous runtime backend."
   runtime.cancellation_mode: "Controls step run cancellation behavior."
+  runtime.shell_runtime: "Shell argv prefix, including command-mode flags; empty uses automatic shell selection. Example: /opt/own-sh/bin/sh -lc."
   health_timing.first_frame_timeout_ms: "Controls the timeout before the first response frame."
   health_timing.inter_frame_timeout_ms: "Controls the timeout between response frames."
   health_timing.host_request_deadline_ms: "Controls the host request deadline."

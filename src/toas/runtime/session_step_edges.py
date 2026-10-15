@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import re
-import shlex
 from pathlib import Path
 
 from ..config import OperatorConfig
@@ -29,6 +28,7 @@ from ..graph import (
     write_workspace_scope_record,
 )
 from .intent_arbitration_edges import select_user_intent_candidates
+from .operator_command_parse import split_operator_command
 
 
 def sanitize_secret_command_content(content: str) -> str:
@@ -101,7 +101,7 @@ def extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
     if not tail.startswith("/"):
         return None
     try:
-        parts = shlex.split(tail[1:])
+        parts = split_operator_command(tail[1:])
     except ValueError:
         return None
     if not parts:

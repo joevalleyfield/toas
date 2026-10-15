@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-10
+> **Last Sync:** 2026-10-17
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -269,7 +269,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences ⚠️ Stale
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations ⚠️ Stale
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale
-- **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
+- **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe... ⚠️ Stale
 - **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program
 - **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti...
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
@@ -277,6 +277,12 @@ continuation, and authority concerns without reopening completed slices.
 - **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-scratch-read-file-ingestion-threshold]** Status: OPEN; apply 500-line ingestion threshold when read_file targets scratch files without explicit bounds
+- **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
+- **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
+- **[T261010-vim-control-result-empty-user]** Status: OPEN; preserve already scoped result projections when Vim finalizes a successful run
+- **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
+- **[T261017-msys-vim-native-host]** Status: OPEN; classify the mixed-runtime contract separately from native Vim
+- **[T261017-native-shell-frontier]** Status: OPEN; classify six native-suite failures and one acceptance failure
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -364,12 +370,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T261010-preview-request-pretty-inspection]** Status: CLOSED; added `toas step --preview-request-pretty` for near-literal request inspection
-- **[T261009-read-file-eof-truncation-and-soft-bounds]** Status: CLOSED; implemented read_file clean EOF truncation and soft line bounds
-- **[T261009-explicit-reference-expansion-and-report-projection]** Status: CLOSED
-- **[T261009-batch-tool-non-fatal-execution-mode]** Status: CLOSED; implemented batch tool continue_on_error mode across runtime, protocol, and projection
-- **[T261008-state-tool-argument-type-signatures]** Status: CLOSED; advertised explicit type signatures for tool arguments in state-step protocol definitions across all registry tools.
-- **[T261008-state-step-terminal-reporting-channel]** Status: CLOSED; defined and implemented user-facing reporting channel for state-step with completion projection in transcripts and CLI output.
+- **[T261017-vim-harness-windows]** Status: CLOSED 2026-10-17; native Windows Vim contracts restored
+- **[T261017-task-capture-windows]** Status: CLOSED 2026-10-17
+- **[T261017-state-experiment-windows]** Status: CLOSED 2026-10-17; six experiment failures repaired and independently verified
+- **[T261015-sync-host-pipe-portability]** Status: CLOSED 2026-10-15; synchronous host requests work over native Windows pipes
+- **[T261015-shell-launcher-reader-portability]** Status: CLOSED 2026-10-15; restore native default shell execution and intentional runtime tests
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

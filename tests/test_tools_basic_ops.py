@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -96,13 +97,14 @@ def test_run_write_file_refuses_uncaptured_existing_file_without_force(tmp_path)
         )
 
 
-def test_run_write_file_accepts_safe_overwrite_when_jj_captures_current_content(tmp_path, monkeypatch):
+@pytest.mark.parametrize("captured", [b"hello\n", b"hello\r\n"], ids=["lf", "crlf"])
+def test_run_write_file_accepts_safe_overwrite_when_jj_captures_current_content(tmp_path, monkeypatch, captured):
     path = tmp_path / "a.txt"
-    path.write_text("hello\n", encoding="utf-8")
+    path.write_bytes(captured)
 
     class _Completed:
         returncode = 0
-        stdout = b"hello\n"
+        stdout = captured
 
     monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *args, **kwargs: _Completed())
 
@@ -116,9 +118,10 @@ def test_run_write_file_accepts_safe_overwrite_when_jj_captures_current_content(
     assert path.read_text(encoding="utf-8") == "bye\n"
 
 
-def test_run_write_file_accepts_safe_overwrite_when_git_head_captures_current_content(tmp_path, monkeypatch):
+@pytest.mark.parametrize("captured", [b"hello\n", b"hello\r\n"], ids=["lf", "crlf"])
+def test_run_write_file_accepts_safe_overwrite_when_git_head_captures_current_content(tmp_path, monkeypatch, captured):
     path = tmp_path / "a.txt"
-    path.write_text("hello\n", encoding="utf-8")
+    path.write_bytes(captured)
 
     def fake_run(argv, **_kwargs):
         class _Completed:
@@ -129,7 +132,7 @@ def test_run_write_file_accepts_safe_overwrite_when_git_head_captures_current_co
         if argv[:3] == ["jj", "file", "show"]:
             return _Completed(1, b"")
         if argv[:2] == ["git", "show"]:
-            return _Completed(0, b"hello\n")
+            return _Completed(0, captured)
         raise AssertionError(argv)
 
     monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", fake_run)
@@ -161,6 +164,22 @@ def test_overwrite_history_checks_fail_closed_for_out_of_root_or_missing_tools(t
 
     monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *args, **kwargs: (_ for _ in ()).throw(FileNotFoundError()))
     assert _existing_file_overwrite_is_safe(path=path, workspace_root=tmp_path) is False
+
+
+def test_run_write_file_refuses_newline_only_difference_from_repository(tmp_path, monkeypatch):
+    path = tmp_path / "a.txt"
+    path.write_bytes(b"hello\r\n")
+    monkeypatch.setattr(
+        "toas.tools_cluster.basic_ops.subprocess.run",
+        lambda *args, **kwargs: type("Completed", (), {"returncode": 0, "stdout": b"hello\n"})(),
+    )
+    with pytest.raises(RuntimeError, match="refused to overwrite"):
+        run_write_file(
+            {"path": "a.txt", "content": "bye\n"},
+            workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+            workspace_root=tmp_path,
+        )
+    assert path.read_bytes() == b"hello\r\n"
 
 
 def test_run_write_file_rejects_directory_target(tmp_path):
@@ -574,7 +593,7 @@ def test_get_structure_read_error_surfaces_file_path(tmp_path):
     bad = sub / "binary.py"
     bad.write_bytes(b"\x80\x81\x82")
 
-    with pytest.raises(RuntimeError, match=f"failed reading {bad}"):
+    with pytest.raises(RuntimeError, match=re.escape(f"failed reading {bad}")):
         run_get_structure({"path": str(tmp_path)}, workspace_path_fn=lambda p: Path(p))
 
 

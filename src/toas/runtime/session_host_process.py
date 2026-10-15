@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 from ..rpc_protocol import encode_message
 from .activity_health import HEALTH_TIMING_PROFILES
+from .process_liveness import probe_process
 from .session_host_stream_bridge import bridge_stream_subscribe_request
 
 
@@ -127,7 +128,7 @@ def serve_session_host(*, owner_pid: int, sleep_s: float = 0.25, request_handler
     while True:
         if not _ignore_owner_check():
             try:
-                os.kill(owner_pid, 0)
+                probe_process(owner_pid)
             except PermissionError:
                 # Owner exists but we are not permitted to signal it.
                 pass
@@ -146,7 +147,7 @@ def _build_sync_host_io(*, owner_pid: int, sleep_s: float, request_handler=None)
         if _ignore_owner_check():
             return "ignored"
         try:
-            os.kill(owner_pid, 0)
+            probe_process(owner_pid)
             return "ok"
         except PermissionError:
             return "permission"

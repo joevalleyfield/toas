@@ -1,0 +1,17 @@
+The `--preview-request` flag is defined in the CLI parser and passed through `_run_step` to `run_operator_step_once`. I need to find the argparse definition for `--preview-request` and the `run_operator_step_once` implementation in `operator_api.py` to understand where the request messages are printed.
+
+Let me explore the argparse definitions and the operator API implementation.
+
+<tool_call>
+<function=read_file>
+<parameter=path>
+src/toas/cli.py
+</parameter>
+<parameter=start_line>
+1
+</parameter>
+<parameter=end_line>
+200
+</parameter>
+</function>
+</tool_call>

@@ -1,0 +1,12 @@
+Let me analyze the current state and what I've learned from the observations.
+
+From the observations, I can see:
+1. The CLI is in `src/toas/cli.py`
+2. The `step` command is handled by `_run_step` (line 198) and `run_step` (line 235)
+3. The `preview_request` flag is already implemented at lines 202, 228, 254-255
+4. The request is sent via `run_operator_step_once` (line 232)
+
+I need to read the actual code around these lines to understand how the request is constructed and output when `--preview-request` is used, so I can add the `--pretty` flag.
+
+Let me read the relevant sections of the file.
+

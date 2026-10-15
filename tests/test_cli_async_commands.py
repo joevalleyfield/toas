@@ -613,7 +613,7 @@ def test_run_step_async_clears_stale_session_host_record():
     monkeypatch.setattr("toas.cli_async_commands.record_is_stale", lambda _rec: True)
     run_step_async(deps)
     monkeypatch.undo()
-    assert cleared == ["/tmp"]
+    assert cleared == [str(deps.cwd_resolver())]
     assert out == ["run_id=r1 status=running backend=rpc\n"]
 
 
@@ -646,7 +646,7 @@ def test_run_step_async_clears_stale_ensured_session_host_record():
     )
     run_step_async(deps)
     monkeypatch.undo()
-    assert cleared == ["/tmp"]
+    assert cleared == [str(deps.cwd_resolver())]
     assert out == ["run_id=r1 status=running backend=local\n"]
 
 

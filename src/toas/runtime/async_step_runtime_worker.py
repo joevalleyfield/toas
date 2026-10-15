@@ -453,6 +453,12 @@ def _run_in_process_worker(
                 }
             )
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
+    except _RunCancelledBrokenPipe:
+        with run.lock:
+            run.returncode = 130
+            run.status = "cancelled"
+            run.updated_at = time.time()
+            finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     except BaseException as exc:
         with run.lock:
             run.returncode = 1

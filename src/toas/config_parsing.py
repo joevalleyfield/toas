@@ -1,3 +1,4 @@
+import shlex
 from dataclasses import asdict, fields
 
 from .shell_grants import normalize_shell_grants
@@ -132,6 +133,8 @@ def parse_config_value(
         return tuple(part for part in raw.split() if part)
     if dotted_key == "runtime.powershell_runtime":
         return tuple(part for part in raw.split() if part)
+    if dotted_key == "runtime.shell_runtime":
+        return tuple(shlex.split(raw))
     if dotted_key == "generation.thinking_budget_tokens":
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
     if dotted_key == "generation.max_tokens":

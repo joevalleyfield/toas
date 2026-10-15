@@ -2,6 +2,8 @@ import builtins
 import io
 from pathlib import Path
 
+import pytest
+
 from toas.graph_index_edges import (
     LogicalIndexRecord,
     append_index_records,
@@ -297,14 +299,17 @@ def test_read_logical_index_stitches_per_source_indexes(tmp_path):
     assert read_index(index_path_for(str(hot_path))) == [(0, 0, "n2")]
 
 
-def test_logical_index_lookup_uses_stitched_position_and_source_offset(tmp_path):
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_logical_index_lookup_uses_stitched_position_and_source_offset(tmp_path, newline):
     hot_path = tmp_path / ".toas" / "events.jsonl"
     segments_dir = hot_path.parent / "segments"
     segments_dir.mkdir(parents=True)
     segment_path = segments_dir / "000001-events.jsonl"
     first = '{"id":"n1","parent":"n0","role":"user","content":"cold","metadata":{}}\n'
     second = '{"id":"n2","parent":"n1","role":"assistant","content":"still cold","metadata":{}}\n'
-    segment_path.write_text(first + second, encoding="utf-8")
+    first_bytes = first.replace("\n", newline).encode("utf-8")
+    second_bytes = second.replace("\n", newline).encode("utf-8")
+    segment_path.write_bytes(first_bytes + second_bytes)
     hot_path.write_text(
         '{"id":"n3","parent":"n2","role":"user","content":"hot","metadata":{}}\n',
         encoding="utf-8",
@@ -322,7 +327,10 @@ def test_logical_index_lookup_uses_stitched_position_and_source_offset(tmp_path)
     assert by_id.logical_position == 1
     assert by_id.source_path == str(segment_path)
     assert by_id.source_line_number == 1
-    assert by_id.byte_offset == len(first.encode("utf-8"))
+    assert by_id.byte_offset == len(first_bytes)
+    with segment_path.open("rb") as source:
+        source.seek(by_id.byte_offset)
+        assert source.readline() == second_bytes
 
 
 def test_logical_index_lookup_returns_candidates_for_duplicate_local_ids(tmp_path):

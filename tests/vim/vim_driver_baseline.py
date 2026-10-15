@@ -7,7 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 
-import pexpect
+from vim_terminal import EOF, spawn
 
 
 def run_baseline(*, vim_bin: str, timeout_s: float) -> dict[str, object]:
@@ -25,17 +25,17 @@ def run_baseline(*, vim_bin: str, timeout_s: float) -> dict[str, object]:
                     "set shortmess+=I",
                     "file baseline.txt",
                     "normal! iBASELINE_OK",
-                    "write! " + str(out_path),
+                    "write! " + out_path.as_posix(),
                     "qa!",
                 ]
             )
             + "\n",
             encoding="utf-8",
         )
-        cmd = [vim_bin, "-Nu", "NONE", "-n", "-es", "-S", str(script_path)]
+        cmd = [vim_bin, "-Nu", "NONE", "-n", "-es", "-S", script_path.as_posix()]
         logs.append("CMD " + " ".join(cmd))
-        child = pexpect.spawn(cmd[0], cmd[1:], encoding="utf-8", timeout=timeout_s, env=os.environ)
-        child.expect(pexpect.EOF)
+        child = spawn(cmd[0], cmd[1:], encoding="utf-8", timeout=timeout_s, env=os.environ)
+        child.expect(EOF)
         child.close()
         rc = (
             child.exitstatus
@@ -58,7 +58,7 @@ def run_baseline(*, vim_bin: str, timeout_s: float) -> dict[str, object]:
             "elapsed_ms": elapsed_ms,
             "logs": logs,
             "output_text": text,
-            "output_path": str(out_path),
+            "output_path": out_path.as_posix(),
         }
 
 

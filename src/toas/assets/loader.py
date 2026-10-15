@@ -37,5 +37,5 @@ def list_packaged_assets(kind: str, *, suffix: str) -> list[str]:
     with resources.as_file(root) as root_path:
         for path in root_path.rglob(f"*{suffix}"):
             if path.is_file() and path.name.endswith(suffix):
-                refs.append(str(path.relative_to(root_path)).removesuffix(suffix))
+                refs.append(path.relative_to(root_path).as_posix().removesuffix(suffix))
     return sorted(refs)
