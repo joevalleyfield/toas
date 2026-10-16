@@ -204,6 +204,11 @@ This task will be complete when:
   executable-fence, and transparent-compaction slice passed the routine gate.
   Its release notes are at `docs/releases/0.0.3.0.md`, with the operational
   record at `tasks/recurring/runs/2026-08-30-release-review-weekly-tagged-lane.md`.
+- The fifth release review cut `0.0.4.0` on 2026-10-16 after the model endpoints,
+  help topic facets, frontier resilience, and state-shaped execution tech preview
+  passed the routine gate. Its release notes are at `docs/releases/0.0.4.0.md`,
+  with the operational record at
+  `tasks/recurring/runs/2026-10-16-release-review-weekly-tagged-lane.md`.
 - Decide whether future changelog aggregation is worthwhile beyond individual
   release note files.
 - Determine whether future publishable artifacts should extend this lane or sit
