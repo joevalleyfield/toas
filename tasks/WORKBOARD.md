@@ -367,6 +367,7 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260725-sparse-trajectory-labels]** Status: CLOSED; superseded by per-turn intent tail structure and state-step conversation metadata
 - **[T261010-preview-request-pretty-inspection]** Status: CLOSED; added `toas step --preview-request-pretty` for near-literal request inspection
 - **[T261009-read-file-eof-truncation-and-soft-bounds]** Status: CLOSED; implemented read_file clean EOF truncation and soft line bounds
 - **[T261009-explicit-reference-expansion-and-report-projection]** Status: CLOSED
