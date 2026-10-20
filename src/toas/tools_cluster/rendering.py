@@ -1,9 +1,28 @@
 import os
 import re
 import shlex
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
+
+_SINGLE_TURN_EPHEMERAL: ContextVar[bool] = ContextVar("toas_single_turn_ephemeral", default=False)
+
+
+def is_single_turn_ephemeral() -> bool:
+    if os.environ.get("TOAS_SINGLE_TURN_EPHEMERAL", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return True
+    return _SINGLE_TURN_EPHEMERAL.get()
+
+
+@contextmanager
+def active_single_turn_ephemeral(enabled: bool = True) -> Iterator[None]:
+    token = _SINGLE_TURN_EPHEMERAL.set(enabled)
+    try:
+        yield
+    finally:
+        _SINGLE_TURN_EPHEMERAL.reset(token)
 
 _LANGUAGE_BY_EXTENSION = {
     ".bash": "bash",
@@ -148,8 +167,17 @@ def spill_inert_block(
     threshold_bytes: int = DEFAULT_SPILL_THRESHOLD_BYTES,
     preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
     block_id: str | None = None,
+    single_turn_ephemeral: bool | None = None,
+    ephemeral: bool | None = None,
 ) -> tuple[str, str, str]:
     """Spill an oversized inert block to a scratch file and return (spilled_text, rel_path, block_id)."""
+    if single_turn_ephemeral is None:
+        single_turn_ephemeral = ephemeral
+    if single_turn_ephemeral is None:
+        is_ephemeral = is_single_turn_ephemeral()
+    else:
+        is_ephemeral = bool(single_turn_ephemeral)
+
     effective_block_id = block_id or f"ib_{sha256(content.encode('utf-8')).hexdigest()[:16]}"
     target_dir = scratch_dir or default_scratch_dir()
     try:
@@ -184,11 +212,17 @@ def spill_inert_block(
         f"lines=1..{preview_count} of {total_lines}",
     ]
     if remaining_lines > 0:
-        trailer = (
+        base_trailer = (
             f"[{remaining_lines} lines remaining. "
-            f"Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\"{scratch_rel_path}\"; "
-            "under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state]"
+            f"Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\"{scratch_rel_path}\""
         )
+        if is_ephemeral:
+            trailer = (
+                f"{base_trailer}; "
+                "under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state]"
+            )
+        else:
+            trailer = f"{base_trailer}]"
     else:
         trailer = (
             f"[Output truncated by byte size ({size_str}). "
@@ -217,6 +251,8 @@ def render_fenced_output(  # noqa: PLR0913
     threshold_lines: int = DEFAULT_SPILL_THRESHOLD_LINES,
     threshold_bytes: int = DEFAULT_SPILL_THRESHOLD_BYTES,
     preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
+    single_turn_ephemeral: bool | None = None,
+    ephemeral: bool | None = None,
 ) -> str:
     lines = content.splitlines()
     total_lines = len(lines)
@@ -234,6 +270,8 @@ def render_fenced_output(  # noqa: PLR0913
             threshold_bytes=effective_threshold_bytes,
             preview_lines=preview_lines,
             block_id=block_id,
+            single_turn_ephemeral=single_turn_ephemeral,
+            ephemeral=ephemeral,
         )
         return spilled_text
 
@@ -284,6 +322,8 @@ def render_import_block(  # noqa: PLR0913
     threshold_lines: int | None = None,
     threshold_bytes: int | None = None,
     preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
+    single_turn_ephemeral: bool | None = None,
+    ephemeral: bool | None = None,
 ) -> str:
     effective_source = source or "workspace"
     is_bounded = line_start is not None or line_end is not None or (isinstance(path, str) and ":" in path and "-" in path)
@@ -319,6 +359,8 @@ def render_import_block(  # noqa: PLR0913
         threshold_lines=effective_threshold_lines,
         threshold_bytes=effective_threshold_bytes,
         preview_lines=preview_lines,
+        single_turn_ephemeral=single_turn_ephemeral,
+        ephemeral=ephemeral,
     )
 
 
@@ -713,7 +755,24 @@ SUCCESS_RENDERERS: dict[str, Callable[[dict], str]] = {
 }
 
 
-def shape_result_content(result: dict) -> str:
+def shape_result_content(
+    result: dict,
+    *,
+    single_turn_ephemeral: bool | None = None,
+    ephemeral: bool | None = None,
+) -> str:
+    if single_turn_ephemeral is None:
+        single_turn_ephemeral = ephemeral
+    if single_turn_ephemeral is None and isinstance(result, dict):
+        single_turn_ephemeral = result.get("single_turn_ephemeral", result.get("ephemeral"))
+
+    if single_turn_ephemeral is not None:
+        with active_single_turn_ephemeral(bool(single_turn_ephemeral)):
+            return _shape_result_content_body(result)
+    return _shape_result_content_body(result)
+
+
+def _shape_result_content_body(result: dict) -> str:
     tool_name = result["tool_name"]
     direct_renderer = RESULT_RENDERERS.get(tool_name)
     if direct_renderer is not None:

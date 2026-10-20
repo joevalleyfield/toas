@@ -760,8 +760,17 @@ def execute_plan(
         )
 
 
-def shape_result_content(result: dict) -> str:
-    return shape_tool_result_content(result)
+def shape_result_content(
+    result: dict,
+    *,
+    single_turn_ephemeral: bool | None = None,
+    ephemeral: bool | None = None,
+) -> str:
+    return shape_tool_result_content(
+        result,
+        single_turn_ephemeral=single_turn_ephemeral,
+        ephemeral=ephemeral,
+    )
 
 
 def tool_definitions(registry: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:

@@ -473,6 +473,61 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                     debug_prompt_progress_enabled: bool | None = None,
                     debug_prompt_progress_file: str | None = None) -> None:
     """Adapt a typed state transcript to the independent state-step runtime."""
+    from .tools_cluster.rendering import active_single_turn_ephemeral
+
+    with active_single_turn_ephemeral(True):
+        return _run_state_step_impl(
+            deps=deps,
+            events_path=events_path,
+            session_path=session_path,
+            normalized_transcript=normalized_transcript,
+            session_newline=session_newline,
+            events=events,
+            turns=turns,
+            state_index=state_index,
+            parsed_turn=parsed_turn,
+            preview=preview,
+            preview_request_pretty=preview_request_pretty,
+            preview_response=preview_response,
+            infer_from=infer_from,
+            on_projection_nodes=on_projection_nodes,
+            on_projection_delta=on_projection_delta,
+            generate_override=generate_override,
+            on_llm_answer_delta=on_llm_answer_delta,
+            on_llm_reasoning_delta=on_llm_reasoning_delta,
+            on_llm_prompt_progress=on_llm_prompt_progress,
+            on_llm_stream_open=on_llm_stream_open,
+            on_llm_completion=on_llm_completion,
+            stream_stdout_enabled=stream_stdout_enabled,
+            stream_thinking_enabled=stream_thinking_enabled,
+            stream_prompt_progress_enabled=stream_prompt_progress_enabled,
+            llm_stream_mode=llm_stream_mode,
+            debug_prompt_progress_enabled=debug_prompt_progress_enabled,
+            debug_prompt_progress_file=debug_prompt_progress_file,
+        )
+
+
+def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normalized_transcript: str,
+                         session_newline: str, events: list[dict],
+                         turns: list[dict] | None = None, state_index: int | None = None,
+                         parsed_turn: dict | None = None,
+                         preview: bool = False, preview_request_pretty: bool = False, preview_response: bool = False,
+                         infer_from: str | None = None,
+                         on_projection_nodes: Callable[[list[dict]], None] | None = None,
+                         on_projection_delta: Callable[[str], None] | None = None,
+                         generate_override: Callable[..., Any] | None = None,
+                         on_llm_answer_delta: Callable[[str], None] | None = None,
+                         on_llm_reasoning_delta: Callable[[str], None] | None = None,
+                         on_llm_prompt_progress: Callable[[object], None] | None = None,
+                         on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
+                         on_llm_completion: Callable[[GenerationCompletion], None] | None = None,
+                         stream_stdout_enabled: bool | None = None,
+                         stream_thinking_enabled: bool | None = None,
+                         stream_prompt_progress_enabled: bool | None = None,
+                         llm_stream_mode: str | None = None,
+                         debug_prompt_progress_enabled: bool | None = None,
+                         debug_prompt_progress_file: str | None = None) -> None:
+    """Adapt a typed state transcript to the independent state-step runtime."""
     from . import step as step_mod
     from .config import apply_overrides, config_from_discovered_paths
     from .graph import active_config_overrides, append_state_step_records, state_step_records

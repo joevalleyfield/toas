@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-16
+> **Last Sync:** 2026-10-20
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -254,7 +254,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging ⚠️ Stale
 - **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics ⚠️ Stale
 - **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
-- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane ⚠️ Stale
+- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... ⚠️ Stale
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... ⚠️ Stale
 - **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri... ⚠️ Stale
@@ -369,11 +369,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261020-tool-spill-ephemerality-comment-scoping]** Status: CLOSED; scoped the single-turn ephemerality comment in spilled tool trailers to appear only under single-turn ephemerality conditions.
 - **[T261016-ruff-cleanup]** Clear current Ruff findings without changing runtime behavior, so normal verification remains a trustworthy repository-wide gate.
 - **[T261010-preview-request-pretty-inspection]** Status: CLOSED 2026-10-11; support near-literal pretty-printed inspection of model request messages in toas step --preview-request
 - **[T261009-read-file-eof-truncation-and-soft-bounds]** Status: CLOSED; implemented read_file clean EOF truncation and soft line bounds
 - **[T261009-explicit-reference-expansion-and-report-projection]** Status: CLOSED
-- **[T261009-batch-tool-non-fatal-execution-mode]** Status: CLOSED; implemented batch tool continue_on_error mode across runtime, protocol, and projection
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
