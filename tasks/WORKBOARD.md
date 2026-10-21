@@ -372,10 +372,10 @@ continuation, and authority concerns without reopening completed slices.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261020-tool-spill-ephemerality-comment-scoping]** Status: CLOSED; scoped the single-turn ephemerality comment in spilled tool trailers to appear only under single-turn ephemerality conditions.
+- **[T261020-pwsh-platform-find-expectation]** Status: CLOSED — 2026-10-20
 - **[T261020-first-model-setup]** Status: CLOSED 2026-10-20
 - **[T261020-endpoint-state-continuity]** Status: CLOSED 2026-10-20
 - **[T261020-endpoint-auth-discoverability]** Make endpoint configuration fields discoverable from `/help config endpoint`, including environment-variable API-key configuration, and point operator...
-- **[T261017-vim-harness-windows]** Status: CLOSED 2026-10-17; native Windows Vim contracts restored
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

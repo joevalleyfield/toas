@@ -70,6 +70,7 @@ def test_explicit_shell_runtime_environment_cwd_and_find(family, executable, tmp
     if executable is None:
         pytest.skip("runtime not installed")
     env = {"TOAS_RUNTIME_TEST": "runtime-matrix-ok"}
+    find_command = "find.exe" if os.name == "nt" else "find"
     if family == "bash":
         # An installed WSL launcher may have no configured distribution.
         probe = subprocess.run([executable, "--version"], capture_output=True, timeout=5, check=False)
@@ -82,7 +83,7 @@ def test_explicit_shell_runtime_environment_cwd_and_find(family, executable, tmp
         script = 'printf "%s\\n" "$TOAS_RUNTIME_TEST"; pwd; command -v find; find . -maxdepth 1 -name probe.txt -print'
         argv = [executable, "-lc", script]
     else:
-        script = '$env:TOAS_RUNTIME_TEST; (Get-Location).Path; (Get-Command find.exe -CommandType Application).Source'
+        script = f'$env:TOAS_RUNTIME_TEST; (Get-Location).Path; (Get-Command {find_command} -CommandType Application -ErrorAction Stop).Source'
         argv = [executable, "-NoProfile", "-NonInteractive", "-Command", script]
     (tmp_path / "probe.txt").write_bytes(b"needle\n")
     host_path = os.environ.get("PATH")
@@ -97,5 +98,5 @@ def test_explicit_shell_runtime_environment_cwd_and_find(family, executable, tmp
         assert lines[-2].endswith("/find")
     else:
         assert Path(lines[1]) == tmp_path
-        assert Path(lines[2]).name.lower() == "find.exe"
+        assert Path(lines[2]).name.lower() == find_command
     assert os.environ.get("PATH") == host_path
