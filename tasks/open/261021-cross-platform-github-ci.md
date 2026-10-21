@@ -73,7 +73,7 @@ Establish automated cross-platform continuous integration across Ubuntu, Windows
 
 - Mirror all four gated routine checks in discrete workflow steps for granular UI reporting and timing.
 - Target `ubuntu-24.04`, `windows-2022`, and `macos-15` as the matrix baseline.
-- Use `astral-sh/setup-uv@v5` with caching, `taiki-e/install-action@v2` for `jj`, and `rhysd/action-setup-vim@v1` for cross-platform native Vim setup.
+- Use `astral-sh/setup-uv@v5` with caching, `taiki-e/install-action@v2` with `tool: jj-cli` (downloading precompiled binary rather than compiling from source), and `rhysd/action-setup-vim@v1` for cross-platform native Vim setup.
 - Use `shell: bash` across all matrix platforms for unified shell execution semantics.
 
 ## Progress & Verification

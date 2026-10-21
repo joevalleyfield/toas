@@ -42,7 +42,7 @@ jobs:
       - name: Install Jujutsu (jj)
         uses: taiki-e/install-action@v2
         with:
-          tool: jj
+          tool: jj-cli
 
       - name: Setup Vim
         uses: rhysd/action-setup-vim@v1
