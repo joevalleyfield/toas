@@ -206,7 +206,7 @@ function! s:sc_tick(timer) abort
       call setbufline(s:sc_bufnr, l:last + 1, ['', '[parse_error] ' . s:sc_run.parse_errors[-1]])
     endif
 
-    if get(s:sc_run, 'complete', v:false) || reltimefloat(reltime()) >= s:sc_run.deadline
+    if (get(s:sc_run, 'complete', v:false) && empty(l:remaining)) || reltimefloat(reltime()) >= s:sc_run.deadline
       let l:done = get(s:sc_run, 'complete', v:false)
       let l:last = len(getbufline(s:sc_bufnr, 1, '$'))
       call setbufline(s:sc_bufnr, l:last + 1, ['', 'status: ' . (l:done ? 'succeeded' : 'timed_out')])

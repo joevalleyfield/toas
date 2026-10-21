@@ -72,7 +72,7 @@ jobs:
         run: uv sync --locked
 
       - name: Unit test suite (100% coverage gate)
-        run: uv run pytest
+        run: uv run pytest -o timeout=60
 
       - name: Acceptance scenarios (deterministic replay)
         run: uv run pytest tests/acceptance -m acceptance --no-cov -q

@@ -91,7 +91,7 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
                         f"source {plugin_path}",
                         f"let g:toas_workdir = '{_vim_quote(tdp)}'",
                         f"execute 'cd! ' . fnameescape('{_vim_quote(tdp)}')",
-                        f"let g:ToasTestLocalHostStartCmd = ['{host_python}', '-m', 'toas', 'host', 'serve', '--stdio-json']",
+                        f"let g:ToasTestLocalHostStartCmd = ['{host_python}', '-m', 'toas', 'host', 'serve', '--session', '{session_quoted}', '--stdio-json']",
                         "let g:toas_step_nonblocking = 1",
                         "let g:toas_notice_enabled = 0",
                         "let g:toas_transport_mode = 'local_host'",

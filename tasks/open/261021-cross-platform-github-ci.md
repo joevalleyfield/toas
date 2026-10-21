@@ -85,7 +85,9 @@ Establish automated cross-platform continuous integration across Ubuntu, Windows
   - Fixed `jj-cli` binary download via `taiki-e/install-action@v2`.
   - Added `ripgrep` installation for regex search testing.
   - Pinned `UV_PYTHON: "3.12"` to avoid macOS Homebrew picking Python 3.15.
-  - Adjusted Windows test fixtures: adopt `short_tmp_path` for jj experiments under Windows MAX_PATH limits, use portable `tmp_path` in `test_cli.py` dumps, and add explicit working-directory `cd` in Vim driver smoke fixtures.
+  - Adjusted Windows test fixtures: adopt `short_tmp_path` for jj experiments under Windows MAX_PATH limits, use portable `tmp_path` in `test_cli.py` dumps, and pass explicit `--session` path in Vim test start commands.
+  - Fixed frame drain in `vim/plugin/toas_stdio_contract.vim` so complete bursts finish remaining buffer lines.
+  - Set CI pytest timeout to 60s to accommodate slower virtualized runner scheduling.
 - Local `scripts/check.sh` entrypoint verified: 3,595 unit tests pass with 100.00% statement coverage, 17 acceptance scenarios pass, ruff and mypy clean.
 
 ## Open Fronts
