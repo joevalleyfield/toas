@@ -3792,7 +3792,7 @@ def test_capture_red_case_build_new_transcript_nodes_inputs_for_reduction(monkey
         'bind_parent': k['bind_parent'],
         'storage_tip_parent': k['storage_tip_parent'],
     }
-    out = Path('/tmp/toas-red-build-input.json')
+    out = tmp_path / 'toas-red-build-input.json'
     out.write_text(json.dumps(dump, ensure_ascii=True, indent=2), encoding='utf-8')
     assert out.exists()
 
@@ -4026,7 +4026,7 @@ def test_run_step_local_end_to_end_control_sequence_trace_dump_for_interaction_f
     )
     cli._run_step()
 
-    out = Path('/tmp/toas-interaction-trace.json')
+    out = tmp_path / 'toas-interaction-trace.json'
     out.write_text(json.dumps(trace, ensure_ascii=True, indent=2), encoding='utf-8')
     assert out.exists()
 

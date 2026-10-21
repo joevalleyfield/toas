@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_PYTHON: "3.12"
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -39,10 +42,14 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Jujutsu (jj)
+      - name: Install Jujutsu (jj) and ripgrep (rg)
         uses: taiki-e/install-action@v2
         with:
-          tool: jj-cli
+          tool: jj-cli,ripgrep
+
+      - name: Create temp directory on Windows
+        if: runner.os == 'Windows'
+        run: mkdir -p /tmp C:/tmp
 
       - name: Setup Vim
         uses: rhysd/action-setup-vim@v1

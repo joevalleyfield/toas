@@ -81,7 +81,12 @@ Establish automated cross-platform continuous integration across Ubuntu, Windows
 - Created `.github/workflows/ci.yml` defining the matrix job across `ubuntu-24.04`, `windows-2022`, and `macos-15`.
 - Updated `docs/checks.md` with active hosted CI posture, platform matrix, and tooling cache strategy.
 - Synchronized `tasks/WORKBOARD.md`.
-- Verified local check spine passes 100% and workflow YAML is valid.
+- Verified initial GitHub Actions runs:
+  - Fixed `jj-cli` binary download via `taiki-e/install-action@v2`.
+  - Added `ripgrep` installation for regex search testing.
+  - Pinned `UV_PYTHON: "3.12"` to avoid macOS Homebrew picking Python 3.15.
+  - Adjusted Windows test fixtures: adopt `short_tmp_path` for jj experiments under Windows MAX_PATH limits, use portable `tmp_path` in `test_cli.py` dumps, and add explicit working-directory `cd` in Vim driver smoke fixtures.
+- Local `scripts/check.sh` entrypoint verified: 3,595 unit tests pass with 100.00% statement coverage, 17 acceptance scenarios pass, ruff and mypy clean.
 
 ## Open Fronts
 

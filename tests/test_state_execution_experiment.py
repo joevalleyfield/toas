@@ -264,8 +264,8 @@ def test_module_cli_requires_output(tmp_path):
         main([])
 
 
-def test_turn_limits_and_blocked_terminal_are_distinct(tmp_path):
-    root = tmp_path / "repo"
+def test_turn_limits_and_blocked_terminal_are_distinct(short_tmp_path):
+    root = short_tmp_path / "repo"
     fixture = create_fixture(root)
     adapter = ScriptedAdapter([json.dumps({"state_patch": {}, "action": {"type": "finish"}})])
     limited = run_episode(root, fixture, adapter, mode="state_only", max_turns=2, state_limit=1)
@@ -279,8 +279,8 @@ def test_turn_limits_and_blocked_terminal_are_distinct(tmp_path):
     assert blocked["outcome"] == "blocked"
 
 
-def test_retry_exhaustion_is_failure(tmp_path):
-    root = tmp_path / "repo"
+def test_retry_exhaustion_is_failure(short_tmp_path):
+    root = short_tmp_path / "repo"
     fixture = create_fixture(root)
     adapter = ScriptedAdapter(["bad"])
     result = run_episode(root, fixture, adapter, mode="state_only", max_turns=1, max_retries=0)
@@ -313,8 +313,8 @@ def test_offline_pair_uses_independent_fixtures_and_real_commits(short_tmp_path)
 
 
 @pytest.mark.skipif(shutil.which("jj") is None, reason="real jj fixture requires jj executable")
-def test_invalid_response_retried_and_action_failure_is_observed(tmp_path):
-    root = tmp_path / "repo"
+def test_invalid_response_retried_and_action_failure_is_observed(short_tmp_path):
+    root = short_tmp_path / "repo"
     fixture = create_fixture(root)
     adapter = ScriptedAdapter(
         [
@@ -356,8 +356,8 @@ def test_state_only_drops_prior_observation_but_history_arm_keeps_it(short_tmp_p
 
 
 @pytest.mark.skipif(shutil.which("jj") is None, reason="real jj fixture requires jj executable")
-def test_empty_continuation_does_not_replay_previous_result(tmp_path):
-    root = tmp_path / "repo"
+def test_empty_continuation_does_not_replay_previous_result(short_tmp_path):
+    root = short_tmp_path / "repo"
     fixture = create_fixture(root)
     adapter = ScriptedAdapter(
         [
@@ -373,8 +373,8 @@ def test_empty_continuation_does_not_replay_previous_result(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("jj") is None, reason="real jj fixture requires jj executable")
-def test_premature_finish_fails_independent_repository_checks(tmp_path):
-    root = tmp_path / "repo"
+def test_premature_finish_fails_independent_repository_checks(short_tmp_path):
+    root = short_tmp_path / "repo"
     fixture = create_fixture(root)
     adapter = ScriptedAdapter([json.dumps({"state_patch": {}, "action": {"type": "finish"}})])
     result = run_episode(root, fixture, adapter, mode="state_only", max_turns=2)
@@ -383,8 +383,8 @@ def test_premature_finish_fails_independent_repository_checks(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("jj") is None, reason="real jj fixture requires jj executable")
-def test_wrong_partition_fails_task_boundary_evaluator(tmp_path):
-    root = tmp_path / "repo"
+def test_wrong_partition_fails_task_boundary_evaluator(short_tmp_path):
+    root = short_tmp_path / "repo"
     fixture = create_fixture(root)
     from toas.experiments.state_execution import act
 
