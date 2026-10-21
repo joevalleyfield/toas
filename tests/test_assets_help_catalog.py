@@ -44,6 +44,7 @@ def test_config_help_catalog_parses_topics_facets_and_aliases():
     topic = resolve_config_help_topic(catalog, "endpoint")
     assert topic is not None
     assert topic.topic_id == "models"
+    assert resolve_config_help_topic(catalog, "endpoint set") == topic
     assert topic.facets["plain"].summary
     assert "llm.model" in topic.facets["config"].related_keys
     assert "llm.targets" in topic.facets["config"].related_keys
@@ -63,6 +64,10 @@ def test_config_help_renders_overview_curated_and_search_results():
     assert "live" in curated
     assert "refresh" in curated
     assert "/model select TARGET" in curated
+
+    endpoint_set = render_config_help("endpoint set", valid_keys=["llm.model"])
+    assert "base_url, default_model, models, provider, api_key_source, api_key_ref, and notes" in endpoint_set
+    assert "/config endpoint set NAME.api_key_ref ENV_VAR_NAME" in endpoint_set
     target_search = render_config_help("llm.targets", valid_keys=["llm.targets"])
     assert "durable named endpoint/model/generation selections" in target_search
 

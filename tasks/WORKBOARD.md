@@ -272,7 +272,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe... ⚠️ Stale
 - **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program
 - **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti...
-- **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
+- **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que... ⚠️ Stale
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
@@ -370,10 +370,10 @@ continuation, and authority concerns without reopening completed slices.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261020-tool-spill-ephemerality-comment-scoping]** Status: CLOSED; scoped the single-turn ephemerality comment in spilled tool trailers to appear only under single-turn ephemerality conditions.
+- **[T261020-endpoint-auth-discoverability]** Make endpoint configuration fields discoverable from `/help config endpoint`, including environment-variable API-key configuration, and point operator...
 - **[T261016-ruff-cleanup]** Clear current Ruff findings without changing runtime behavior, so normal verification remains a trustworthy repository-wide gate.
 - **[T261010-preview-request-pretty-inspection]** Status: CLOSED 2026-10-11; support near-literal pretty-printed inspection of model request messages in toas step --preview-request
 - **[T261009-read-file-eof-truncation-and-soft-bounds]** Status: CLOSED; implemented read_file clean EOF truncation and soft line bounds
-- **[T261009-explicit-reference-expansion-and-report-projection]** Status: CLOSED
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

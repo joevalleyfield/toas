@@ -39,16 +39,16 @@ overview:
   - "tip: the overview is curated; use /config show --sources for every effective key and its winning source"
 topics:
   - id: models
-    aliases: [model, endpoint, endpoints]
+    aliases: [model, endpoint, endpoints, "endpoint set", "endpoints set"]
     summary: "Endpoints provide access, catalogs record model knowledge, targets describe what to run, and selection chooses one target for the session."
     facets:
       plain:
         summary: "An endpoint provides access; a catalog records known or observed model IDs; a target combines an endpoint, requested model, and generation choices; selection is a separate session decision. Catalog presence is not proof of live availability."
         next_actions: ["/endpoints", "/models", "/models live [ENDPOINT] [--details|--raw]", "/model targets", "/config endpoint add local BASE_URL", "/models refresh [ENDPOINT]", "/models refresh local", "/config target add --all-known local", "/model select local-MODEL"]
       config:
-        summary: "Follow the explicit path: define an endpoint, observe or refresh its catalog, promote known models into durable targets, then select a target for this session. `live` reads the endpoint without writing; `known` reads local catalog state; `refresh` probes and writes the catalog; target creation is local and non-probing."
+        summary: "Endpoints can be configured with base_url, default_model, models, provider, api_key_source, api_key_ref, and notes using `/config endpoint set NAME.FIELD VALUE`. For environment-variable authentication, api_key_source is env and api_key_ref is the variable name (default: TOAS_LLM_API_KEY). Follow the explicit path: define an endpoint, observe or refresh its catalog, promote known models into durable targets, then select a target for this session. `live` reads the endpoint without writing; `known` reads local catalog state; `refresh` probes and writes the catalog; target creation is local and non-probing."
         related_keys: [llm.model, llm.endpoints, llm.targets, llm.base_url, llm.api_key_source, llm.api_key_ref, llm.provider, backend.mode]
-        next_actions: ["/config show models", "/config show models --flat", "/config show models --sources", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint set NAME.default_model MODEL", "/models live [ENDPOINT] [--details|--raw]", "/models known [ENDPOINT] [--details]", "/models refresh [ENDPOINT] [--details|--raw]", "/config target add --all-known ENDPOINT", "/config target add ENDPOINT MODEL", "/config target list", "/model targets", "/model select TARGET"]
+        next_actions: ["/config show models", "/config show models --flat", "/config show models --sources", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint set NAME.api_key_ref ENV_VAR_NAME", "/config endpoint set NAME.default_model MODEL", "/models live [ENDPOINT] [--details|--raw]", "/models known [ENDPOINT] [--details]", "/models refresh [ENDPOINT] [--details|--raw]", "/config target add --all-known ENDPOINT", "/config target add ENDPOINT MODEL", "/config target list", "/model targets", "/model select TARGET"]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
     summary: "Generation settings control thinking, output budgets, retries, and request transport."
