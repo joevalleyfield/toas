@@ -530,7 +530,7 @@ def test_run_subprocess_streaming_branch(monkeypatch, tmp_path):
         ["echo"],
         cwd=tmp_path,
         timeout_s=1,
-        env={"TOAS_STREAM_STDOUT": "1"},
+        stream_stdout_override=True,
     )
     assert out["ok"] is True
     assert out["stdout"] == "out"
@@ -552,13 +552,11 @@ def test_run_subprocess_environment_overrides_preserve_inherited_path(monkeypatc
         ["echo", "ok"],
         cwd=tmp_path,
         timeout_s=1,
-        env={"TOAS_STREAM_STDOUT": "0"},
         stream_stdout_override=False,
     )
 
     assert result["ok"] is True
     assert seen["env"]["PATH"] == inherited_path
-    assert seen["env"]["TOAS_STREAM_STDOUT"] == "0"
 
 
 def test_probe_process_snapshot_returns_process_output(monkeypatch):

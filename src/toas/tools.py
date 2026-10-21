@@ -748,6 +748,7 @@ def execute_plan(
     executable_grant_policy: ExecutableGrantPolicy | None = None,
     authority: str = "assistant",
     continue_on_error: bool = False,
+    stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
     with (
         workspace_policy(roots=workspace_roots, mode=workspace_mode, base=default_shell_cwd),
@@ -765,11 +766,21 @@ def execute_plan(
             default_shell_timeout_s=assistant_timeout_s,
             default_timeout_s=assistant_timeout_s,
             continue_on_error=continue_on_error,
+            stream_stdout_enabled=stream_stdout_enabled,
         )
 
 
-def shape_result_content(result: dict) -> str:
-    return shape_tool_result_content(result)
+def shape_result_content(
+    result: dict,
+    *,
+    single_turn_ephemeral: bool | None = None,
+    ephemeral: bool | None = None,
+) -> str:
+    return shape_tool_result_content(
+        result,
+        single_turn_ephemeral=single_turn_ephemeral,
+        ephemeral=ephemeral,
+    )
 
 
 def tool_definitions(registry: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:

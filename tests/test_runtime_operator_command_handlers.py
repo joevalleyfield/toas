@@ -2385,7 +2385,8 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
     )[0]
     assert added["content"] == (
         "added endpoint local\n"
-        "next: /config endpoint set local.default_model MODEL\n"
+        "next: /config endpoint set local.api_key_ref ENV_VAR_NAME (defaults to TOAS_LLM_API_KEY)\n"
+        "then: /config endpoint set local.default_model MODEL\n"
         "then: /models refresh local"
     )
     assert added["config_update"]["llm"]["endpoints"][0]["id"] == "local"
@@ -2685,8 +2686,10 @@ def test_operator_config_endpoint_ops_helper_branches(monkeypatch):
         _endpoint_add_result(["endpoint", "add", "b2"], context=ctx)
     with pytest.raises(ValueError, match="usage: /config endpoint remove"):
         _endpoint_remove_result(["endpoint", "remove"], context=ctx)
-    with pytest.raises(ValueError, match="usage: /config endpoint set"):
+    with pytest.raises(ValueError, match="usage: /config endpoint set") as exc_info:
         _endpoint_set_result(["endpoint", "set", "b1model", "x"], context=ctx)
+    assert "fields: base_url, default_model, models, provider, api_key_source, api_key_ref, notes" in str(exc_info.value)
+    assert "api_key_ref defaults to TOAS_LLM_API_KEY" in str(exc_info.value)
     with pytest.raises(ValueError, match="usage: /config endpoint capture"):
         _endpoint_capture_result(["endpoint", "capture"], step_mod=step_mod, context=ctx)
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -66,10 +68,10 @@ def test_stream_debug_disabled_does_not_write_log(tmp_path: Path, monkeypatch: p
 
 def test_run_streaming_subprocess_collects_stdout(tmp_path: Path) -> None:
     completed = shell_streaming.run_streaming_subprocess(
-        argv=["python3", "-c", "print('one'); print('two')"],
+        argv=[sys.executable, "-c", "print('one'); print('two')"],
         cwd=tmp_path,
         timeout_s=5,
-        env={},
+        env=os.environ.copy(),
     )
     assert completed.returncode == 0
     assert "one" in completed.stdout
@@ -79,10 +81,10 @@ def test_run_streaming_subprocess_collects_stdout(tmp_path: Path) -> None:
 def test_run_streaming_subprocess_timeout_raises(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="timed out"):
         shell_streaming.run_streaming_subprocess(
-            argv=["python3", "-c", "import time; time.sleep(0.3)"],
+            argv=[sys.executable, "-c", "import time; time.sleep(0.3)"],
             cwd=tmp_path,
             timeout_s=0,
-            env={},
+            env=os.environ.copy(),
         )
 
 

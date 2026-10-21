@@ -12,7 +12,12 @@ _ENDPOINT_USAGE = (
     "fields: base_url, default_model, models, provider, api_key_source, api_key_ref, notes\n"
     "next: /models refresh NAME, then /config target add --all-known NAME"
 )
-_ENDPOINT_SET_USAGE = "usage: /config endpoint set NAME.FIELD VALUE"
+_ENDPOINT_SET_USAGE = (
+    "usage: /config endpoint set NAME.FIELD VALUE\n"
+    "fields: base_url, default_model, models, provider, api_key_source, api_key_ref, notes\n"
+    "environment-variable auth: set NAME.api_key_ref ENV_VAR_NAME "
+    "(api_key_source defaults to env; api_key_ref defaults to TOAS_LLM_API_KEY)"
+)
 _ENDPOINT_SETTABLE_FIELDS = {
     "base_url",
     "default_model",
@@ -80,7 +85,8 @@ def _endpoint_add_result(args: list[str], *, step_mod=None, context: OperatorCom
     })
     return [_result_node(
         f"added endpoint {endpoint_id}\n"
-        f"next: /config endpoint set {endpoint_id}.default_model MODEL\n"
+        f"next: /config endpoint set {endpoint_id}.api_key_ref ENV_VAR_NAME (defaults to TOAS_LLM_API_KEY)\n"
+        f"then: /config endpoint set {endpoint_id}.default_model MODEL\n"
         f"then: /models refresh {endpoint_id}",
         step_mod=step_mod,
         context=context,

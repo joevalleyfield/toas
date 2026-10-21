@@ -1,7 +1,7 @@
 import traceback
 from pathlib import Path
 
-from ..runtime.environment_policy import active_environment_overrides
+from ..runtime.environment_policy import active_environment_overrides, active_stream_stdout
 from ..runtime.tool_stream_context import (
     emit_tool_done,
     emit_tool_start,
@@ -122,10 +122,14 @@ def execute_plan_calls(
     default_shell_timeout_s: int | None = None,
     default_timeout_s: int | None = None,
     continue_on_error: bool = False,
+    stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
     if default_process_env is None:
         default_process_env = default_shell_env
-    with active_environment_overrides(default_process_env):
+    with (
+        active_environment_overrides(default_process_env),
+        active_stream_stdout(stream_stdout_enabled is True),
+    ):
         results = []
         total = len(plan)
         for idx, raw_call in enumerate(plan, start=1):

@@ -220,3 +220,19 @@ stopped mixed-runtime exploratory suite as a completed rebaseline.
 
 Next: native shell/frontier classification, static checks and remaining coverage,
 then complete check.sh with an explicit native Vim selection and POSIX parity.
+
+### Upstream integration — 2026-10-20
+
+Committed restoration as `0bf3fe6d`, then merged upstream
+`push-orkquzksqvxv` at `05ea49fb` (includes release 0.0.4.0).
+Only textual conflict was generated WORKBOARD content; regenerated from merged
+tasks with upstream manual triage preserved. Roadmap and manual triage skimmed;
+strategic claims left unchanged. Both explicit shell runtime selection and the
+upstream streaming context/environment fix survive the merge.
+
+Adjusted two real streaming-process fixtures to pass a complete environment
+and use `sys.executable`, matching the upstream subprocess contract on Windows.
+Focused merge regressions: 651 passed in 8.73 seconds. Ruff passes for merged
+code and changed fixtures. Inspected actual endpoint help output. This is
+focused merge validation, not a new full-suite or acceptance rebaseline; the
+remaining gates above stay open.

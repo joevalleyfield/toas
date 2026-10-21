@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-17
+> **Last Sync:** 2026-10-20
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -247,7 +247,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more... ⚠️ Stale
 - **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination ⚠️ Stale
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
-- **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution ⚠️ Stale
+- **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures ⚠️ Stale
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening ⚠️ Stale
@@ -272,7 +272,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe... ⚠️ Stale
 - **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program
 - **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti...
-- **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que...
+- **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que... ⚠️ Stale
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
@@ -280,6 +280,8 @@ continuation, and authority concerns without reopening completed slices.
 - **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261010-vim-control-result-empty-user]** Status: OPEN; preserve already scoped result projections when Vim finalizes a successful run
+- **[T261011-streaming-mode-env-leak-parent]** Define the correct design for how the streaming-mode signal reaches the subprocess capture layer, and why the current env-var-based channel is wrong. ...
+- **[T261011-streaming-mode-minimal-fix]** Stop `TOAS_STREAM_STDOUT` from leaking into the subprocess environment of tool calls. Replace the env-var-based capture-strategy signal with an explic...
 - **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
 - **[T261017-msys-vim-native-host]** Status: OPEN; classify the mixed-runtime contract separately from native Vim
 - **[T261017-native-shell-frontier]** Status: OPEN; classify six native-suite failures and one acceptance failure
@@ -370,11 +372,11 @@ continuation, and authority concerns without reopening completed slices.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261020-tool-spill-ephemerality-comment-scoping]** Status: CLOSED; scoped the single-turn ephemerality comment in spilled tool trailers to appear only under single-turn ephemerality conditions.
+- **[T261020-endpoint-auth-discoverability]** Make endpoint configuration fields discoverable from `/help config endpoint`, including environment-variable API-key configuration, and point operator...
 - **[T261017-vim-harness-windows]** Status: CLOSED 2026-10-17; native Windows Vim contracts restored
 - **[T261017-task-capture-windows]** Status: CLOSED 2026-10-17
 - **[T261017-state-experiment-windows]** Status: CLOSED 2026-10-17; six experiment failures repaired and independently verified
-- **[T261015-sync-host-pipe-portability]** Status: CLOSED 2026-10-15; synchronous host requests work over native Windows pipes
-- **[T261015-shell-launcher-reader-portability]** Status: CLOSED 2026-10-15; restore native default shell execution and intentional runtime tests
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

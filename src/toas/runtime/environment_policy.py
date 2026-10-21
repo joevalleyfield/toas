@@ -34,6 +34,7 @@ _ACTIVE_POLICY: ContextVar[EnvironmentPolicy | None] = ContextVar("toas_environm
 _ACTIVE_OVERRIDES: ContextVar[dict[str, str | None] | None] = ContextVar(
     "toas_environment_overrides", default=None
 )
+_STREAM_STDOUT: ContextVar[bool] = ContextVar("toas_stream_stdout", default=False)
 
 
 @contextmanager
@@ -61,6 +62,25 @@ def active_environment_overrides(overrides: dict[str, str | None] | None):
 
 def current_environment_overrides() -> dict[str, str | None] | None:
     return _ACTIVE_OVERRIDES.get()
+
+
+@contextmanager
+def active_stream_stdout(enabled: bool):
+    """Set the in-process subprocess streaming flag for the dispatch scope.
+
+    This is a process-internal transport signal. It must never be placed in
+    the child process environment; use it to choose the subprocess capture
+    strategy only.
+    """
+    token = _STREAM_STDOUT.set(bool(enabled))
+    try:
+        yield
+    finally:
+        _STREAM_STDOUT.reset(token)
+
+
+def current_stream_stdout() -> bool:
+    return _STREAM_STDOUT.get()
 
 
 def resolve_executable(argv0: str, *, env: dict[str, str]) -> str:

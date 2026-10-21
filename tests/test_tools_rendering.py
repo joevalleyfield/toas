@@ -3,7 +3,9 @@ from toas.tools_cluster.rendering import (
     _make_relative,
     _parse_search_match,
     _shell_source_text,
+    active_single_turn_ephemeral,
     infer_fence_language,
+    is_single_turn_ephemeral,
     render_fenced_output,
     render_import_block,
     render_search_excerpt_blocks,
@@ -736,7 +738,42 @@ def test_spill_inert_block_lines_threshold(tmp_path):
     assert "symbol_1\n" in spilled
     assert "symbol_30\n" in spilled
     assert "symbol_31" not in spilled
-    assert f'[70 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path="{rel_path}"; under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state]' in spilled
+    assert f'[70 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path="{rel_path}"]' in spilled
+    assert "under single-turn ephemerality" not in spilled
+
+    # When single_turn_ephemeral=True is explicitly passed, the comment appears
+    spilled_ephemeral, _, _ = spill_inert_block(
+        content,
+        kind="result",
+        scratch_dir=scratch_dir,
+        threshold_lines=40,
+        preview_lines=30,
+        single_turn_ephemeral=True,
+    )
+    assert f'[70 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path="{rel_path}"; under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state]' in spilled_ephemeral
+
+    # When wrapped in active_single_turn_ephemeral(True), the comment appears
+    with active_single_turn_ephemeral(True):
+        spilled_ctx, _, _ = spill_inert_block(
+            content,
+            kind="result",
+            scratch_dir=scratch_dir,
+            threshold_lines=40,
+            preview_lines=30,
+        )
+        assert "under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state" in spilled_ctx
+
+    # When explicit single_turn_ephemeral=False overrides active context, comment does not appear
+    with active_single_turn_ephemeral(True):
+        spilled_override, _, _ = spill_inert_block(
+            content,
+            kind="result",
+            scratch_dir=scratch_dir,
+            threshold_lines=40,
+            preview_lines=30,
+            single_turn_ephemeral=False,
+        )
+        assert "under single-turn ephemerality" not in spilled_override
 
 
 def test_spill_inert_block_bytes_threshold(tmp_path):
@@ -814,6 +851,10 @@ def test_shape_result_content_get_structure_spills_oversized(tmp_path, monkeypat
     assert "100 lines); spilled to `.toas/scratch/ib_" in rendered
     assert "lines=1..30 of 100" in rendered
     assert "[70 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
+    assert "under single-turn ephemerality" not in rendered
+
+    rendered_ephem = shape_result_content(result, single_turn_ephemeral=True)
+    assert "under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state" in rendered_ephem
     assert "def.func_1 (10-15) mod.py" in rendered
     assert "def.func_30 (300-305) mod.py" in rendered
     assert "def.func_31" not in rendered
@@ -834,6 +875,15 @@ def test_shape_result_content_shell_stdout_spills_oversized(tmp_path, monkeypatc
     assert "[OK] shell: exit=0\nstdout:\nOutput exceeded threshold (" in rendered
     assert "lines=1..30 of 79" in rendered
     assert "[49 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
+    assert "under single-turn ephemerality" not in rendered
+
+    with active_single_turn_ephemeral(True):
+        rendered_ephem = shape_result_content(result)
+        assert "under single-turn ephemerality, sipping only the tail drops the previewed head unless persisted into state" in rendered_ephem
+
+    result_with_flag = dict(result, single_turn_ephemeral=True)
+    rendered_flag = shape_result_content(result_with_flag)
+    assert "under single-turn ephemerality" in rendered_flag
 
 
 def test_spill_inert_block_size_mb_and_default_dir_and_oserror(tmp_path):
@@ -981,6 +1031,50 @@ def test_render_fenced_output_scratch_addressability_and_safety_brake(tmp_path):
         scratch_dir=unwritable / "sub",
     )
     assert "block_id=ib_oserr" in rendered_oserr
+
+
+def test_single_turn_ephemerality_conditions(tmp_path, monkeypatch):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    content = "\n".join(f"line_{i}" for i in range(1, 100))
+
+    # 1. Default: is_single_turn_ephemeral() is False
+    assert is_single_turn_ephemeral() is False
+
+    # 2. Environment variable TOAS_SINGLE_TURN_EPHEMERAL activates it
+    monkeypatch.setenv("TOAS_SINGLE_TURN_EPHEMERAL", "1")
+    assert is_single_turn_ephemeral() is True
+    spilled_env, _, _ = spill_inert_block(content, kind="result", scratch_dir=scratch_dir, threshold_lines=40)
+    assert "under single-turn ephemerality" in spilled_env
+    monkeypatch.delenv("TOAS_SINGLE_TURN_EPHEMERAL")
+    assert is_single_turn_ephemeral() is False
+
+    # 3. render_fenced_output with explicit single_turn_ephemeral or ephemeral
+    fenced_default = render_fenced_output(content=content, kind="result", scratch_dir=scratch_dir, threshold_lines=40)
+    assert "under single-turn ephemerality" not in fenced_default
+
+    fenced_ephem = render_fenced_output(content=content, kind="result", scratch_dir=scratch_dir, threshold_lines=40, single_turn_ephemeral=True)
+    assert "under single-turn ephemerality" in fenced_ephem
+
+    fenced_alias = render_fenced_output(content=content, kind="result", scratch_dir=scratch_dir, threshold_lines=40, ephemeral=True)
+    assert "under single-turn ephemerality" in fenced_alias
+
+    # 4. render_import_block with explicit single_turn_ephemeral
+    import_default = render_import_block(content=content, kind="result", scratch_dir=scratch_dir, threshold_lines=40)
+    assert "under single-turn ephemerality" not in import_default
+
+    import_ephem = render_import_block(content=content, kind="result", scratch_dir=scratch_dir, threshold_lines=40, single_turn_ephemeral=True)
+    assert "under single-turn ephemerality" in import_ephem
+
+    import_alias = render_import_block(content=content, kind="result", scratch_dir=scratch_dir, threshold_lines=40, ephemeral=True)
+    assert "under single-turn ephemerality" in import_alias
+
+    # 5. shape_result_content with ephemeral alias or result dict
+    res_ephem_alias = shape_result_content({"tool_name": "shell", "ok": True, "summary": "exit=0", "stdout": content, "stderr": ""}, ephemeral=True)
+    assert "under single-turn ephemerality" in res_ephem_alias
+
+    res_dict_ephem = shape_result_content({"tool_name": "shell", "ok": True, "summary": "exit=0", "stdout": content, "stderr": "", "ephemeral": True})
+    assert "under single-turn ephemerality" in res_dict_ephem
+
 
 
 

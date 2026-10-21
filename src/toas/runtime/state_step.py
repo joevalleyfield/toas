@@ -1021,6 +1021,7 @@ def _resolve_reference_target(
                     kind="result",
                     block_id=effective_block_id,
                     threshold_lines=DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES,
+                    single_turn_ephemeral=True,
                 )
         target_path = (workspace_root / target) if workspace_root else Path(target)
         if target_path.is_file():
@@ -1035,6 +1036,7 @@ def _resolve_reference_target(
                 path=target,
                 kind="file",
                 threshold_lines=DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES,
+                single_turn_ephemeral=True,
             )
         return None
 
@@ -1093,6 +1095,7 @@ def _resolve_reference_target(
         line_start=start_line,
         line_end=end_line,
         source="workspace",
+        single_turn_ephemeral=True,
     )
 
 
@@ -1748,6 +1751,25 @@ def build_state_step_packet(
     session_text: str | None = None,
 ) -> dict[str, Any]:
     """Build the shared state-only packet used by preview and inference."""
+    from ..tools_cluster.rendering import active_single_turn_ephemeral
+
+    with active_single_turn_ephemeral(True):
+        return _build_state_step_packet_impl(
+            events_path=events_path,
+            state=state,
+            observation=observation,
+            instructions=instructions,
+            protocol=protocol,
+            session_text=session_text,
+        )
+
+
+def _build_state_step_packet_impl(
+    *, events_path: str | Path, state: dict, observation: Any,
+    instructions: str | None = None,
+    protocol: dict[str, Any] | str | None = None,
+    session_text: str | None = None,
+) -> dict[str, Any]:
     records = read_log(str(events_path))
 
     turns: list[dict[str, Any]] | None = None
@@ -1838,6 +1860,30 @@ def build_multi_state_sequence_packet(
     session_text: str | None = None,
 ) -> dict[str, Any]:
     """Build model-facing sequence projection from start_index through the transcript frontier."""
+    from ..tools_cluster.rendering import active_single_turn_ephemeral
+
+    with active_single_turn_ephemeral(True):
+        return _build_multi_state_sequence_packet_impl(
+            events_path=events_path,
+            state=state,
+            turns=turns,
+            start_index=start_index,
+            instructions=instructions,
+            protocol=protocol,
+            session_text=session_text,
+        )
+
+
+def _build_multi_state_sequence_packet_impl(
+    *,
+    events_path: str | Path,
+    state: dict[str, Any],
+    turns: list[dict[str, Any]],
+    start_index: int,
+    instructions: str | None = None,
+    protocol: dict[str, Any] | str | None = None,
+    session_text: str | None = None,
+) -> dict[str, Any]:
     target_proto = protocol
     if target_proto is None and turns:
         state_turns = [t for t in turns if t.get("role") in {"state", "state-diff"}]
@@ -1969,6 +2015,33 @@ def preview_state_request(
     state_message_id: str | None = None,
 ) -> dict[str, Any]:
     """Return the request messages step would send, without generation or writes."""
+    from ..tools_cluster.rendering import active_single_turn_ephemeral
+
+    with active_single_turn_ephemeral(True):
+        return _preview_state_request_impl(
+            events_path=events_path,
+            state=state,
+            observation=observation,
+            instructions=instructions,
+            protocol=protocol,
+            session_text=session_text,
+            infer_from=infer_from,
+            transcript_turns=transcript_turns,
+            pending_tool_calls=pending_tool_calls,
+            state_message_id=state_message_id,
+        )
+
+
+def _preview_state_request_impl(
+    *, events_path: str | Path, state: dict, observation: Any,
+    instructions: str | None = None,
+    protocol: dict[str, Any] | str | None = None,
+    session_text: str | None = None,
+    infer_from: str | None = None,
+    transcript_turns: list[dict[str, Any]] | None = None,
+    pending_tool_calls: list[dict[str, Any]] | None = None,
+    state_message_id: str | None = None,
+) -> dict[str, Any]:
     records = read_log(str(events_path))
     transitions = [record for record in records if record.get("kind") == "state_transition"]
     if transitions:
@@ -2056,6 +2129,56 @@ def step_state(  # noqa: PLR0913
     continue_on_error: bool = False,
 ) -> dict[str, Any]:
     """Run one explicit phase: user consolidation, pending batch, or inference."""
+    from ..tools_cluster.rendering import active_single_turn_ephemeral
+
+    with active_single_turn_ephemeral(True):
+        return _step_state_impl(
+            events_path=events_path,
+            state=state,
+            observation=observation,
+            instructions=instructions,
+            protocol=protocol,
+            session_text=session_text,
+            user_tool_calls=user_tool_calls,
+            pending_tool_calls=pending_tool_calls,
+            user_turn_digest=user_turn_digest,
+            generate=generate,
+            execute_call=execute_call,
+            execute_user_call=execute_user_call,
+            message_id=message_id,
+            state_message_id=state_message_id,
+            infer_from=infer_from,
+            transcript_turns=transcript_turns,
+            on_delta=on_delta,
+            on_reasoning_delta=on_reasoning_delta,
+            on_prompt_progress=on_prompt_progress,
+            continue_on_error=continue_on_error,
+        )
+
+
+def _step_state_impl(  # noqa: PLR0913
+    *,
+    events_path: str | Path,
+    state: dict[str, Any],
+    observation: Any,
+    instructions: str | None = None,
+    protocol: dict[str, Any] | str | None = None,
+    session_text: str | None = None,
+    user_tool_calls: list[dict[str, Any]] | None = None,
+    pending_tool_calls: list[dict[str, Any]] | None = None,
+    user_turn_digest: str | None = None,
+    generate: Callable[[dict], Any],
+    execute_call: Callable[[dict], Any],
+    execute_user_call: Callable[[dict], Any] | None = None,
+    message_id: str | None = None,
+    state_message_id: str | None = None,
+    infer_from: str | None = None,
+    transcript_turns: list[dict[str, Any]] | None = None,
+    on_delta: Callable[[str], None] | None = None,
+    on_reasoning_delta: Callable[[str], None] | None = None,
+    on_prompt_progress: Callable[[object], None] | None = None,
+    continue_on_error: bool = False,
+) -> dict[str, Any]:
     path = str(events_path)
     records = read_log(path)
     transitions = [record for record in records if record.get("kind") == "state_transition"]
