@@ -66,6 +66,12 @@ def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
             "",
             "tool: write_file",
         )
+    if scenario.startswith("result_scope_"):
+        scope = scenario.removeprefix("result_scope_")
+        header = "" if scope == "bare" else f"## TOAS:{scope.upper()}\n\n"
+        text = header + "## RESULT\n\n[OK] shell allow grep\n"
+        event = "{'type': 'projection_delta', 'lane': 'projection', 'phase': 'delta', 'seq': 1, 'payload': {'text': " + json.dumps(text) + "}}"
+        return ("rresultscope1", "## TOAS:USER\n\n# result scope probe\n", event, "[OK] shell allow grep")
     if scenario == "projection_lane":
         event = (
             "{'type': 'projection_delta', 'lane': 'projection', 'phase': 'delta', 'seq': 1, "
@@ -443,6 +449,28 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 "      \\ 'tool_changed': get(g:apply_result, 'tool_changed', 0),",
                 "      \\ 'text': string(g:apply_result),",
                 "      \\ }",
+                f"call writefile([json_encode(g:result)], '{out_path}')",
+                "qa!",
+            ]
+        elif scenario.startswith("result_scope_"):
+            script_lines = [
+                "set nocompatible",
+                "set hidden",
+                "set noswapfile",
+                f"source {plugin_path}",
+                "redir => g:toas_function_dump",
+                "silent function /toas_apply_watch_events",
+                "silent function /toas_insert_run_region",
+                "silent function /toas_finalize_terminal_run_region",
+                "redir END",
+                "let g:apply_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_apply_watch_events')",
+                "let g:insert_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_insert_run_region')",
+                "let g:finalize_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_finalize_terminal_run_region')",
+                "call setline(1, ['## TOAS:USER', '', '/shell allow grep'])",
+                f"call call(function(g:insert_fn), ['{run_id}', 'running', line('$')])",
+                f"call call(function(g:apply_fn), ['{run_id}', [{event_expr}]])",
+                f"call call(function(g:finalize_fn), ['{run_id}', 'succeeded', ''])",
+                f"let g:result = {{'run_id': '{run_id}', 'status': 'succeeded', 'text': join(getline(1, '$'), \"\\n\")}}",
                 f"call writefile([json_encode(g:result)], '{out_path}')",
                 "qa!",
             ]

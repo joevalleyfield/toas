@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _run(scenario: str) -> dict:
     root = Path(__file__).resolve().parents[1]
@@ -149,3 +151,13 @@ def test_state_invalid_response_preview_replacement_in_vim():
     assert '{"state_patch": broken' not in result["text"]
 
 
+
+
+@pytest.mark.parametrize("scope", ["bare", "user", "control"])
+def test_successful_result_projection_preserves_scope(scope):
+    result = _run(f"result_scope_{scope}")
+    text = result["text"].rstrip()
+    expected_scope = "USER" if scope == "bare" else scope.upper()
+    assert text.endswith(f"## TOAS:{expected_scope}\n\n## RESULT\n\n[OK] shell allow grep")
+    assert text.count("## TOAS:USER") == (1 if scope == "control" else 2)
+    assert "## TOAS:RUN" not in text

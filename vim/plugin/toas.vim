@@ -1511,9 +1511,6 @@ function! s:toas_finalize_success_text(text, lane) abort
   let l:final_text = s:toas_extract_final_projection(l:final_text)
   let l:final_text = s:toas_ensure_projection_for_lane(l:final_text, a:lane)
   let l:final_text = substitute(l:final_text, "\%x00", "", "g")
-  if l:final_text =~# '## RESULT\>' && l:final_text !~# '## TOAS:USER\>'
-    let l:final_text = "## TOAS:USER\n\n\n\n" . l:final_text
-  endif
   return l:final_text
 endfunction
 

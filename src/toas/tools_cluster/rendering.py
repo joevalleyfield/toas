@@ -119,8 +119,10 @@ def render_read_file_success(
         or result.get("line_end") is not None
         or (isinstance(result.get("summary"), str) and ":" in result["summary"] and "-" in result["summary"])
     )
-    threshold_lines = DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES if is_bounded else DEFAULT_SPILL_THRESHOLD_LINES
-    threshold_bytes = DEFAULT_BOUNDED_SPILL_THRESHOLD_BYTES if is_bounded else DEFAULT_SPILL_THRESHOLD_BYTES
+    is_scratch = Path(path).resolve().is_relative_to((scratch_dir or default_scratch_dir()).resolve())
+    ingestion_read = is_bounded or is_scratch
+    threshold_lines = DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES if ingestion_read else DEFAULT_SPILL_THRESHOLD_LINES
+    threshold_bytes = DEFAULT_BOUNDED_SPILL_THRESHOLD_BYTES if ingestion_read else DEFAULT_SPILL_THRESHOLD_BYTES
     return (
         f"[{status}] {tool_name}: {path}\n"
         f"{render_import_block(content=content, path=rendered_path, source='workspace', line_start=result.get('line_start'), line_end=result.get('line_end'), allow_spill=allow_spill, threshold_lines=threshold_lines, threshold_bytes=threshold_bytes, scratch_dir=scratch_dir)}"

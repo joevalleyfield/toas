@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import pytest
+
 from toas.tools_cluster.rendering import (
     _infer_shell_file_output_path,
     _make_relative,
@@ -1079,3 +1083,44 @@ def test_single_turn_ephemerality_conditions(tmp_path, monkeypatch):
 
 
 
+
+
+@pytest.mark.parametrize(
+    "relative_path,line_count,should_spill",
+    [
+        (".toas/scratch/output.txt", 41, False),
+        (".toas/scratch/output.txt", 500, False),
+        (".toas/scratch/output.txt", 501, True),
+        ("ordinary.txt", 41, True),
+        (".toas/scratch-other/output.txt", 41, True),
+    ],
+)
+def test_read_file_scratch_ingestion_threshold(tmp_path, monkeypatch, relative_path, line_count, should_spill):
+    from toas.tools_cluster.basic_ops import run_read_file
+    from toas.tools_cluster.rendering import render_read_file_success
+
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(f"line_{i}\n" for i in range(1, line_count + 1)))
+    result = run_read_file({"path": relative_path}, workspace_path_fn=lambda p: tmp_path / p)
+    rendered = render_read_file_success(result, status="OK", tool_name="read_file")
+    assert ("Output exceeded threshold" in rendered) is should_spill
+    if not should_spill:
+        assert f"line_{line_count}\n" in rendered
+        assert "lines=1..30 of" not in rendered
+
+
+@pytest.mark.parametrize("byte_count,should_spill", [(49_999, False), (50_001, True)])
+def test_read_file_custom_scratch_byte_limit(tmp_path, monkeypatch, byte_count, should_spill):
+    from toas.tools_cluster.basic_ops import run_read_file
+    from toas.tools_cluster.rendering import render_read_file_success
+
+    monkeypatch.chdir(tmp_path)
+    scratch = tmp_path / "custom-scratch"
+    scratch.mkdir()
+    path = scratch / "output.txt"
+    path.write_text("x" * byte_count)
+    result = run_read_file({"path": str(path)}, workspace_path_fn=Path)
+    rendered = render_read_file_success(result, status="OK", tool_name="read_file", scratch_dir=scratch)
+    assert ("Output exceeded threshold" in rendered) is should_spill

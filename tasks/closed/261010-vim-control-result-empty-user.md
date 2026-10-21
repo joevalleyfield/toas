@@ -5,11 +5,11 @@ FKA:
 AKA: empty user before control result; Vim result scope prefix
 Legacy index:
 
-keywords: surface, hardening, active, correctness, vim, transcript, projection
+keywords: surface, hardening, historical, correctness, vim, transcript, projection
 
 Related: `569-frontier-empty-transcript-block-normalization`; `260710-vim-command-transcript-dedup`
 
-Status: OPEN; preserve already scoped result projections when Vim finalizes a successful run
+Status: CLOSED — 2026-10-20
 
 ## Evidence
 
@@ -46,3 +46,20 @@ Do not rewrite dogfood history or repair unrelated session failures here.
 ## Progress
 
 - Root cause and exact reproduction recorded; implementation remains open.
+
+## Completion — 2026-10-20
+
+The existing `toas_ensure_projection_for_lane` already preserves CONTROL and
+other transcript scopes and supplies USER scope for bare results. A redundant
+later fallback in `toas_finalize_success_text` undid that behavior. Removed
+that fallback, preserving the existing shared scoping helper.
+
+A regression through projection-event application and successful terminal
+replacement first reproduced the extra empty USER section for CONTROL output;
+bare and USER-scoped controls passed. All three now pass with the provisional
+RUN region removed. Inspected the actual final Vim buffer: the original user
+command is followed directly by CONTROL and RESULT, with no empty user event.
+
+Verification: `.codex-local/bin/uvt run bash scripts/check.sh` — 3,595 passed,
+nine skipped, 17 deselected; 100.00% statement coverage. All 17 acceptance
+scenarios, Ruff and mypy passed on macOS.
