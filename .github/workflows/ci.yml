@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main, tjm-main, 'codex/**', 'push-*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-15]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Jujutsu (jj)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: jj
+
+      - name: Setup Vim
+        uses: rhysd/action-setup-vim@v1
+
+      - name: Configure Git and Jujutsu identity
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          jj config set --user user.name "GitHub Actions"
+          jj config set --user user.email "actions@github.com"
+
+      - name: Verify tool prerequisites
+        run: |
+          python --version
+          uv --version
+          jj --version
+          vim --version
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Unit test suite (100% coverage gate)
+        run: uv run pytest
+
+      - name: Acceptance scenarios (deterministic replay)
+        run: uv run pytest tests/acceptance -m acceptance --no-cov -q
+
+      - name: Lint (Ruff)
+        run: uv run ruff check src tests
+
+      - name: Type check (Mypy)
+        run: uv run mypy

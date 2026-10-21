@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-20
+> **Last Sync:** 2026-10-21
 
 ## 0. Manual Triage
 
@@ -134,7 +134,7 @@ Neither dated vote is a literal current queue.
 - **[T260524-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior. ⚠️ Stale
 - **[T260530-shell-lane-spawn-semantics]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ... ⚠️ Stale
 - **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more... ⚠️ Stale
-- **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination ⚠️ Stale
+- **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
@@ -157,8 +157,8 @@ Neither dated vote is a literal current queue.
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations ⚠️ Stale
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe... ⚠️ Stale
-- **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program
-- **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti...
+- **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program ⚠️ Stale
+- **[T260920-effective-policy-provenance-inspection]** Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti... ⚠️ Stale
 - **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que... ⚠️ Stale
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
@@ -168,6 +168,7 @@ Neither dated vote is a literal current queue.
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
 - **[T261017-msys-vim-native-host]** Status: OPEN; reconcile historical harness failure with working operator MSYS Vim
+- **[T261021-cross-platform-github-ci]** Establish automated cross-platform continuous integration across Ubuntu, Windows, and macOS runners mirroring the routine verification check spine.
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
