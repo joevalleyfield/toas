@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import builtins
+import shlex
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,6 +11,12 @@ from _pytest.config import ExitCode
 from _pytest.terminal import TerminalReporter
 
 from toas.coverage_gate import coverage_file_stats
+
+
+@pytest.fixture
+def python_command():
+    """A direct executable command for transcript tests, independent of PATH."""
+    return lambda code: shlex.join([sys.executable.replace("\\", "/"), "-c", code])
 
 
 def pytest_addoption(parser):

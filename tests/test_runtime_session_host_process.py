@@ -853,7 +853,11 @@ def test_handle_stream_subscribe_request_carries_cancelled_status_on_push_comple
     assert all("event" not in frame["payload"] or frame["payload"]["event"].get("type") != "compat_terminal" for frame in out)
 
 
-def test_stream_subscribe_live_and_list_paths_preserve_terminal_status_without_synthesis():
+def test_stream_subscribe_live_and_list_paths_preserve_terminal_status_without_synthesis(monkeypatch):
+    from types import SimpleNamespace
+
+    # Compare transport semantics under identical observer timing.
+    monkeypatch.setattr("toas.runtime.session_host_stream_bridge.time", SimpleNamespace(time=lambda: 100.0))
     req = {
         "request_id": "req-terminal-parity",
         "op": "stream_subscribe",

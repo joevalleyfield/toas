@@ -32,8 +32,9 @@ def test_multi_tool_plan_projection_preserves_order_and_exactly_once_blocks() ->
     assert all(node["projection_lane"] == "user" for node in results)
 
 
-def test_explicit_user_shell_result_is_user_scoped_and_renderable() -> None:
-    results = _result_nodes("## TOAS:USER\n\n$ printf shell-contract\n")
+def test_explicit_user_shell_result_is_user_scoped_and_renderable(python_command) -> None:
+    shell_command = python_command("print('shell-contract')")
+    results = _result_nodes(f"## TOAS:USER\n\n$ {shell_command}\n")
 
     assert len(results) == 1
     result = results[0]

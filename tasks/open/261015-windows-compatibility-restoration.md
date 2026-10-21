@@ -58,9 +58,9 @@ checkout or proof that every observed failure is Windows-specific.
 | 3 | Subprocess pipes and streaming | Synchronous client, subscription observation, typed cancellation, and reader-stall simulations repaired in closed children. Full stand-in integration module passes (11 tests). | Focused checks green |
 | 4 | Shell, execution, and environment | Native default launcher and explicit WSL/Git Bash/Windows PowerShell/pwsh matrix verified in `261015-shell-launcher-reader-portability`. State experiments restored in `261017-state-experiment-windows`; broader full-spine verification remains. | In progress |
 | 5 | Vim harness portability | Native ConPTY harness and 30 original failures restored in `261017-vim-harness-windows`. Native Vim selected explicitly from Git Bash is verified; mixed MSYS/native-host behavior is tracked separately in `261017-msys-vim-native-host`. | Native Windows complete |
-| 6 | Static checks | Resolve Ruff argument-count violation and platform-aware journal-lock typing without blanket suppression. | Not started |
-| 7 | Acceptance early exit | Safe Windows process liveness probes replace console-control signals. Acceptance now completes all 17 scenarios: 16 pass, one direct-echo launch fails with WinError 2. | Completion restored; shell failure remains |
-| 8 | Coverage and full spine | Reassess remaining gaps after functional fixes; preserve the documented 100% coverage contract. | Not started |
+| 6 | Static checks | Upstream Ruff cleanup and platform-aware journal-lock typing pass repository-wide Ruff and mypy, including Linux platform typing. | Complete |
+| 7 | Acceptance early exit | Safe Windows process liveness probes restore completion; portable command fixtures restore all 17 scenarios. | Complete on native Windows |
+| 8 | Coverage and full spine | Native suite passes with 100% coverage and zero missing files. Complete check.sh and POSIX checkout parity remain separate gates. | Native gates green |
 
 These are investigation groups, not a complete causal attribution of all 79
 failures. Other failures include daemon runner, backend lifecycle writer, task
@@ -75,9 +75,9 @@ focused slice rather than assuming it belongs to an existing group.
 - [ ] Inspect real CLI/transcript artifacts for user-facing repairs, following
   the operator-perspective verification requirements in `AGENTS.md`.
 - [x] Resolve acceptance's unexplained early termination and record a complete run.
-- [ ] Pass `uv run pytest`, including 100% coverage and zero missing files.
-- [ ] Pass `uv run pytest tests/acceptance -m acceptance --no-cov -q`.
-- [ ] Pass `uv run ruff check src tests` and `uv run mypy`.
+- [x] Pass `uv run pytest`, including 100% coverage and zero missing files.
+- [x] Pass `uv run pytest tests/acceptance -m acceptance --no-cov -q`.
+- [x] Pass `uv run ruff check src tests` and `uv run mypy`.
 - [ ] Pass the complete `scripts/check.sh` entrypoint on Windows and verify
   affected portable behavior on a POSIX checkout before closure.
 
@@ -236,3 +236,36 @@ Focused merge regressions: 651 passed in 8.73 seconds. Ruff passes for merged
 code and changed fixtures. Inspected actual endpoint help output. This is
 focused merge validation, not a new full-suite or acceptance rebaseline; the
 remaining gates above stay open.
+
+### Frontier and mechanical gates — 2026-10-20
+
+Closed `261017-native-shell-frontier`: all six original native-suite failures
+and the mixed-intent acceptance failure were executable-dependent fixtures.
+Tests now use real portable Python commands for semantic contracts, with narrow
+explicit grants where required. Separate controlled-PATH matrix cases verify
+real MSYS cat/printf/echo and native Windows missing-executable behavior. No
+production executable lookup or shell fallback changed. Combined focused run:
+118 passed; standalone native acceptance: 17 passed in 7.26 seconds. Actual CLI
+output inspected in an isolated workspace.
+
+The next broad run measured 3,572 passed, one failed, eight skipped, 17
+deselected in 220.25 seconds, 99.97% coverage. The remaining failure compared
+wall-clock observer timings between two separately executed stream transports;
+that semantic parity test now fixes its clock. Journal locking uses a
+type-checker-recognized platform discriminator without stale msvcrt ignores.
+Its POSIX flock adapter is exercised separately while native reentrant locking
+still runs on Windows. The daemon path-endpoint status test now supplies
+explicit dependencies rather than patching already-captured default arguments.
+Targeted journal/daemon coverage: 27 passed, 211 statements at 100%. The combined
+host/daemon/journal run passed 90 tests. Repository-wide Ruff and mypy pass.
+Mypy also passes with `--platform linux`; this checks platform typing, not
+POSIX runtime behavior. The complete check.sh entrypoint, actual POSIX checkout
+parity, and default MSYS Vim interoperability remain distinct verification work.
+
+Final native PowerShell run: `uv run pytest --tb=short` — **3,580 passed,
+eight skipped, 17 deselected**, 210.17 seconds, **100.00% coverage**, 22,956
+statements and zero missing statements/files. This includes the six new
+controlled-environment utility cases and POSIX lock-adapter regression.
+Standalone acceptance passed all 17 scenarios; repository-wide Ruff and mypy
+pass. The master remains open for the complete entrypoint and POSIX parity gates
+and separately tracked MSYS Vim interoperability.

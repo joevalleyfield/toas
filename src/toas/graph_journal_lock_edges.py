@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+import sys
 import threading
 from contextlib import contextmanager
 from io import BufferedRandom
@@ -25,14 +25,14 @@ def _thread_depths() -> dict[Path, tuple[BufferedRandom, int]]:
 
 
 def _process_lock(lock_file) -> None:
-    if os.name == "nt":  # pragma: no cover - exercised on Windows
+    if sys.platform == "win32":  # pragma: no cover - exercised on Windows
         import msvcrt  # pragma: no cover
 
         lock_file.seek(0)  # pragma: no cover
         lock_file.write(b"0")  # pragma: no cover
         lock_file.flush()  # pragma: no cover
         lock_file.seek(0)  # pragma: no cover
-        msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)  # type: ignore[attr-defined]  # pragma: no cover
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)  # pragma: no cover
         return  # pragma: no cover
     import fcntl
 
@@ -40,11 +40,11 @@ def _process_lock(lock_file) -> None:
 
 
 def _release_process_lock(lock_file) -> None:
-    if os.name == "nt":  # pragma: no cover - exercised on Windows
+    if sys.platform == "win32":  # pragma: no cover - exercised on Windows
         import msvcrt  # pragma: no cover
 
         lock_file.seek(0)  # pragma: no cover
-        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]  # pragma: no cover
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)  # pragma: no cover
         return  # pragma: no cover
     import fcntl
 

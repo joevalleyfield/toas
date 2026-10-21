@@ -254,7 +254,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging ⚠️ Stale
 - **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics ⚠️ Stale
 - **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
-- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane ⚠️ Stale
+- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... ⚠️ Stale
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... ⚠️ Stale
 - **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri... ⚠️ Stale
@@ -284,7 +284,6 @@ continuation, and authority concerns without reopening completed slices.
 - **[T261011-streaming-mode-minimal-fix]** Stop `TOAS_STREAM_STDOUT` from leaking into the subprocess environment of tool calls. Replace the env-var-based capture-strategy signal with an explic...
 - **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
 - **[T261017-msys-vim-native-host]** Status: OPEN; classify the mixed-runtime contract separately from native Vim
-- **[T261017-native-shell-frontier]** Status: OPEN; classify six native-suite failures and one acceptance failure
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

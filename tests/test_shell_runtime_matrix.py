@@ -1,4 +1,10 @@
-"""Exercise each discovered runtime explicitly, independently of default selection."""
+"""Exercise explicit runtimes and environments independently of default selection.
+
+On Windows, select controlled PATH environments separately:
+    uv run pytest tests/test_shell_runtime_matrix.py -k native-windows -o addopts= -q
+    uv run pytest tests/test_shell_runtime_matrix.py -k msys -o addopts= -q
+The MSYS cases call standalone executables directly, without Bash builtins.
+"""
 
 import os
 import shutil
@@ -7,7 +13,40 @@ from pathlib import Path
 
 import pytest
 
-from toas.tools_cluster.shell_ops import run_subprocess
+from toas.tools_cluster.shell_ops import run_subprocess, run_user_shell
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native Windows versus MSYS PATH boundary")
+@pytest.mark.parametrize("environment", ["native-windows", "msys"])
+@pytest.mark.parametrize("utility", ["cat", "printf", "echo"])
+def test_direct_utilities_in_explicit_windows_environment(environment, utility, tmp_path):
+    native_bin = Path(os.environ["SystemRoot"]) / "System32"
+    if environment == "msys":
+        git = shutil.which("git")
+        msys_bin = Path(git).parent.parent / "usr" / "bin" if git else None
+        if msys_bin is None or not msys_bin.is_dir():
+            pytest.skip("Git MSYS environment not installed")
+        selected_path = os.pathsep.join([str(msys_bin), str(native_bin)])
+    else:
+        selected_path = str(native_bin)
+    executable = shutil.which(utility, path=selected_path)
+    probe = tmp_path / "probe.txt"
+    probe.write_text("utility-ok\n", encoding="utf-8")
+    args = {"cat": [probe.name], "printf": ["%s\\n", "utility-ok"], "echo": ["utility-ok"]}
+    argv = [utility, *args[utility]]
+    host_path = os.environ.get("PATH")
+    if environment == "native-windows":
+        assert executable is None
+        with pytest.raises(FileNotFoundError):
+            run_user_shell(argv, cwd=str(tmp_path), env_overrides={"PATH": selected_path}, timeout_s=5)
+    else:
+        assert executable is not None
+        assert Path(executable).parent == msys_bin
+        result = run_user_shell(argv, cwd=str(tmp_path), env_overrides={"PATH": selected_path}, timeout_s=5)
+        assert result["ok"], result
+        assert result["stdout"].splitlines() == ["utility-ok"]
+        assert result["argv"] == argv  # Durable result retains the requested argv.
+    assert os.environ.get("PATH") == host_path
 
 
 def _runtimes():

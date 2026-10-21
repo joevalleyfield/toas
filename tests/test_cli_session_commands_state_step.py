@@ -1,4 +1,5 @@
 import json
+import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -1337,7 +1338,8 @@ def test_state_preview_skips_result_turns_and_refuses_unresolved_intent(
     assert '"phase": "resolve_user_intent"' in capsys.readouterr().out
 
 
-def test_state_user_command_durable_lineage_and_subsequent_inference(monkeypatch, tmp_path, capsys):
+def test_state_user_command_durable_lineage_and_subsequent_inference(monkeypatch, tmp_path, capsys, python_command):
+    shell_command = python_command("print('active-feature')")
     import os
     from unittest.mock import patch
 
@@ -1354,7 +1356,7 @@ def test_state_user_command_durable_lineage_and_subsequent_inference(monkeypatch
             "## TOAS:USER\n\n"
             "Note the current branch.\n\n"
             "## TOAS:USER\n\n"
-            "$ echo active-feature\n"
+            f"$ {shell_command}\n"
         )
 
         # Step 1: execute user command
@@ -1376,7 +1378,7 @@ def test_state_user_command_durable_lineage_and_subsequent_inference(monkeypatch
         assert lineage1[1]["content"] == "Note the current branch."
         assert lineage1[1]["parent"] == lineage1[0]["id"]
         assert lineage1[2]["role"] == "user"
-        assert lineage1[2]["content"] == "$ echo active-feature"
+        assert lineage1[2]["content"] == f"$ {shell_command}"
         assert lineage1[2]["parent"] == lineage1[1]["id"]
         assert lineage1[2]["id"] == user_head_id
 
@@ -1401,7 +1403,7 @@ def test_state_user_command_durable_lineage_and_subsequent_inference(monkeypatch
         # Both user inputs and embedded result enter the compound observation
         assert req_packet["observation"]["user_inputs"] == [
             {"content": "Note the current branch."},
-            {"content": "$ echo active-feature"},
+            {"content": f"$ {shell_command}"},
         ]
         assert any(
             "active-feature" in node.get("content", "")
@@ -1449,7 +1451,9 @@ def test_state_user_command_durable_lineage_and_subsequent_inference(monkeypatch
         os.chdir(old_cwd)
 
 
-def test_state_turn_pending_tools_execute_at_frontier(monkeypatch, tmp_path, capsys):
+def test_state_turn_pending_tools_execute_at_frontier(monkeypatch, tmp_path, capsys, python_command):
+    shell_command = python_command("print('frontier-tool-executed')")
+    monkeypatch.setattr("toas.step.resolve_effective_shell_allowed", lambda *_args: ("glob:" + sys.executable.replace("\\", "/"),))
     session = tmp_path / "session.md"
     events_path = tmp_path / ".toas" / "events.jsonl"
     session.write_text(
@@ -1458,7 +1462,7 @@ def test_state_turn_pending_tools_execute_at_frontier(monkeypatch, tmp_path, cap
         "pending_tools:\n"
         "  - tool_name: shell\n"
         "    args:\n"
-        "      command: echo frontier-tool-executed\n"
+        f"      command: {json.dumps(shell_command)}\n"
     )
     monkeypatch.chdir(tmp_path)
     from toas import cli
@@ -1515,7 +1519,9 @@ def test_state_turn_tools_outside_frontier_do_not_execute(monkeypatch, tmp_path,
     assert len(results) == 0
 
 
-def test_state_turn_run_command_parity(monkeypatch, tmp_path, capsys):
+def test_state_turn_run_command_parity(monkeypatch, tmp_path, capsys, python_command):
+    shell_command = python_command("print('run-parity-success')")
+    monkeypatch.setattr("toas.step.resolve_effective_shell_allowed", lambda *_args: ("glob:" + sys.executable.replace("\\", "/"),))
     session = tmp_path / "session.md"
     session.write_text(
         "## TOAS:STATE/1\n\n"
@@ -1523,7 +1529,7 @@ def test_state_turn_run_command_parity(monkeypatch, tmp_path, capsys):
         "pending_tools:\n"
         "  - tool_name: shell\n"
         "    args:\n"
-        "      command: echo run-parity-success\n\n"
+        f"      command: {json.dumps(shell_command)}\n\n"
         "## TOAS:USER\n\n"
         "/run\n"
     )
@@ -1705,12 +1711,14 @@ def test_state_proposal_overtake_and_cancellation(monkeypatch, tmp_path, capsys)
     assert len(cancelled_records) == 1
 
 
-def test_state_intermediate_user_turn_edit_branches_dag(monkeypatch, tmp_path, capsys):
+def test_state_intermediate_user_turn_edit_branches_dag(monkeypatch, tmp_path, capsys, python_command):
+    shell_command = python_command("print('turn-A')")
+    second_shell_command = python_command("print('turn-B')")
     session = tmp_path / "session.md"
     events_path = tmp_path / ".toas" / "events.jsonl"
     session.write_text(
         "## TOAS:STATE/1\n\nstate:\n  goal: original\n\n"
-        "## TOAS:USER\n\n$ echo turn-A\n\n"
+        f"## TOAS:USER\n\n$ {shell_command}\n\n"
         "## RESULT\n\nturn-A\n\n"
         "## TOAS:STATE/2\n\nstate:\n  goal: advanced\n"
     )
@@ -1738,7 +1746,7 @@ def test_state_intermediate_user_turn_edit_branches_dag(monkeypatch, tmp_path, c
 
     # Now edit intermediate user turn to branch history at STATE/1:
     session.write_text(
-        "## TOAS:STATE/1\n\nstate:\n  goal: original\n\n## TOAS:USER\n\n$ echo turn-B\n"
+        f"## TOAS:STATE/1\n\nstate:\n  goal: original\n\n## TOAS:USER\n\n$ {second_shell_command}\n"
     )
     deltas = []
     # Step 2: resolves user turn-B and executes it

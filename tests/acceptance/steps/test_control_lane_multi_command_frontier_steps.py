@@ -58,7 +58,9 @@ def then_verify_order(acceptance_state: dict) -> None:
 
 
 @when("the operator submits one TOAS:USER turn with mixed multi-instance intents")
-def when_submit_mixed_multi_instance_user_turn(acceptance_state: dict, capsys) -> None:
+def when_submit_mixed_multi_instance_user_turn(acceptance_state: dict, capsys, python_command) -> None:
+    shell_command = python_command("print('first-shell')")
+    second_shell_command = python_command("print('second-shell')")
     (acceptance_state["repo"] / "toas.toml").write_text(
         (
             "[extraction]\n"
@@ -83,8 +85,8 @@ def when_submit_mixed_multi_instance_user_turn(acceptance_state: dict, capsys) -
             "  arguments:\n"
             "    text: second-plan\n"
             "```\n"
-            "$ echo first-shell\n"
-            "$ echo second-shell\n"
+            f"$ {shell_command}\n"
+            f"$ {second_shell_command}\n"
         ),
         encoding="utf-8",
     )

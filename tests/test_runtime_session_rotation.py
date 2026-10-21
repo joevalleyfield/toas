@@ -556,8 +556,9 @@ def test_continue_session_cleans_temporary_file_when_successor_replace_fails(tmp
     assert not list((tmp_path / ".toas").glob(".session-replace-failed.md.tmp-*"))
 
 
-def test_first_successor_step_synchronizes_messages_after_continuation_parent(tmp_path):
-    session_path, _ = _compacted_repo(tmp_path, handoff=_handoff(files="$ cat missing.txt", commands=""))
+def test_first_successor_step_synchronizes_messages_after_continuation_parent(tmp_path, python_command):
+    shell_command = python_command("__import__('pathlib').Path('missing.txt').read_text()")
+    session_path, _ = _compacted_repo(tmp_path, handoff=_handoff(files="", commands=f"$ {shell_command}"))
     out = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="first-step")
     successor = tmp_path / out["successor_path"]
     transcript = successor.read_text(encoding="utf-8")

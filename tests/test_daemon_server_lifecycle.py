@@ -212,14 +212,13 @@ def test_main_keyboard_interrupt_exits_130():
     assert excinfo.value.code == 130
 
 
-def test_status_path_endpoint_uses_healthcheck(monkeypatch):
-    monkeypatch.setattr(lifecycle, "default_endpoint", lambda: Path("sock"))
-    monkeypatch.setattr(lifecycle, "endpoint_exists", lambda _endpoint: False)
-
+def test_status_path_endpoint_uses_healthcheck():
     state = lifecycle.status(
         read_pid_fn=lambda: 123,
         is_pid_running_fn=lambda _pid: True,
         run_step_healthcheck_fn=lambda: True,
+        default_endpoint_fn=lambda: Path("sock"),
+        endpoint_exists_fn=lambda _endpoint: False,
     )
 
     assert state["running"] is True
