@@ -2386,8 +2386,9 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
     assert added["content"] == (
         "added endpoint local\n"
         "next: /config endpoint set local.api_key_ref ENV_VAR_NAME (defaults to TOAS_LLM_API_KEY)\n"
-        "then: /config endpoint set local.default_model MODEL\n"
-        "then: /models refresh local"
+        "then: /models refresh local\n"
+        "then: /models known local\n"
+        "optional: /config endpoint set local.default_model MODEL (choose from the model list)"
     )
     assert added["config_update"]["llm"]["endpoints"][0]["id"] == "local"
 

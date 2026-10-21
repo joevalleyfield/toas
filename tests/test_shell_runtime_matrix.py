@@ -19,11 +19,11 @@ from toas.tools_cluster.shell_ops import run_subprocess, run_user_shell
 @pytest.mark.skipif(os.name != "nt", reason="native Windows versus MSYS PATH boundary")
 @pytest.mark.parametrize("environment", ["native-windows", "msys"])
 @pytest.mark.parametrize("utility", ["cat", "printf", "echo"])
-def test_direct_utilities_in_explicit_windows_environment(environment, utility, tmp_path):
+def test_direct_utilities_in_explicit_windows_environment(environment, utility, tmp_path, monkeypatch):
     native_bin = Path(os.environ["SystemRoot"]) / "System32"
     if environment == "msys":
         git = shutil.which("git")
-        msys_bin = Path(git).parent.parent / "usr" / "bin" if git else None
+        msys_bin = next((parent / "usr" / "bin" for parent in Path(git).parents if (parent / "usr" / "bin").is_dir()), None) if git else None
         if msys_bin is None or not msys_bin.is_dir():
             pytest.skip("Git MSYS environment not installed")
         selected_path = os.pathsep.join([str(msys_bin), str(native_bin)])
@@ -35,17 +35,20 @@ def test_direct_utilities_in_explicit_windows_environment(environment, utility, 
     args = {"cat": [probe.name], "printf": ["%s\\n", "utility-ok"], "echo": ["utility-ok"]}
     argv = [utility, *args[utility]]
     host_path = os.environ.get("PATH")
-    if environment == "native-windows":
-        assert executable is None
-        with pytest.raises(FileNotFoundError):
-            run_user_shell(argv, cwd=str(tmp_path), env_overrides={"PATH": selected_path}, timeout_s=5)
-    else:
-        assert executable is not None
-        assert Path(executable).parent == msys_bin
-        result = run_user_shell(argv, cwd=str(tmp_path), env_overrides={"PATH": selected_path}, timeout_s=5)
-        assert result["ok"], result
-        assert result["stdout"].splitlines() == ["utility-ok"]
-        assert result["argv"] == argv  # Durable result retains the requested argv.
+    # Windows CreateProcess may search the launching process PATH as well.
+    with monkeypatch.context() as selected_environment:
+        selected_environment.setenv("PATH", selected_path)
+        if environment == "native-windows":
+            assert executable is None
+            with pytest.raises(FileNotFoundError):
+                run_user_shell(argv, cwd=str(tmp_path), env_overrides={"PATH": selected_path}, timeout_s=5)
+        else:
+            assert executable is not None
+            assert Path(executable).parent == msys_bin
+            result = run_user_shell(argv, cwd=str(tmp_path), env_overrides={"PATH": selected_path}, timeout_s=5)
+            assert result["ok"], result
+            assert result["stdout"].splitlines() == ["utility-ok"]
+            assert result["argv"] == argv  # Durable result retains the requested argv.
     assert os.environ.get("PATH") == host_path
 
 
@@ -53,7 +56,7 @@ def _runtimes():
     path_bash = shutil.which("bash")
     bash_id = "wsl-bash" if path_bash and path_bash.replace("\\", "/").lower().endswith("/system32/bash.exe") else "path-bash-native"
     git = shutil.which("git")
-    git_bash = Path(git).parent.parent / "bin" / "bash.exe" if git else None
+    git_bash = next((parent / "bin" / "bash.exe" for parent in Path(git).parents if (parent / "bin" / "bash.exe").is_file()), None) if git else None
     return [
         pytest.param("bash", path_bash, id=bash_id),
         pytest.param("bash", str(git_bash) if git_bash and git_bash.is_file() else None, id="git-bash"),

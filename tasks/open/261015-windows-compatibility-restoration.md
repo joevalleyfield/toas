@@ -269,3 +269,10 @@ controlled-environment utility cases and POSIX lock-adapter regression.
 Standalone acceptance passed all 17 scenarios; repository-wide Ruff and mypy
 pass. The master remains open for the complete entrypoint and POSIX parity gates
 and separately tracked MSYS Vim interoperability.
+
+Follow-up `261020-endpoint-state-continuity` also tightened matrix isolation
+when launched from Git Bash (scope both launcher and child PATH, find the Git
+root from cmd or mingw64 layouts). Its final complete `scripts/check.sh` run
+passes on Windows with explicit native Vim: 3,583 tests, 100.00% coverage, all
+17 acceptance scenarios, Ruff and mypy. Actual POSIX runtime parity and default
+MSYS Vim interoperability remain open; the Windows entrypoint is now verified.

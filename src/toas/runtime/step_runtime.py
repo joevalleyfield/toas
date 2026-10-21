@@ -23,6 +23,7 @@ from .frontier_resolution import (
 )
 from .intent_arbitration_edges import select_user_intent_candidates
 from .operator_command_parse import split_operator_command
+from .operator_config_endpoint_ops import endpoint_declaration_update
 from .reconciliation_handoff import (
     ReconciliationDiagnostics,
     ReconciliationHandoff,
@@ -589,6 +590,15 @@ def _branch_config_from_direct_declarations(*, step_mod, working: list[dict], ba
                     update={"__op__": "restore"},
                 )
                 applied = True
+            elif len(args) >= 3 and args[1] == "endpoint" and args[2] in {"add", "set", "remove"}:
+                try:
+                    update = endpoint_declaration_update(args[1:], config=config)
+                except ValueError:
+                    continue
+                config, overrides = _apply_live_config_update(
+                    config=config, baseline_config=baseline_config, overrides=overrides, update=update,
+                )
+                applied = True
             elif args[1] == "load" and len(args) in {2, 3}:
                 provenance = node.get("provenance")
                 source_message_id = provenance.get("restep_of") if isinstance(provenance, dict) else None
@@ -600,6 +610,21 @@ def _branch_config_from_direct_declarations(*, step_mod, working: list[dict], ba
                     baseline_config=baseline_config,
                     overrides=overrides,
                     update=adjacent_update,
+                )
+                applied = True
+        # Model discovery/capture is observational: retain the recorded catalog
+        # on the selected durable message, without probing the endpoint again.
+        source_id = node.get("id")
+        if source_id:
+            for event in events or []:
+                if event.get("kind") != "config_override" or event.get("related_to") != source_id:
+                    continue
+                endpoints = event.get("payload", {}).get("llm", {}).get("endpoints")
+                if not isinstance(endpoints, list):
+                    continue
+                config, overrides = _apply_live_config_update(
+                    config=config, baseline_config=baseline_config, overrides=overrides,
+                    update={"llm": {"endpoints": endpoints}},
                 )
                 applied = True
     return config, applied

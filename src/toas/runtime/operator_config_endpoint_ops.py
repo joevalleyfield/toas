@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..config import OperatorConfig
 from .operator_command_context import OperatorCommandContext
 from .result_nodes import make_result_node
 
@@ -86,8 +87,9 @@ def _endpoint_add_result(args: list[str], *, step_mod=None, context: OperatorCom
     return [_result_node(
         f"added endpoint {endpoint_id}\n"
         f"next: /config endpoint set {endpoint_id}.api_key_ref ENV_VAR_NAME (defaults to TOAS_LLM_API_KEY)\n"
-        f"then: /config endpoint set {endpoint_id}.default_model MODEL\n"
-        f"then: /models refresh {endpoint_id}",
+        f"then: /models refresh {endpoint_id}\n"
+        f"then: /models known {endpoint_id}\n"
+        f"optional: /config endpoint set {endpoint_id}.default_model MODEL (choose from the model list)",
         step_mod=step_mod,
         context=context,
         config_update={"llm": {"endpoints": endpoints_updated}},
@@ -168,3 +170,14 @@ def config_endpoint_result(args: list[str], *, step_mod, context: OperatorComman
     if handler is None:
         raise ValueError(_ENDPOINT_USAGE)
     return handler(args, step_mod=step_mod, context=context)
+
+
+def endpoint_declaration_update(args: list[str], *, config: OperatorConfig) -> dict:
+    """Reconstitute deterministic endpoint declarations without external probes."""
+    context = OperatorCommandContext(
+        execute=None, events=[], working=[], frontier_role="user", transcript="",
+        command_cwd=".", previous_command_cwd=None, workspace_mode="strict",
+        workspace_roots=[], config=config, config_sources=None, already_executed_indices=None,
+    )
+    handlers = {"add": _endpoint_add_result, "set": _endpoint_set_result, "remove": _endpoint_remove_result}
+    return handlers[args[1]](args, context=context)[0]["config_update"]
