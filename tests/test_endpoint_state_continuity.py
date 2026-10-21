@@ -67,6 +67,13 @@ def test_endpoint_survives_config_reconstitution_and_stays_branch_local(tmp_path
     assert "model=discovered-model" in submit("/config endpoint list")
     assert "discovered-model" in submit("/models known local")
     assert fetches == [True]
+    assert "selected model: discovered-model" in submit("/model select local discovered-model")
+    assert "active model target: local-discovered-model" in submit("/model")
+    assert "unknown endpoint" in submit("/config target add broken local.default_model discovered-model")
+    assert "added model target chosen" in submit("/config target add chosen local discovered-model")
+    assert "chosen: endpoint=local, model=discovered-model, status=ready" in submit("/model targets")
+    assert "selected model target: chosen" in submit("/model select chosen")
+    assert "active model target: chosen" in submit("/model")
     records = read_log(str(tmp_path / ".toas/events.jsonl"))
     assert any(event.get("kind") == "config_override" and event.get("related_to") for event in records)
 

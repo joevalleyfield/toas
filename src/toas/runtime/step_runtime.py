@@ -619,12 +619,13 @@ def _branch_config_from_direct_declarations(*, step_mod, working: list[dict], ba
             for event in events or []:
                 if event.get("kind") != "config_override" or event.get("related_to") != source_id:
                     continue
-                endpoints = event.get("payload", {}).get("llm", {}).get("endpoints")
-                if not isinstance(endpoints, list):
+                llm_update = event.get("payload", {}).get("llm", {})
+                catalog_update = {key: llm_update[key] for key in ("endpoints", "targets") if key in llm_update}
+                if not catalog_update:
                     continue
                 config, overrides = _apply_live_config_update(
                     config=config, baseline_config=baseline_config, overrides=overrides,
-                    update={"llm": {"endpoints": endpoints}},
+                    update={"llm": catalog_update},
                 )
                 applied = True
     return config, applied

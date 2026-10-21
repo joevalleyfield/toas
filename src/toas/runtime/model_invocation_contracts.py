@@ -27,7 +27,7 @@ from .model_targets import (
 )
 
 
-def _direct_target_selection(working: list[dict]) -> str | None:
+def _direct_target_selection(working: list[dict], *, config: OperatorConfig | None = None) -> str | None:
     """Return the last direct `/model select TARGET` declaration in a branch."""
     selected: str | None = None
     for message in working:
@@ -43,11 +43,18 @@ def _direct_target_selection(working: list[dict]) -> str | None:
                 continue
             if len(args) == 3 and args[0] == "model" and args[1] == "select" and args[2].strip():
                 selected = args[2].strip()
+            elif len(args) == 4 and args[:2] == ["model", "select"] and config is not None:
+                from .model_setup import discovered_model_selection
+
+                try:
+                    selected = discovered_model_selection(config, args[2], args[3])["target_selection_update"]["target_id"]
+                except ValueError:
+                    continue
     return selected
 
 
-def _branch_visible_target_selection(*, working: list[dict], events: list[dict]) -> str | None:
-    direct = _direct_target_selection(working)
+def _branch_visible_target_selection(*, working: list[dict], events: list[dict], config: OperatorConfig | None = None) -> str | None:
+    direct = _direct_target_selection(working, config=config)
     if direct is not None:
         return direct
 
@@ -140,7 +147,7 @@ def resolve_model_invocation(
         messages = shape_messages_for_packet(packet)
     else:
         messages = request_messages
-    active_target_id = _branch_visible_target_selection(working=working, events=events)
+    active_target_id = _branch_visible_target_selection(working=working, events=events, config=operator_config)
     active_target = resolve_model_target(operator_config, active_target_id) if active_target_id else None
     target_invocation = (
         resolve_target_invocation(

@@ -451,7 +451,7 @@ def test_prompt_workspace_models_known_reads_catalog_without_probe():
     )
     out = handle_prompt_workspace_commands("models", ["known", "local"], step_mod=step_mod, context=_ctx(config=config))
 
-    assert out[0]["content"] == "known endpoint model catalog:\n  endpoint: local\n  models: qwen\n  last refresh: (never)\n  not seen in latest: (none)"
+    assert out[0]["content"] == "known endpoint model catalog:\n  endpoint: local\n  models: qwen\n  last refresh: (never)\n  not seen in latest: (none)\n\nselect a model:\n/model select local qwen"
 
     with pytest.raises(ValueError, match="unknown endpoint"):
         handle_prompt_workspace_commands("models", ["known", "missing"], step_mod=step_mod, context=_ctx(config=config))
@@ -2272,7 +2272,7 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
     assert "local: endpoint=(default), model=(inferred)" in listed[0]["content"]
 
     added = handle_config_help_commands(
-        "config", ["target", "add", "remote", "openai", "gpt-5.6-sol"], step_mod=step_mod, context=_ctx(config=cfg)
+        "config", ["target", "add", "remote", "openai", "gpt-5.6-sol"], step_mod=step_mod, context=_ctx(config=OperatorConfig(llm=LLMPolicy(endpoints=(EndpointCatalogEntry(id="openai", base_url="http://openai"),))))
     )[0]
     assert added["config_update"] == {
         "llm": {"targets": {"remote": {"endpoint": "openai", "model": "gpt-5.6-sol"}}}
@@ -2385,10 +2385,9 @@ def test_config_endpoint_authoring_uses_endpoint_vocabulary_over_compat_storage(
     )[0]
     assert added["content"] == (
         "added endpoint local\n"
-        "next: /config endpoint set local.api_key_ref ENV_VAR_NAME (defaults to TOAS_LLM_API_KEY)\n"
-        "then: /models refresh local\n"
-        "then: /models known local\n"
-        "optional: /config endpoint set local.default_model MODEL (choose from the model list)"
+        "next: /models refresh local\n"
+        "then: use a selection command from the discovered model list\n"
+        "if authentication is required: /config endpoint set local.api_key_ref ENV_VAR_NAME (defaults to TOAS_LLM_API_KEY)"
     )
     assert added["config_update"]["llm"]["endpoints"][0]["id"] == "local"
 

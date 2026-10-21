@@ -118,10 +118,10 @@ def test_plain_help_renders_behavioral_facet_and_config_cross_link():
     rendered = render_plain_help("endpoint")
     assert rendered is not None
     assert rendered.startswith("help: models")
-    assert "endpoint provides access" in rendered
+    assert "Selection" in rendered or "its target is created automatically" in rendered
     assert "configuration: /help config models" in rendered
     assert "/models refresh local" in rendered
-    assert "/model select local-MODEL" in rendered
+    assert "/model select local MODEL" in rendered
 
     for alias in ("model", "endpoint", "models"):
         aliased = render_plain_help(alias)

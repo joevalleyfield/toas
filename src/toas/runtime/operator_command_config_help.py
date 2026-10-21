@@ -960,6 +960,8 @@ def _config_target_result(args: list[str], *, step_mod, context: OperatorCommand
         target_id = args[2].strip()
         if any(target.id == target_id for target in context.config.llm.targets):
             raise ValueError(f"model target already exists: {target_id}")
+        if _known_endpoint(context, args[3].strip()) is None:
+            raise ValueError(f"unknown endpoint: {args[3].strip()}\nhint: use /config endpoint list")
         values = {"endpoint": args[3].strip() if len(args) >= 4 else "", "model": args[4].strip() if len(args) == 5 else ""}
         return [_result_node(f"added model target {target_id}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, values))]
     if action == "set":

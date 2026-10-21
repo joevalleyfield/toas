@@ -4036,7 +4036,7 @@ def test_slash_help_models_renders_plain_facet_and_config_cross_link():
     _, out = step(transcript, [])
     content = out[0]["content"]
     assert "help: models" in content
-    assert "endpoint provides access" in content
+    assert "its target is created automatically" in content
     assert "/help config models" in content
     assert "llm.model =" not in content
 

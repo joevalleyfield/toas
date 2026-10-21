@@ -21,6 +21,7 @@ from .context_assembly import (
     render_folded_packet_outline,
     validate_context_packet,
 )
+from .model_setup import discovered_model_selection, selection_commands
 from .operator_command_context import OperatorCommandContext
 from .result_nodes import make_result_node
 
@@ -174,7 +175,7 @@ def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext)
     if args and args[0] == "select":
         return _handle_model_select(args[1:], step_mod=step_mod, context=context)
     if args:
-        raise ValueError("usage: /model | /model targets | /model select <target>")
+        raise ValueError("usage: /model | /model targets | /model select <target> | /model select ENDPOINT MODEL")
     return _handle_model_overview(step_mod=step_mod, context=context)
 
 
@@ -227,8 +228,12 @@ def _handle_model_targets(args: list[str], *, step_mod, context: OperatorCommand
 
 
 def _handle_model_select(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) == 2:
+        fields = discovered_model_selection(context.config, args[0], args[1])
+        content = fields.pop("content")
+        return [_result_node(content, step_mod=step_mod, context=context, **fields)]
     if len(args) != 1 or not args[0].strip():
-        raise ValueError("usage: /model select <target>")
+        raise ValueError("usage: /model select <target> | /model select ENDPOINT MODEL")
     target_id = args[0].strip()
     from .model_targets import resolve_model_target, resolve_target_invocation
 
@@ -288,6 +293,7 @@ def _handle_models(args: list[str], *, step_mod, context: OperatorCommandContext
         ]
         if details:
             lines.append("  details: normalized endpoint metadata is not available yet; use /models live ENDPOINT --raw")
+        lines.extend(["", "select a model:", *selection_commands(endpoint)])
         return [_result_node(
             "\n".join(lines),
             step_mod=step_mod,
@@ -414,6 +420,7 @@ def _handle_models_refresh(args: list[str], *, step_mod, context: OperatorComman
     )
     if details:
         content += "\ndetails: normalized model metadata is not available yet"
+    content += "\n\nselect a model:\n" + "\n".join(selection_commands(updated_endpoint))
     if raw:
         content += "\nraw response:\n" + str(observation.get("raw_response", "(none)"))
     return [_result_node(content, step_mod=step_mod, context=context, config_update={"llm": {"endpoints": endpoints}})]

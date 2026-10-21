@@ -307,6 +307,21 @@ That matches a local OpenAI-compatible `llama-cpp` style setup.
 
 Use `/config` for in-session overrides and `.toas/config.toml` for project defaults (`toas.toml` remains a compatibility path).
 
+For your first model, add its server and discover what it offers:
+
+```text
+/config endpoint add local http://localhost:8080/v1
+/models refresh local
+```
+
+Discovery prints selection commands such as `/model select local Qwen.gguf`.
+Use one to select the model, then send your message. Selection creates the
+target automatically and keeps the server's exact model identifier, including
+any path prefix. You do not need to set an endpoint default or create a target
+manually. If authentication is required, configure the endpoint's `api_key_ref`
+before discovery. `/models known local` shows the selection commands again
+without another server request.
+
 In session:
 
 ```text
