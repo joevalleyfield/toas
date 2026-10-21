@@ -25,32 +25,33 @@ Execution policy from the closed runtime ownership arc (`525`):
 
 ## Now
 
-The highest-level pressure is still architecture follow-through: keep the
-primary runtime path local, durable, and transcript-oriented while hardening the
-history substrate that operators now depend on.
+Make locally available models dependable in actual operator workflows. The
+integrated state-shaped alpha, branch-local policy reducers, and endpoint/model
+setup surfaces provide a working base. Current pressure is response and state
+quality, inspectable effective policy, faithful execution/recovery, and editor
+behavior across the environments operators use.
 
-Near-term implementation should favor:
-- segmented history/storage proof and parity hardening
-- history-surface clarity, especially recovery and user-intent alignment
-- release and routine-check discipline that supports local-first development
-- narrow implementation slices opened from concrete evidence, not broad
-  decomposition umbrellas
-
-Acceptance, weak-model protocol reliability, cross-platform tool behavior, and
-frontend/orchestration exploration remain important, but they should not crowd
-out the current history/runtime spine unless fresh evidence changes the order.
+Durable history and runtime ownership remain foundations. Segmented storage,
+source-selection parity, and fatal-corruption refusal have landed; they should
+not keep driving a broad proof program after their concrete requirements are
+satisfied. Reopen history work through an observed affordance or recovery gap.
 
 ## Next
 
 Prefer this sequencing shape:
 
-1. Finish the active history/storage proof chain.
-2. Make healthy and corrupt history surfaces clearer for operators.
-3. Keep release/routine verification lightweight but reproducible.
-4. Open focused follow-ons only when a failure mode, domain boundary, or
-   operator friction is concrete enough to test.
-5. Use recurring maintenance runs to prune planning/help drift instead of
-   reopening broad umbrellas.
+1. Reconcile remaining scope in partially implemented programs before adding
+   more implementation or new tasks.
+2. Select a bounded operator-facing slice from real model, policy-inspection,
+   execution, or editor evidence, with a concrete artifact to inspect.
+3. Keep routine checks and platform verification reproducible; distinguish
+   tested environments from historical reports and untested variants.
+4. Pursue broader parallelism, provenance, or frontend research when one
+   consumer and ownership boundary are concrete enough to evaluate.
+5. Keep release review and planning hygiene lightweight recurring operation.
+
+The workboard owns current candidate tasks and sequencing. This direction does
+not promote every open research idea into an implementation commitment.
 
 ## Durable Concerns
 

@@ -7,6 +7,23 @@ keywords: docs, governance, active, architecture, coordination, boundaries, runt
 
 # Architecture Follow-Through Coordination
 
+## Current coordination read — 2026-10-20
+
+Runtime ownership remains the architecture constraint; it does not make this
+umbrella an always-first implementation program. The open-set review in
+`261020-open-set-workboard-review` found that the board over-weighted completed
+storage proof and old parallelism sequencing. State-model reliability,
+branch-policy inspection, and concrete execution/editor evidence now explain
+the live operator-facing fronts more accurately.
+
+Effective policy resolution, backend lifecycle slices, segmented storage,
+source-selection parity, and fatal-integrity refusal have completion evidence.
+The open architecture children are the conservative transcript-parallelism,
+journal-multiplicity, history-affordance, adapter-precedence, and activity-health
+investigations. These do not establish that a scheduler, merged journal, or
+new recovery product is required. Dated findings below retain their original
+context and should not override current child dispositions.
+
 ## Current Reality
 
 The broad architecture review has produced three working documents:
@@ -270,34 +287,36 @@ This list records which children have been split and which remain candidates.
 
 | Child or candidate | Status | Possible exit evidence |
 | --- | --- | --- |
-| `260614-effective-policy-authority-resolver` | closed | PolicyResolver consolidated boundary in runtime/policy.py |
-| `260614-backend-lifecycle-identity-stale-config` | closed | config fingerprinting and stale checks in ModelBackendLifecycle |
-| `260614-backend-lifecycle-cross-process-identity` | closed without implementation | no observed need for rediscovery; reopen through a narrower task only if managed backend control becomes product-critical |
-| `260614-shell-owned-backend-lifecycle` | closed spike | retained-stdio shell host proved private warm reuse without workspace leases or cross-shell discovery |
-| `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
-| `260614-activity-live-durable-boundary` | closed | live/durable/replayable state table documented; crash-surviving activity replay parked until product need |
-| `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
+| `260614-effective-policy-authority-resolver` | closed; see completion record | PolicyResolver consolidated boundary in runtime/policy.py |
+| `260614-backend-lifecycle-identity-stale-config` | closed; see completion record | config fingerprinting and stale checks in ModelBackendLifecycle |
+| `260614-backend-lifecycle-cross-process-identity` | closed; see completion record | no observed need for rediscovery; reopen through a narrower task only if managed backend control becomes product-critical |
+| `260614-shell-owned-backend-lifecycle` | closed; see completion record | retained-stdio shell host proved private warm reuse without workspace leases or cross-shell discovery |
+| `260614-model-backend-failure-handoff` | closed; see completion record | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
+| `260614-activity-live-durable-boundary` | closed; see completion record | live/durable/replayable state table documented; crash-surviving activity replay parked until product need |
+| `260614-transcript-reconciliation-handoff` | closed; see completion record | named handoff shape and branch-or-refuse invariants |
 | `260626-transcript-parallelism-design-pressures` | opened inception-only | one ownership seam split into a focused design or implementation child with durable-vs-projection truth rules named explicitly |
 | `260626-events-jsonl-multiplicity-and-merge-provenance` | opened inception-only | conservative provenance design or explicit non-adoption decision that preserves LCP-first reconciliation and append-only mergeability |
-| `260710-step-generation-domain-boundary-contract` | completed boundary proposal | explicit generation intent, resolved invocation, and generation outcome handoffs; first implementation slice opened |
-| `260710-model-invocation-contract-extraction` | opened implementation follow-on | extract the Effective Policy to Model Invocation contract and retire generation internals from `StepCliDeps` |
-| `260627-segmented-event-journal-storage-contract` | closed | first segmented-storage contract fixes hot `.toas/events.jsonl`, ordered sealed segments, gzip archival semantics, and invalid-layout rules |
-| `260627-graph-segmented-read-query-hardening` | opened inception-only | segmented logical-history read seam with graph/query parity over split storage |
-| `260627-segmented-event-index-and-lookup-hardening` | opened inception-only | explicit segmented index strategy plus correctness/performance tests |
-| `260627-split-storage-rebuild-and-projection-parity` | opened inception-only | proof that rebuild/projection semantics remain unchanged across segmented storage |
+| `260710-step-generation-domain-boundary-contract` | closed; see completion record | explicit generation intent, resolved invocation, and generation outcome handoffs; first implementation slice opened |
+| `260710-model-invocation-contract-extraction` | closed; see completion record | extract the Effective Policy to Model Invocation contract and retire generation internals from `StepCliDeps` |
+| `260627-segmented-event-journal-storage-contract` | closed; see completion record | first segmented-storage contract fixes hot `.toas/events.jsonl`, ordered sealed segments, gzip archival semantics, and invalid-layout rules |
+| `260627-graph-segmented-read-query-hardening` | closed; see completion record | segmented logical-history read seam with graph/query parity over split storage |
+| `260627-segmented-event-index-and-lookup-hardening` | closed; see completion record | explicit segmented index strategy plus correctness/performance tests |
+| `260627-split-storage-rebuild-and-projection-parity` | closed; see completion record | proof that rebuild/projection semantics remain unchanged across segmented storage |
 | `260614-legacy-and-fidelity-adapter-precedence` | opened inception-only | protocol-specific rule for domain result, full-fidelity stream/event shape, edge adapter view, and legacy fallback precedence |
-| `260615-force-structure-alignment-survey` | closed | ranked inventory of least-aligned current surfaces and bounded follow-up candidates |
-| `260615-legacy-surface-retirement-inventory` | opened inception-only | legacy surface table with current consumers and removal evidence |
-| `260615-runtime-package-growth-boundary-audit` | opened inception-only | runtime module-to-domain map and evidence-backed follow-ups for mixed-domain modules |
-| `260615-retire-dead-modules-and-shims` | closed | remove completely unused modules (reconcile.py, runtime_edges.py, step_frontier.py) |
-| `260615-relocate-reconciliation-lcp-logic` | closed | move LCP reconciliation calculations from step.py facade to transcript.py |
+| `260615-force-structure-alignment-survey` | closed; see completion record | ranked inventory of least-aligned current surfaces and bounded follow-up candidates |
+| `260615-legacy-surface-retirement-inventory` | closed; see completion record | legacy surface table with current consumers and removal evidence |
+| `260615-runtime-package-growth-boundary-audit` | closed; see completion record | runtime module-to-domain map and evidence-backed follow-ups for mixed-domain modules |
+| `260615-retire-dead-modules-and-shims` | closed; see completion record | remove completely unused modules (reconcile.py, runtime_edges.py, step_frontier.py) |
+| `260615-relocate-reconciliation-lcp-logic` | closed; see completion record | move LCP reconciliation calculations from step.py facade to transcript.py |
 | edge fidelity adapter inventory | named marker only | split into a real task only if fidelity-lowering edge views need their own table separate from legacy retirement |
-| `260614-retire-local-suffix-naming-inversion` | closed | primary/default path naming no longer carries stale daemon-era `_local` suffix |
+| `260614-retire-local-suffix-naming-inversion` | closed; see completion record | primary/default path naming no longer carries stale daemon-era `_local` suffix |
 
 
 ## Next Actions
 
-1. Proceed breadth-first by promoting only one inception child at a time into a
-   trace or inventory slice.
-2. Keep inception-only child tasks light until a slice can name its first real investigation or implementation exit evidence.
-3. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when renaming can reveal ownership boundaries instead of just cleaning words.
+1. Use current workboard triage and evidence from open children to choose one
+   bounded investigation; do not reopen completed backend/storage work.
+2. When a concrete slice exposes architecture drift, update the owning
+   direction/ownership document and the task together.
+3. Keep inception children light until a consumer, ownership seam, and exit
+   artifact are identified. Historical candidate rows above are not a queue.

@@ -4,216 +4,110 @@
 > **Last Sync:** 2026-10-20
 
 ## 0. Manual Triage
-*Hand-curated operator triage, not automated extraction.*
 
-### Operator-friction priority — 2026-08-03
+### Current read — 2026-10-20
 
-This orders the current inception cluster by relief to a person actively using
-TOAS, rather than by architectural leverage or novelty. It does not by itself
-promote any task out of inception.
+The 46 open tasks are an inventory of implementation, requirements, research,
+and deferred work. They are not 46 ready jobs. Several broad parents contain
+landed slices and need a remaining-gap audit before further implementation.
+The full inventory and review evidence are recorded in
+[open-set review](closed/261020-open-set-workboard-review.md).
 
-The seed-prompt composition, first-failure recovery, assistant-execution
-authority, LLM-native compaction, and successor-continuation priorities are
-complete. The remaining queue is:
+The present product pressure is making local-model operation dependable:
+state-mode request/response quality, visible branch-local policy, faithful
+execution/recovery, and practical editor/platform behavior. Architecture and
+durable-history invariants constrain that work. The segmented-storage and
+corruption-refusal proof chain is complete enough to stop driving the queue.
 
-1. `260803-tool-intent-ingress-separation`: establish native tool calling and
-   alternate text lanes as separable ingress adapters to the same execution
-   model. This is important foundation, but offers less immediate relief than
-   repairing the currently used path.
-2. `260803-language-exec-fenced-block-lane`: add executable language fences,
-   prompted-shell sequencing, resilient activators, and explicit tool fences
-   after the shared ingress contract is stable enough to prevent a parallel
-   execution model.
-3. `260412-json-callable-lane-parser-and-policy`: treat JSON as the inexpensive
-   serialization sibling of the YAML lane once the shared scanner and policy
-   seam exist, rather than as a standalone priority.
+### Where the open set stands
 
-Compaction and successor continuation now establish what crosses an explicit
-working-transcript boundary. New native and fenced ingress should normalize
-through the common tool-intent seam; the JSON
-corollary follows the executable-fence scanner rather than preceding it.
+| Theme | Open | Current disposition |
+| --- | ---: | --- |
+| State-mode operation | 5 | Alpha exists. Request-composition/resilience has concrete experiments; artifact capture and failure memory need bounded design choices. |
+| Policy, authority, and explicit objectives | 5 | Branch reducers and grant machinery largely exist. Provenance inspection and one-shot control ingress have explicit remaining seams; audit broad parents before extending them. |
+| Execution ingress and source fidelity | 6 | Native/text ingress, language fences, source references, retry adapters, materialization, and extraction boundaries have mixed landed and prospective scope. |
+| Platform and patch behavior | 5 | Native Windows and macOS checks have recorded green baselines. MSYS Vim works for the operator; historical harness failure and current gVim status require separate evidence. Patch research remains parked. |
+| Operator projections and provenance | 6 | Discovery, turn IDs, highlighting, focus/map projections, and assistance trailers are mostly design or partial-probe work. |
+| Architecture, history, and stream observation | 7 | Coordination and research homes; no new storage or corruption project is implied. Telemetry and stderr separation need a concrete consumer or reproduction. |
+| Release operation | 2 | Existing recurring release process plus conditional helper ergonomics; not missing release infrastructure. |
+| Parked performance, orchestration, and planning experiments | 10 | Preserve as options. Age and stale markers alone do not promote them. |
 
-### Operator priority vote — 2026-09-04
+### Practical sequence
 
-The following operator-friction cluster is a higher-priority signal wherever
-the work remains open. The vote consolidates the config, fidelity,
-continuation, and authority concerns without reopening completed slices.
+1. **Audit remaining scope before adding code.** Grant matchers, retry
+   materialization, ingress/fence parents, and the state alpha parent describe
+   substantial landed work. Compare acceptance criteria with current artifacts;
+   close satisfied scope or name the exact remaining gap. Do not mistake a
+   historical progress paragraph for a fresh defect.
+2. **Choose a concrete operator-facing slice.** The clearest documented fronts
+   are `261010-state-inference-response-resilience` (selectable request
+   composition; configuration/history policy still needs agreement),
+   `260920-effective-policy-provenance-inspection` (projection exists;
+   domain reduction/rendering remain), and
+   `260920-one-shot-control-ingress-disposition` (caller inventory before
+   changing the ingress contract). This is a candidate list, not three
+   simultaneous implementation commitments.
+3. **Handle platform reports through current reproductions.** Reconcile the
+   old launcher task and mixed-runtime harness evidence with the completed
+   Windows restoration slices and operator reports. Retest gVim before
+   diagnosing it; Linux parity remains unmeasured in this session.
+4. **Keep larger capability research conditional.** Transcript parallelism,
+   merged-history provenance, alternative frontends, inferred focus, and
+   workboard automation should produce one bounded consumer/contract before
+   becoming implementation programs.
 
-1. **Authority and guardrail semantics:** prioritize the remaining slices of
-   `260830-exec-grant-policy-matchers`.
-   Assistant-side bounds should be explicit, overridable per restriction, and
-   kept separate from the unbounded-but-interruptible user lane. The remaining
-   shell authorization work should be allowed to express contextual,
-   multi-token grants rather than inheriting the legacy one-token ceiling.
-2. **Config UX:** prioritize `260904-config-help-state-feedback`, the implementation
-   follow-on from `260901-help-system-design-survey`: `/help config` and `/config --help`
-   should be useful, bare `/config` should be an explicit inspection surface,
-   and `/config set` should report compact effective deltas. Mutation output
-   should report deltas; inspection output should report state.
-3. **Failure continuation and execution fidelity:** prioritize the remaining
-   integration work in `260901-retry-materialization-adapters`, preserving the
-   authored plan/source and making the surviving retry and forward continuation
-   obvious. `260627-history-affordances-semantic-restaging` remains useful
-   adjacent design context, not a prerequisite for this implementation slice.
-4. **Completed fidelity checks:** do not reopen
-   `260831-replace-block-empty-preview-anchor`,
-   `260831-preserve-exec-fence-path`, or
-   `260831-verbatim-staged-plan-restaging`; their acceptance evidence is
-   recorded in `tasks/closed/`.
+The September operator vote still supplies useful values: explicit authority,
+compact config feedback, and source-preserving recovery. Config-help work and
+several fidelity fixes are closed. The August native-ingress/fence ordering is
+historical context: executable lanes and `json exec` already have landed slices.
+Neither dated vote is a literal current queue.
 
-- `260614-architecture-follow-through-coordination` is the active coordination
-  object for top-down architecture follow-through. It ties subtasks to
-  `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, and
-  `docs/runtime-ownership.md` without replacing those documents.
-- First split children `260614-effective-policy-authority-resolver` and
-  `260614-backend-lifecycle-identity-stale-config` are closed.
-- `260614-backend-lifecycle-cross-process-identity` is closed without
-  implementation: private shell-host reuse avoids the current need for
-  cross-process discovery, and concrete demand triggers are preserved in the
-  task if managed backend control later becomes product-critical.
-- `260614-shell-owned-backend-lifecycle` is closed after a zsh spike proved a
-  private shell-attached host can reuse retained stdio, send cancellation
-  traffic, and exit with its owner shell; the earlier workspace lease-registry
-  design is superseded.
-- `260619-workboard-sync-script-parser-and-identity-fix` is closed: generated
-  board entries preserve full task handles, fallback summaries ignore task
-  header metadata, and the sync-script follow-up is complete.
-- `260615-legacy-surface-retirement-inventory` is closed: the first inventory
-  slice now distinguishes transitional compatibility surfaces from
-  fidelity-lowering adapters.
-- `260619-session-md-compatibility-retirement` is closed: the CLI/runtime
-  fallback to `session.md` has been retired.
-- `260620-retire-host-session-path-env-coupling` is closed: host default
-  session targeting now uses explicit host-owned state and `host_session_path`
-  payload threading instead of ambient `TOAS_HOST_SESSION_PATH`.
-- `260620-host-stdio-reasoning-terminality-ux` is closed: host-stdio
-  substantive recovery now respects reasoning-stream visibility, command-only
-  tails no longer fabricate assistant answers, and failed runs append a compact
-  visible cause line instead of depending on log-file spelunking.
-- `260710-vim-command-transcript-dedup` is closed: Vim success finalization now
-  prefers canonical tool/result projection tails over provisional streamed
-  command text, preserving richer result markup without regressing the existing
-  hallucinated-follow-on protection; the originally observed Windows case is
-  confirmed fixed.
-- `260619-daemon-package-facade-shrinkage` is closed: the remaining daemon
-  package root is now a bounded compatibility/execution-entry facade with
-  direct package-boundary coverage, including `toas.daemon.__main__`.
-- `260626-assistant-shell-script-relative-cwd-resolution` is closed: assistant
-  `shell_script` relative `cwd` values now anchor to the active step
-  `command_cwd` instead of ambient process cwd.
-- `260627-split-storage-rebuild-and-projection-parity` is closed again after
-  the hot-default and selected-source projection corrections. The brief
-  retention-limited absence follow-on was later collapsed as over-elaborated;
-  reopen only if a real surface bug appears.
-- `260627-segmented-event-journal-storage-contract` is closed: a first
-  storage-contract note now fixes `.toas/events.jsonl` as the sole hot append
-  target, keeps transcript LCP reconciliation hot-only while allowing hot
-  history to be self-contained, empty, or independent after rotation, seals
-  older ordered segments under `.toas/segments/`, allows gzip archival
-  compaction, and makes ordinal gaps/duplicates explicit invalid layout.
-- `260627-graph-segmented-read-query-hardening` is closed as the first
-  segmented-read implementation slice. Later parity work narrowed the surface
-  contract to hot-default behavior plus explicit selected-source modes, while
-  LCP reconciliation remains hot-only.
-- `260627-segmented-event-index-and-lookup-hardening` is closed: index lookup
-  now uses per-source indexes stitched into logical positions, including
-  sealed `.jsonl` / `.jsonl.gz` segments plus the hot file.
-- `260629-storage-scale-model-proof-contract` is closed: the parent contract
-  work for segmented history dispatched the graph/heads/history/transcript/
-  llm-input parity lane through narrower closed follow-ons. A later
-  retention-limited absence elaboration was judged not concrete enough to keep
-  active.
-- `260705-retention-limited-history-absence-contract` is closed as
-  over-elaborated: if raw history is simply missing, ordinary reconstruction
-  just cannot proceed, and the queue should not carry a special lane unless a
-  real surface misreports that situation.
-- `260705-retention-limited-absence-fixtures` is also closed without
-  implementation for the same reason: no concrete user-facing defect justified
-  speculative proof fixtures.
-- `260627-history-recovery-tooling` is now closed as provisional/reference
-  material. The specimen catalog and root-divergence salvage helper remain
-  available to clone from when a real corrupt-history workflow appears, but
-  they no longer need to hold queue priority by themselves.
-- The broad history-surface affordance audit is now closed. Reopen only
-  through small follow-ons if local teaching/help gaps around `transcript` and
-  `llm-input` become worth tightening.
-- `260627-event-log-fsck-contract` is already closed, and the remaining
-  corruption-related open tasks should now be read against the newer baseline
-  that normal history-facing surfaces already fail closed.
-- Treat the parallel-task capability itself as the current design center:
-  `260626-transcript-parallelism-design-pressures`,
-  `260428-session-identity-orchestration`, and
-  `260626-events-jsonl-multiplicity-and-merge-provenance` are not just
-  adjacent blockers; together they are the main unresolved substance of the
-  capability.
-- Work them in meaning-first order:
-  `260626-transcript-parallelism-design-pressures` first to define the
-  coordinator/child model,
-  `260428-session-identity-orchestration` second to make the surface identity
-  concrete,
-  and `260626-events-jsonl-multiplicity-and-merge-provenance` third unless the
-  first two immediately prove that extra merge provenance is needed sooner.
-- Keep `260627-history-affordances-semantic-restaging` warm as an adjacent
-  affordance question, but do not treat it as part of the first capability
-  core.
-- `260628-heads-selected-history-leaf-framing` is closed: `heads` now teaches
-  itself locally as the compact leaf-set sibling to `history` and `graph`,
-  with aligned help/output framing and no semantic broadening.
-- `260628-transcript-writeback-surface-unification` is closed: the standalone
-  `toas rebuild` command and operator `rebuild_session` are removed; transcript
-  projection is the single transcript-shaped surface, and resume-from-lineage is
-  `toas transcript <head_id> > <session_path>`.
-- `260628-acceptance-suite-revival` is closed: the acceptance suite (excluded
-  from the default run via `-m "not acceptance"`) had bitrotted and is green
-  again in `replay_only`. It spun out a follow-on cluster:
-  the now-closed `260628-acceptance-live-prompt-realism` (live staged-frontier
-  runs now project the configured bootstrap prompt before the tiny acceptance
-  frontier),
-  `260628-acceptance-per-step-hybrid-generation`,
-  `260628-acceptance-live-generation-bounds`, and the now-closed
-  `260628-acceptance-replay-in-routine-checks`.
-- `260628-project-checks-and-ci-posture` is closed and now defines TOAS's everyday
-  check/verification posture in `docs/checks.md`: local `scripts/check.sh`
-  spine, gated default pytest/replay acceptance, advisory `ruff`/`mypy` tracked
-  by `260628-lint-type-routine-gate-cleanup`, and no hosted CI yet. It anchors
-  the release lane's check gate
-  (`260627-release-process-and-weekly-release-lane`,
-  `260627-release-helper-tooling`) without pretending `.github/workflows/`
-  exists.
-- The corruption-semantics and fail-closed query follow-ons are closed: the
-  fsck gate and completed source-selection/parity work cover their concrete
-  requirements. New recovery or affordance work should name an observed gap.
-- Inception-only children now park the remaining known architecture pressures
-  until they are ready for focused investigation.
-- Task lists may stay linear where that reflects reality; active coordination
-  work should preserve tree/graph relationships with explicit task links.
-- Closed umbrellas `400`, `525`, `374`, and `379` remain historical context,
-  not active work parents.
-- Parked or exploratory items remain intentionally deferred unless pulled into
-  the architecture coordination tree or selected as focused follow-ups: `349`,
-  `365`, `415`, `463`, `464`, `488`, `490`, `513`, `557`, `558`, `559`, `560`,
-  `660`, and `676`.
-- A small tool-hardening cluster remains worth keeping warm even while the
-  history/runtime spine stays first. `260709-write-file-force-overwrite-safety`
-  is now closed as the focused `write_file` overwrite-safety slice, while
-  related issues `260622-tool-write-newline-policy-and-windows-lf-defaults`,
-  `260418-weak-model-safe-apply-patch-contract`, and
-  `260515-apply-patch-windows-crlf-hardening` remain near-next
-  operator-safety work rather than background-only backlog.
+### Working boundaries
+
+- Direct user execution and assistant capability policy remain distinct.
+- Branch-local policy and append-only history remain authoritative; transport
+  and editor adapters preserve their meaning.
+- Parallelism research remains open, but session/surface identity is already
+  implemented and its duplicate task is closed. It is not the next missing
+  prerequisite.
+- Use `260614-architecture-follow-through-coordination` as the architecture
+  reference, `260920-branch-projected-policy-program` for policy decomposition,
+  and `260926-state-step-requirements` for state-mode requirements. Their
+  existence does not authorize broad refactoring or reopen completed children.
+- Release review is recurring operation. Add helpers when a manual review
+  exposes repetitive friction, and keep the check gate in `docs/checks.md`.
 
 ### Relationship Roots
-*Manual root selection for the generated relationship tree.*
+
+*Open coordination/requirements homes; inclusion is not execution priority.*
 
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->
+- `260926-state-step-requirements`
+- `260920-branch-projected-policy-program`
+- `260803-tool-intent-ingress-separation`
+- `260803-language-exec-fenced-block-lane`
 - `260614-architecture-follow-through-coordination`
 - `260627-release-process-and-weekly-release-lane`
-- `260628-acceptance-live-generation-bounds`
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->
 
 ### Active Arc Map
+
 *Generated first-mention relationship tree; repeated tasks use `@task-id`.*
 
 <!-- WORKBOARD:RELATIONSHIP_TREE:START -->
+- 260926-state-step-requirements Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run... (depends on `260926-state-simulation-checkpoint`; related `260926-state-step-contract-spike`, `260926-state-experiment-harness`, `260926-state-experiment-plan-tools`, `260803-session-rotation-lifecycle`, `260927-state-step-history-projections`, `260928-state-user-control-turn-lifecycle`, `261002-state-transcript-branching-and-modification`, `261010-state-inference-response-resilience`, `261010-state-result-history-sideslip`)
+  - 261010-direct-tool-artifact-capture Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution (related `261009-explicit-reference-expansion-and-report-projection`, `261010-scratch-read-file-ingestion-threshold`)
+  - 261010-rolling-tool-failure-memory Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends (related `261009-batch-tool-non-fatal-execution-mode`)
+  - 261010-state-inference-response-resilience Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures (related `261010-preview-request-pretty-inspection`, `261010-rolling-tool-failure-memory`)
+- 260920-branch-projected-policy-program Branch-Projected Transcript Policy Program (related `260920-lcp-policy-reevaluation-contract`, `260920-transcript-policy-reinterpretation-examples`, `260920-transcript-control-documentation-contract`, `260831-transcript-source-reference-operations`, `325-config-override-lifecycle-load-save-restore-and-unset`, `330-semi-durable-shell-grants-transcript-and-config-lanes`, `310-transcript-env-modifiers-as-execution-surface`)
+  - 260920-effective-policy-provenance-inspection Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti... (depends on `260920-lcp-direct-policy-deltas`, `260920-config-load-result-reconstitution`; related `260920-transcript-control-documentation-contract`, `260825-visible-transcript-turn-ids`)
+  - 260920-one-shot-control-ingress-disposition Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que... (related `260920-lcp-direct-policy-deltas`, `260920-lcp-policy-reevaluation-contract`, `260920-transcript-control-state-contract`)
+- 260803-tool-intent-ingress-separation Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... (related `260803-language-exec-fenced-block-lane`, `260412-json-callable-lane-parser-and-policy`, `260803-seed-prompt-composition-study`, `260803-first-failure-plan-recovery`, `260628-gemini-endpoint-discovery`, `171`, `174`)
+  - 260831-transcript-source-reference-operations Transcript-Native Assistant Source Reference Operations (related `260803-language-exec-fenced-block-lane`, `260803-first-failure-plan-recovery`, `260831-verbatim-staged-plan-restaging`, `260627-history-affordances-semantic-restaging`, `260830-exec-grant-policy-matchers`)
+    - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
+- 260803-language-exec-fenced-block-lane Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... (related `260412-json-callable-lane-parser-and-policy`, `260803-first-failure-plan-recovery`, `260803-seed-prompt-composition-study`, `260803-tool-intent-ingress-separation`, `299`)
+  - 260830-exec-grant-policy-matchers Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered... (related `260530-shell-lane-spawn-semantics`, `260829-configurable-interpreter-runtime-lane`, `260829-generic-interpreter-runtime-lane`)
+  - 260831-language-write-materialization-fences Language-Native Write Materialization Fences (related `260831-transcript-source-reference-operations`, `260829-generic-interpreter-runtime-lane`, `260829-canonical-action-ingress-contract`)
 - 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
@@ -221,14 +115,11 @@ continuation, and authority concerns without reopening completed slices.
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260811-activity-health-telemetry Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... (related `260602-transport-equivalence-certification`, `260530-shell-lane-spawn-semantics`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
-- Warning: root `260628-acceptance-live-generation-bounds` not rendered (closed task).
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
-- closed historical context: 400 module decomposition, 525 runtime ownership,
-  374 coverage-led refactor pass, 379 coverage noise burndown
-
 ## 1. Open Queue
-*Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
+
+*Generated inventory. Read Manual Triage for readiness and sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
 - **[T260412-transcript-lcp-checkpoint-optimization]** Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay. ⚠️ Stale
@@ -280,126 +171,79 @@ continuation, and authority concerns without reopening completed slices.
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
-*Captured review items and inbox threads.*
 
 <!-- WORKBOARD:INBOX:START -->
 
 <!-- WORKBOARD:INBOX:END -->
 
 ## 2a. Pain-Point Log
-*Raw operator friction. One or two sentences per entry; do not elaborate here.*
 
-- **2026-06-28 task-intake deficit:** The weekend produced a useful but tiring
-  task-opening surplus. Capture future friction here before promoting it to a
-  task.
-- **2026-10-05 run mode cutover latency:** In Vim, the mode cutover across
-  `empty RUN-PENDING -> RUN -> [LLM generation or tool-call] -> streaming content -> final result`
-  exhibits noticeable latency between apparent `RUN` and LLM/tool indication even
-  when underlying process/task state confirms the transition has already occurred.
-  Tracked further in `261005-vim-frontier-tool-heuristic-and-kind-latch`.
+*Raw current operator friction; resolve or link entries when evidence changes.*
+
+- **Windows editor evidence:** MSYS Vim works in operator use. Windows gVim
+  failed historically and has not been retried after recent fixes. The older
+  MSYS E282 harness probe is a separate reproduction question under
+  `261017-msys-vim-native-host`.
+- **State-mode reliability:** Recorded model format/composition failures are
+  under `261010-state-inference-response-resilience`; inspect proposal and
+  state-maintenance quality as well as format adherence.
+
+The October 5 speculative tool-kind latch failure was fixed under
+`261005-vim-frontier-tool-heuristic-and-kind-latch`. The broader latency question
+should return only with a current timing reproduction.
 
 ## 2b. Unelaborated Backlog
-*Known follow-on pressure. One line each; do not promote to tasks until selected.*
 
-- **Local model driver:** Optional Stage 4 `llama-cpp` in-process driver with
-  dynamic import, opened only when a concrete local-driver need appears.
-- **Endpoint/model routing:** Multiple configured endpoints, multiple models
-  per endpoint, fast operator switching, and eventual task-class-specific
-  endpoint/model policy for parallelism and auto-summary lanes.
+*Conditional pressure; promote only when selected and bounded.*
 
-### Strategic Priorities (Manual)
-- **Architecture Follow-Through:** Coordinate top-down domain work under
-  `260614-architecture-follow-through-coordination`.
-- **Focused Implementation:** Open narrow subtasks from concrete architecture,
-  failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** Redirect focus to the parallel-task capability
-  itself:
-  `260626-transcript-parallelism-design-pressures` first,
-  `260428-session-identity-orchestration` second,
-  `260626-events-jsonl-multiplicity-and-merge-provenance` third unless the
-  first two force provenance work forward sooner.
-- **Next Operator-Leverage Lane:** Treat those three tasks as the active
-  capability track rather than as blockers around it. Use adjacent open tasks
-  only when they sharpen one of those three seams.
-- **Design Work Held Warm:** Keep
-  `260627-history-affordances-semantic-restaging` and
-  `260509-multi-operator-orchestration` as adjacent framing work, but not as
-  the primary rollout track.
-- **Deferred But Still Open:** `260621-windows-shell-launcher-and-path-resolution`
-  remains an active implementation lane, but it is no longer the first manual
-  priority after the June 26-27 task intake.
-- **Near-Next Tool Hardening:** keep the remaining patch-safety cluster warm
-  for soon-after attention:
-  `260622-tool-write-newline-policy-and-windows-lf-defaults`,
-  `260418-weak-model-safe-apply-patch-contract`, and
-  `260515-apply-patch-windows-crlf-hardening`.
-- **New Follow-Up:** `260622-staged-replay-trailing-edge-newline-healing`
-  captures the likely CRLF/trailing-newline seam where indent-only mismatches
-  may fall back to fuzzy diagnostics instead of staging `/heal`.
-- **New Follow-Up:** `260622-tool-write-newline-policy-and-windows-lf-defaults`
-  captures Windows tool-written CRLF defaults creating mixed endings in
-  otherwise LF-oriented repos.
+- **Local model driver:** Optional in-process `llama-cpp` driver when a concrete
+  need appears.
+- **Routing policy:** Endpoint catalogs, discovery, model selection, and basic
+  switching exist. Automatic task-class routing for parallel or summary work
+  remains prospective; do not reopen the implemented catalog as missing work.
 
 ## 3. System Health
-*Recurring maintenance and operational metrics.*
 
-### Coverage & Hygiene
-- [ ] **Coverage Ratchet**
-  - *Last Run:* 2026-05-16
-  - *Next Target:* `src/toas/cli/` and `src/toas/step/`
-- [ ] **Docs Truth Governance**
-  - *Last Run:* 2026-05-16
-  - *Action:* Align `README.md` and `tasks/recurring/` templates with actual surface.
-
-### Operational Sharp Edges
-- [ ] **Sharp Edges Log**
-  - *Last Run:* 2026-05-16
-  - *Active Issues:*
-    - [x] Windows async fixes follow-up (see #369) — sync stale: #369 (and
-      its parent #366) closed Fixed; this was a flag that outlived its task,
-      not a live sharp edge.
-    - [ ] Vim transport annotation cleanup (see #554)
+- **macOS:** Full `scripts/check.sh` at `622742c9`: 3,595 passed, nine skipped,
+  17 deselected; 100.00% statement coverage; all 17 acceptance scenarios, Ruff,
+  and mypy passed. Actual scratch rendering and Vim result buffer inspected.
+- **Windows:** The restoration task records a full check with explicit native
+  Vim before the latest macOS fixes. This is a platform baseline, not evidence
+  that the current revision or gVim has been rechecked there.
+- **Linux:** No current run recorded in this review.
+- **Check policy:** `docs/checks.md` owns the gated local spine. Ruff and mypy
+  are gates, not advisory. Hosted CI has not been adopted.
+- **Maintenance:** Generated stale markers measure age; they do not establish
+  bugs, urgency, or unfinished implementation. Recurring templates remain
+  available under `tasks/recurring/`; this review is not a full docs audit.
 
 ## 4. Recent Closures
-*Key completions driving current momentum.*
+
+*Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261020-tool-spill-ephemerality-comment-scoping]** Status: CLOSED; scoped the single-turn ephemerality comment in spilled tool trailers to appear only under single-turn ephemerality conditions.
 - **[T261020-pwsh-platform-find-expectation]** Status: CLOSED — 2026-10-20
+- **[T261020-open-set-workboard-review]** Status: CLOSED — 2026-10-20
 - **[T261020-first-model-setup]** Status: CLOSED 2026-10-20
 - **[T261020-endpoint-state-continuity]** Status: CLOSED 2026-10-20
-- **[T261020-endpoint-auth-discoverability]** Make endpoint configuration fields discoverable from `/help config endpoint`, including environment-variable API-key configuration, and point operator...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
-- **510:** Imported content projection now emits stable fenced metadata blocks for file reads, search excerpts, and high-confidence shell file output.
-- **675:** Runtime/tool ownership guidance now lives in `docs/runtime-ownership.md`; legacy hub files are documented as facades.
-- **543:** Stream-first stdio host lifecycle path established.
-- **542:** Historical record preserved after local-host default cutover.
-- **551:** Vim default transport is now `local_host`.
-- **533:** CLI-level local mode lifecycle contract validated.
+
+- State-step has an integrated alpha; model-fit and observation ergonomics
+  are the remaining product questions, rather than whether the alpha exists.
+- Branch-local config, grants, target selection, command/workspace context,
+  and immutable config-load reconstitution have landed; effective provenance
+  inspection remains a separate open surface.
+- Segmented history, source-selection parity, and fatal-integrity refusal have
+  landed. New history work should identify an observed affordance gap.
+- Recent endpoint discovery/selection, continuity, and help fixes improve local
+  model setup. Scratch ingestion and Vim control-result scope are now fixed.
 
 ## 5. Strategic Arcs
-*High-level themes and open questions.*
 
-### A. Acceptance-Proven Operator Completion
-- **Goal:** Reproducible end-to-end acceptance path from intake to validated commit.
-- **Status:** Foundation closed under `469`/`470`; further orchestration exploration is parked under `488`.
-
-### B. Maintainable Runtime Decomposition
-- **Goal:** Thinner facades, focused helper ownership, stable coverage.
-- **Status:** Umbrellas `400`, `374`, and `379` are closed; future work should
-  open focused tasks from concrete domain, failure, or regression evidence.
-
-### C. Weak-Model Protocol Reliability
-- **Goal:** Deterministic tool guidance slices without manual coaching.
-- **Status:** `471` closed; `415` open for patch safety.
-
-### D. Transcript/Control/Config Contract Clarity
-- **Goal:** Explicit precedence semantics and diagnostics.
-- **Status:** `465`, `466`, and `354` closed; reopen only on fresh drift evidence.
-
-### H. Primary-Path Runtime Ownership
-- **Goal:** `step`/`watch`/`cancel` are ownership-first; cancellation is bounded/terminal.
-- **Status:** `525` is closed; future ownership work should route through the
-  architecture coordination task or focused follow-ups.
+The current concerns and sequence are stated once in Manual Triage above.
+`docs/roadmap.md` carries durable direction; task files own acceptance and
+remaining scope. Earlier decomposition, runtime-ownership, acceptance, and
+coverage umbrellas are historical foundations, not active blockers.
