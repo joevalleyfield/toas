@@ -3,10 +3,9 @@ FKA:
 AKA: fail-closed graph hardening; corrupt-history refusal; duplicate-id hardening
 Legacy index:
 
-keywords: runtime, hardening, inception, correctness, graph, projection, history, parity
+keywords: runtime, hardening, historical, correctness, graph, projection, history, parity
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
-Blocked by: `260627-event-log-fsck-contract`; `260627-history-surface-corruption-semantics`
 Related: `260626-transcript-parallelism-design-pressures`; `260627-split-storage-rebuild-and-projection-parity`; `260627-segmented-event-index-and-lookup-hardening`
 
 # Fail-Closed History Query Hardening
@@ -50,3 +49,12 @@ The implementation goal is narrow:
 - explicit note that this hardening precedes broader parallel-affordance or
   history-affordance expansion
 
+
+## Hygiene disposition — 2026-10-20
+
+Status: CLOSED
+
+Satisfied by `260627-event-log-fsck-contract` and `260627-split-storage-rebuild-and-projection-parity`: fatal source-local corruption is refused, selected-source diagnostics and parity are covered, and independent journals may reuse local ids. Current graph/CLI tests exercise duplicate ids and corrupt selected sources. No additional concrete hardening defect is identified here.
+
+Earlier current-reality descriptions above are historical evidence, not the
+current implementation contract.

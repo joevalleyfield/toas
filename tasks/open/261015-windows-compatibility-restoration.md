@@ -276,3 +276,12 @@ root from cmd or mingw64 layouts). Its final complete `scripts/check.sh` run
 passes on Windows with explicit native Vim: 3,583 tests, 100.00% coverage, all
 17 acceptance scenarios, Ruff and mypy. Actual POSIX runtime parity and default
 MSYS Vim interoperability remain open; the Windows entrypoint is now verified.
+
+## POSIX parity and operator update — 2026-10-20
+
+macOS full `scripts/check.sh` passes after `c9b09574`: 3,585 tests, nine
+skipped, 17 deselected; 100% statement coverage; all 17 acceptance scenarios,
+Ruff and mypy pass. This closes the missing macOS parity evidence; Linux has
+not been run in this session. The operator reports working MSYS Vim and
+historical, not yet retried Windows gVim failures. See
+`261017-msys-vim-native-host` for the evidence distinction.

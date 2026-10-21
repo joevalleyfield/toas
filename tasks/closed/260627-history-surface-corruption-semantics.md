@@ -3,11 +3,9 @@ FKA:
 AKA: corrupt history surface behavior; duplicate-id surface audit; subcommand corruption semantics
 Legacy index:
 
-keywords: surface, investigation, inception, contract, history, projection, graph, transcript
+keywords: surface, investigation, historical, contract, history, projection, graph, transcript
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
-Blocked by: `260627-event-log-fsck-contract`
-Blocks: `260627-fail-closed-history-query-hardening`
 Related: `260627-history-affordances-semantic-restaging`; `260627-split-storage-rebuild-and-projection-parity`
 
 # History Surface Corruption Semantics
@@ -55,3 +53,12 @@ The first goal is semantic clarity, not implementation.
   across subcommands instead of silent divergence
 - explicit notes on where rebuild mutation behavior needs stronger preflight
 
+
+## Hygiene disposition — 2026-10-20
+
+Status: CLOSED
+
+Superseded by the implemented fatal-integrity gate in `260627-event-log-fsck-contract` and completed source-selection/parity contract in `260627-split-storage-rebuild-and-projection-parity`. Source-local duplicates are fatal; equal local ids across independent sources are valid. Selected-source failures have explicit diagnostics. `rebuild` has been retired. No concrete unresolved surface mismatch remains in this task; future warn-only classes require observed demand.
+
+Earlier current-reality descriptions above are historical evidence, not the
+current implementation contract.

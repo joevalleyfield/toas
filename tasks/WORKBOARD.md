@@ -180,9 +180,9 @@ continuation, and authority concerns without reopening completed slices.
   (`260627-release-process-and-weekly-release-lane`,
   `260627-release-helper-tooling`) without pretending `.github/workflows/`
   exists.
-- Treat recovery and affordance-alignment follow-ons as a prerequisite for
-  broader parallel-affordance or history-affordance claims on top of the new
-  fail-closed baseline.
+- The corruption-semantics and fail-closed query follow-ons are closed: the
+  fsck gate and completed source-selection/parity work cover their concrete
+  requirements. New recovery or affordance work should name an observed gap.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -217,8 +217,6 @@ continuation, and authority concerns without reopening completed slices.
 - 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
-    - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
-    - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `561`, `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`, `260626-events-jsonl-multiplicity-and-merge-provenance`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260811-activity-health-telemetry Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... (related `260602-transport-equivalence-certification`, `260530-shell-lane-spawn-semantics`)
@@ -250,9 +248,7 @@ continuation, and authority concerns without reopening completed slices.
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures ⚠️ Stale
-- **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening ⚠️ Stale
 - **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging ⚠️ Stale
-- **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics ⚠️ Stale
 - **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... ⚠️ Stale
@@ -280,10 +276,9 @@ continuation, and authority concerns without reopening completed slices.
 - **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261010-vim-control-result-empty-user]** Status: OPEN; preserve already scoped result projections when Vim finalizes a successful run
-- **[T261011-streaming-mode-env-leak-parent]** Define the correct design for how the streaming-mode signal reaches the subprocess capture layer, and why the current env-var-based channel is wrong. ...
-- **[T261011-streaming-mode-minimal-fix]** Stop `TOAS_STREAM_STDOUT` from leaking into the subprocess environment of tool calls. Replace the env-var-based capture-strategy signal with an explic...
+- **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
-- **[T261017-msys-vim-native-host]** Status: OPEN; classify the mixed-runtime contract separately from native Vim
+- **[T261017-msys-vim-native-host]** Status: OPEN; reconcile historical harness failure with working operator MSYS Vim
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

@@ -3,7 +3,7 @@ FKA:
 AKA: TOAS_STREAM_STDOUT leak fix; stop streaming env var leaking into tool subprocesses
 Legacy index:
 
-keywords: runtime, tooling, implementation, active, correctness, stream, transport, shell, boundaries
+keywords: runtime, tooling, implementation, historical, correctness, stream, transport, shell, boundaries
 
 Parent: `261011-streaming-mode-env-leak-parent`
 
@@ -122,3 +122,12 @@ separation in the streaming path. No daemon protocol changes.
 - `tests/test_cli_session_commands.py` (same)
 - `tests/test_daemon_async_runner.py` (same)
 - `tests/test_runtime_policy.py` (same)
+
+## Hygiene disposition — 2026-10-20
+
+Status: CLOSED
+
+Implementation and verification were already recorded on 2026-10-15. The current macOS full check also passes (3,585 tests, 100% coverage; 17 acceptance tests, Ruff and mypy). The parent retains the separate stderr-streaming design question.
+
+Earlier current-reality descriptions above are historical evidence, not the
+current implementation contract.

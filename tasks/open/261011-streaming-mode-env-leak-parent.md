@@ -3,18 +3,18 @@ FKA:
 AKA: TOAS_STREAM_STDOUT leak; streaming env var design; subprocess capture strategy; tool stream channel design
 Legacy index:
 
-keywords: runtime, tooling, investigation, active, contract, stream, transport, shell, boundaries
+keywords: runtime, tooling, investigation, inception, contract, stream, transport, shell, boundaries
 
 # Streaming Mode: Env Var Leak and Capture Strategy Design
 
-Status: ACTIVE requirements parent; root cause identified; minimal fix scoped to child
+Status: INCEPTION; environment leak fixed; separate stderr streaming remains a design question
 
 ## Objective
 
-Define the correct design for how the streaming-mode signal reaches the
-subprocess capture layer, and why the current env-var-based channel is
-wrong. This parent owns the design decision, the mismatch analysis, and
-the long-term direction. It does not own production implementation.
+The environment leak is fixed. Retain the design rationale and the prospective
+question of preserving distinct stdout/stderr in streamed tool results. This
+parent is reference material until a concrete operator need warrants that
+extension; it does not own production implementation.
 
 ## Root Cause (Confirmed)
 
@@ -166,3 +166,11 @@ Both pass when `TOAS_STREAM_STDOUT` is not set in the environment.
 - `261011-streaming-mode-minimal-fix` — stop leaking
   `TOAS_STREAM_STDOUT` into tool subprocess env; use explicit
   parameter/ContextVar for capture strategy
+
+## Current disposition — 2026-10-20
+
+The leak and environment re-introduction defects are fixed by the now-closed
+`261011-streaming-mode-minimal-fix`. Root-cause descriptions above document
+the pre-fix implementation. Only separately tagged stdout/stderr streaming
+remains prospective; do not treat this parent as an unfixed environment leak.
+Promote that extension when a concrete operator need justifies it.
