@@ -81,14 +81,18 @@ Establish automated cross-platform continuous integration across Ubuntu, Windows
 - Created `.github/workflows/ci.yml` defining the matrix job across `ubuntu-24.04`, `windows-2022`, and `macos-15`.
 - Updated `docs/checks.md` with active hosted CI posture, platform matrix, and tooling cache strategy.
 - Synchronized `tasks/WORKBOARD.md`.
-- Verified initial GitHub Actions runs:
+- Verified GitHub Actions runs and eliminated cross-platform runner gaps:
   - Fixed `jj-cli` binary download via `taiki-e/install-action@v2`.
   - Added `ripgrep` installation for regex search testing.
   - Pinned `UV_PYTHON: "3.12"` to avoid macOS Homebrew picking Python 3.15.
   - Adjusted Windows test fixtures: adopt `short_tmp_path` for jj experiments under Windows MAX_PATH limits, use portable `tmp_path` in `test_cli.py` dumps, and pass explicit `--session` path in Vim test start commands.
   - Fixed frame drain in `vim/plugin/toas_stdio_contract.vim` so complete bursts finish remaining buffer lines.
   - Set CI pytest timeout to 60s and test driver subprocess timeout to 40s to accommodate slower virtualized runner scheduling.
-  - Resolve full active buffer path (`expand('%:p')`) in `vim/plugin/toas.vim` for unambiguous cross-drive and cross-directory transcript requests.
+  - Resolved full active buffer path (`expand('%:p')`) in `vim/plugin/toas.vim` and normalized MSYS-style drive paths (`^[/\\]([a-zA-Z])[/\\]` -> `\1:/`) across all Vim environments for unambiguous transcript requests.
+- GitHub Actions run 39859891690 verified 100% green across all three runner platforms:
+  - `ubuntu-24.04`: `✓` in 3m5s
+  - `windows-2022`: `✓` in 3m22s
+  - `macos-15`: `✓` in 6m29s
 - Local `scripts/check.sh` entrypoint verified: 3,595 unit tests pass with 100.00% statement coverage, 17 acceptance scenarios pass, ruff and mypy clean.
 
 ## Open Fronts
@@ -97,4 +101,4 @@ Establish automated cross-platform continuous integration across Ubuntu, Windows
 
 ## Next Actions
 
-- Commit workflow and documentation changes using standard `ci:` / `tooling:` conventions.
+- Move task to `tasks/closed/261021-cross-platform-github-ci.md` and sync workboard.
