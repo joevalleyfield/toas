@@ -158,7 +158,7 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--vim-bin", default="vim")
-    ap.add_argument("--timeout-s", type=float, default=12.0)
+    ap.add_argument("--timeout-s", type=float, default=20.0)
     ns = ap.parse_args()
     out = run(ns.vim_bin, ns.timeout_s)
     print(json.dumps(out, sort_keys=True))

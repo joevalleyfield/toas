@@ -3034,9 +3034,12 @@ function! s:toas_transport_mode() abort
 endfunction
 
 function! s:toas_active_buffer_session_path() abort
-  let l:buf_path = expand('%')
+  let l:buf_path = expand('%:p')
   if type(l:buf_path) != type('') || l:buf_path ==# ''
     return ''
+  endif
+  if has('win32') || has('win64')
+    let l:buf_path = substitute(l:buf_path, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
   endif
   " Step intent is transcript intent: active buffer path string is authoritative target.
   return l:buf_path

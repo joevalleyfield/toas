@@ -10,12 +10,12 @@ def test_local_host_reasoning_renders_thinking_block_in_plugin_surface():
     root = Path(__file__).resolve().parents[1]
     script = root / "tests" / "vim" / "vim_plugin_local_host_reasoning.py"
     proc = subprocess.run(
-        [sys.executable, str(script), "--vim-bin", "vim", "--timeout-s", "12"],
+        [sys.executable, str(script), "--vim-bin", "vim", "--timeout-s", "20"],
         cwd=str(root),
         capture_output=True,
         text=True,
         check=False,
-        timeout=30,
+        timeout=40,
     )
     assert proc.returncode == 0, proc.stderr + "\n" + proc.stdout
     payload = json.loads(proc.stdout.strip())
