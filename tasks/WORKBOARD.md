@@ -223,10 +223,10 @@ should return only with a current timing reproduction.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261027-stream-bridge-timeout-test]** Status: CLOSED; retained hung-read semantics with a controlled clock.
+- **[T261027-stdio-stall-diagnostics]** Status: CLOSED; request failures no longer block on live stderr.
 - **[T261021-cross-platform-github-ci]** Establish automated cross-platform continuous integration across Ubuntu, Windows, and macOS runners mirroring the routine verification check spine.
 - **[T261020-tool-spill-ephemerality-comment-scoping]** Status: CLOSED; scoped the single-turn ephemerality comment in spilled tool trailers to appear only under single-turn ephemerality conditions.
 - **[T261020-pwsh-platform-find-expectation]** Status: CLOSED — 2026-10-20
-- **[T261020-open-set-workboard-review]** Status: CLOSED — 2026-10-20
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
