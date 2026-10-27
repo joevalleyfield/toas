@@ -1,8 +1,10 @@
 # TOAS
 
-TOAS is a transcript-oriented operator over durable history.
+TOAS is an agent harness built around an editable transcript. Where chat interfaces organize work around sending messages, TOAS lets you edit the conversation itself, branch from earlier points, and advance execution one step at a time. It preserves the history behind those edits so you can inspect and recover how the work unfolded.
 
-It exists in part to make a locally available but behaviorally awkward model usable through stronger operator semantics, durable state, and better control over prompting, tool use, and replay.
+Like other agent harnesses, TOAS handles model calls, tool execution, context management, and session persistence. The transcript is your control surface for that work, including prompting, tool use, and replay. One motivation is making locally available but behaviorally awkward models useful through better operator control.
+
+The name originally stood for **Transcript-Oriented Agent System**.
 
 The system is built around three things:
 - `session.md` (default): the user-controlled working transcript

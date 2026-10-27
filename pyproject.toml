@@ -1,11 +1,13 @@
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "toas"
 version = "0.1.0"
 description = "Transcript-Oriented Agent System"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 
 dependencies = [
