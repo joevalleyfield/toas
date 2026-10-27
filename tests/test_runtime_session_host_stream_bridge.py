@@ -70,7 +70,11 @@ def _run_bridge(request: dict, handler, *, deadline_cap_s_fn=lambda: 0.1):
     return frames, debug_events
 
 
-def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch):
+@pytest.mark.parametrize(("elapsed_s", "elapsed_ms"), [(0.0, 0), (0.015625, 15), (0.625, 625)])
+def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch, elapsed_s, elapsed_ms):
+    now = SimpleNamespace(value=0.0)
+    monkeypatch.setattr(bridge.time, "time", lambda: now.value)
+
     class _HungThread:
         def __init__(self, *, target, daemon):
             self.target = target
@@ -79,8 +83,10 @@ def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch):
         def start(self):
             pass
 
-        def join(self, _timeout):
-            pass
+        def join(self, timeout):
+            assert timeout == pytest.approx(0.6)
+            # Model time spent waiting without depending on runner scheduling.
+            now.value += elapsed_s
 
         def is_alive(self):
             return True
@@ -101,10 +107,10 @@ def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch):
             "upstream_reads": 1,
             "events_emitted": 0,
             "last_seq": 0,
-            "elapsed_ms": 0,
+            "elapsed_ms": elapsed_ms,
             "complete_reason": "upstream_read_timeout",
             "last_progress_at_ms": None,
-            "longest_idle_ms": 0,
+            "longest_idle_ms": elapsed_ms,
             "pacing": {
                 "emit_batches": 0,
                 "events_emitted": 0,
@@ -119,7 +125,7 @@ def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch):
                     "terminal_count": 0,
                     "last_kind": "transport_lost",
                     "last_reason": "host_unavailable",
-                    "last_at_ms": 0,
+                    "last_at_ms": elapsed_ms,
                 },
             },
     }
