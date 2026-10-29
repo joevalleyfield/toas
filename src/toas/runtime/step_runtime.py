@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib
 import json
 import logging
-import shlex
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -495,34 +494,9 @@ def _branch_shell_grant_events(working: list[dict]) -> list[dict]:
     transcript branch its own grants without consulting unrelated journal
     records; the fuller typed control projection will replace it.
     """
-    events: list[dict] = []
-    for node in working[:-1]:
-        content = node.get("content")
-        if not isinstance(content, str):
-            continue
-        for line in content.splitlines():
-            if not line.startswith("/shell "):
-                continue
-            try:
-                args = shlex.split(line)[1:]
-            except ValueError:
-                continue
-            if not args:
-                continue
-            action = args[0]
-            if action in {"add", "allow", "remove", "deny"} and len(args) >= 2:
-                scope = "session"
-                if len(args) == 4 and args[2] == "--scope":
-                    scope = args[3]
-                if scope in {"global", "user", "workspace", "head", "session", "transient"}:
-                    events.append({"kind": "shell_scope_grant", "payload": {"scope": scope, "action": "add" if action in {"add", "allow"} else "remove", "grant": args[1]}})
-            elif action == "reset":
-                scope = "session"
-                if len(args) == 3 and args[1] == "--scope":
-                    scope = args[2]
-                if scope in {"global", "user", "workspace", "head", "session", "transient"}:
-                    events.append({"kind": "shell_scope_grant", "payload": {"scope": scope, "action": "reset"}})
-    return events
+    from .policy import parse_transcript_shell_grant_events
+
+    return parse_transcript_shell_grant_events(working[:-1])
 
 
 def _adjacent_config_load_resolution(*, source_message_id: str | None, events: list[dict]) -> dict | None:

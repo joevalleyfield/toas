@@ -222,11 +222,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261029-serialize-grants-on-session-rotation]** When rotating/continuing a session, serialize custom active shell grants from the predecessor session directly into the successor transcript as an exp...
 - **[T261029-preserve-literal-shell-argv]** Preserve pre-tokenized `argv` arguments in assistant-driven `shell` tool execution without Python-side glob expansion, preventing command corruption i...
 - **[T261029-configurable-session-continuation-naming]** Make session continuation naming configurable in session policy, defaulting to `session-YYMMDD-HHMM-short-name` while supporting datetime-only and leg...
 - **[T261027-stream-bridge-timeout-test]** Status: CLOSED; retained hung-read semantics with a controlled clock.
 - **[T261027-stdio-stall-diagnostics]** Status: CLOSED; request failures no longer block on live stderr.
-- **[T261021-cross-platform-github-ci]** Establish automated cross-platform continuous integration across Ubuntu, Windows, and macOS runners mirroring the routine verification check spine.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

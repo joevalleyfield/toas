@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import patch
@@ -284,3 +285,42 @@ class PolicyResolver:
             health_timeout_s=health_timeout_s,
             fingerprint=fingerprint,
         )
+
+
+def parse_transcript_shell_grant_events(nodes: list[dict]) -> list[dict]:
+    events: list[dict] = []
+    for node in nodes:
+        content = node.get("content")
+        if not isinstance(content, str):
+            continue
+        for line in content.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("/shell ") and stripped != "/shell":
+                continue
+            try:
+                args = shlex.split(stripped)[1:]
+            except ValueError:
+                continue
+            if not args:
+                continue
+            action = args[0]
+            if action in {"add", "allow", "remove", "deny"} and len(args) >= 2:
+                scope = "session"
+                if len(args) == 4 and args[2] == "--scope":
+                    scope = args[3]
+                if scope in {"global", "user", "workspace", "head", "session", "transient"}:
+                    events.append({
+                        "kind": "shell_scope_grant",
+                        "payload": {
+                            "scope": scope,
+                            "action": "add" if action in {"add", "allow"} else "remove",
+                            "grant": args[1],
+                        },
+                    })
+            elif action == "reset":
+                scope = "session"
+                if len(args) == 3 and args[1] == "--scope":
+                    scope = args[2]
+                if scope in {"global", "user", "workspace", "head", "session", "transient"}:
+                    events.append({"kind": "shell_scope_grant", "payload": {"scope": scope, "action": "reset"}})
+    return events

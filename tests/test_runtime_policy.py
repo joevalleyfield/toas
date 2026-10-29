@@ -249,3 +249,28 @@ def test_resolve_backend_startup():
     )
     res_diff = resolver.resolve_backend_startup(config_diff, Path("/default/cwd"))
     assert res.fingerprint != res_diff.fingerprint
+
+
+def test_parse_transcript_shell_grant_events_comprehensive():
+    from toas.runtime.policy import parse_transcript_shell_grant_events
+
+    nodes = [
+        {"role": "user", "content": None},
+        {"role": "user", "content": "hello world"},
+        {"role": "control", "content": '/shell "unclosed'},
+        {"role": "control", "content": "/shell"},
+        {"role": "control", "content": "/shell add pytest\n/shell allow uv --scope head"},
+        {"role": "control", "content": "/shell remove echo\n/shell deny ls --scope workspace"},
+        {"role": "control", "content": "/shell add sh --scope invalid_scope"},
+        {"role": "control", "content": "/shell reset\n/shell reset --scope transient\n/shell reset --scope bad"},
+    ]
+    events = parse_transcript_shell_grant_events(nodes)
+    assert events == [
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "pytest"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "head", "action": "add", "grant": "uv"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "remove", "grant": "echo"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "workspace", "action": "remove", "grant": "ls"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "reset"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "transient", "action": "reset"}},
+    ]
+

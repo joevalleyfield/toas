@@ -66,7 +66,12 @@ opens the collision-safe successor path in Vim.
 
 The successor contains three ordinary user messages: the configured resolved
 seed prompt, the exact selected handoff, and one callable YAML restoration
-plan. `$ cat` entries become `read_file` operations, governing `AGENTS.md` is
+plan. Active custom shell grants and denials that differ from baseline
+configuration in the predecessor session are serialized as an explicit
+`## TOAS:CONTROL` turn (`/shell add ...` or `/shell remove ...`) immediately
+following the handoff and preceding the restoration commands, keeping
+permission boundaries visible, editable, and branch-safe in the new buffer.
+`$ cat` entries become `read_file` operations, governing `AGENTS.md` is
 first, and the remaining commands become `shell_script` operations. Continuation
 does not execute the plan. The next ordinary step executes it; existing
 first-failure recovery separates the failed retry from the still-staged

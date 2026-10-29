@@ -7,7 +7,11 @@ from datetime import date, datetime
 from pathlib import Path
 
 from ..backend_policy import generation_policy_from_config
-from ..config import apply_overrides, config_from_discovered_paths
+from ..config import (
+    OperatorConfig,
+    apply_overrides,
+    config_from_discovered_paths,
+)
 from ..graph import (
     active_config_overrides,
     active_surface_id,
@@ -339,6 +343,11 @@ def _continuation_inputs(
         prompt_output_profile=config.prompt.output_profile,
     )
     commands = restoration_commands(handoff, workdir=workdir)
+    grant_commands = _predecessor_grant_commands(
+        config=config,
+        predecessor_nodes=nodes,
+        events=events,
+    )
     lineage = message_lineage(events)
     continuation_parent_id = lineage[-1].get("id") if lineage else None
     start_index = int(handoff_info["command_index"])
@@ -359,27 +368,69 @@ def _continuation_inputs(
         "prompt_ref": prompt_ref,
         "seed": seed,
         "commands": commands,
+        "grant_commands": grant_commands,
         "continuation_parent_id": continuation_parent_id,
         "config": config,
     }
 
 
-def _render_successor(*, seed: str, handoff: str, commands: list[str], newline: str) -> str:
-    restoration = "\n".join(f"$ {command}" for command in commands)
-    transcript = render_transcript(
-        [
-            _seed_message(seed),
-            {"role": "assistant", "content": handoff},
-            {"role": "user", "content": restoration},
-        ],
-        spaced=True,
+def _predecessor_grant_commands(
+    *,
+    config: OperatorConfig,
+    predecessor_nodes: list[dict],
+    events: list[dict],
+) -> list[str]:
+    from ..tools import SHELL_ALLOWED
+    from .policy import PolicyResolver, parse_transcript_shell_grant_events
+
+    transcript_grant_events = parse_transcript_shell_grant_events(predecessor_nodes)
+    combined_events = [*events, *transcript_grant_events]
+    resolved = PolicyResolver().resolve_shell_grants(
+        config,
+        combined_events,
+        shell_default_allowed=tuple(SHELL_ALLOWED),
     )
+    configured_set = set(resolved.configured)
+    effective_set = set(resolved.effective)
+    added = sorted(effective_set - configured_set)
+    removed = sorted(configured_set - effective_set)
+    commands = [f"/shell add {grant}" for grant in added]
+    commands.extend(f"/shell remove {grant}" for grant in removed)
+    return commands
+
+
+def _render_successor(
+    *,
+    seed: str,
+    handoff: str,
+    commands: list[str],
+    newline: str,
+    grant_commands: list[str] | None = None,
+) -> str:
+    messages: list[dict] = [_seed_message(seed), {"role": "assistant", "content": handoff}]
+    if grant_commands:
+        messages.append({"role": "control", "content": "\n".join(grant_commands)})
+    restoration = "\n".join(f"$ {command}" for command in commands)
+    messages.append({"role": "user", "content": restoration})
+    transcript = render_transcript(messages, spaced=True)
     return apply_newline_style(transcript, newline)
 
 
 def _render_successor_replay(*, seed: str, inputs: dict, newline: str) -> str:
     replay_nodes = [dict(node) for node in inputs["replay_nodes"]]
     handoff_index = int(inputs["handoff_index"])
+    grant_commands = inputs.get("grant_commands", [])
+    if grant_commands:
+        existing_lines = {
+            line.strip()
+            for node in replay_nodes
+            if isinstance(node.get("content"), str)
+            for line in node["content"].splitlines()
+        }
+        needed = [cmd for cmd in grant_commands if cmd not in existing_lines]
+        if needed:
+            replay_nodes.insert(handoff_index + 1, {"role": "control", "content": "\n".join(needed)})
+            handoff_index += 1
     if not inputs["exclude_tail"]:
         commands = inputs["commands"]
         restoration = "\n".join(f"$ {command}" for command in commands)

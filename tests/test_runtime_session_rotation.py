@@ -752,3 +752,159 @@ def test_continue_session_respects_continuation_name_format_config(tmp_path):
     assert out["status"] == "suggested"
     assert out["suggested_name"] == "261029-1625"
     assert out["suggested_path"] == ".toas/session-261029-1625.md"
+
+
+def test_continue_session_serializes_custom_grants_into_control_turn(tmp_path):
+    handoff = _handoff(commands="$ jj status")
+    session_path = tmp_path / ".toas" / "session.md"
+    session_path.parent.mkdir(parents=True)
+    session_path.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:CONTROL\n\n/shell allow pytest\n/shell add uv\n\n"
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    out = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="granted")
+    successor_file = tmp_path / out["successor_path"]
+    nodes = parse_transcript(successor_file.read_text(encoding="utf-8"))
+    roles = [node["role"] for node in nodes]
+    assert roles == ["user", "user", "assistant", "control", "user"]
+    assert nodes[3]["role"] == "control"
+    assert nodes[3]["content"] == "/shell add pytest\n/shell add uv"
+    assert nodes[4]["content"] == "$ cat src/toas/step.py\n$ jj status"
+
+
+def test_continue_session_serializes_removed_grants_into_control_turn(tmp_path):
+    handoff = _handoff(commands="$ jj status")
+    session_path = tmp_path / ".toas" / "session.md"
+    session_path.parent.mkdir(parents=True)
+    session_path.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:CONTROL\n\n/shell deny echo\n\n"
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    out = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="denied")
+    successor_file = tmp_path / out["successor_path"]
+    nodes = parse_transcript(successor_file.read_text(encoding="utf-8"))
+    assert nodes[3]["role"] == "control"
+    assert nodes[3]["content"] == "/shell remove echo"
+
+
+def test_continue_session_does_not_serialize_when_grants_match_baseline(tmp_path):
+    session_path, _ = _compacted_repo(tmp_path)
+    out = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="clean")
+    successor_file = tmp_path / out["successor_path"]
+    nodes = parse_transcript(successor_file.read_text(encoding="utf-8"))
+    roles = [node["role"] for node in nodes]
+    assert "control" not in roles
+
+
+def test_continue_session_avoids_duplicate_grants_already_in_replay_nodes(tmp_path):
+    handoff = _handoff(commands="$ jj status")
+    session_path = tmp_path / ".toas" / "session.md"
+    session_path.parent.mkdir(parents=True)
+    session_path.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:CONTROL\n\n/shell add pytest\n\n"
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n\n"
+        "## TOAS:CONTROL\n\n/shell add pytest\n",
+        encoding="utf-8",
+    )
+
+    out = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="no-dup")
+    successor_file = tmp_path / out["successor_path"]
+    nodes = parse_transcript(successor_file.read_text(encoding="utf-8"))
+    control_nodes = [node for node in nodes if node["role"] == "control"]
+    assert len(control_nodes) == 1
+    assert control_nodes[0]["content"] == "/shell add pytest"
+
+
+def test_continue_session_serializes_grants_when_exclude_tail_is_true(tmp_path):
+    handoff = _handoff(commands="$ jj status")
+    session_path = tmp_path / ".toas" / "session.md"
+    session_path.parent.mkdir(parents=True)
+    session_path.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:CONTROL\n\n/shell add pytest\n\n"
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n\n"
+        "## TOAS:USER\n\nignore me later\n",
+        encoding="utf-8",
+    )
+
+    out = continue_session(
+        workdir=tmp_path,
+        predecessor_path=str(session_path),
+        accepted_name="excluded-tail-grants",
+        exclude_tail=True,
+    )
+    successor_file = tmp_path / out["successor_path"]
+    nodes = parse_transcript(successor_file.read_text(encoding="utf-8"))
+    roles = [node["role"] for node in nodes]
+    assert roles == ["user", "user", "assistant", "control"]
+    assert nodes[3]["role"] == "control"
+    assert nodes[3]["content"] == "/shell add pytest"
+
+
+def test_render_successor_supports_grant_commands():
+    rendered = _render_successor(
+        seed="seed",
+        handoff="handoff",
+        commands=["status"],
+        newline="\n",
+        grant_commands=["/shell add pytest"],
+    )
+    nodes = parse_transcript(rendered)
+    assert [node["role"] for node in nodes] == ["user", "assistant", "control", "user"]
+    assert nodes[2]["content"] == "/shell add pytest"
+
+
+def test_continue_session_end_to_end_allows_stepped_assistant_command(tmp_path, fake_shell_subprocess, monkeypatch):
+    from toas import cli
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True)
+    session_path = tmp_path / ".toas" / "session.md"
+    handoff = _handoff(commands="$ jj status")
+
+    session_path.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:CONTROL\n\n/shell allow pytest\n\n"
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+
+    out = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="e2e-grant")
+    successor_file = tmp_path / out["successor_path"]
+    
+    # Add an assistant tool plan that runs pytest
+    assistant_plan = (
+        "\n## TOAS:ASSISTANT\n\n"
+        "```yaml\n"
+        "operation: shell\n"
+        "arguments:\n"
+        "  argv: [pytest, -q]\n"
+        "intent: run tests\n"
+        "```\n"
+    )
+    successor_file.write_text(successor_file.read_text(encoding="utf-8") + assistant_plan, encoding="utf-8")
+
+    cli.run_step(session_path=str(successor_file))
+
+    # Verify pytest was executed and not disallowed
+    assert fake_shell_subprocess.called
+    assert fake_shell_subprocess.call_args.args[0] == ["pytest", "-q"]
+    after_text = successor_file.read_text(encoding="utf-8")
+    assert "disallows command: pytest" not in after_text
+
+
