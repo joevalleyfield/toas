@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-27
+> **Last Sync:** 2026-10-29
 
 ## 0. Manual Triage
 
@@ -168,6 +168,7 @@ Neither dated vote is a literal current queue.
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
 - **[T261017-msys-vim-native-host]** Status: OPEN; reconcile historical harness failure with working operator MSYS Vim
+- **[T261029-preserve-literal-shell-argv]** Preserve pre-tokenized `argv` arguments in assistant-driven `shell` tool execution without Python-side glob expansion, preventing command corruption i...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
