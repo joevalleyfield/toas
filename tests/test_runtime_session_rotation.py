@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -20,6 +20,7 @@ from toas.runtime.session_rotation import (
     _handoff_from_transcript,
     _leading_graph_start,
     _render_successor,
+    _resolve_target_path,
     _seed_message,
     continuation_blocker,
     continue_session,
@@ -279,16 +280,39 @@ def test_restoration_commands_add_agents_and_skip_bad_entries(tmp_path):
 
 def test_suggested_continuation_name_is_deterministic_and_has_fallback():
     assert suggested_continuation_name(_handoff(), today=date(2026, 8, 4)) == (
+        "260804-0000-implement-explicit-transcript-continuation-witho"
+    )
+    assert suggested_continuation_name(_handoff(), now=datetime(2026, 8, 4, 16, 25)) == (
+        "260804-1625-implement-explicit-transcript-continuation-witho"
+    )
+    assert suggested_continuation_name(_handoff(), today=datetime(2026, 8, 4, 16, 25)) == (
+        "260804-1625-implement-explicit-transcript-continuation-witho"
+    )
+    assert suggested_continuation_name(_handoff(), now=datetime(2026, 8, 4, 16, 25), name_format="datetime") == "260804-1625"
+    assert suggested_continuation_name(_handoff(), now=datetime(2026, 8, 4, 16, 25), name_format="date-slug") == (
         "260804-implement-explicit-transcript-continuation-witho"
     )
+    assert suggested_continuation_name(_handoff(), now=datetime(2026, 8, 4, 16, 25), name_format="slug") == (
+        "implement-explicit-transcript-continuation-witho"
+    )
+    assert suggested_continuation_name(_handoff(), now=datetime(2026, 8, 4, 16, 25), name_format="%Y%m%d_%H%M-{slug}") == (
+        "20260804_1625-implement-explicit-transcript-continuation-witho"
+    )
+
+    dynamic = suggested_continuation_name(_handoff())
+    assert dynamic.endswith("-implement-explicit-transcript-continuation-witho")
+    parts = dynamic.split("-")
+    assert len(parts[0]) == 6
+    assert len(parts[1]) == 4
+
     blank = _handoff().replace(
         "Implement explicit transcript continuation without journal rotation.",
         "***",
     )
-    assert suggested_continuation_name(blank, today=date(2026, 8, 4)) == "260804-session-handoff"
-    assert suggested_rotation_name(blank, today=date(2026, 8, 4)) == "260804-session-handoff"
+    assert suggested_continuation_name(blank, today=date(2026, 8, 4)) == "260804-0000-session-handoff"
+    assert suggested_rotation_name(blank, today=date(2026, 8, 4)) == "260804-0000-session-handoff"
     assert suggested_continuation_name("free-form handoff", today=date(2026, 8, 4)) == (
-        "260804-session-handoff"
+        "260804-0000-session-handoff"
     )
 
 
@@ -298,7 +322,7 @@ def test_suggested_continuation_name_prefers_successor_focus():
         "## Successor Focus\n\nStabilize graph-aware continuation naming.\n\n## Working State",
     )
     assert suggested_continuation_name(handoff, today=date(2026, 8, 4)) == (
-        "260804-stabilize-graph-aware-continuation-naming"
+        "260804-0000-stabilize-graph-aware-continuation-naming"
     )
 
 
@@ -350,7 +374,7 @@ def test_continue_session_suggest_is_mutation_free_and_projection_independent(tm
     )
 
     assert out["status"] == "suggested"
-    assert out["suggested_name"].startswith("260804-implement-explicit-transcript")
+    assert out["suggested_name"].startswith("260804-0000-implement-explicit-transcript")
     assert out["suggested_path"].startswith(".toas/session-")
     assert events_path.read_bytes() == before_events
     assert session_path.read_bytes() == before_session
@@ -520,7 +544,7 @@ def test_continue_session_preserves_arbitrary_handoff_with_empty_user_slot(tmp_p
         accepted_name="advisory",
     )
 
-    assert suggested["suggested_name"] == "260804-session-handoff"
+    assert suggested["suggested_name"] == "260804-0000-session-handoff"
     assert out["restoration_commands"] == 0
     nodes = parse_transcript((tmp_path / out["successor_path"]).read_text(encoding="utf-8"))
     assert [node["role"] for node in nodes] == ["user", "user", "assistant", "user"]
@@ -705,3 +729,26 @@ def test_run_session_continue_forwards_replay_controls(tmp_path, monkeypatch, ca
         "ignore_preceding_graph": True,
         "exclude_tail": True,
     }
+
+
+def test_resolve_target_path_normalizes_prefixes_and_extensions(tmp_path):
+    sessions_dir = tmp_path / ".toas"
+    sessions_dir.mkdir()
+    assert _resolve_target_path("261029-1625", sessions_dir=sessions_dir) == sessions_dir / "session-261029-1625.md"
+    assert _resolve_target_path("session-261029-1625", sessions_dir=sessions_dir) == sessions_dir / "session-261029-1625.md"
+    assert _resolve_target_path("session-261029-1625.md", sessions_dir=sessions_dir) == sessions_dir / "session-261029-1625.md"
+    assert _resolve_target_path("261029-1625.md", sessions_dir=sessions_dir) == sessions_dir / "session-261029-1625.md"
+
+
+def test_continue_session_respects_continuation_name_format_config(tmp_path):
+    session_path, _ = _compacted_repo(tmp_path)
+    (tmp_path / "toas.toml").write_text('[session]\ncontinuation_name_format = "datetime"\n', encoding="utf-8")
+
+    out = continue_session(
+        workdir=tmp_path,
+        predecessor_path=str(session_path),
+        now=datetime(2026, 10, 29, 16, 25),
+    )
+    assert out["status"] == "suggested"
+    assert out["suggested_name"] == "261029-1625"
+    assert out["suggested_path"] == ".toas/session-261029-1625.md"

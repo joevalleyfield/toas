@@ -57,6 +57,7 @@ def test_default_config_fields():
     assert config.prompt.ingress == "text-callable"
     assert config.prompt.output_profile == "intention-tail"
     assert config.session.bootstrap_prompt_ref == "session-start/templates/pragmatic-default_v2"
+    assert config.session.continuation_name_format == "datetime-slug"
     assert config.tool_writes.newline_style == "auto"
     assert config.backend_startup == BackendStartupPolicy()
     assert config.backend == BackendPolicy()
@@ -406,6 +407,7 @@ def test_config_value_choices_enum_and_bool_and_none():
     assert config_value_choices("extraction.intent_arbitration") == ("first_wins", "last_wins", "in_order", "strict")
     assert config_value_choices("extraction.user_shell") == ("true", "false")
     assert config_value_choices("tool_writes.newline_style") == ("auto", "lf", "crlf")
+    assert config_value_choices("session.continuation_name_format") == ("datetime-slug", "datetime", "date-slug", "slug")
     assert config_value_choices("generation.max_retries") is None
     assert config_value_choices("generation.max_tokens") is None
 

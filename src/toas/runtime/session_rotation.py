@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 import shlex
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from ..backend_policy import generation_policy_from_config
@@ -141,18 +141,55 @@ def _successor_focus_slug(handoff: str) -> str | None:
     return slug[:48].rstrip("-") or None
 
 
-def suggested_continuation_name(handoff: str, *, today: date | None = None) -> str:
-    stamp = (today or date.today()).strftime("%y%m%d")
-    return f"{stamp}-{_successor_focus_slug(handoff) or _objective_slug(handoff)}"
+def suggested_continuation_name(
+    handoff: str,
+    *,
+    today: date | None = None,
+    now: datetime | None = None,
+    name_format: str = "datetime-slug",
+) -> str:
+    if now is not None:
+        dt = now
+    elif isinstance(today, datetime):
+        dt = today
+    elif today is not None:
+        dt = datetime.combine(today, datetime.min.time())
+    else:
+        dt = datetime.now()
+
+    slug = _successor_focus_slug(handoff) or _objective_slug(handoff)
+    if name_format == "datetime-slug":
+        return f"{dt.strftime('%y%m%d-%H%M')}-{slug}"
+    if name_format == "datetime":
+        return dt.strftime("%y%m%d-%H%M")
+    if name_format == "date-slug":
+        return f"{dt.strftime('%y%m%d')}-{slug}"
+    if name_format == "slug":
+        return slug
+    formatted = dt.strftime(name_format)
+    if "{slug}" in formatted:
+        formatted = formatted.replace("{slug}", slug)
+    return formatted
 
 
-def suggested_rotation_name(handoff: str, *, today: date | None = None) -> str:
+def suggested_rotation_name(
+    handoff: str,
+    *,
+    today: date | None = None,
+    now: datetime | None = None,
+    name_format: str = "datetime-slug",
+) -> str:
     """Compatibility alias for the original public helper."""
-    return suggested_continuation_name(handoff, today=today)
+    return suggested_continuation_name(handoff, today=today, now=now, name_format=name_format)
 
 
 def _resolve_target_path(name: str, *, sessions_dir: Path) -> Path:
     normalized = name.strip()
+    if normalized.startswith("session-"):
+        normalized = normalized[len("session-"):]
+    if normalized.endswith(".md"):
+        normalized = normalized[:-3]
+    normalized = normalized.strip()
     if not _NAME_RE.fullmatch(normalized):
         raise ValueError("session continuation name must match [A-Za-z0-9._-]+")
     candidate = sessions_dir / f"session-{normalized}.md"
@@ -323,6 +360,7 @@ def _continuation_inputs(
         "seed": seed,
         "commands": commands,
         "continuation_parent_id": continuation_parent_id,
+        "config": config,
     }
 
 
@@ -362,6 +400,8 @@ def continue_session(
     predecessor_path: str | None = None,
     accepted_name: str | None = None,
     today: date | None = None,
+    now: datetime | None = None,
+    name_format: str | None = None,
     ignore_preceding_graph: bool = False,
     exclude_tail: bool = False,
 ) -> dict:
@@ -372,7 +412,18 @@ def continue_session(
         ignore_preceding_graph=ignore_preceding_graph,
         exclude_tail=exclude_tail,
     )
-    suggestion = suggested_continuation_name(inputs["handoff"], today=today)
+    config = inputs.get("config")
+    active_format = (
+        name_format
+        if name_format is not None
+        else (getattr(config.session, "continuation_name_format", "datetime-slug") if config is not None else "datetime-slug")
+    )
+    suggestion = suggested_continuation_name(
+        inputs["handoff"],
+        today=today,
+        now=now,
+        name_format=active_format,
+    )
     if accepted_name is None:
         target = _resolve_target_path(suggestion, sessions_dir=inputs["predecessor"].parent)
         return {

@@ -3,7 +3,7 @@ FKA:
 AKA: session continuation naming; session rotation name format; session datetime slug
 Legacy index:
 
-keywords: runtime, configuration, active, session, rotation, vim
+keywords: runtime, configuration, closed, session, rotation, vim
 
 # Configurable Session Continuation Naming
 
@@ -51,14 +51,23 @@ When continuing a session via `session continue` (or `:ToasContinue` / `<leader>
 - Update `suggested_continuation_name` and `continue_session` in `src/toas/runtime/session_rotation.py`.
 - Update and add comprehensive tests in `tests/test_runtime_session_rotation.py` and `tests/test_config.py`.
 
+## Decisions
+
+- Added `continuation_name_format: str = "datetime-slug"` to `SessionPolicy`, with valid choices `("datetime-slug", "datetime", "date-slug", "slug")`.
+- Default continuation name format generates `YYMMDD-HHMM-short-name` (e.g. `261029-1636-focus-slug`), resolving to `session-YYMMDD-HHMM-short-name.md`.
+- `_resolve_target_path` strips leading `session-` prefix and trailing `.md` suffix when present, preventing double-prefixing if manually entered.
+- `suggested_continuation_name` accepts `now: datetime | None` and `name_format: str` for deterministic testing and flexible formatting.
+
 ## Evidence
 
-- Unit tests for all continuation name formats (`datetime-slug`, `datetime`, `date-slug`, `slug`).
-- Config serialization and choice validation tests.
-- Full pytest test suite passes with 100% statement coverage.
+- `tests/test_runtime_session_rotation.py`:
+  - `test_suggested_continuation_name_is_deterministic_and_has_fallback` verifies `datetime-slug`, `datetime`, `date-slug`, `slug`, and custom formats with explicit `now`, `today`, and dynamic fallbacks.
+  - `test_continue_session_respects_continuation_name_format_config` verifies that `toas.toml` session config is honored.
+  - `test_resolve_target_path_normalizes_prefixes_and_extensions` tests prefix and extension normalization.
+- `tests/test_config.py`: verifies default value and choice enum for `session.continuation_name_format`.
+- Full pytest suite (3,601 unit tests, 17 acceptance tests) passes with 100.00% statement coverage (23,036 statements, 0 missing files).
+- `ruff check src tests` and `mypy` pass with 0 errors.
 
-## Next Actions
+## Closure
 
-- Create and commit the open task file.
-- Update `tasks/WORKBOARD.md` via `sync_workboard.py`.
-- Implement `SessionPolicy.continuation_name_format` and rotation logic with tests.
+Closed on 2026-10-29. `SessionPolicy` now exposes configurable `continuation_name_format` defaulting to `datetime-slug` (`session-YYMMDD-HHMM-short-name.md`), while supporting `datetime`, `date-slug`, `slug`, and custom strftime format templates.
