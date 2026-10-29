@@ -168,6 +168,7 @@ Neither dated vote is a literal current queue.
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
 - **[T261017-msys-vim-native-host]** Status: OPEN; reconcile historical harness failure with working operator MSYS Vim
+- **[T261029-openai-model-probe-auth-header]** Enable `fetch_models` to transmit the configured/resolved API key as an `Authorization: Bearer <token>` header when probing OpenAI-compatible endpoint...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
