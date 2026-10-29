@@ -619,37 +619,34 @@ def test_resolve_user_argv_paths():
         _resolve_user_argv(args={}, command=None)
 
 
-def test_expand_globs_in_argv():
-    from toas.tools_cluster.shell_ops import GLOB_CHARS, _expand_globs_in_argv
-    
-    # No globs
-    assert _expand_globs_in_argv(["ls", "foo"]) == ["ls", "foo"]
-    
-    # Globs detected
-    assert any(c in "file*" for c in GLOB_CHARS)
-    assert any(c in "file?" for c in GLOB_CHARS)
-    assert any(c in "file[" for c in GLOB_CHARS)
-    
-    # Mock glob expansion
-    import toas.tools_cluster.shell_ops as shell_ops
-    original_glob = shell_ops.glob.glob
-    
-    # Case: Glob matches
-    shell_ops.glob.glob = lambda x: ["expanded_file.txt"]
-    result = _expand_globs_in_argv(["cat", "file*"])
-    assert result == ["cat", "expanded_file.txt"]
-    
-    # Case: Glob matches nothing -> else branch
-    shell_ops.glob.glob = lambda x: []
-    result = _expand_globs_in_argv(["cat", "no_match*"])
-    assert result == ["cat", "no_match*"]
-    
-    # Case: Glob raises exception -> except branch
-    shell_ops.glob.glob = lambda x: 1 / 0
-    result = _expand_globs_in_argv(["cat", "bad*"])
-    assert result == ["cat", "bad*"]
-    
-    shell_ops.glob.glob = original_glob
+def test_execute_shell_call_assistant_preserves_literal_wildcards_in_argv(monkeypatch, tmp_path):
+    (tmp_path / "attachments").mkdir()
+    (tmp_path / "attachments" / ".jj").write_text("jj", encoding="utf-8")
+    (tmp_path / "test.py").write_text("print('test')", encoding="utf-8")
+
+    captured_argv: list[str] = []
+
+    def _fake_run_subprocess(argv, *, cwd, timeout_s, env=None):
+        captured_argv.extend(argv)
+        return {
+            "tool_name": "shell",
+            "ok": True,
+            "argv": argv,
+            "cwd": str(cwd),
+            "summary": "exit=0",
+        }
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.run_subprocess", _fake_run_subprocess)
+
+    requested_argv = ["find", ".", "-maxdepth", "2", "-not", "-path", "*/.*"]
+    out = execute_shell_call(
+        {"argv": requested_argv, "cwd": str(tmp_path)},
+        context="assistant",
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"find"},
+    )
+    assert out["ok"] is True
+    assert captured_argv == requested_argv
 
 def test_resolve_user_cwd_paths(tmp_path):
     out = _resolve_user_cwd(args={"cwd": str(tmp_path)}, base_cwd=None)

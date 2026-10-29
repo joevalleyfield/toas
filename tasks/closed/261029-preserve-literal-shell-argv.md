@@ -3,7 +3,7 @@ FKA:
 AKA: assistant shell literal argv; shell glob expansion removal; find path predicate
 Legacy index:
 
-keywords: tooling, implementation, active, compatibility, shell
+keywords: tooling, implementation, closed, compatibility, shell
 
 Parent: `261015-windows-compatibility-restoration`
 Related: `260621-enable-shell-globbing`; `260621-windows-shell-launcher-and-path-resolution`
@@ -72,13 +72,19 @@ contract:
 - Clean up or update `_expand_globs_in_argv` references in `src/toas/tools_cluster/shell_ops.py` and `tests/test_tools_shell_ops.py`.
 - Add regression tests verifying that literal wildcards in assistant `argv` (such as `find . -not -path '*/.*'`) are preserved and executed without glob expansion.
 
+## Decisions
+
+- Assistant plain `shell` execution strictly preserves `argv` as pre-tokenized literal strings.
+- Removed `_expand_globs_in_argv` from `execute_shell_call` in `src/toas/tools_cluster/shell_ops.py` to prevent filesystem match corruption of pattern arguments (`-path`, `-name`, etc.).
+- Wildcard expansion remains supported for user-facing `$ ...` shorthand and `shell_script` multiline scripts.
+
 ## Evidence
 
-- Regression test verifying `find ... -not -path '*/.*'` preserves `argv` literally without expanding against disk.
-- Test suite passes with 100% statement coverage on affected modules.
+- Unit regression in `tests/test_tools_shell_ops.py`: `test_execute_shell_call_assistant_preserves_literal_wildcards_in_argv` verifies literal pass-through when matching filesystem paths (`attachments/.jj`, `test.py`) exist on disk.
+- End-to-end execution of `find . -maxdepth 2 -not -path '*/.*'` returns exit code 0 and clean path output without GNU find `paths must precede expression` errors.
+- Full pytest test suite (3,595 passed, 17 acceptance passed) with 100.00% statement coverage across all 23,010 statements and zero missing files.
+- `ruff check src tests` and `mypy` pass cleanly with zero warnings or errors.
 
-## Next Actions
+## Closure
 
-- Create and commit the open task.
-- Update `tasks/WORKBOARD.md` via `sync_workboard.py`.
-- Implement the fix in `src/toas/tools_cluster/shell_ops.py` and update tests in `tests/test_tools_shell_ops.py`.
+Closed on 2026-10-29. Pre-tokenized arguments in assistant-callable `shell` are preserved literally without Python-side glob expansion, eliminating command corruption for utilities taking pattern arguments such as `find -path`.

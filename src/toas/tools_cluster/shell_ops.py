@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import glob
 import os
 import shlex
 import shutil
@@ -22,8 +21,6 @@ from ..shell_grants import shell_command_decision, shell_script_segment_commands
 from .shell_streaming import run_streaming_subprocess
 
 SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
-
-GLOB_CHARS = {"*", "?", "["}
 
 
 def _append_shell_diag(entry: dict) -> None:
@@ -268,22 +265,6 @@ def needs_shell(command: str) -> bool:
         for token in ("|", "||", "&&", ";", ">", "<", "*", "?", "[", "]")
     )
 
-def _expand_globs_in_argv(argv: list[str]) -> list[str]:
-    expanded = []
-    for part in argv:
-        if any(c in part for c in GLOB_CHARS):
-            try:
-                matches = glob.glob(part)
-                if matches:
-                    expanded.extend(matches)
-                else:
-                    expanded.append(part)
-            except Exception:
-                expanded.append(part)
-        else:
-            expanded.append(part)
-    return expanded
-
 
 def shell_launcher_argv(command: str, *, runtime: list[str] | None = None, workdir: Path | None = None) -> list[str]:
     if runtime is not None:
@@ -421,7 +402,6 @@ def execute_shell_call(
             workspace_path_fn=workspace_path_fn,
             effective_shell_allowed=effective_shell_allowed,
         )
-        argv = _expand_globs_in_argv(argv)
         try:
             result = run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)
             _append_shell_diag(

@@ -168,7 +168,6 @@ Neither dated vote is a literal current queue.
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
 - **[T261017-msys-vim-native-host]** Status: OPEN; reconcile historical harness failure with working operator MSYS Vim
-- **[T261029-preserve-literal-shell-argv]** Preserve pre-tokenized `argv` arguments in assistant-driven `shell` tool execution without Python-side glob expansion, preventing command corruption i...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -223,11 +222,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261029-preserve-literal-shell-argv]** Preserve pre-tokenized `argv` arguments in assistant-driven `shell` tool execution without Python-side glob expansion, preventing command corruption i...
 - **[T261027-stream-bridge-timeout-test]** Status: CLOSED; retained hung-read semantics with a controlled clock.
 - **[T261027-stdio-stall-diagnostics]** Status: CLOSED; request failures no longer block on live stderr.
 - **[T261021-cross-platform-github-ci]** Establish automated cross-platform continuous integration across Ubuntu, Windows, and macOS runners mirroring the routine verification check spine.
 - **[T261020-tool-spill-ephemerality-comment-scoping]** Status: CLOSED; scoped the single-turn ephemerality comment in spilled tool trailers to appear only under single-turn ephemerality conditions.
-- **[T261020-pwsh-platform-find-expectation]** Status: CLOSED — 2026-10-20
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
