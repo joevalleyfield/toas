@@ -262,7 +262,12 @@ def test_parse_transcript_shell_grant_events_comprehensive():
         {"role": "control", "content": "/shell add pytest\n/shell allow uv --scope head"},
         {"role": "control", "content": "/shell remove echo\n/shell deny ls --scope workspace"},
         {"role": "control", "content": "/shell add sh --scope invalid_scope"},
+        {"role": "control", "content": "/shell add echo --scope"},
         {"role": "control", "content": "/shell reset\n/shell reset --scope transient\n/shell reset --scope bad"},
+        {"role": "control", "content": "/shell add jj git --scope user"},
+        {"role": "control", "content": "/shell allow ruff mypy"},
+        {"role": "control", "content": "/shell remove cat sed tail"},
+        {"role": "control", "content": "/shell unset awk grep --scope head"},
     ]
     events = parse_transcript_shell_grant_events(nodes)
     assert events == [
@@ -272,5 +277,14 @@ def test_parse_transcript_shell_grant_events_comprehensive():
         {"kind": "shell_scope_grant", "payload": {"scope": "workspace", "action": "remove", "grant": "ls"}},
         {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "reset"}},
         {"kind": "shell_scope_grant", "payload": {"scope": "transient", "action": "reset"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "user", "action": "add", "grant": "jj"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "user", "action": "add", "grant": "git"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "ruff"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "mypy"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "remove", "grant": "cat"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "remove", "grant": "sed"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "remove", "grant": "tail"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "head", "action": "unset", "grant": "awk"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "head", "action": "unset", "grant": "grep"}},
     ]
 

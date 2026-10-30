@@ -22,6 +22,7 @@ from ..graph import (
 )
 from ..prompts import load_prompt_ref
 from ..transcript import parse_transcript, render_transcript
+from .policy import PolicyResolver, parse_transcript_shell_grant_events
 from .rendering_edges import apply_newline_style, detect_newline_style
 from .session_file_edges import read_text_preserve_newlines
 from .session_step_edges import extract_operator_command_tail
@@ -381,7 +382,6 @@ def _predecessor_grant_commands(
     events: list[dict],
 ) -> list[str]:
     from ..tools import SHELL_ALLOWED
-    from .policy import PolicyResolver, parse_transcript_shell_grant_events
 
     transcript_grant_events = parse_transcript_shell_grant_events(predecessor_nodes)
     combined_events = [*events, *transcript_grant_events]
@@ -394,8 +394,11 @@ def _predecessor_grant_commands(
     effective_set = set(resolved.effective)
     added = sorted(effective_set - configured_set)
     removed = sorted(configured_set - effective_set)
-    commands = [f"/shell add {grant}" for grant in added]
-    commands.extend(f"/shell remove {grant}" for grant in removed)
+    commands: list[str] = []
+    if added:
+        commands.append(f"/shell add {' '.join(added)}")
+    if removed:
+        commands.append(f"/shell remove {' '.join(removed)}")
     return commands
 
 
@@ -421,13 +424,36 @@ def _render_successor_replay(*, seed: str, inputs: dict, newline: str) -> str:
     handoff_index = int(inputs["handoff_index"])
     grant_commands = inputs.get("grant_commands", [])
     if grant_commands:
+        existing_grant_events = parse_transcript_shell_grant_events(replay_nodes)
+        existing_added = {
+            ev["payload"]["grant"]
+            for ev in existing_grant_events
+            if ev.get("kind") == "shell_scope_grant" and ev.get("payload", {}).get("action") == "add"
+        }
+        existing_removed = {
+            ev["payload"]["grant"]
+            for ev in existing_grant_events
+            if ev.get("kind") == "shell_scope_grant" and ev.get("payload", {}).get("action") == "remove"
+        }
         existing_lines = {
             line.strip()
             for node in replay_nodes
             if isinstance(node.get("content"), str)
             for line in node["content"].splitlines()
         }
-        needed = [cmd for cmd in grant_commands if cmd not in existing_lines]
+        needed: list[str] = []
+        for cmd in grant_commands:
+            parts = shlex.split(cmd)
+            if len(parts) >= 3 and parts[0] == "/shell" and parts[1] == "add":
+                pending = [g for g in parts[2:] if g not in existing_added]
+                if pending:
+                    needed.append(f"/shell add {' '.join(pending)}")
+            elif len(parts) >= 3 and parts[0] == "/shell" and parts[1] == "remove":
+                pending = [g for g in parts[2:] if g not in existing_removed]
+                if pending:
+                    needed.append(f"/shell remove {' '.join(pending)}")
+            elif cmd not in existing_lines:
+                needed.append(cmd)
         if needed:
             replay_nodes.insert(handoff_index + 1, {"role": "control", "content": "\n".join(needed)})
             handoff_index += 1

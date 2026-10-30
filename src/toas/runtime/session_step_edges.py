@@ -649,10 +649,16 @@ def _apply_shell_scope_updates(*, events_path: Path, result_nodes: list[dict], s
         scope = update.get("scope")
         action = update.get("action")
         grant = update.get("grant")
+        grants = update.get("grants")
         if not isinstance(scope, str) or not isinstance(action, str):
             continue
-        if action in {"add", "remove", "unset"} and isinstance(grant, str) and grant:
-            write_shell_scope_grant_record(str(events_path), scope=scope, action=action, grant=grant, source_message_id=source_message_id)
+        if action in {"add", "remove", "unset"}:
+            if isinstance(grants, (list, tuple)) and grants:
+                for g in grants:
+                    if isinstance(g, str) and g:
+                        write_shell_scope_grant_record(str(events_path), scope=scope, action=action, grant=g, source_message_id=source_message_id)
+            elif isinstance(grant, str) and grant:
+                write_shell_scope_grant_record(str(events_path), scope=scope, action=action, grant=grant, source_message_id=source_message_id)
         elif action == "reset":
             write_shell_scope_grant_record(str(events_path), scope=scope, action=action, source_message_id=source_message_id)
 

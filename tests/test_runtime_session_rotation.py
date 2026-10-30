@@ -20,6 +20,7 @@ from toas.runtime.session_rotation import (
     _handoff_from_transcript,
     _leading_graph_start,
     _render_successor,
+    _render_successor_replay,
     _resolve_target_path,
     _seed_message,
     continuation_blocker,
@@ -772,7 +773,7 @@ def test_continue_session_serializes_custom_grants_into_control_turn(tmp_path):
     roles = [node["role"] for node in nodes]
     assert roles == ["user", "user", "assistant", "control", "user"]
     assert nodes[3]["role"] == "control"
-    assert nodes[3]["content"] == "/shell add pytest\n/shell add uv"
+    assert nodes[3]["content"] == "/shell add pytest uv"
     assert nodes[4]["content"] == "$ cat src/toas/step.py\n$ jj status"
 
 
@@ -863,6 +864,18 @@ def test_render_successor_supports_grant_commands():
     nodes = parse_transcript(rendered)
     assert [node["role"] for node in nodes] == ["user", "assistant", "control", "user"]
     assert nodes[2]["content"] == "/shell add pytest"
+
+
+def test_render_successor_replay_supports_custom_grant_commands():
+    inputs = {
+        "replay_nodes": [{"role": "assistant", "content": "handoff"}],
+        "handoff_index": 0,
+        "grant_commands": ["/shell reset"],
+        "exclude_tail": True,
+    }
+    rendered = _render_successor_replay(seed="seed", inputs=inputs, newline="\n")
+    nodes = parse_transcript(rendered)
+    assert any(n.get("role") == "control" and n.get("content") == "/shell reset" for n in nodes)
 
 
 def test_continue_session_end_to_end_allows_stepped_assistant_command(tmp_path, fake_shell_subprocess, monkeypatch):

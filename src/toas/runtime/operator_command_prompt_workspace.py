@@ -585,31 +585,53 @@ def _shell_effective_grants(*, step_mod, context: OperatorCommandContext) -> tup
     return step_mod.resolve_effective_shell_allowed(context.working, context.config, context.events)
 
 
-def _parse_scope(args: list[str]) -> str:
+def _parse_grants_and_scope(args: list[str]) -> tuple[list[str], str]:
+    tokens = list(args[1:])
     scope = "session"
-    if len(args) == 4 and args[2] == "--scope":
-        scope = args[3]
-    elif len(args) != 2:
-        raise ValueError("usage: /shell [add|remove|unset] <grant> [--scope <global|user|workspace|head|session|transient>]")
+    if "--scope" in tokens:
+        scope_idx = tokens.index("--scope")
+        if scope_idx + 2 != len(tokens):
+            raise ValueError(
+                "usage: /shell [add|remove|unset] <grant> [--scope <global|user|workspace|head|session|transient>]"
+            )
+        scope = tokens[scope_idx + 1]
+        tokens = tokens[:scope_idx]
+    if not tokens or any(t.startswith("--") for t in tokens):
+        raise ValueError(
+            "usage: /shell [add|remove|unset] <grant> [--scope <global|user|workspace|head|session|transient>]"
+        )
     allowed = {"global", "user", "workspace", "head", "session", "transient"}
     if scope not in allowed:
         raise ValueError("invalid scope")
+    return tokens, scope
+
+
+def _parse_scope(args: list[str]) -> str:
+    _grants, scope = _parse_grants_and_scope(args)
     return scope
 
 
 def _shell_runtime_mutation_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     action = args[0]
-    raw_grant = args[1]
-    scope = _parse_scope(args)
-    grant = _parse_shell_grant_or_raise(raw_grant, step_mod=step_mod)
+    raw_grants, scope = _parse_grants_and_scope(args)
+    grants = [_parse_shell_grant_or_raise(g, step_mod=step_mod) for g in raw_grants]
     effective = _shell_effective_grants(step_mod=step_mod, context=context)
     normalized_action = "add" if action in {"allow", "add"} else "remove"
+    label = (
+        f"shell grant{'s' if len(grants) > 1 else ''} updated: {normalized_action} {' '.join(grants)} (scope={scope})\n"
+        f"effective: {', '.join(effective)}"
+    )
     return [
         _result_node(
-            f"shell grant updated: {normalized_action} {grant} (scope={scope})\neffective: {', '.join(effective)}",
+            label,
             step_mod=step_mod,
             context=context,
-            shell_scope_update={"scope": scope, "action": normalized_action, "grant": grant},
+            shell_scope_update={
+                "scope": scope,
+                "action": normalized_action,
+                "grant": grants[0],
+                "grants": tuple(grants),
+            },
         )
     ]
 

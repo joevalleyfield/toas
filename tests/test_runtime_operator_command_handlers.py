@@ -1335,11 +1335,43 @@ def test_prompt_workspace_shell_list_and_reset(monkeypatch):
 
 def test_parse_scope_supports_explicit_scope_and_rejects_bad_shapes():
     assert _parse_scope(["add", "echo"]) == "session"
+    assert _parse_scope(["add", "echo", "ls", "pwd"]) == "session"
     assert _parse_scope(["add", "echo", "--scope", "workspace"]) == "workspace"
+    assert _parse_scope(["add", "echo", "ls", "pwd", "--scope", "workspace"]) == "workspace"
     with pytest.raises(ValueError, match="usage: /shell"):
         _parse_scope(["add", "echo", "--wat", "workspace"])
+    with pytest.raises(ValueError, match="usage: /shell"):
+        _parse_scope(["add", "echo", "--scope"])
+    with pytest.raises(ValueError, match="usage: /shell"):
+        _parse_scope(["add", "echo", "--scope", "workspace", "extra"])
     with pytest.raises(ValueError, match="invalid scope"):
         _parse_scope(["add", "echo", "--scope", "banana"])
+
+
+def test_shell_runtime_mutation_multi_grant():
+    import toas.step as step_mod
+
+    out = handle_prompt_workspace_commands(
+        "shell", ["allow", "jj", "pytest", "uv"], step_mod=step_mod, context=_ctx()
+    )
+    assert "shell grants updated: add jj pytest uv (scope=session)" in out[0]["content"]
+    assert out[0]["shell_scope_update"] == {
+        "scope": "session",
+        "action": "add",
+        "grant": "jj",
+        "grants": ("jj", "pytest", "uv"),
+    }
+
+    out_scoped = handle_prompt_workspace_commands(
+        "shell", ["deny", "sed", "awk", "--scope", "workspace"], step_mod=step_mod, context=_ctx()
+    )
+    assert "shell grants updated: remove sed awk (scope=workspace)" in out_scoped[0]["content"]
+    assert out_scoped[0]["shell_scope_update"] == {
+        "scope": "workspace",
+        "action": "remove",
+        "grant": "sed",
+        "grants": ("sed", "awk"),
+    }
 
 
 def test_shell_reset_rejects_invalid_scope_shape(monkeypatch):

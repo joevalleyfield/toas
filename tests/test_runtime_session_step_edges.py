@@ -797,6 +797,7 @@ def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monk
         {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "add", "grant": ""}},
         {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "weird", "grant": "echo"}},
         {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "add", "grant": "echo"}},
+        {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "add", "grants": ["pytest", "uv"]}},
         {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "reset"}},
         {"role": "result", "content": "x", "config_save": {"path": ""}},
         {"role": "result", "content": "x", "session_update": {"transcript": 1}},
@@ -817,7 +818,7 @@ def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monk
     assert writes["queue"] == 0
     assert writes["context"] == 0
     assert writes["workspace"] == 0
-    assert writes["shell_scope"] == 2
+    assert writes["shell_scope"] == 4
     assert writes["session"] == 0
 
 

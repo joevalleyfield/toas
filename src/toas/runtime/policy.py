@@ -304,19 +304,31 @@ def parse_transcript_shell_grant_events(nodes: list[dict]) -> list[dict]:
             if not args:
                 continue
             action = args[0]
-            if action in {"add", "allow", "remove", "deny"} and len(args) >= 2:
+            if action in {"add", "allow", "remove", "deny", "unset"} and len(args) >= 2:
+                tokens = list(args[1:])
                 scope = "session"
-                if len(args) == 4 and args[2] == "--scope":
-                    scope = args[3]
+                if "--scope" in tokens:
+                    scope_idx = tokens.index("--scope")
+                    if scope_idx + 2 == len(tokens):
+                        candidate_scope = tokens[scope_idx + 1]
+                        if candidate_scope not in {"global", "user", "workspace", "head", "session", "transient"}:
+                            continue
+                        scope = candidate_scope
+                        tokens = tokens[:scope_idx]
+                    else:
+                        continue
                 if scope in {"global", "user", "workspace", "head", "session", "transient"}:
-                    events.append({
-                        "kind": "shell_scope_grant",
-                        "payload": {
-                            "scope": scope,
-                            "action": "add" if action in {"add", "allow"} else "remove",
-                            "grant": args[1],
-                        },
-                    })
+                    action_kind = "add" if action in {"add", "allow"} else ("remove" if action in {"remove", "deny"} else "unset")
+                    for grant_token in tokens:
+                        if grant_token and not grant_token.startswith("--"):
+                            events.append({
+                                "kind": "shell_scope_grant",
+                                "payload": {
+                                    "scope": scope,
+                                    "action": action_kind,
+                                    "grant": grant_token,
+                                },
+                            })
             elif action == "reset":
                 scope = "session"
                 if len(args) == 3 and args[1] == "--scope":
