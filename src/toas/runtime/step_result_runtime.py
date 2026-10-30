@@ -42,13 +42,29 @@ def persist_step_outputs_runtime(
             )
 
         materialized = deps.persist_messages_and_llm_calls(events_path, persisted_message_nodes)
+        frontier: dict | None = None
+        if materialized:
+            frontier = materialized[-1]
+        elif result_nodes and materialized_lineage:
+            from ..transcript import parse_transcript
+
+            transcript_messages = [
+                n for n in parse_transcript(normalized_transcript) if n.get("role") != "result"
+            ]
+            idx = len(transcript_messages) - 1
+            if 0 <= idx < len(materialized_lineage):
+                frontier = materialized_lineage[idx]
+            else:
+                frontier = materialized_lineage[-1]
+
         source_message_id = next(
             (
                 node["id"]
                 for node in reversed(materialized)
                 if isinstance(node, dict) and isinstance(node.get("id"), str)
             ),
-            materialized_head_id if isinstance(materialized_head_id, str) else None,
+            (frontier["id"] if isinstance(frontier, dict) and isinstance(frontier.get("id"), str) else None)
+            or (materialized_head_id if isinstance(materialized_head_id, str) else None),
         )
         synthetic_stdout_prefix = deps.stitch_frontier_records(
             events_path=events_path,
@@ -57,6 +73,7 @@ def persist_step_outputs_runtime(
             result_nodes=result_nodes,
             head_id=materialized_head_id,
             lineage=materialized_lineage,
+            frontier=frontier,
         )
         deps.apply_result_side_effects(
             events_path=events_path,

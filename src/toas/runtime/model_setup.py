@@ -20,10 +20,14 @@ def discovered_model_selection(config: OperatorConfig, endpoint_id: str, model: 
     endpoint = next((item for item in config.llm.endpoints if item.id == endpoint_id), None)
     if endpoint is None:
         raise ValueError(f"unknown endpoint: {endpoint_id}")
+    if not endpoint.models:
+        raise ValueError(f"no known models for endpoint {endpoint_id}\nhint: use /models refresh {endpoint_id} first")
     matches = [item for item in dict.fromkeys(endpoint.models) if item == model or item.rsplit("/", 1)[-1] == model]
     if model in matches:
         matches = [model]
-    if len(matches) != 1:
+    if not matches:
+        raise ValueError(f"unknown model in {endpoint_id}: {model}\nuse /models known {endpoint_id} for selection commands")
+    if len(matches) > 1:
         raise ValueError(f"model is not uniquely identified in {endpoint_id}: {model}\nuse /models known {endpoint_id} for selection commands")
     model_id = matches[0]
     existing = next((item for item in config.llm.targets if item.endpoint == endpoint_id and item.model == model_id), None)

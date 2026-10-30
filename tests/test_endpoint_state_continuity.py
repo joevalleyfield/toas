@@ -79,3 +79,55 @@ def test_endpoint_survives_config_reconstitution_and_stays_branch_local(tmp_path
 
     transcript = branch_point
     assert "no configured endpoints" in submit("/config endpoint list")
+
+
+def test_endpoint_model_refresh_survives_frontier_restep(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    session = tmp_path / "session.md"
+    transcript = ""
+
+    def submit(command):
+        nonlocal transcript
+        transcript += f"\n## TOAS:USER\n\n{command}\n"
+        session.write_text(transcript, encoding="utf-8")
+        output = StringIO()
+        with redirect_stdout(output):
+            run_step(session_path=str(session))
+        rendered = output.getvalue()
+        transcript += rendered
+        return rendered
+
+    submit("/config endpoint add remote http://localhost:9000/v1")
+
+    # 1. Initial attempt fails
+    monkeypatch.setattr("toas.llm_harness.fetch_models", lambda _settings: {"error": "401 Unauthorized"})
+    failed_output = submit("/models refresh remote")
+    assert "model catalog refresh failed for remote" in failed_output
+
+    # 2. Restep: trim the failed ## RESULT block from transcript and re-execute
+    idx = transcript.rfind("## TOAS:USER\n\n## RESULT")
+    assert idx != -1
+    transcript = transcript[:idx].rstrip() + "\n"
+    session.write_text(transcript, encoding="utf-8")
+
+    monkeypatch.setattr("toas.llm_harness.fetch_models", lambda _settings: {"data": [{"id": "restep-model"}]})
+    output = StringIO()
+    with redirect_stdout(output):
+        run_step(session_path=str(session))
+    rendered = output.getvalue()
+    transcript += rendered
+    assert "model catalog refreshed for remote: added restep-model" in rendered
+
+    # 3. Next turn: /models known remote must reflect restep catalog
+    known = submit("/models known remote")
+    assert "restep-model" in known
+    assert "last refresh: (never)" not in known
+
+    # 4. Unknown model gives informative error instead of "not uniquely identified"
+    missing = submit("/model select remote nonexistent")
+    assert "unknown model in remote: nonexistent" in missing
+
+    # 5. Model select succeeds
+    selected = submit("/model select remote restep-model")
+    assert "selected model: restep-model" in selected
+

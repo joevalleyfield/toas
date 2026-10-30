@@ -190,3 +190,62 @@ def test_runtime_persistence_releases_active_guard_after_small_successful_succes
         "seed-only continuation",
         "small successor response",
     ]
+
+
+def test_persist_step_outputs_resolves_existing_frontier_on_restep(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    session_path = tmp_path / ".toas" / "session.md"
+    stitched_args = []
+    effects_args = []
+
+    deps = SimpleNamespace(
+        split_append_nodes=lambda nodes: ([], [], [n for n in nodes if n.get("role") == "result"]),
+        redact_secret_lines=lambda text: text,
+        apply_newline_style=lambda text, _newline: text,
+        persist_messages_and_llm_calls=lambda _path, _nodes: [],
+        stitch_frontier_records=lambda **kwargs: stitched_args.append(kwargs) or [],
+        apply_result_side_effects=lambda **kwargs: effects_args.append(kwargs),
+    )
+
+    transcript = "## TOAS:USER\n\n/models refresh local\n"
+    lineage = [{"id": "msg_existing", "role": "user", "content": "/models refresh local"}]
+
+    persist_step_outputs_runtime(
+        deps=deps,
+        events_path=events_path,
+        session_path=session_path,
+        session_newline="\n",
+        normalized_transcript=transcript,
+        materialized_head_id=None,
+        materialized_lineage=lineage,
+        operator_config=None,
+        append_set=[{"role": "result", "content": "catalog refreshed"}],
+        stdout_set=[],
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+
+    assert len(stitched_args) == 1
+    assert stitched_args[0]["frontier"] == lineage[0]
+    assert len(effects_args) == 1
+    assert effects_args[0]["source_message_id"] == "msg_existing"
+
+    # Fallback to last lineage entry when transcript messages exceed lineage
+    long_transcript = "## TOAS:USER\n\nfirst\n\n## TOAS:USER\n\nsecond\n"
+    stitched_args.clear()
+    effects_args.clear()
+    persist_step_outputs_runtime(
+        deps=deps,
+        events_path=events_path,
+        session_path=session_path,
+        session_newline="\n",
+        normalized_transcript=long_transcript,
+        materialized_head_id=None,
+        materialized_lineage=lineage,
+        operator_config=None,
+        append_set=[{"role": "result", "content": "catalog refreshed"}],
+        stdout_set=[],
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+    assert stitched_args[0]["frontier"] == lineage[-1]
+    assert effects_args[0]["source_message_id"] == "msg_existing"
+

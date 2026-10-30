@@ -40,9 +40,14 @@ def test_selection_requires_unambiguous_catalog_identity():
     endpoint = EndpointCatalogEntry(id="local", base_url="http://local/v1", models=("a/model", "b/model", "a/model"))
     config = OperatorConfig(llm=LLMPolicy(endpoints=(endpoint,)))
     assert selection_commands(endpoint) == ["/model select local a/model", "/model select local b/model"]
-    for model in ("model", "missing"):
-        with pytest.raises(ValueError, match="not uniquely identified"):
-            discovered_model_selection(config, "local", model)
+    with pytest.raises(ValueError, match="not uniquely identified"):
+        discovered_model_selection(config, "local", "model")
+    with pytest.raises(ValueError, match="unknown model in local: missing"):
+        discovered_model_selection(config, "local", "missing")
+    empty_endpoint = EndpointCatalogEntry(id="local", base_url="http://local/v1", models=())
+    empty_config = OperatorConfig(llm=LLMPolicy(endpoints=(empty_endpoint,)))
+    with pytest.raises(ValueError, match="no known models for endpoint local"):
+        discovered_model_selection(empty_config, "local", "any-model")
     assert discovered_model_selection(config, "local", "a/model")["config_update"]["llm"]["targets"]
     first = apply_overrides(config, discovered_model_selection(config, "local", "a/model")["config_update"])
     second = discovered_model_selection(first, "local", "b/model")

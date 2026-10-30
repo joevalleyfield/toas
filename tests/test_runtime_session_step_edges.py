@@ -105,6 +105,46 @@ def test_stitch_frontier_records_writes_command_and_replay_tool_records(monkeypa
     assert calls["tool_result"] == 1
 
 
+def test_stitch_frontier_records_uses_explicit_frontier_when_materialized_is_empty(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    operator_config = OperatorConfig()
+    calls = {"command_request": 0, "command_result": 0}
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_command_request_record",
+        lambda *_args, **_kwargs: calls.__setitem__("command_request", calls["command_request"] + 1) or {"payload": {"id": "cmd1"}},
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_command_result_record",
+        lambda *_args, **_kwargs: calls.__setitem__("command_result", calls["command_result"] + 1),
+    )
+    frontier = {"id": "m_existing", "role": "user", "content": "/models refresh local"}
+    prefix = stitch_frontier_records(
+        events_path=events_path,
+        materialized=[],
+        operator_config=operator_config,
+        result_nodes=[{"role": "result", "content": "catalog refreshed"}],
+        head_id=None,
+        lineage=[frontier],
+        frontier=frontier,
+        extract_operator_command_tail=lambda _content: ("models", ["refresh", "local"]),
+    )
+    assert prefix == []
+    assert calls["command_request"] == 1
+    assert calls["command_result"] == 1
+    assert (
+        stitch_frontier_records(
+            events_path=events_path,
+            materialized=[],
+            operator_config=operator_config,
+            result_nodes=[],
+            head_id=None,
+            lineage=[],
+            extract_operator_command_tail=lambda _content: None,
+        )
+        == []
+    )
+
+
 def test_stitch_frontier_records_persists_multiple_yaml_plans_as_one_compound_request(monkeypatch, tmp_path):
     events_path = tmp_path / "events.jsonl"
     requests: list[dict] = []

@@ -144,12 +144,14 @@ def stitch_frontier_records(
     result_nodes: list[dict],
     head_id: str | None,
     lineage: list[dict],
+    frontier: dict | None = None,
     extract_operator_command_tail,
 ) -> list[dict]:
     synthetic_stdout_prefix: list[dict] = []
-    if not materialized:
-        return synthetic_stdout_prefix
-    frontier = materialized[-1]
+    if frontier is None:
+        if not materialized:
+            return synthetic_stdout_prefix
+        frontier = materialized[-1]
     provenance = frontier.get("provenance")
     if result_nodes and isinstance(provenance, dict) and provenance.get("source") == "adopted":
         for candidate in reversed(materialized[:-1]):
