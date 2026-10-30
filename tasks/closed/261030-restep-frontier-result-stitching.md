@@ -79,7 +79,7 @@ ambiguous matches in model selection.
 - `stitch_frontier_records` in `src/toas/runtime/session_step_edges.py` now accepts `frontier` and persists command and tool records for the existing frontier message when `materialized` is empty.
 - Side effects (`config_override` from `/models refresh`) are now correctly linked with `related_to` set to the frontier message ID, allowing `_branch_config_from_direct_declarations` to reconstitute the catalog on subsequent steps.
 - `discovered_model_selection` in `src/toas/runtime/model_setup.py` now distinguishes between an empty catalog (`no known models for endpoint ...`), a missing model (`unknown model in ...`), and ambiguous matches (`model is not uniquely identified in ...`).
-- Added targeted tests in `tests/test_model_setup.py`, `tests/test_runtime_step_result_runtime.py`, `tests/test_runtime_session_step_edges.py`, and `tests/test_endpoint_state_continuity.py`. Full test suite and `./scripts/check.sh` pass at 100.00% statement coverage.
+- Added targeted tests in `tests/test_model_setup.py`, `tests/test_runtime_step_result_runtime.py`, `tests/test_runtime_session_step_edges.py`, and `tests/test_endpoint_state_continuity.py`, including explicit test cases verifying exact model names (`model-1`) are never ambiguous with suffixed variants (`model-1-big-thoughts`). Full test suite and `./scripts/check.sh` pass at 100.00% statement coverage.
 
 ## Status
 

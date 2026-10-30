@@ -36,6 +36,16 @@ def test_discovered_selection_preserves_api_path_and_reuses_created_target():
     assert distinct["target_selection_update"]["target_id"] != target.id
 
 
+def test_selection_exact_model_name_not_ambiguous_with_prefixed_or_suffixed_variants():
+    models = ("model-1-big-thoughts", "model-1", "model-1-small-thoughts")
+    endpoint = EndpointCatalogEntry(id="local", base_url="http://local/v1", models=models)
+    config = OperatorConfig(llm=LLMPolicy(endpoints=(endpoint,)))
+    res = discovered_model_selection(config, "local", "model-1")
+    assert res["content"].startswith("selected model: model-1\n")
+    with pytest.raises(ValueError, match="unknown model in local: model-"):
+        discovered_model_selection(config, "local", "model-")
+
+
 def test_selection_requires_unambiguous_catalog_identity():
     endpoint = EndpointCatalogEntry(id="local", base_url="http://local/v1", models=("a/model", "b/model", "a/model"))
     config = OperatorConfig(llm=LLMPolicy(endpoints=(endpoint,)))
