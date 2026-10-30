@@ -921,3 +921,26 @@ def test_continue_session_end_to_end_allows_stepped_assistant_command(tmp_path, 
     assert "disallows command: pytest" not in after_text
 
 
+def test_continue_session_rolls_forward_model_selection(tmp_path, monkeypatch):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True)
+    session_path = tmp_path / ".toas" / "session.md"
+    handoff = _handoff(commands="$ jj status")
+
+    session_path.write_text(
+        "## TOAS:USER\n\nstart\n\n"
+        "## TOAS:CONTROL\n\n/model select qwen-local\n\n"
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+
+    out = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="model-roll")
+    successor_file = tmp_path / out["successor_path"]
+    content = successor_file.read_text(encoding="utf-8")
+    assert "/model select qwen-local" in content
+
+

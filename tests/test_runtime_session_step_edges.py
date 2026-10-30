@@ -8,7 +8,7 @@ from toas.runtime.session_step_edges import (
     _apply_compaction_updates,
     _apply_concept_graph_updates,
     _apply_config_load_resolutions,
-    _apply_target_selection_updates,
+    _apply_policy_updates,
     _apply_visible_prompt_updates,
     _selected_plan_payload,
     apply_result_side_effects,
@@ -289,7 +289,7 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     events_path = tmp_path / "events.jsonl"
     session_path = tmp_path / "session.md"
     runtime_secrets: dict[str, str] = {}
-    writes = {"queue": 0, "lens": 0, "intent": 0, "coordination": 0, "context": 0, "workspace": 0, "config": 0, "load": 0, "target": 0}
+    writes = {"queue": 0, "lens": 0, "intent": 0, "coordination": 0, "context": 0, "workspace": 0, "config": 0, "load": 0, "policy": 0}
 
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_execution_queue_record",
@@ -325,8 +325,8 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
         lambda *_args, **_kwargs: writes.__setitem__("load", writes["load"] + 1),
     )
     monkeypatch.setattr(
-        "toas.runtime.session_step_edges.write_target_selection_record",
-        lambda *_args, **_kwargs: writes.__setitem__("target", writes["target"] + 1),
+        "toas.runtime.session_step_edges.write_policy_override_record",
+        lambda *_args, **_kwargs: writes.__setitem__("policy", writes["policy"] + 1),
     )
 
     result_nodes = [
@@ -373,22 +373,31 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     )
 
     assert runtime_secrets["llm_api_key"] == "k1"
-    assert writes == {"queue": 1, "lens": 1, "intent": 1, "coordination": 1, "context": 1, "workspace": 1, "config": 1, "load": 0, "target": 1}
+    assert writes == {"queue": 1, "lens": 1, "intent": 1, "coordination": 1, "context": 1, "workspace": 1, "config": 1, "load": 0, "policy": 1}
     assert session_path.read_text(encoding="utf-8") == "## TOAS:USER\n\nhi\n"
 
 
-def test_target_selection_update_links_its_source_message(tmp_path):
+def test_policy_update_links_its_source_message(tmp_path):
     events_path = tmp_path / "events.jsonl"
 
-    _apply_target_selection_updates(
+    _apply_policy_updates(
         events_path=events_path,
-        result_nodes=[{"role": "result", "content": "selected", "target_selection_update": {"action": "set", "target_id": "local"}}],
+        result_nodes=[
+            {"role": "result", "content": "selected", "policy_update": {"key": "llm.target", "scope": "session", "action": "set", "value": "local"}},
+            {"role": "result", "content": "batch", "policy_updates": [{"key": "shell.allowed", "scope": "session", "action": "reset"}]},
+            {"role": "result", "content": "legacy_unset", "target_selection_update": {"action": "unset"}},
+            {"role": "result", "content": "invalid_shape", "policy_update": {"key": 123, "scope": "session", "action": "set"}},
+            {"role": "result", "content": "invalid_scope", "policy_update": {"key": "foo", "scope": "bad", "action": "set"}},
+        ],
         source_message_id="n1",
     )
 
-    event = read_log(str(events_path))[-1]
-    assert event["payload"] == {"action": "set", "target_id": "local"}
-    assert event["related_to"] == "n1"
+    events = read_log(str(events_path))
+    assert len(events) == 3
+    assert events[0]["payload"] == {"key": "llm.target", "scope": "session", "action": "set", "value": "local"}
+    assert events[1]["payload"] == {"key": "shell.allowed", "scope": "session", "action": "reset"}
+    assert events[2]["payload"] == {"key": "llm.target", "scope": "session", "action": "unset"}
+    assert all(e["related_to"] == "n1" for e in events)
 
 
 def test_config_load_resolution_links_its_source_message(tmp_path):
@@ -762,7 +771,7 @@ def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monk
     events_path = tmp_path / "events.jsonl"
     session_path = tmp_path / "session.md"
     runtime_secrets = {"llm_api_key": "k1"}
-    writes = {"queue": 0, "context": 0, "workspace": 0, "shell_scope": 0, "config_save": 0, "session": 0}
+    writes = {"queue": 0, "context": 0, "workspace": 0, "policy": 0, "config_save": 0, "session": 0}
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_execution_queue_record",
         lambda *_a, **_k: writes.__setitem__("queue", writes["queue"] + 1),
@@ -776,8 +785,8 @@ def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monk
         lambda *_a, **_k: writes.__setitem__("workspace", writes["workspace"] + 1),
     )
     monkeypatch.setattr(
-        "toas.runtime.session_step_edges.write_shell_scope_grant_record",
-        lambda *_a, **_k: writes.__setitem__("shell_scope", writes["shell_scope"] + 1),
+        "toas.runtime.session_step_edges.write_policy_override_record",
+        lambda *_a, **_k: writes.__setitem__("policy", writes["policy"] + 1),
     )
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_text_with_newline_style",
@@ -818,7 +827,7 @@ def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monk
     assert writes["queue"] == 0
     assert writes["context"] == 0
     assert writes["workspace"] == 0
-    assert writes["shell_scope"] == 4
+    assert writes["policy"] == 3
     assert writes["session"] == 0
 
 

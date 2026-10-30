@@ -14,7 +14,9 @@ from ..config import (
 )
 from ..graph import (
     active_config_overrides,
+    active_policy_state,
     active_surface_id,
+    active_target_selection,
     message_lineage,
     read_log,
     surface_bindings,
@@ -382,6 +384,15 @@ def _predecessor_grant_commands(
     events: list[dict],
 ) -> list[str]:
     from ..tools import SHELL_ALLOWED
+    from .model_invocation_contracts import _direct_target_selection
+
+    commands: list[str] = []
+
+    target = active_target_selection(events)
+    if not target:
+        target = _direct_target_selection(predecessor_nodes, config=config)
+    if target:
+        commands.append(f"/model select {target}")
 
     transcript_grant_events = parse_transcript_shell_grant_events(predecessor_nodes)
     combined_events = [*events, *transcript_grant_events]
@@ -394,7 +405,6 @@ def _predecessor_grant_commands(
     effective_set = set(resolved.effective)
     added = sorted(effective_set - configured_set)
     removed = sorted(configured_set - effective_set)
-    commands: list[str] = []
     if added:
         commands.append(f"/shell add {' '.join(added)}")
     if removed:
@@ -425,16 +435,9 @@ def _render_successor_replay(*, seed: str, inputs: dict, newline: str) -> str:
     grant_commands = inputs.get("grant_commands", [])
     if grant_commands:
         existing_grant_events = parse_transcript_shell_grant_events(replay_nodes)
-        existing_added = {
-            ev["payload"]["grant"]
-            for ev in existing_grant_events
-            if ev.get("kind") == "shell_scope_grant" and ev.get("payload", {}).get("action") == "add"
-        }
-        existing_removed = {
-            ev["payload"]["grant"]
-            for ev in existing_grant_events
-            if ev.get("kind") == "shell_scope_grant" and ev.get("payload", {}).get("action") == "remove"
-        }
+        existing_state = active_policy_state(existing_grant_events)
+        existing_added = existing_state["shell_grants"]["session"]["added"]
+        existing_removed = existing_state["shell_grants"]["session"]["removed"]
         existing_lines = {
             line.strip()
             for node in replay_nodes

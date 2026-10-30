@@ -224,7 +224,7 @@ class PolicyResolver:
         events: list[dict],
         shell_default_allowed: tuple[str, ...] = (),
     ) -> ResolvedShellGrants:
-        from ..graph import active_shell_scope_grants
+        from ..graph import POLICY_SCOPES, active_shell_scope_grants
 
         configured = normalize_shell_grants(
             config.shell.allowed_commands if config.shell.allowed_commands else shell_default_allowed
@@ -232,8 +232,7 @@ class PolicyResolver:
         allowed = set(configured)
         sources: dict[str, set[str]] = {grant: {"defaults"} for grant in configured}
         scope_state = active_shell_scope_grants(events)
-        order = ("global", "user", "workspace", "session", "transient")
-        for scope in order:
+        for scope in POLICY_SCOPES:
             state = scope_state.get(scope, {"added": set(), "removed": set()})
             for grant in state["removed"]:
                 allowed.discard(grant)
@@ -288,6 +287,9 @@ class PolicyResolver:
 
 
 def parse_transcript_shell_grant_events(nodes: list[dict]) -> list[dict]:
+    from ..graph import POLICY_SCOPES
+
+    allowed_scopes = set(POLICY_SCOPES)
     events: list[dict] = []
     for node in nodes:
         content = node.get("content")
@@ -311,28 +313,36 @@ def parse_transcript_shell_grant_events(nodes: list[dict]) -> list[dict]:
                     scope_idx = tokens.index("--scope")
                     if scope_idx + 2 == len(tokens):
                         candidate_scope = tokens[scope_idx + 1]
-                        if candidate_scope not in {"global", "user", "workspace", "session", "transient"}:
+                        if candidate_scope not in allowed_scopes:
                             continue
                         scope = candidate_scope
                         tokens = tokens[:scope_idx]
                     else:
                         continue
-                if scope in {"global", "user", "workspace", "session", "transient"}:
+                if scope in allowed_scopes:
                     action_kind = "add" if action in {"add", "allow"} else ("remove" if action in {"remove", "deny"} else "unset")
                     for grant_token in tokens:
                         if grant_token and not grant_token.startswith("--"):
                             events.append({
-                                "kind": "shell_scope_grant",
+                                "kind": "policy_override",
                                 "payload": {
+                                    "key": "shell.allowed",
                                     "scope": scope,
                                     "action": action_kind,
-                                    "grant": grant_token,
+                                    "value": grant_token,
                                 },
                             })
             elif action == "reset":
                 scope = "session"
                 if len(args) == 3 and args[1] == "--scope":
                     scope = args[2]
-                if scope in {"global", "user", "workspace", "session", "transient"}:
-                    events.append({"kind": "shell_scope_grant", "payload": {"scope": scope, "action": "reset"}})
+                if scope in allowed_scopes:
+                    events.append({
+                        "kind": "policy_override",
+                        "payload": {
+                            "key": "shell.allowed",
+                            "scope": scope,
+                            "action": "reset",
+                        },
+                    })
     return events

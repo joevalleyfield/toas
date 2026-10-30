@@ -3,7 +3,7 @@ FKA:
 AKA: unified policy lifecycle; scoped policy consolidation; control state lifecycle unification
 Legacy index:
 
-keywords: runtime, policy, config, grants, model, scope, lifecycle, unification, transcript, session-rotation
+keywords: runtime, policy, config, grants, model, scope, lifecycle, unification, transcript, session-rotation, historical
 
 Parent: 260920-branch-projected-policy-program
 Depends on: 260920-branch-projected-policy-program
@@ -108,3 +108,14 @@ intentionally preserved each domain's bespoke event types and reducers:
 3. **Coordination with `260920-effective-policy-provenance-inspection`**:
    Unifying the policy engine will simplify effective-policy inspection by providing a single query interface
    that explains which scope tier and source event won for any given key.
+
+## Implementation & Closure Summary
+
+Landed unified 5-tier scoped policy engine:
+1. **Scope Pruning**: Completely pruned `head` scope, leaving symmetrical hierarchy (`transient > session > workspace > user > global > defaults`).
+2. **Unified Record Kind**: Collapsed `shell_scope_grant`, `target_selection`, and `config_override` into `policy_override`.
+3. **Unified Reducer**: `active_policy_state(events)` in `graph_control_state_edges.py` processes `policy_override` and normalizes legacy records; accessor functions `active_shell_scope_grants`, `active_target_selection`, and `active_config_overrides` collapsed to 1-3 line projections.
+4. **Command & Side-Effect Consolidation**: `/model select`, `/shell add/remove/unset/reset`, and `/config set/unset/restore` emit `policy_update`. `session_step_edges.py` collapsed `_apply_target_selection_updates` and `_apply_shell_scope_updates` into `_apply_policy_updates`.
+5. **Deleted Obsolete Writers**: Removed `write_target_selection_record` and `write_shell_scope_grant_record` from `graph_record_writers.py` and `graph.py`.
+6. **Zero-Glue Session Rotation**: `session_rotation.py` rolls forward active model targets and shell grants into the successor transcript's `## TOAS:CONTROL` block.
+7. **Verification**: 100.00% statement coverage (23,347 statements), 3,645 unit tests, 17 acceptance tests, ruff, and mypy clean; net code reduction.

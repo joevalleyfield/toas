@@ -741,7 +741,7 @@ def test_prompt_workspace_model_select_records_session_target():
 
     config = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="local", model="qwen"),)))
     out = handle_prompt_workspace_commands("model", ["select", "local"], step_mod=step_mod, context=_ctx(config=config))
-    assert out[0]["target_selection_update"] == {"action": "set", "target_id": "local"}
+    assert out[0]["policy_update"] == {"key": "llm.target", "scope": "session", "action": "set", "value": "local"}
     assert "selected model target: local" in out[0]["content"]
 
     with pytest.raises(ValueError, match="unknown model target"):
@@ -1355,22 +1355,22 @@ def test_shell_runtime_mutation_multi_grant():
         "shell", ["allow", "jj", "pytest", "uv"], step_mod=step_mod, context=_ctx()
     )
     assert "shell grants updated: add jj pytest uv (scope=session)" in out[0]["content"]
-    assert out[0]["shell_scope_update"] == {
+    assert out[0]["policy_update"] == {
+        "key": "shell.allowed",
         "scope": "session",
         "action": "add",
-        "grant": "jj",
-        "grants": ("jj", "pytest", "uv"),
+        "value": ("jj", "pytest", "uv"),
     }
 
     out_scoped = handle_prompt_workspace_commands(
         "shell", ["deny", "sed", "awk", "--scope", "workspace"], step_mod=step_mod, context=_ctx()
     )
     assert "shell grants updated: remove sed awk (scope=workspace)" in out_scoped[0]["content"]
-    assert out_scoped[0]["shell_scope_update"] == {
+    assert out_scoped[0]["policy_update"] == {
+        "key": "shell.allowed",
         "scope": "workspace",
         "action": "remove",
-        "grant": "sed",
-        "grants": ("sed", "awk"),
+        "value": ("sed", "awk"),
     }
 
 
@@ -1391,7 +1391,7 @@ def test_shell_reset_accepts_explicit_scope():
 
     out = handle_prompt_workspace_commands("shell", ["reset", "--scope", "workspace"], step_mod=step_mod, context=_ctx())
     assert "shell grants reset (scope=workspace)" in out[0]["content"]
-    assert out[0]["shell_scope_update"] == {"scope": "workspace", "action": "reset"}
+    assert out[0]["policy_update"] == {"key": "shell.allowed", "scope": "workspace", "action": "reset"}
 
 
 def test_prompt_workspace_pwd_and_cd_usage_and_previous_dir_errors(tmp_path):
@@ -2302,13 +2302,13 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
     cfg = OperatorConfig()
 
     out = handle_config_help_commands("config", ["set", "llm.model", "q"], step_mod=step_mod, context=_ctx(config=cfg))
-    assert out[0]["config_update"] == {"llm": {"model": "m"}}
+    assert out[0]["policy_update"] == {"key": "llm.model", "scope": "session", "action": "set", "value": "m"}
     out = handle_config_help_commands("config", ["values", "generation.thinking_mode"], step_mod=step_mod, context=_ctx(config=cfg))
     assert "allowed values" in out[0]["content"]
     out = handle_config_help_commands("config", ["unset", "llm.model"], step_mod=step_mod, context=_ctx(config=cfg))
-    assert out[0]["config_update"]["__op__"] == "unset"
+    assert out[0]["policy_update"] == {"key": "llm.model", "scope": "session", "action": "unset"}
     out = handle_config_help_commands("config", ["restore"], step_mod=step_mod, context=_ctx(config=cfg))
-    assert out[0]["config_update"]["__op__"] == "restore"
+    assert out[0]["policy_update"] == {"key": "*", "scope": "session", "action": "restore"}
 
     cfg_path = tmp_path / "toas.toml"
     cfg_path.write_text("x=1", encoding="utf-8")
@@ -2511,7 +2511,7 @@ def test_config_endpoint_bootstrap_refreshes_promotes_and_selects(monkeypatch):
         "local-qwen3.6": {"endpoint": "local", "model": "qwen3.6"},
             "local-3": {"endpoint": "local", "model": "llama/3"},
     }
-    assert "target_selection_update" not in promoted
+    assert "policy_update" not in promoted
 
     selected = handle_config_help_commands(
         "config",
@@ -2522,7 +2522,7 @@ def test_config_endpoint_bootstrap_refreshes_promotes_and_selects(monkeypatch):
     assert selected["config_update"]["llm"]["targets"] == {
         "remote-qwen3.6": {"endpoint": "remote", "model": "qwen3.6"}
     }
-    assert selected["target_selection_update"] == {"action": "set", "target_id": "remote-qwen3.6"}
+    assert selected["policy_update"] == {"key": "llm.target", "scope": "session", "action": "set", "value": "remote-qwen3.6"}
 
 
 def test_config_endpoint_bootstrap_failure_is_atomic_and_requires_explicit_phases(monkeypatch):
@@ -2690,7 +2690,7 @@ def test_config_set_feedback_reports_unchanged_effective_value(monkeypatch):
     content = out[0]["content"]
     assert "no effective change for llm.model: already same" in content
     assert "session override recorded" in content
-    assert out[0]["config_update"] == {"llm": {"model": "same"}}
+    assert out[0]["policy_update"] == {"key": "llm.model", "scope": "session", "action": "set", "value": "same"}
 
 
 def test_config_values_non_categorical_branch(monkeypatch):

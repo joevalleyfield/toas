@@ -594,8 +594,6 @@ def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandCon
     before = step_mod.flatten_config(context.config)
     updated = step_mod.flatten_config(new_config)
     changed = [(key, before.get(key), updated.get(key)) for key in updated if before.get(key) != updated.get(key)]
-    section, key = dotted_key.split(".", 1)
-    nested = {section: {key: updated[dotted_key]}}
     if changed:
         lines = ["effective changes (session scope):"]
         lines.extend(f"  {changed_key}: {old} -> {new}" for changed_key, old, new in changed)
@@ -613,7 +611,14 @@ def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandCon
     )
     if dotted_key == "extraction.yaml_position":
         lines.extend(["", _YAML_POSITION_COMPAT_NOTE])
-    return [_result_node("\n".join(lines), step_mod=step_mod, context=context, config_update=nested)]
+    return [
+        _result_node(
+            "\n".join(lines),
+            step_mod=step_mod,
+            context=context,
+            policy_update={"key": dotted_key, "scope": "session", "action": "set", "value": updated[dotted_key]},
+        )
+    ]
 
 
 def _config_unset_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -630,7 +635,7 @@ def _config_unset_result(args: list[str], *, step_mod, context: OperatorCommandC
             "\n".join(lines),
             step_mod=step_mod,
             context=context,
-            config_update={"__op__": "unset", "key": dotted_key},
+            policy_update={"key": dotted_key, "scope": "session", "action": "unset"},
         )
     ]
 
@@ -643,7 +648,7 @@ def _config_restore_result(args: list[str], *, step_mod, context: OperatorComman
             "Cleared session config overrides; effective config now follows project file + env/defaults.",
             step_mod=step_mod,
             context=context,
-            config_update={"__op__": "restore"},
+            policy_update={"key": "*", "scope": "session", "action": "restore"},
         )
     ]
 
@@ -853,8 +858,9 @@ def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: Ope
     update: dict[str, object] = {"llm": llm_update}
     fields: dict[str, object] = {"config_update": update}
     if select and target_model is not None:
-        fields["target_selection_update"] = {"action": "set", "target_id": _target_id_for_model(endpoint_id, target_model)}
-        phase_lines.append(f"active selection: {_target_id_for_model(endpoint_id, target_model)}")
+        target_id = _target_id_for_model(endpoint_id, target_model)
+        fields["policy_update"] = {"key": "llm.target", "scope": "session", "action": "set", "value": target_id}
+        phase_lines.append(f"active selection: {target_id}")
     else:
         phase_lines.append("active selection: unchanged")
     return [_result_node("endpoint bootstrap complete\n" + "\n".join(phase_lines), step_mod=step_mod, context=context, **fields)]

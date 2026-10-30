@@ -10,14 +10,30 @@ from typing import Any
 import yaml
 
 from .graph_control_state_edges import (
-    POLICY_SCOPES,
+    POLICY_SCOPES,  # noqa: F401 - compatibility export from the graph facade
+)
+from .graph_control_state_edges import (
     active_command_context as _active_command_context_core,
+)
+from .graph_control_state_edges import (
     active_config_overrides as _active_config_overrides_core,
+)
+from .graph_control_state_edges import (
     active_policy_state as _active_policy_state_core,
+)
+from .graph_control_state_edges import (
     active_shell_scope_grants as _active_shell_scope_grants_core,
+)
+from .graph_control_state_edges import (
     active_surface_id as _active_surface_id_core,
+)
+from .graph_control_state_edges import (
     active_target_selection as _active_target_selection_core,
+)
+from .graph_control_state_edges import (
     active_workspace_scope as _active_workspace_scope_core,
+)
+from .graph_control_state_edges import (
     surface_bindings as _surface_bindings_core,
 )
 from .graph_index_edges import (
@@ -101,9 +117,6 @@ from .graph_record_writers import (
     write_policy_override_record as _write_policy_override_record_core,
 )
 from .graph_record_writers import (
-    write_shell_scope_grant_record as _write_shell_scope_grant_record_core,
-)
-from .graph_record_writers import (
     write_surface_bind_record as _write_surface_bind_record_core,
 )
 from .graph_record_writers import (
@@ -114,9 +127,6 @@ from .graph_record_writers import (
 )
 from .graph_record_writers import (
     write_surface_select_record as _write_surface_select_record_core,
-)
-from .graph_record_writers import (
-    write_target_selection_record as _write_target_selection_record_core,
 )
 from .graph_record_writers import (
     write_workspace_scope_record as _write_workspace_scope_record_core,
@@ -723,17 +733,6 @@ def active_policy_state(events: list[dict]) -> dict[str, Any]:
     return _active_policy_state_core(events)
 
 
-def write_shell_scope_grant_record(path: str, *, scope: str, action: str, grant: str | None = None, source_message_id: str | None = None) -> dict:
-    return _write_shell_scope_grant_record_core(
-        path,
-        scope=scope,
-        action=action,
-        grant=grant,
-        source_message_id=source_message_id,
-        append_nodes_fn=append_nodes,
-    )
-
-
 def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str]]]:
     return _active_shell_scope_grants_core(events)
 
@@ -761,22 +760,6 @@ def write_surface_bind_record(path: str, *, surface_id: str, transcript_path: st
         surface_id=surface_id,
         transcript_path=transcript_path,
         reason=reason,
-        append_nodes_fn=append_nodes,
-    )
-
-
-def write_target_selection_record(
-    path: str,
-    *,
-    action: str,
-    target_id: str | None = None,
-    source_message_id: str | None = None,
-) -> dict:
-    return _write_target_selection_record_core(
-        path,
-        action=action,
-        target_id=target_id,
-        source_message_id=source_message_id,
         append_nodes_fn=append_nodes,
     )
 

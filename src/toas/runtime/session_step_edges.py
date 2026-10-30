@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..config import OperatorConfig
 from ..graph import (
+    POLICY_SCOPES,
     extract_plan,
     extract_user_shell_plan,
     write_command_context_record,
@@ -21,8 +22,7 @@ from ..graph import (
     write_lens_artifact_record,
     write_llm_call_record,
     write_message_events,
-    write_shell_scope_grant_record,
-    write_target_selection_record,
+    write_policy_override_record,
     write_tool_request_record,
     write_tool_result_record,
     write_workspace_scope_record,
@@ -274,12 +274,7 @@ def apply_result_side_effects(
         source_message_id=source_message_id,
     )
     _apply_config_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
-    _apply_target_selection_updates(
-        events_path=events_path,
-        result_nodes=result_nodes,
-        source_message_id=source_message_id,
-    )
-    _apply_shell_scope_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
+    _apply_policy_updates(events_path=events_path, result_nodes=result_nodes, source_message_id=source_message_id)
     _apply_visible_prompt_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_compaction_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_concept_graph_updates(events_path=events_path, result_nodes=result_nodes)
@@ -617,50 +612,60 @@ def _apply_config_load_resolutions(*, events_path: Path, result_nodes: list[dict
         )
 
 
-def _apply_target_selection_updates(
+def _apply_policy_updates(
     *,
     events_path: Path,
     result_nodes: list[dict],
     source_message_id: str | None = None,
 ) -> None:
     for node in result_nodes:
-        update = node.get("target_selection_update")
-        if not isinstance(update, dict):
-            continue
-        action = update.get("action")
-        target_id = update.get("target_id")
-        if action not in {"set", "unset"}:
-            continue
-        if action == "set" and (not isinstance(target_id, str) or not target_id.strip()):
-            continue
-        write_target_selection_record(
-            str(events_path),
-            action=action,
-            target_id=target_id.strip() if isinstance(target_id, str) else None,
-            source_message_id=source_message_id,
-        )
+        updates: list[dict] = []
+        if "policy_updates" in node and isinstance(node["policy_updates"], (list, tuple)):
+            updates.extend(item for item in node["policy_updates"] if isinstance(item, dict))
+        if "policy_update" in node and isinstance(node["policy_update"], dict):
+            updates.append(node["policy_update"])
 
+        legacy_target = node.get("target_selection_update")
+        if isinstance(legacy_target, dict):
+            action = legacy_target.get("action")
+            target_id = legacy_target.get("target_id")
+            if action in {"set", "unset"}:
+                if action == "unset":
+                    updates.append({"key": "llm.target", "scope": "session", "action": "unset"})
+                elif isinstance(target_id, str) and target_id.strip():
+                    updates.append({"key": "llm.target", "scope": "session", "action": "set", "value": target_id.strip()})
 
-def _apply_shell_scope_updates(*, events_path: Path, result_nodes: list[dict], source_message_id: str | None = None) -> None:
-    for node in result_nodes:
-        update = node.get("shell_scope_update")
-        if not isinstance(update, dict):
-            continue
-        scope = update.get("scope")
-        action = update.get("action")
-        grant = update.get("grant")
-        grants = update.get("grants")
-        if not isinstance(scope, str) or not isinstance(action, str):
-            continue
-        if action in {"add", "remove", "unset"}:
-            if isinstance(grants, (list, tuple)) and grants:
-                for g in grants:
-                    if isinstance(g, str) and g:
-                        write_shell_scope_grant_record(str(events_path), scope=scope, action=action, grant=g, source_message_id=source_message_id)
-            elif isinstance(grant, str) and grant:
-                write_shell_scope_grant_record(str(events_path), scope=scope, action=action, grant=grant, source_message_id=source_message_id)
-        elif action == "reset":
-            write_shell_scope_grant_record(str(events_path), scope=scope, action=action, source_message_id=source_message_id)
+        legacy_shell = node.get("shell_scope_update")
+        if isinstance(legacy_shell, dict):
+            scope = legacy_shell.get("scope", "session")
+            action = legacy_shell.get("action")
+            grant = legacy_shell.get("grant")
+            grants = legacy_shell.get("grants")
+            if isinstance(scope, str) and isinstance(action, str):
+                if action == "reset":
+                    updates.append({"key": "shell.allowed", "scope": scope, "action": "reset"})
+                elif action in {"add", "remove", "unset"}:
+                    values = list(grants) if isinstance(grants, (list, tuple)) else ([grant] if isinstance(grant, str) and grant else [])
+                    if values:
+                        updates.append({"key": "shell.allowed", "scope": scope, "action": action, "value": values})
+
+        for update in updates:
+            key = update.get("key")
+            scope = update.get("scope")
+            action = update.get("action")
+            value = update.get("value")
+            if not isinstance(key, str) or not isinstance(scope, str) or not isinstance(action, str):
+                continue
+            if scope not in POLICY_SCOPES:
+                continue
+            write_policy_override_record(
+                str(events_path),
+                key=key,
+                scope=scope,
+                action=action,
+                value=value,
+                source_message_id=source_message_id,
+            )
 
 
 def _apply_config_saves(*, result_nodes: list[dict], operator_config: OperatorConfig, serialize_operator_config_toml) -> None:

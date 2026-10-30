@@ -4,12 +4,10 @@ from toas.graph_record_writers import (
     write_command_context_record,
     write_config_override_record,
     write_policy_override_record,
-    write_shell_scope_grant_record,
     write_surface_bind_record,
     write_surface_guardrail_record,
     write_surface_rebind_record,
     write_surface_select_record,
-    write_target_selection_record,
     write_workspace_scope_record,
 )
 
@@ -44,18 +42,6 @@ def test_write_policy_override_record_without_optional_fields():
         "payload": {"key": "llm.target", "scope": "workspace", "action": "unset"},
     }
     assert "related_to" not in record
-
-
-def test_write_target_selection_record():
-    record = write_target_selection_record(
-        "events.jsonl", action="set", target_id="local", append_nodes_fn=_capturing_append
-    )
-    assert record == {"kind": "target_selection", "payload": {"action": "set", "target_id": "local"}}
-
-
-def test_write_target_selection_record_unset_omits_target_id():
-    record = write_target_selection_record("events.jsonl", action="unset", target_id=None, append_nodes_fn=_capturing_append)
-    assert record == {"kind": "target_selection", "payload": {"action": "unset"}}
 
 
 def _capturing_append(path, records):
@@ -150,6 +136,4 @@ def test_write_records_with_source_message_id():
     cfg = write_config_override_record("events.jsonl", {"a": 1}, source_message_id="msg-1", append_nodes_fn=_capturing_append)
     assert cfg["related_to"] == "msg-1"
 
-    sh = write_shell_scope_grant_record("events.jsonl", scope="session", action="add", grant="sh", source_message_id="msg-1", append_nodes_fn=_capturing_append)
-    assert sh["related_to"] == "msg-1"
 

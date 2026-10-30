@@ -30,10 +30,10 @@ def test_discovered_selection_preserves_api_path_and_reuses_created_target():
     assert updated.llm.endpoints[0].default_model == ""
     repeated = discovered_model_selection(updated, "local", model)
     assert "config_update" not in repeated
-    assert repeated["target_selection_update"] == result["target_selection_update"]
+    assert repeated["policy_update"] == result["policy_update"]
     conflict = replace(config, llm=replace(config.llm, targets=(TargetCatalogEntry(id=target.id, endpoint="other", model="other"),)))
     distinct = discovered_model_selection(conflict, "local", model)
-    assert distinct["target_selection_update"]["target_id"] != target.id
+    assert distinct["policy_update"]["value"] != target.id
 
 
 def test_selection_exact_model_name_not_ambiguous_with_prefixed_or_suffixed_variants():

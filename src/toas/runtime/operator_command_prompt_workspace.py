@@ -248,7 +248,7 @@ def _handle_model_select(args: list[str], *, step_mod, context: OperatorCommandC
             f"selected model target: {target.id}",
             step_mod=step_mod,
             context=context,
-            target_selection_update={"action": "set", "target_id": target.id},
+            policy_update={"key": "llm.target", "scope": "session", "action": "set", "value": target.id},
         )
     ]
 
@@ -626,11 +626,11 @@ def _shell_runtime_mutation_result(args: list[str], *, step_mod, context: Operat
             label,
             step_mod=step_mod,
             context=context,
-            shell_scope_update={
+            policy_update={
+                "key": "shell.allowed",
                 "scope": scope,
                 "action": normalized_action,
-                "grant": grants[0],
-                "grants": tuple(grants),
+                "value": tuple(grants),
             },
         )
     ]
@@ -648,7 +648,7 @@ def _shell_runtime_reset_result(args: list[str], *, step_mod, context: OperatorC
             f"shell grants reset (scope={scope})\neffective: {', '.join(effective)}",
             step_mod=step_mod,
             context=context,
-            shell_scope_update={"scope": scope, "action": "reset"},
+            policy_update={"key": "shell.allowed", "scope": scope, "action": "reset"},
         )
     ]
 

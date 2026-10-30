@@ -81,7 +81,7 @@ def test_direct_control_records_link_their_source_message(monkeypatch, tmp_path)
     events = _step(monkeypatch, tmp_path, "## TOAS:CONTROL\n/config set shell.assistant_timeout_s 900\n")
 
     source = _message_events(events)[-1]
-    override = next(event for event in events if event.get("kind") == "config_override")
+    override = next(event for event in events if event.get("kind") == "policy_override")
     assert override["related_to"] == source["id"]
 
 

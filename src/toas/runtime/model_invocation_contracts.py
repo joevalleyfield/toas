@@ -47,7 +47,8 @@ def _direct_target_selection(working: list[dict], *, config: OperatorConfig | No
                 from .model_setup import discovered_model_selection
 
                 try:
-                    selected = discovered_model_selection(config, args[2], args[3])["target_selection_update"]["target_id"]
+                    disc = discovered_model_selection(config, args[2], args[3])
+                    selected = disc.get("policy_update", {}).get("value") or disc.get("target_selection_update", {}).get("target_id")
                 except ValueError:
                     continue
     return selected

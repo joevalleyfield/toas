@@ -64,11 +64,10 @@ from toas.graph import (
     write_lens_artifact_record,
     write_llm_call_record,
     write_message_events,
+    write_policy_override_record,
     write_run_record,
-    write_shell_scope_grant_record,
     write_surface_bind_record,
     write_surface_select_record,
-    write_target_selection_record,
     write_toas_provenance_record,
     write_tool_request_record,
     write_tool_result_record,
@@ -993,13 +992,13 @@ def test_message_view_and_lineage_ignore_non_message_shaped_records():
     assert message_lineage(events) == [{"id": "n0", "role": "user", "content": "ok", "metadata": {}}]
 
 
-def test_write_shell_scope_grant_record_appends_non_message_record(tmp_path):
+def test_write_policy_override_record_appends_non_message_record(tmp_path):
     path = tmp_path / "events.jsonl"
 
-    write_shell_scope_grant_record(str(path), scope="session", action="add", grant="cmd.run")
+    write_policy_override_record(str(path), key="shell.allowed", scope="session", action="add", value="cmd.run")
 
     assert read_log(str(path)) == [
-        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "cmd.run"}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "cmd.run"}},
     ]
 
 
@@ -1846,9 +1845,9 @@ def test_write_surface_bind_record_appends_non_message_record(tmp_path):
     ]
 
 
-def test_write_target_selection_record_uses_graph_facade(tmp_path):
+def test_write_policy_override_record_uses_graph_facade(tmp_path):
     path = tmp_path / "events.jsonl"
-    record = write_target_selection_record(str(path), action="set", target_id="local", source_message_id="n1")
+    record = write_policy_override_record(str(path), key="llm.target", scope="session", action="set", value="local", source_message_id="n1")
     assert record["related_to"] == "n1"
     persisted = read_log(str(path))
     assert active_target_selection(persisted) == "local"

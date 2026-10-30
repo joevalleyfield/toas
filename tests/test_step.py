@@ -621,7 +621,7 @@ def test_operator_shell_list_shows_effective_and_baseline():
     assert "transcript modifiers:" in content
     assert "grant forms:" in content
     assert "scope precedence" in content
-    assert "transient > session > head > workspace > user > global > defaults" in content
+    assert "transient > session > workspace > user > global > defaults" in content
 
 
 def test_render_shell_policy_view_renders_sources_and_lanes():
@@ -3209,7 +3209,7 @@ def test_config_set_returns_config_update_payload():
     _, out = step(transcript, [])
 
     assert len(out) == 1
-    assert out[0].get("config_update") == {"extraction": {"yaml_position": "any"}}
+    assert out[0].get("policy_update") == {"key": "extraction.yaml_position", "scope": "session", "action": "set", "value": "any"}
     assert "compatibility-only" in out[0]["content"]
 
 
@@ -3235,7 +3235,7 @@ def test_config_set_bool_false():
     _, out = step(transcript, [])
 
     assert len(out) == 1
-    assert out[0]["config_update"] == {"extraction": {"user_shell": False}}
+    assert out[0]["policy_update"] == {"key": "extraction.user_shell", "scope": "session", "action": "set", "value": False}
 
 
 def test_config_set_generation_avoid_terms_parses_comma_list():
@@ -3247,7 +3247,7 @@ def test_config_set_generation_avoid_terms_parses_comma_list():
     _, out = step(transcript, [])
 
     assert len(out) == 1
-    assert out[0]["config_update"] == {"generation": {"avoid_terms": ("alpha", "beta")}}
+    assert out[0]["policy_update"] == {"key": "generation.avoid_terms", "scope": "session", "action": "set", "value": ("alpha", "beta")}
 
 
 def test_config_set_llm_model():
@@ -3256,7 +3256,7 @@ def test_config_set_llm_model():
 /config set llm.model local-model
 """
     _, out = step(transcript, [])
-    assert out[0]["config_update"] == {"llm": {"model": "local-model"}}
+    assert out[0]["policy_update"] == {"key": "llm.model", "scope": "session", "action": "set", "value": "local-model"}
 
 
 def test_config_set_runtime_toggle():
@@ -3265,7 +3265,7 @@ def test_config_set_runtime_toggle():
 /config set runtime.streaming_mode disabled
 """
     _, out = step(transcript, [])
-    assert out[0]["config_update"] == {"runtime": {"streaming_mode": "disabled"}}
+    assert out[0]["policy_update"] == {"key": "runtime.streaming_mode", "scope": "session", "action": "set", "value": "disabled"}
 
 
 def test_config_set_assistant_timeout_is_durable_session_override_shape():
@@ -3273,7 +3273,7 @@ def test_config_set_assistant_timeout_is_durable_session_override_shape():
 
     _, out = step(transcript, [])
 
-    assert out[0]["config_update"] == {"shell": {"assistant_timeout_s": 900}}
+    assert out[0]["policy_update"] == {"key": "shell.assistant_timeout_s", "scope": "session", "action": "set", "value": 900}
 
 
 def test_config_set_backend_mode():
@@ -3282,7 +3282,7 @@ def test_config_set_backend_mode():
 /config set backend.mode managed-local
 """
     _, out = step(transcript, [])
-    assert out[0]["config_update"] == {"backend": {"mode": "managed-local"}}
+    assert out[0]["policy_update"] == {"key": "backend.mode", "scope": "session", "action": "set", "value": "managed-local"}
 
 
 def test_config_endpoint_add_and_set():
@@ -3409,7 +3409,7 @@ def test_config_unset_key_returns_config_update_op():
 /config unset llm.model
 """
     _, out = step(transcript, [])
-    assert out[0]["config_update"] == {"__op__": "unset", "key": "llm.model"}
+    assert out[0]["policy_update"] == {"key": "llm.model", "scope": "session", "action": "unset"}
 
 
 def test_config_restore_returns_config_update_op():
@@ -3418,7 +3418,7 @@ def test_config_restore_returns_config_update_op():
 /config restore
 """
     _, out = step(transcript, [])
-    assert out[0]["config_update"] == {"__op__": "restore"}
+    assert out[0]["policy_update"] == {"key": "*", "scope": "session", "action": "restore"}
 
 
 @pytest.mark.parametrize("newline, digest", [

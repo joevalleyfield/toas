@@ -190,8 +190,8 @@ def test_branch_shell_grant_events_reduce_scoped_and_reset_declarations():
     )
 
     assert events == [
-        {"kind": "shell_scope_grant", "payload": {"scope": "workspace", "action": "add", "grant": "sh"}},
-        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "reset"}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "workspace", "action": "add", "value": "sh"}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "reset"}},
     ]
 
 
@@ -328,10 +328,13 @@ def test_branch_config_reducer_skips_unpaired_restepped_load():
         step_mod=real_step_mod,
         baseline_config=OperatorConfig(),
         working=[
-            {"role": "control", "content": "/config load config/branch.toml", "provenance": {"source": "control_restep", "restep_of": "n1"}},
+            {"id": "n1", "role": "control", "content": "/config load config/branch.toml", "provenance": {"source": "control_restep", "restep_of": "n1"}},
             {"role": "assistant", "content": "frontier"},
         ],
-        events=[{"id": "n1", "role": "control", "content": "/config load config/branch.toml"}],
+        events=[
+            {"id": "n1", "role": "control", "content": "/config load config/branch.toml"},
+            {"kind": "config_override", "related_to": "n1", "payload": {"runtime": {"streaming_mode": "enabled"}}},
+        ],
     )
 
     assert applied is False

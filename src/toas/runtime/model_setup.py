@@ -37,7 +37,7 @@ def discovered_model_selection(config: OperatorConfig, endpoint_id: str, model: 
     while existing is None and any(item.id == target_id for item in config.llm.targets):
         target_id = f"{base_id}-{suffix}"
         suffix += 1
-    fields: dict = {"target_selection_update": {"action": "set", "target_id": target_id}}
+    fields: dict = {"policy_update": {"key": "llm.target", "scope": "session", "action": "set", "value": target_id}}
     if existing is None:
         fields["config_update"] = {"llm": {"targets": {target_id: {"endpoint": endpoint_id, "model": model_id}}}}
     fields["content"] = f"selected model: {model_id.rsplit('/', 1)[-1]}\nendpoint: {endpoint_id}\nready: send your next message"
