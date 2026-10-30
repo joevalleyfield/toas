@@ -1591,7 +1591,36 @@ function! s:toas_capture_error_event(run_id, event) abort
   endif
 endfunction
 
-function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
+function! s:toas_safe_undojoin(bufnr) abort
+  if bufnr('%') == a:bufnr
+    try
+      undojoin
+    catch /^Vim\%((\a\+)\)\=:E790:/
+    catch
+    endtry
+  elseif bufexists(a:bufnr) && bufloaded(a:bufnr)
+    let l:orig = bufnr('%')
+    let l:view = winsaveview()
+    try
+      execute 'silent noautocmd keepalt buffer ' . a:bufnr
+      try
+        undojoin
+      catch /^Vim\%((\a\+)\)\=:E790:/
+      catch
+      endtry
+    finally
+      execute 'silent noautocmd keepalt buffer ' . l:orig
+      call winrestview(l:view)
+    endtry
+  endif
+endfunction
+
+function! s:toas_replace_buffer_region(bufnr, start, end, lines, ...) abort
+  let l:join_undo = a:0 >= 1 ? a:1 : 0
+  if l:join_undo
+    call s:toas_safe_undojoin(a:bufnr)
+  endif
+
   let l:restore_view = 0
   if bufnr('%') == a:bufnr
     let l:view = winsaveview()
@@ -1623,7 +1652,7 @@ function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
   endif
 endfunction
 
-function! s:toas_replace_run_region(run_id, status, text, keep_markers) abort
+function! s:toas_replace_run_region(run_id, status, text, keep_markers, ...) abort
   if !has_key(s:toas_run_buffers, a:run_id)
     return 0
   endif
@@ -1647,7 +1676,8 @@ function! s:toas_replace_run_region(run_id, status, text, keep_markers) abort
     let s:toas_run_last_rendered_text[a:run_id] = a:text
     return 0
   endif
-  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:new_lines)
+  let l:join_undo = a:0 >= 1 ? a:1 : 1
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:new_lines, l:join_undo)
   let s:toas_run_last_rendered_text[a:run_id] = a:text
   return 1
 endfunction
@@ -1811,7 +1841,7 @@ function! s:toas_append_run_region_chunk(run_id, status, chunk) abort
   endif
   call add(l:prefix, '')
   let l:body = s:toas_render_run_body_lines(l:new_text)
-  call s:toas_replace_buffer_region(l:bufnr, l:start + 1, l:end - 1, l:prefix + l:body)
+  call s:toas_replace_buffer_region(l:bufnr, l:start + 1, l:end - 1, l:prefix + l:body, 1)
   let s:toas_run_last_rendered_text[a:run_id] = l:new_text
   return 1
 endfunction
@@ -1841,7 +1871,7 @@ function! s:toas_remove_run_region(run_id) abort
   if empty(l:region)
     return
   endif
-  call s:toas_replace_buffer_region(l:bufnr, l:region[0], l:region[1], [])
+  call s:toas_replace_buffer_region(l:bufnr, l:region[0], l:region[1], [], 1)
 endfunction
 
 function! s:toas_relabel_run_region(old_run_id, new_run_id, status) abort
@@ -1861,7 +1891,7 @@ function! s:toas_relabel_run_region(old_run_id, new_run_id, status) abort
   let l:text = s:toas_run_display_text(a:old_run_id)
   let l:progress = get(s:toas_run_progress, a:old_run_id, '')
   let l:lines = s:toas_render_run_lines(a:new_run_id, a:status, l:text, l:progress)
-  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:lines)
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:lines, 1)
   return 1
 endfunction
 
@@ -3819,6 +3849,7 @@ function! ToasWatch(...) abort
         endfor
       endif
       if l:text !=# ''
+        silent! undojoin
         call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
         normal! G
       endif

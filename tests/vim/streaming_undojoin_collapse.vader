@@ -1,0 +1,58 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'rpc_local_backend'
+  let g:_toas_test_watch_i = 0
+
+  function! g:ToasTestRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'payload': {'run_id': 'rundojoin1', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_test_watch_i += 1
+      if g:_toas_test_watch_i == 1
+        return {'payload': {'status': 'running', 'next_offset': 8, 'next_seq': 1, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': "chunk 1\n"}}]}}
+      endif
+      if g:_toas_test_watch_i == 2
+        return {'payload': {'status': 'running', 'next_offset': 16, 'next_seq': 2, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 2, 'payload': {'text': "chunk 2\n"}}]}}
+      endif
+      return {'payload': {'status': 'succeeded', 'next_offset': 42, 'next_seq': 3, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 3, 'payload': {'text': "## TOAS:ASSISTANT\n\nchunk 1\nchunk 2\n"}}]}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasTestRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasTestRpc
+  unlet! g:_toas_test_watch_i
+  unlet! g:toas_transport_mode
+
+Execute (streaming run collapses intermediate chunks into a single undo block):
+  let g:toas_test_session = tempname() . '.md'
+  call writefile(['## TOAS:USER', '', 'hello'], g:toas_test_session)
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call ToasStepAsync()
+  call ToasWatch('rundojoin1', '--follow')
+
+  let g:watch_lines = getline(1, '$')
+  undo
+  let g:undo_lines = getline(1, '$')
+  redo
+  let g:redo_lines = getline(1, '$')
+
+Then (verify completion, single undo to pre-run state, and single redo to full completion):
+  let g:watch_buf = join(g:watch_lines, "\n")
+  Assert g:watch_buf =~# 'chunk 1'
+  Assert g:watch_buf =~# 'chunk 2'
+  Assert g:watch_buf =~# '## TOAS:ASSISTANT'
+
+  AssertEqual ['## TOAS:USER', '', 'hello'], g:undo_lines
+
+  let g:redo_buf = join(g:redo_lines, "\n")
+  Assert g:redo_buf =~# 'chunk 1'
+  Assert g:redo_buf =~# 'chunk 2'
+  Assert g:redo_buf =~# '## TOAS:ASSISTANT'
