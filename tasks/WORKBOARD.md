@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-30
+> **Last Sync:** 2026-11-02
 
 ## 0. Manual Triage
 
@@ -102,6 +102,7 @@ Neither dated vote is a literal current queue.
 - 260920-branch-projected-policy-program Branch-Projected Transcript Policy Program (related `260920-lcp-policy-reevaluation-contract`, `260920-transcript-policy-reinterpretation-examples`, `260920-transcript-control-documentation-contract`, `260831-transcript-source-reference-operations`, `325-config-override-lifecycle-load-save-restore-and-unset`, `330-semi-durable-shell-grants-transcript-and-config-lanes`, `310-transcript-env-modifiers-as-execution-surface`)
   - 260920-effective-policy-provenance-inspection Give an operator a compact inspection surface that explains the effective branch-visible policy for a selected step without claiming a universal setti... (depends on `260920-lcp-direct-policy-deltas`, `260920-config-load-result-reconstitution`; related `260920-transcript-control-documentation-contract`, `260825-visible-transcript-turn-ids`)
   - 260920-one-shot-control-ingress-disposition Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que... (related `260920-lcp-direct-policy-deltas`, `260920-lcp-policy-reevaluation-contract`, `260920-transcript-control-state-contract`)
+  - 261030-unified-scoped-policy-engine Consolidate the fragmented operator policy surfaces (`/shell`, `/model`, `/config`, `/cd`) and their bespoke event representations (`shell_scope_grant... (depends on `260920-branch-projected-policy-program`; related `260920-transcript-control-state-survey, 260920-effective-policy-provenance-inspection, 261030-post-generation-yaml-canonicalization`)
 - 260803-tool-intent-ingress-separation Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... (related `260803-language-exec-fenced-block-lane`, `260412-json-callable-lane-parser-and-policy`, `260803-seed-prompt-composition-study`, `260803-first-failure-plan-recovery`, `260628-gemini-endpoint-discovery`, `171`, `174`)
   - 260831-transcript-source-reference-operations Transcript-Native Assistant Source Reference Operations (related `260803-language-exec-fenced-block-lane`, `260803-first-failure-plan-recovery`, `260831-verbatim-staged-plan-restaging`, `260627-history-affordances-semantic-restaging`, `260830-exec-grant-policy-matchers`)
     - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
@@ -165,6 +166,7 @@ Neither dated vote is a literal current queue.
 - **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
+- **[T261030-unified-scoped-policy-engine]** Consolidate the fragmented operator policy surfaces (`/shell`, `/model`, `/config`, `/cd`) and their bespoke event representations (`shell_scope_grant...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
