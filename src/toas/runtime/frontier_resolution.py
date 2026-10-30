@@ -13,6 +13,7 @@ from ..shell_intent import (
 )
 from ..tools import validate_call
 from .operator_command_parse import split_operator_command
+from .yaml_healing import heal_candidate_yaml
 
 _STAGED_PLAN_RE = re.compile(r"```yaml staged\s*\n(.*?)\n```", re.DOTALL)
 _YAML_PLAN_RE = re.compile(r"```yaml(?: staged)?\s*\n(.*?)\n```", re.DOTALL)
@@ -273,12 +274,45 @@ def extract_frontier_assistant_candidates(content: str, *, projection_shape: str
             token in block
             for token in ("tool_name:", "operation:", "name:", "tool:", "command:", "cmd:")
         )
+        parsed = None
+        parse_exc = None
         try:
             parsed = yaml.safe_load(block)
         except yaml.YAMLError as exc:
+            parse_exc = exc
+
+        has_valid_plan = False
+        if parsed is not None:
+            if isinstance(parsed, dict) and any(parsed.get(k) for k in ("command", "cmd")):
+                has_valid_plan = True
+            else:
+                tool_plan_check, tool_plan_err = normalize_tool_plan(parsed)
+                if tool_plan_check is not None and tool_plan_err is None:
+                    try:
+                        for item in tool_plan_check:
+                            validate_call(item)
+                        has_valid_plan = True
+                    except RuntimeError:
+                        has_valid_plan = False
+
+        if not has_valid_plan and looks_callable:
+            healed = heal_candidate_yaml(block)
+            if healed is not None:
+                healed_parsed = yaml.safe_load(healed)
+                healed_plan, healed_err = normalize_tool_plan(healed_parsed)
+                if healed_plan is not None and healed_err is None:
+                    try:
+                        for item in healed_plan:
+                            validate_call(item)
+                        parsed = healed_parsed
+                        parse_exc = None
+                    except RuntimeError:
+                        pass
+
+        if parsed is None and parse_exc is not None:
             if looks_callable:
                 problem = "yaml parse error"
-                mark = getattr(exc, "problem_mark", None)
+                mark = getattr(parse_exc, "problem_mark", None)
                 if mark is not None:
                     problem += f" at line {mark.line + 1}, column {mark.column + 1}"
                 lines = [line.strip() for line in block.splitlines() if line.strip()]
