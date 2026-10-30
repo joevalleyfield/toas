@@ -91,18 +91,19 @@ def _request_json(
     url: str,
     *,
     payload: dict | None = None,
+    headers: dict[str, str] | None = None,
     timeout_s: int = 15,
     include_raw: bool = False,
 ):
     data = None
     method = "GET"
-    headers = {}
+    req_headers = dict(headers or {})
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         method = "POST"
-        headers["Content-Type"] = "application/json"
+        req_headers["Content-Type"] = "application/json"
 
-    req = request.Request(url, data=data, headers=headers, method=method)
+    req = request.Request(url, data=data, headers=req_headers, method=method)
     with request.urlopen(req, timeout=timeout_s) as resp:
         body = resp.read().decode("utf-8")
     parsed = json.loads(body)
@@ -141,15 +142,25 @@ def fetch_models(settings: Settings, *, timeout_s: int = 15, include_raw: bool =
             if include_raw and raw:
                 result["_raw_response"] = raw.decode("utf-8", errors="replace")
             return result
+    headers = (
+        {"Authorization": f"Bearer {settings.llm_api_key}"}
+        if settings.llm_api_key and settings.llm_api_key != "not-needed"
+        else None
+    )
     try:
         if include_raw:
             result = _request_json(
                 f"{settings.llm_base_url.rstrip('/')}/models",
+                headers=headers,
                 timeout_s=timeout_s,
                 include_raw=True,
             )
         else:
-            result = _request_json(f"{settings.llm_base_url.rstrip('/')}/models", timeout_s=timeout_s)
+            result = _request_json(
+                f"{settings.llm_base_url.rstrip('/')}/models",
+                headers=headers,
+                timeout_s=timeout_s,
+            )
     except Exception as exc:
         result = {"error": str(exc)}
         raw = getattr(exc, "read", lambda: b"")()

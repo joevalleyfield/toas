@@ -364,6 +364,39 @@ def test_prompt_workspace_models_reports_endpoint_observation(monkeypatch):
     assert "reported models: served" in out[0]["content"]
 
 
+def test_prompt_workspace_models_resolves_and_passes_api_key_ref(monkeypatch):
+    import toas.llm_harness as harness
+    import toas.runtime.policy_edges as policy_edges
+    import toas.step as step_mod
+    from toas.config import EndpointCatalogEntry, LLMPolicy, OperatorConfig
+
+    monkeypatch.setenv("TEST_ENDPOINT_KEY", "secret-test-token")
+    monkeypatch.setattr(
+        policy_edges,
+        "settings_for_runtime",
+        lambda _config: (harness.Settings(llm_base_url="http://endpoint/v1"), {}),
+    )
+    captured_settings = []
+    monkeypatch.setattr(harness, "fetch_models", lambda settings, **_kwargs: captured_settings.append(settings) or {"data": [{"id": "served"}]})
+
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            endpoints=(
+                EndpointCatalogEntry(
+                    id="remote",
+                    base_url="http://endpoint/v1",
+                    api_key_source="env",
+                    api_key_ref="TEST_ENDPOINT_KEY",
+                ),
+            )
+        )
+    )
+    handle_prompt_workspace_commands("models", ["refresh", "remote"], step_mod=step_mod, context=_ctx(config=config))
+
+    assert len(captured_settings) == 1
+    assert captured_settings[0].llm_api_key == "secret-test-token"
+
+
 def test_prompt_workspace_models_reports_bounded_failure(monkeypatch):
     import toas.llm_harness as harness
     import toas.runtime.policy_edges as policy_edges

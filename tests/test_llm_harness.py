@@ -300,6 +300,12 @@ def test_request_json_with_payload_and_get(monkeypatch):
     assert seen_reqs[1].data == b'{"prompt": "hi"}'
     assert seen_reqs[1].headers["Content-type"] == "application/json"
 
+    res_auth = _request_json("http://test-url/models", headers={"Authorization": "Bearer tok"})
+    assert res_auth == {"ok": True}
+    assert len(seen_reqs) == 3
+    assert seen_reqs[2].method == "GET"
+    assert seen_reqs[2].headers["Authorization"] == "Bearer tok"
+
 
 def test_evaluate_expectations_role_contract_clear():
     report_fail = {"content": "I ran the command echo hi"}
@@ -352,7 +358,7 @@ def test_fetch_models_can_return_raw_response(monkeypatch):
 
     monkeypatch.setattr(
         "toas.llm_harness._request_json",
-        lambda _url, *, timeout_s=15, include_raw=False: (
+        lambda _url, *, headers=None, timeout_s=15, include_raw=False: (
             {"data": [{"id": "served"}]},
             '{"data":[{"id":"served"}]}',
         ),
@@ -403,3 +409,40 @@ def test_fetch_models_openai_preserves_http_error_body(monkeypatch):
     result = fetch_models(Settings(), include_raw=True)
     assert result["error"] == "503"
     assert result["_raw_response"] == '{"error":"server busy"}'
+
+
+def test_fetch_models_openai_auth_header(monkeypatch):
+    from toas.llm_harness import fetch_models
+
+    seen_calls = []
+
+    def fake_request_json(url, *, headers=None, timeout_s=15, include_raw=False):
+        seen_calls.append({"url": url, "headers": headers, "timeout_s": timeout_s, "include_raw": include_raw})
+        payload = {"data": [{"id": "model-abc"}]}
+        return (payload, '{"data":[{"id":"model-abc"}]}') if include_raw else payload
+
+    monkeypatch.setattr("toas.llm_harness._request_json", fake_request_json)
+
+    # 1. Authenticated OpenAI provider sends Authorization Bearer header
+    settings = Settings(llm_base_url="http://remote-ai/v1", llm_api_key="secret-key-123")
+    res = fetch_models(settings)
+    assert res == {"data": [{"id": "model-abc"}]}
+    assert seen_calls[-1]["url"] == "http://remote-ai/v1/models"
+    assert seen_calls[-1]["headers"] == {"Authorization": "Bearer secret-key-123"}
+    assert seen_calls[-1]["include_raw"] is False
+
+    # 2. Authenticated OpenAI provider with include_raw=True
+    fetch_models(settings, include_raw=True)
+    assert seen_calls[-1]["headers"] == {"Authorization": "Bearer secret-key-123"}
+    assert seen_calls[-1]["include_raw"] is True
+
+    # 3. Unauthenticated / not-needed omits Authorization header
+    settings_no_auth = Settings(llm_base_url="http://remote-ai/v1", llm_api_key="not-needed")
+    fetch_models(settings_no_auth)
+    assert seen_calls[-1]["headers"] is None
+
+    # 4. Empty api_key omits Authorization header
+    settings_empty_auth = Settings(llm_base_url="http://remote-ai/v1", llm_api_key="")
+    fetch_models(settings_empty_auth)
+    assert seen_calls[-1]["headers"] is None
+

@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-29
+> **Last Sync:** 2026-10-30
 
 ## 0. Manual Triage
 
@@ -168,7 +168,6 @@ Neither dated vote is a literal current queue.
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
 - **[T261017-msys-vim-native-host]** Status: OPEN; reconcile historical harness failure with working operator MSYS Vim
-- **[T261029-openai-model-probe-auth-header]** Enable `fetch_models` to transmit the configured/resolved API key as an `Authorization: Bearer <token>` header when probing OpenAI-compatible endpoint...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -225,9 +224,9 @@ should return only with a current timing reproduction.
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261029-serialize-grants-on-session-rotation]** When rotating/continuing a session, serialize custom active shell grants from the predecessor session directly into the successor transcript as an exp...
 - **[T261029-preserve-literal-shell-argv]** Preserve pre-tokenized `argv` arguments in assistant-driven `shell` tool execution without Python-side glob expansion, preventing command corruption i...
+- **[T261029-openai-model-probe-auth-header]** Enable `fetch_models` to transmit the configured/resolved API key as an `Authorization: Bearer <token>` header when probing OpenAI-compatible endpoint...
 - **[T261029-configurable-session-continuation-naming]** Make session continuation naming configurable in session policy, defaulting to `session-YYMMDD-HHMM-short-name` while supporting datetime-only and leg...
 - **[T261027-stream-bridge-timeout-test]** Status: CLOSED; retained hung-read semantics with a controlled clock.
-- **[T261027-stdio-stall-diagnostics]** Status: CLOSED; request failures no longer block on live stderr.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

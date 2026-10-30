@@ -3,7 +3,7 @@ FKA:
 AKA: openai model list auth; fetch_models bearer token; models refresh authorization header
 Legacy index:
 
-keywords: runtime, implementation, active, auth, transport, models, probe
+keywords: runtime, implementation, closed, auth, transport, models, probe
 
 Parent:
 Depends on: `260906-endpoint-model-discovery`; `260906-model-catalog-refresh`
@@ -54,3 +54,23 @@ When `fetch_models()` probes an OpenAI-compatible endpoint with a resolved
 - Unit tests verify header propagation for authenticated OpenAI-compatible probes
   and omission of headers when `llm_api_key` is `"not-needed"` or empty.
 - Existing tests for Gemini REST query parameter auth and unauthenticated calls remain green.
+
+## Completion
+
+- `_request_json` in `src/toas/llm_harness.py` now accepts an optional `headers: dict[str, str] | None`
+  mapping and passes it to `urllib.request.Request`.
+- `fetch_models` attaches `Authorization: Bearer {settings.llm_api_key}` when
+  probing OpenAI-compatible endpoints with a non-empty key that is not `"not-needed"`.
+- Added unit tests in `tests/test_llm_harness.py` covering:
+  - Custom header propagation in `_request_json`.
+  - OpenAI model probe with `Authorization: Bearer <key>`.
+  - OpenAI model probe with `include_raw=True`.
+  - Header omission when `llm_api_key="not-needed"` or `""`.
+- Added unit test in `tests/test_runtime_operator_command_handlers.py` verifying
+  that `/models refresh` resolves `api_key_ref` from environment and passes it to
+  `fetch_models`.
+
+## Verification
+
+- `./scripts/check.sh` — 3611 unit tests passed, 9 skipped, 17 acceptance tests passed, 100.00% statement coverage across all 154 files, ruff passed, mypy clean across 156 files.
+- Manual inspection of CLI help and command surfaces.
