@@ -647,7 +647,7 @@ def _repair_hint_for_error(*, tool_name: str, detail: str) -> str | None:
             )
 
     if tool_name == "shell":
-        if "argv must be a non-empty list[str]" in detail:
+        if "argv must be a non-empty list[str]" in detail or "must be a string or scalar" in detail:
             return (
                 "- operation: shell\n"
                 "  arguments:\n"

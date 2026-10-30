@@ -24,11 +24,29 @@ from toas.tools_cluster.shell_ops import (
     _resolve_user_shell_execution,
     build_env_with_overrides,
     execute_shell_call,
+    normalize_shell_argv,
     run_user_shell,
     shell_launcher_argv,
     validate_shell_args,
     validate_shell_script_args,
 )
+
+
+def test_normalize_shell_argv_scalars_and_errors():
+    assert normalize_shell_argv(["find", ".", "-maxdepth", 3, "-empty", False, "-scale", 2.5]) == [
+        "find",
+        ".",
+        "-maxdepth",
+        "3",
+        "-empty",
+        "false",
+        "-scale",
+        "2.5",
+    ]
+    with pytest.raises(RuntimeError, match="custom error: argv must be a non-empty list"):
+        normalize_shell_argv([], error_prefix="custom error")
+    with pytest.raises(RuntimeError, match=r"custom error: argv element at index 0 \(\{'a': 1\}\) must be a string or scalar, got dict"):
+        normalize_shell_argv([{"a": 1}], error_prefix="custom error")
 
 
 def test_shell_launcher_argv_non_windows(monkeypatch):
@@ -222,6 +240,26 @@ def test_validate_shell_args_happy_and_errors(tmp_path):
     )
     assert out[0] == ["echo", "hi"]
 
+    coerced = validate_shell_args(
+        {"argv": ["find", ".", "-maxdepth", 3, "-empty", True, "-scale", 1.5], "cwd": str(tmp_path), "timeout_s": 3},
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"find"},
+    )
+    assert coerced[0] == ["find", ".", "-maxdepth", "3", "-empty", "true", "-scale", "1.5"]
+
+    with pytest.raises(RuntimeError, match=r"argv element at index 1 \(\{'bad': 'dict'\}\) must be a string or scalar, got dict"):
+        validate_shell_args(
+            {"argv": ["echo", {"bad": "dict"}], "cwd": str(tmp_path)},
+            workspace_path_fn=lambda p: Path(p),
+            effective_shell_allowed={"echo"},
+        )
+    with pytest.raises(RuntimeError, match=r"argv element at index 1 \(None\) must be a string or scalar, got NoneType"):
+        validate_shell_args(
+            {"argv": ["echo", None], "cwd": str(tmp_path)},
+            workspace_path_fn=lambda p: Path(p),
+            effective_shell_allowed={"echo"},
+        )
+
     with pytest.raises(RuntimeError, match="argv must be a non-empty list"):
         validate_shell_args({}, workspace_path_fn=lambda p: Path(p), effective_shell_allowed={"echo"})
     with pytest.raises(RuntimeError, match="disallows command"):
@@ -386,6 +424,8 @@ def test_run_user_shell_needs_shell_hint_and_command_mode(fake_shell_subprocess)
 def test_run_user_shell_validation_errors(tmp_path):
     with pytest.raises(RuntimeError, match="argv must be a non-empty list"):
         run_user_shell([])
+    with pytest.raises(RuntimeError, match=r"argv element at index 1 \(\{'a': 1\}\) must be a string or scalar, got dict"):
+        run_user_shell(["echo", {"a": 1}])
     with pytest.raises(RuntimeError, match="cwd must be a string"):
         run_user_shell(["echo"], cwd=1)
     with pytest.raises(RuntimeError, match="timeout_s must be a positive int"):
@@ -617,6 +657,12 @@ def test_resolve_user_argv_paths():
 
     with pytest.raises(RuntimeError, match="argv must be a non-empty list"):
         _resolve_user_argv(args={}, command=None)
+
+    out = _resolve_user_argv(args={"argv": ["find", ".", "-maxdepth", 3]}, command=None)
+    assert out == ["find", ".", "-maxdepth", "3"]
+
+    with pytest.raises(RuntimeError, match=r"argv element at index 1 \(None\) must be a string or scalar, got NoneType"):
+        _resolve_user_argv(args={"argv": ["echo", None]}, command=None)
 
 
 def test_execute_shell_call_assistant_preserves_literal_wildcards_in_argv(monkeypatch, tmp_path):

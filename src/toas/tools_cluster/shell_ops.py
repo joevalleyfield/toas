@@ -8,6 +8,7 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from typing import Any
 
 from ..runtime.environment_policy import (
     apply_environment_policy,
@@ -33,15 +34,37 @@ def _append_shell_diag(entry: dict) -> None:
         pass
 
 
+def normalize_shell_argv(
+    argv: Any,
+    *,
+    tool_name: str = "shell",
+    error_prefix: str | None = None,
+) -> list[str]:
+    prefix = error_prefix or f"invalid arguments for tool {tool_name}"
+    if not isinstance(argv, list) or not argv:
+        raise RuntimeError(f"{prefix}: argv must be a non-empty list[str]")
+    normalized: list[str] = []
+    for idx, part in enumerate(argv):
+        if isinstance(part, str):
+            normalized.append(part)
+        elif isinstance(part, bool):
+            normalized.append("true" if part else "false")
+        elif isinstance(part, (int, float)):
+            normalized.append(str(part))
+        else:
+            raise RuntimeError(
+                f"{prefix}: argv element at index {idx} ({part!r}) must be a string or scalar, got {type(part).__name__}"
+            )
+    return normalized
+
+
 def validate_shell_args(
     args: dict,
     *,
     workspace_path_fn,
     effective_shell_allowed,
 ) -> tuple[list[str], Path, int, dict[str, str] | None]:
-    argv = args.get("argv")
-    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) for part in argv):
-        raise RuntimeError("invalid arguments for tool shell: argv must be a non-empty list[str]")
+    argv = normalize_shell_argv(args.get("argv"), tool_name="shell")
 
     if not shell_command_decision(argv[0], effective_shell_allowed).allowed:
         raise RuntimeError(
@@ -329,8 +352,7 @@ def run_user_shell(
     command: str | None = None,
     env_overrides: dict[str, str | None] | None = None,
 ) -> dict:
-    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) for part in argv):
-        raise RuntimeError("invalid user shell command: argv must be a non-empty list[str]")
+    argv = normalize_shell_argv(argv, error_prefix="invalid user shell command")
     if not isinstance(cwd, str):
         raise RuntimeError("invalid user shell command: cwd must be a string")
     if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
@@ -460,8 +482,12 @@ def execute_shell_call(
 
 def _resolve_user_argv(*, args: dict, command: str | None) -> list[str]:
     argv = args.get("argv")
-    if isinstance(argv, list) and argv and all(isinstance(part, str) for part in argv):
-        return argv
+    if argv is not None:
+        try:
+            return normalize_shell_argv(argv, error_prefix="invalid arguments for user shell command")
+        except RuntimeError:
+            if not (isinstance(command, str) and command.strip()):
+                raise
     if not (isinstance(command, str) and command.strip()):
         raise RuntimeError("invalid arguments for user shell command: argv must be a non-empty list[str]")
     cleaned = command.strip("\n") if "\n" in command else command.strip()

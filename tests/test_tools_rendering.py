@@ -528,6 +528,18 @@ def test_shape_result_content_error_includes_shell_argv_repair_hint():
     assert "- operation: shell" in rendered
     assert 'argv: ["pwd"]' in rendered
 
+    rendered_element = shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": False,
+            "summary": "invalid arguments for tool shell: argv element at index 1 ({}) must be a string or scalar, got dict",
+            "error": "invalid arguments for tool shell: argv element at index 1 ({}) must be a string or scalar, got dict",
+        }
+    )
+    assert "next valid shape:" in rendered_element
+    assert "- operation: shell" in rendered_element
+    assert 'argv: ["pwd"]' in rendered_element
+
 
 def test_shape_result_content_error_includes_apply_patch_repair_hint():
     rendered = shape_result_content(
