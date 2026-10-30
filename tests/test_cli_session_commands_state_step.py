@@ -2579,6 +2579,71 @@ def test_generation_runner_state_packet_fires_on_llm_completion(tmp_path):
     assert completions[1].content_origin == "answer"
 
 
+def test_generation_runner_canonicalizes_assistant_yaml_and_preserves_raw_response_content(tmp_path):
+    from types import SimpleNamespace
+
+    from toas.config import OperatorConfig
+    from toas.runtime.step_generation_runtime import GenerationRunner
+
+    events_file = tmp_path / "events.jsonl"
+    events_file.write_text("", encoding="utf-8")
+    deps = SimpleNamespace(
+        project_llm_input_from_messages=lambda msgs: msgs,
+        resolve_selected_endpoint=lambda _cfg, _sett: ("http://localhost", "default"),
+        resolve_selected_model=lambda _cfg, _sett: ("test-model", "default"),
+        resolve_secret=lambda _key: None,
+    )
+    runner = GenerationRunner(
+        deps=deps,
+        operator_config=OperatorConfig(),
+        base_settings=SimpleNamespace(
+            llm_base_url="http://localhost",
+            llm_transport_mode="chat_messages",
+            llm_trace="minimal",
+            llm_model="test-model",
+        ),
+        settings_sources={"transport": "default", "model": "default", "endpoint": "default", "api_key": "default"},
+        policy=SimpleNamespace(backend_profile=None, model="test-model", attempts=1, retry_delay_s=0, max_tokens=100),
+        events_path=events_file,
+        stream_state={},
+    )
+    runner.prepare_request = lambda _working: SimpleNamespace(
+        messages=[{"role": "user", "content": "do edit"}],
+        selected_settings=runner.base_settings,
+        attempts=1,
+        retry_delay_s=0,
+    )
+    raw_yaml_turn = (
+        "Here is the change:\n"
+        "```yaml\n"
+        "- operation: replace_block\n"
+        "arguments:\n"
+        "path: foo.py\n"
+        "search_block: |\n"
+        "def bar():\n"
+        "    pass\n"
+        "replacement_block: |\n"
+        "def bar():\n"
+        "    return 1\n"
+        "```\n"
+    )
+    runner.execute_with_retry = lambda _plan: SimpleNamespace(
+        node={
+            "content": raw_yaml_turn,
+            "response": {"model": "test-model"},
+        },
+        attempt=1,
+        max_attempts=1,
+    )
+    res = runner.generate([{"role": "user", "content": "do edit"}])
+    # node["content"] is canonicalized with |2 and indented arguments
+    assert "search_block: |2\n      def bar():\n          pass" in res["content"]
+    assert "replacement_block: |2\n      def bar():\n          return 1" in res["content"]
+    # _llm_call preserves raw unadulterated response_content for forensic audit
+    assert res["_llm_call"]["response_content"] == raw_yaml_turn
+
+
+
 def test_state_step_infers_turn_referencing_named_handle(tmp_path, monkeypatch):
     from types import SimpleNamespace
 

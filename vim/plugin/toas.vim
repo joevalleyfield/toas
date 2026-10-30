@@ -1682,6 +1682,35 @@ function! s:toas_replace_run_region(run_id, status, text, keep_markers, ...) abo
   return 1
 endfunction
 
+function! s:toas_replace_run_region_with_canonical(run_id, status, raw_text, canonical_text) abort
+  if !has_key(s:toas_run_buffers, a:run_id)
+    return 0
+  endif
+  let l:bufnr = s:toas_run_buffers[a:run_id]
+  if !bufexists(l:bufnr) || !bufloaded(l:bufnr)
+    return 0
+  endif
+  let l:region = s:toas_find_run_region(l:bufnr, a:run_id)
+  if empty(l:region)
+    return 0
+  endif
+  let l:start = l:region[0]
+  let l:end = l:region[1]
+
+  " Phase 1: finalize raw streamed body, joining into the streaming undo block.
+  let l:raw_lines = s:toas_render_run_body_lines(a:raw_text)
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:raw_lines, 1)
+
+  " Phase 2: break undo group and replace with canonical text without undojoin.
+  let l:new_end = l:start + len(l:raw_lines) - 1
+  let l:canonical_lines = s:toas_render_run_body_lines(a:canonical_text)
+  let &undolevels = &undolevels
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:new_end, l:canonical_lines, 0)
+
+  let s:toas_run_last_rendered_text[a:run_id] = a:canonical_text
+  return 1
+endfunction
+
 function! s:toas_finalize_terminal_run_region(run_id, status, error_summary, ...) abort
   let l:force_success_backfill = a:0 >= 1 ? a:1 : 0
   let l:backfill_timeout_s = a:0 >= 2 ? a:2 : 1.0
@@ -1774,16 +1803,21 @@ function! s:toas_finalize_terminal_run_region(run_id, status, error_summary, ...
       call s:toas_replace_run_region(a:run_id, a:status, l:render_text, 1)
       return 0
     endif
+    let l:raw_final_text = s:toas_finalize_success_text(
+          \ get(s:toas_run_text, a:run_id, ''),
+          \ get(s:toas_run_last_content_lane, a:run_id, ''),
+          \ )
     let l:projection_text = get(s:toas_run_projection_text, a:run_id, '')
     if l:projection_text !=# ''
-      let l:final_text = s:toas_finalize_success_text(l:projection_text, 'projection')
+      let l:canonical_final_text = s:toas_finalize_success_text(l:projection_text, 'projection')
     else
-      let l:final_text = s:toas_finalize_success_text(
-            \ get(s:toas_run_text, a:run_id, ''),
-            \ get(s:toas_run_last_content_lane, a:run_id, ''),
-            \ )
+      let l:canonical_final_text = l:raw_final_text
     endif
-    call s:toas_replace_run_region(a:run_id, a:status, l:final_text, 0)
+    if l:raw_final_text !=# '' && l:canonical_final_text !=# l:raw_final_text
+      call s:toas_replace_run_region_with_canonical(a:run_id, a:status, l:raw_final_text, l:canonical_final_text)
+    else
+      call s:toas_replace_run_region(a:run_id, a:status, l:canonical_final_text, 0, 1)
+    endif
   else
     let l:render_text = s:toas_run_display_text(a:run_id)
     if (a:status ==# 'failed' || a:status ==# 'cancelled') && a:error_summary !=# ''

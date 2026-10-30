@@ -3,7 +3,7 @@ from __future__ import annotations
 import yaml
 
 from toas.runtime.frontier_resolution import extract_frontier_assistant_candidates
-from toas.runtime.yaml_healing import heal_candidate_yaml
+from toas.runtime.yaml_healing import heal_assistant_completion, heal_candidate_yaml
 
 
 def test_heal_candidate_yaml_empty_or_invalid_inputs():
@@ -204,3 +204,119 @@ def test_extract_frontier_assistant_candidates_healed_invalid_call_skipped():
     assert len(candidates) == 0
     assert len(skipped) == 1
     assert "yaml parse error" in skipped[0]
+
+
+def test_heal_assistant_completion_non_string_or_empty():
+    assert heal_assistant_completion("") == ""
+    assert heal_assistant_completion(None) is None  # type: ignore[arg-type]
+
+
+def test_heal_assistant_completion_preserves_plain_prose_or_other_languages():
+    prose = "I looked at the code and think we should proceed.\n"
+    assert heal_assistant_completion(prose) == prose
+
+    python_fence = "Here is Python code:\n```python\ndef foo():\n    pass\n```\n"
+    assert heal_assistant_completion(python_fence) == python_fence
+
+
+def test_heal_assistant_completion_preserves_clean_yaml():
+    clean = (
+        "```yaml\n"
+        "- operation: replace_block\n"
+        "  arguments:\n"
+        "    path: foo.py\n"
+        "    search_block: |2\n"
+        "      hello\n"
+        "    replacement_block: |2\n"
+        "      world\n"
+        "```\n"
+    )
+    assert heal_assistant_completion(clean) == clean
+
+
+def test_heal_assistant_completion_ignores_non_callable_yaml():
+    config_yaml = "```yaml\nversion: 1.0.0\npackage: toas\n```\n"
+    assert heal_assistant_completion(config_yaml) == config_yaml
+
+
+def test_heal_assistant_completion_heals_broken_replace_block():
+    raw = (
+        "I'll update the function now:\n\n"
+        "```yaml\n"
+        "- operation: replace_block\n"
+        "arguments:\n"
+        "path: src/main.py\n"
+        "search_block: |\n"
+        "def run():\n"
+        "    pass\n"
+        "replacement_block: |\n"
+        "def run():\n"
+        "    return 42\n"
+        "```\n\n"
+        "Let me know if that works!"
+    )
+    healed = heal_assistant_completion(raw)
+    assert "I'll update the function now:\n\n" in healed
+    assert "\n\nLet me know if that works!" in healed
+    assert "search_block: |2\n      def run():\n          pass" in healed
+    assert "replacement_block: |2\n      def run():\n          return 42" in healed
+    # Verify the healed block inside the fence parses cleanly with yaml.safe_load
+    block_str = healed.split("```yaml\n")[1].split("\n```")[0]
+    parsed = yaml.safe_load(block_str)
+    assert parsed[0]["operation"] == "replace_block"
+    assert parsed[0]["arguments"]["search_block"] == "def run():\n    pass\n"
+
+
+def test_heal_assistant_completion_staged_fence():
+    raw = (
+        "```yaml staged\n"
+        "- operation: replace_block\n"
+        "arguments:\n"
+        "path: src/main.py\n"
+        "search_block: |\n"
+        "def run():\n"
+        "    pass\n"
+        "replacement_block: |\n"
+        "def run():\n"
+        "    return 1\n"
+        "```\n"
+    )
+    healed = heal_assistant_completion(raw)
+    assert healed.startswith("```yaml staged\n")
+    assert "search_block: |2" in healed
+
+
+def test_heal_assistant_completion_unfenced_callable():
+    raw = (
+        "- operation: replace_block\n"
+        "arguments:\n"
+        "path: src/main.py\n"
+        "search_block: |\n"
+        "def run():\n"
+        "    pass\n"
+        "replacement_block: |\n"
+        "def run():\n"
+        "    return 1\n"
+    )
+    healed = heal_assistant_completion(raw)
+    assert "search_block: |2\n      def run():\n          pass" in healed
+
+
+def test_heal_assistant_completion_unhealable_syntax_error():
+    raw = "```yaml\n- operation: replace_block\n  arguments: { [ bad yaml : [ } }\n```\n"
+    assert heal_assistant_completion(raw) == raw
+
+
+def test_heal_assistant_completion_fenced_healed_conflicting_keys_untouched():
+    raw = (
+        "```yaml\n"
+        "- tool_name: foo\n"
+        "  operation: bar\n"
+        "  search_block: |\n"
+        "  hello\n"
+        "```\n"
+    )
+    healed = heal_assistant_completion(raw)
+    assert healed == raw
+
+

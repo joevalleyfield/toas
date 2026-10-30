@@ -126,3 +126,68 @@ def heal_candidate_yaml(block: str) -> str | None:
         return healed
     except yaml.YAMLError:
         return None
+
+
+_YAML_FENCE_RE = re.compile(
+    r"(?P<open>^[ \t]*(?P<fence>```+)yaml(?:[ \t]+staged)?[ \t]*\r?\n)(?P<body>.*?)(?P<close>\r?\n[ \t]*(?P=fence)[ \t]*$)",
+    re.DOTALL | re.MULTILINE,
+)
+
+CALLABLE_TOKENS = (
+    "tool_name:",
+    "operation:",
+    "name:",
+    "tool:",
+    "command:",
+    "cmd:",
+    "arguments:",
+    "args:",
+    "params:",
+    "parameters:",
+    "intent:",
+    "intention:",
+    "search_block:",
+    "replacement_block:",
+)
+
+
+def _is_callable_block(text: str) -> bool:
+    return any(token in text for token in CALLABLE_TOKENS)
+
+
+def _validate_healed_yaml(healed: str) -> bool:
+    from ..graph import normalize_tool_plan
+
+    parsed = yaml.safe_load(healed)
+    plan, err = normalize_tool_plan(parsed)
+    return plan is not None and err is None
+
+
+def heal_assistant_completion(content: str) -> str:
+    """Heal malformed YAML code blocks inside an assistant completion."""
+    if not isinstance(content, str) or not content:
+        return content
+
+    def _replace_match(match: re.Match[str]) -> str:
+        body = match.group("body")
+        if not _is_callable_block(body):
+            return match.group(0)
+        healed = heal_candidate_yaml(body)
+        if healed is None or healed == body:
+            return match.group(0)
+        if not _validate_healed_yaml(healed):
+            return match.group(0)
+        return f"{match.group('open')}{healed}{match.group('close')}"
+
+    healed_content, count = _YAML_FENCE_RE.subn(_replace_match, content)
+    if count > 0:
+        return healed_content
+
+    # If no fences were present, check if the raw content itself is an unfenced tool call block
+    if _is_callable_block(content):
+        healed = heal_candidate_yaml(content)
+        if healed is not None and healed != content and _validate_healed_yaml(healed):
+            return healed
+
+    return content
+

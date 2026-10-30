@@ -1,0 +1,98 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'rpc_local_backend'
+  let g:_toas_test_watch_i = 0
+
+  redir => g:toas_functions
+  silent function /toas_watch_tick
+  redir END
+  let g:toas_watch_tick_fn = matchstr(g:toas_functions, '<SNR>\d\+_toas_watch_tick')
+
+  function! g:ToasTestRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'payload': {'run_id': 'runcanon1', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_test_watch_i += 1
+      if g:_toas_test_watch_i == 1
+        " Streamed raw chunk with broken replace_block indentation (missing |2)
+        let l:raw_chunk = "```yaml\n- operation: replace_block\n  path: foo.py\n  search_block: |\n  def f():\n      pass\n```\n"
+        return {'payload': {'status': 'running', 'next_offset': 40, 'next_seq': 1, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': l:raw_chunk}}]}}
+      endif
+      " Terminal event emits canonical projection with |2
+      let l:canon_proj = "## TOAS:ASSISTANT\n\n```yaml\n- operation: replace_block\n  path: foo.py\n  search_block: |2\n    def f():\n        pass\n```\n"
+      return {'payload': {'status': 'succeeded', 'next_offset': 100, 'next_seq': 2, 'events': [{'type': 'projection', 'lane': 'projection', 'phase': 'delta', 'seq': 2, 'payload': {'text': l:canon_proj}}]}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasTestRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasTestRpc
+  unlet! g:_toas_test_watch_i
+  unlet! g:toas_transport_mode
+  unlet! g:toas_functions
+  unlet! g:toas_watch_tick_fn
+  unlet! g:toas_test_session
+  unlet! g:canon_lines
+  unlet! g:raw_undo_lines
+  unlet! g:pre_run_undo_lines
+  unlet! g:redo_raw_lines
+  unlet! g:redo_canon_lines
+  unlet! g:canon_buf
+  unlet! g:raw_buf
+  unlet! g:redo_raw_buf
+  unlet! g:redo_canon_buf
+
+Execute (canonical replacement creates distinct undo state reverting to raw streamed text):
+  let g:toas_test_session = tempname() . '.md'
+  call writefile(['## TOAS:USER', '', 'hello'], g:toas_test_session)
+  execute 'edit ' . fnameescape(g:toas_test_session)
+
+  " Trigger ToasStep which inserts run region and initiates async run
+  call ToasStep()
+
+  " Tick 1: processes streamed raw chunk
+  call call(function(g:toas_watch_tick_fn), ['runcanon1', 0])
+
+  " Tick 2: processes terminal canonical projection
+  call call(function(g:toas_watch_tick_fn), ['runcanon1', 0])
+
+  let g:canon_lines = getline(1, '$')
+  undo
+  let g:raw_undo_lines = getline(1, '$')
+  undo
+  let g:pre_run_undo_lines = getline(1, '$')
+  redo
+  let g:redo_raw_lines = getline(1, '$')
+  redo
+  let g:redo_canon_lines = getline(1, '$')
+
+Then (verify canonical -> 1st undo raw -> 2nd undo pre-run -> redo raw -> redo canonical):
+  let g:canon_buf = join(g:canon_lines, "\n")
+  Assert g:canon_buf =~# 'search_block: |2'
+  Assert g:canon_buf =~# '    def f():'
+  Assert g:canon_buf !~# '<<<toas:run'
+
+  let g:raw_buf = join(g:raw_undo_lines, "\n")
+  Assert g:raw_buf =~# 'search_block: |'
+  Assert g:raw_buf =~# '  def f():'
+  Assert g:raw_buf !~# 'search_block: |2'
+  Assert g:raw_buf !~# '<<<toas:run'
+
+  AssertEqual ['## TOAS:USER', '', 'hello'], g:pre_run_undo_lines
+
+  let g:redo_raw_buf = join(g:redo_raw_lines, "\n")
+  Assert g:redo_raw_buf =~# 'search_block: |'
+  Assert g:redo_raw_buf !~# 'search_block: |2'
+
+  let g:redo_canon_buf = join(g:redo_canon_lines, "\n")
+  Assert g:redo_canon_buf =~# 'search_block: |2'
+  Assert g:redo_canon_buf =~# '    def f():'

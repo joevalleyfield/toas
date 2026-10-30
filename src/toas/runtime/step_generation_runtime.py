@@ -29,6 +29,7 @@ from .model_invocation_contracts import (
     ResolvedModelInvocation,
     resolve_model_invocation,
 )
+from .yaml_healing import heal_assistant_completion
 
 
 def _env_flag_enabled(name: str) -> bool:
@@ -303,11 +304,18 @@ class GenerationRunner:
         node = result.node
         response = node.pop("response", {})
         node["provenance"] = {"source": "llm_generated"}
+        raw_content = node["content"]
+        healed_content = (
+            heal_assistant_completion(raw_content)
+            if isinstance(raw_content, str)
+            else raw_content
+        )
+        node["content"] = healed_content
         model_call = {
             "request_messages": plan.messages,
             "requested_model": self.invocation_port.model_name(plan.selected_settings),
             "response_model": response.get("model"),
-            "response_content": node["content"],
+            "response_content": raw_content,
             "reasoning_content": response.get("reasoning_content"),
             "content_origin": response.get("content_origin", "answer"),
             "duration_ms": response.get("duration_ms"),
