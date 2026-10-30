@@ -183,14 +183,14 @@ def test_branch_shell_grant_events_reduce_scoped_and_reset_declarations():
             {"role": "control", "content": None},
             {
                 "role": "control",
-                "content": '/shell add sh --scope head\n/shell reset --scope session\n/shell \n/shell "',
+                "content": '/shell add sh --scope workspace\n/shell reset --scope session\n/shell \n/shell "',
             },
             {"role": "assistant", "content": "frontier"},
         ]
     )
 
     assert events == [
-        {"kind": "shell_scope_grant", "payload": {"scope": "head", "action": "add", "grant": "sh"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "workspace", "action": "add", "grant": "sh"}},
         {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "reset"}},
     ]
 

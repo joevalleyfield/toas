@@ -1,5 +1,6 @@
 from toas.graph_control_state_edges import (
     active_config_overrides,
+    active_policy_state,
     active_shell_scope_grants,
     active_surface_id,
     active_target_selection,
@@ -31,6 +32,7 @@ def test_active_target_selection_ignores_invalid_events():
 
 def test_active_workspace_scope_ignores_empty_normalized_roots():
     events = [
+        {"kind": "other"},
         {"kind": "workspace_scope", "payload": {"mode": "unbounded", "roots": [""]}},
     ]
 
@@ -39,7 +41,20 @@ def test_active_workspace_scope_ignores_empty_normalized_roots():
     assert roots
 
 
-def test_active_shell_scope_grants_remove_discards_previously_added_grant():
+def test_active_shell_scope_grants_normalizes_legacy_head_scope():
+    events = [
+        {"kind": "shell_scope_grant", "payload": {"scope": "head", "action": "add", "grant": "echo"}},
+    ]
+    state = active_shell_scope_grants(events)
+    assert state["session"]["added"] == {"echo"}
+
+
+def test_active_surface_id_ignores_non_matching_events():
+    events = [
+        {"kind": "other"},
+        {"kind": "surface_select", "payload": {"surface_id": "surf-1"}},
+    ]
+    assert active_surface_id(events) == "surf-1"
     events = [
         {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "x"}},
         {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "remove", "grant": "x"}},
@@ -116,3 +131,38 @@ def test_active_surface_id_ignores_empty_surface_id():
         {"kind": "surface_select", "payload": {"surface_id": ""}},
     ]
     assert active_surface_id(events) is None
+
+
+def test_active_policy_state_processes_policy_overrides():
+    events = [
+        {"kind": "policy_override", "payload": "not-a-dict"},
+        {"kind": "policy_override", "payload": {"key": "", "scope": "session", "action": "set"}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "invalid", "action": "add"}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "git"}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": ["cargo", "pytest"]}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "remove", "value": "cargo"}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "reset"}},
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "sh"}},
+        {"kind": "policy_override", "payload": {"key": "llm.target", "scope": "workspace", "action": "set", "value": "gpt-4o"}},
+        {"kind": "policy_override", "payload": {"key": "llm.target", "scope": "workspace", "action": "unset"}},
+        {"kind": "policy_override", "payload": {"key": "llm.target", "scope": "user", "action": "set", "value": "claude-3-5"}},
+        {"kind": "policy_override", "payload": {"key": "model.name", "scope": "global", "action": "set", "value": "deepseek"}},
+        {"kind": "policy_override", "payload": {"key": "model.name", "scope": "global", "action": "unset"}},
+        {"kind": "policy_override", "payload": {"key": "system.prompt", "scope": "workspace", "action": "set", "value": "hello"}},
+    ]
+    state = active_policy_state(events)
+    assert state["shell_grants"]["session"]["added"] == {"sh"}
+    assert state["scalars"]["user"]["llm.target"] == "claude-3-5"
+    assert active_target_selection(events) == "claude-3-5"
+    assert state["config_overrides"] == {"system": {"prompt": "hello"}}
+
+
+def test_active_policy_state_restore_action():
+    events = [
+        {"kind": "policy_override", "payload": {"key": "foo.bar", "scope": "session", "action": "set", "value": 1}},
+        {"kind": "policy_override", "payload": {"key": "any", "scope": "session", "action": "restore"}},
+    ]
+    state = active_policy_state(events)
+    assert state["config_overrides"] == {}
+    assert state["scalars"]["session"] == {}
+

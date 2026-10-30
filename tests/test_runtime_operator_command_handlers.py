@@ -1389,9 +1389,9 @@ def test_shell_reset_rejects_invalid_scope_shape(monkeypatch):
 def test_shell_reset_accepts_explicit_scope():
     import toas.step as step_mod
 
-    out = handle_prompt_workspace_commands("shell", ["reset", "--scope", "head"], step_mod=step_mod, context=_ctx())
-    assert "shell grants reset (scope=head)" in out[0]["content"]
-    assert out[0]["shell_scope_update"] == {"scope": "head", "action": "reset"}
+    out = handle_prompt_workspace_commands("shell", ["reset", "--scope", "workspace"], step_mod=step_mod, context=_ctx())
+    assert "shell grants reset (scope=workspace)" in out[0]["content"]
+    assert out[0]["shell_scope_update"] == {"scope": "workspace", "action": "reset"}
 
 
 def test_prompt_workspace_pwd_and_cd_usage_and_previous_dir_errors(tmp_path):

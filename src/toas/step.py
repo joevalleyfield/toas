@@ -570,7 +570,7 @@ def render_shell_policy_view(
             *SHELL_GRANT_FORM_LINES,
             "",
             "scope precedence:",
-            "transient > session > head > workspace > user > global > defaults",
+            "transient > session > workspace > user > global > defaults",
         ]
     )
     return "\n".join(lines)

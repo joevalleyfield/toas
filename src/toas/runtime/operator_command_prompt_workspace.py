@@ -592,15 +592,15 @@ def _parse_grants_and_scope(args: list[str]) -> tuple[list[str], str]:
         scope_idx = tokens.index("--scope")
         if scope_idx + 2 != len(tokens):
             raise ValueError(
-                "usage: /shell [add|remove|unset] <grant> [--scope <global|user|workspace|head|session|transient>]"
+                "usage: /shell [add|remove|unset] <grant> [--scope <global|user|workspace|session|transient>]"
             )
         scope = tokens[scope_idx + 1]
         tokens = tokens[:scope_idx]
     if not tokens or any(t.startswith("--") for t in tokens):
         raise ValueError(
-            "usage: /shell [add|remove|unset] <grant> [--scope <global|user|workspace|head|session|transient>]"
+            "usage: /shell [add|remove|unset] <grant> [--scope <global|user|workspace|session|transient>]"
         )
-    allowed = {"global", "user", "workspace", "head", "session", "transient"}
+    allowed = {"global", "user", "workspace", "session", "transient"}
     if scope not in allowed:
         raise ValueError("invalid scope")
     return tokens, scope
@@ -641,7 +641,7 @@ def _shell_runtime_reset_result(args: list[str], *, step_mod, context: OperatorC
     if len(args) == 3 and args[1] == "--scope":
         scope = args[2]
     elif len(args) != 1:
-        raise ValueError("usage: /shell reset [--scope <global|user|workspace|head|session|transient>]")
+        raise ValueError("usage: /shell reset [--scope <global|user|workspace|session|transient>]")
     effective = _shell_effective_grants(step_mod=step_mod, context=context)
     return [
         _result_node(

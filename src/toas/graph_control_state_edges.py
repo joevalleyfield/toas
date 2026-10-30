@@ -1,4 +1,7 @@
 from pathlib import Path
+from typing import Any
+
+POLICY_SCOPES = ("global", "user", "workspace", "session", "transient")
 
 
 def active_command_context(events: list[dict]) -> tuple[str, str | None]:
@@ -39,72 +42,125 @@ def active_workspace_scope(events: list[dict]) -> tuple[str, list[str]]:
     return mode, roots
 
 
-def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str]]]:
-    scopes = ("global", "user", "workspace", "head", "session", "transient")
-    state: dict[str, dict[str, set[str]]] = {scope: {"added": set(), "removed": set()} for scope in scopes}
+def active_policy_state(events: list[dict]) -> dict[str, Any]:
+    shell_grants: dict[str, dict[str, set[str]]] = {
+        scope: {"added": set(), "removed": set()} for scope in POLICY_SCOPES
+    }
+    scalars: dict[str, dict[str, Any]] = {scope: {} for scope in POLICY_SCOPES}
+    config_overrides: dict = {}
+
     for event in events:
-        if event.get("kind") != "shell_scope_grant":
-            continue
-        payload = event.get("payload")
-        if not isinstance(payload, dict):
-            continue
-        scope = payload.get("scope")
-        action = payload.get("action")
-        grant = payload.get("grant")
-        if not isinstance(scope, str) or scope not in state:
-            continue
-        if not isinstance(action, str):
-            continue
-        if action == "reset":
-            state[scope] = {"added": set(), "removed": set()}
-            continue
-        if not isinstance(grant, str) or not grant:
-            continue
-        if action == "add":
-            state[scope]["added"].add(grant)
-            state[scope]["removed"].discard(grant)
-        elif action in {"remove", "unset"}:
-            state[scope]["removed"].add(grant)
-            state[scope]["added"].discard(grant)
-    return state
+        kind = event.get("kind")
+        if kind == "policy_override":
+            payload = event.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            key = payload.get("key")
+            scope = payload.get("scope")
+            action = payload.get("action")
+            value = payload.get("value")
+            if not isinstance(key, str) or not key or not isinstance(scope, str) or scope not in shell_grants:
+                continue
+            if key == "shell.allowed":
+                if action == "reset":
+                    shell_grants[scope] = {"added": set(), "removed": set()}
+                elif action == "add":
+                    vals = [value] if isinstance(value, str) else (value if isinstance(value, (list, tuple)) else [])
+                    for v in vals:
+                        if isinstance(v, str) and v:
+                            shell_grants[scope]["added"].add(v)
+                            shell_grants[scope]["removed"].discard(v)
+                elif action in {"remove", "unset"}:
+                    vals = [value] if isinstance(value, str) else (value if isinstance(value, (list, tuple)) else [])
+                    for v in vals:
+                        if isinstance(v, str) and v:
+                            shell_grants[scope]["removed"].add(v)
+                            shell_grants[scope]["added"].discard(v)
+            elif key == "llm.target":
+                if action == "unset":
+                    scalars[scope].pop("llm.target", None)
+                elif action == "set" and isinstance(value, str) and value.strip():
+                    scalars[scope]["llm.target"] = value.strip()
+            else:
+                if action == "unset":
+                    scalars[scope].pop(key, None)
+                    config_overrides = deep_delete(config_overrides, key)
+                elif action == "restore":
+                    scalars[scope].clear()
+                    config_overrides = {}
+                elif action == "set":
+                    scalars[scope][key] = value
+                    nested: dict[str, Any] = {}
+                    parts = key.split(".")
+                    cur = nested
+                    for p in parts[:-1]:
+                        cur[p] = {}
+                        cur = cur[p]
+                    cur[parts[-1]] = value
+                    config_overrides = deep_merge(config_overrides, nested)
+        elif kind == "shell_scope_grant":
+            payload = event.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            scope = payload.get("scope")
+            if scope == "head":
+                scope = "session"
+            if not isinstance(scope, str) or scope not in shell_grants:
+                continue
+            action = payload.get("action")
+            grant = payload.get("grant")
+            if action == "reset":
+                shell_grants[scope] = {"added": set(), "removed": set()}
+            elif action == "add" and isinstance(grant, str) and grant:
+                shell_grants[scope]["added"].add(grant)
+                shell_grants[scope]["removed"].discard(grant)
+            elif action in {"remove", "unset"} and isinstance(grant, str) and grant:
+                shell_grants[scope]["removed"].add(grant)
+                shell_grants[scope]["added"].discard(grant)
+        elif kind == "target_selection":
+            payload = event.get("payload")
+            if isinstance(payload, dict):
+                action = payload.get("action")
+                target_id = payload.get("target_id")
+                if action == "unset":
+                    scalars["session"].pop("llm.target", None)
+                elif action == "set" and isinstance(target_id, str) and target_id.strip():
+                    scalars["session"]["llm.target"] = target_id.strip()
+        elif kind == "config_override":
+            payload = event.get("payload")
+            if isinstance(payload, dict):
+                op = payload.get("__op__")
+                if op == "restore":
+                    config_overrides = {}
+                elif op == "unset":
+                    dotted = payload.get("key")
+                    if isinstance(dotted, str) and dotted:
+                        config_overrides = deep_delete(config_overrides, dotted)
+                else:
+                    config_overrides = deep_merge(config_overrides, payload)
+
+    return {
+        "shell_grants": shell_grants,
+        "scalars": scalars,
+        "config_overrides": config_overrides,
+    }
+
+
+def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str]]]:
+    return active_policy_state(events)["shell_grants"]
 
 
 def active_config_overrides(events: list[dict]) -> dict:
-    result: dict = {}
-    for event in events:
-        if event.get("kind") != "config_override":
-            continue
-        payload = event.get("payload")
-        if not isinstance(payload, dict):
-            continue
-        op = payload.get("__op__")
-        if op == "restore":
-            result = {}
-            continue
-        if op == "unset":
-            dotted = payload.get("key")
-            if isinstance(dotted, str) and dotted:
-                result = deep_delete(result, dotted)
-            continue
-        result = deep_merge(result, payload)
-    return result
+    return active_policy_state(events)["config_overrides"]
 
 
 def active_target_selection(events: list[dict]) -> str | None:
-    selected: str | None = None
-    for event in events:
-        if event.get("kind") != "target_selection":
-            continue
-        payload = event.get("payload")
-        if not isinstance(payload, dict):
-            continue
-        action = payload.get("action")
-        target_id = payload.get("target_id")
-        if action == "unset":
-            selected = None
-        elif action == "set" and isinstance(target_id, str) and target_id.strip():
-            selected = target_id.strip()
-    return selected
+    scalars = active_policy_state(events)["scalars"]
+    for scope in reversed(POLICY_SCOPES):
+        target = scalars[scope].get("llm.target")
+        if target is not None:
+            return target
+    return None
 
 
 def surface_bindings(events: list[dict]) -> dict[str, str]:

@@ -1,12 +1,49 @@
 from __future__ import annotations
 
 from toas.graph_record_writers import (
+    write_command_context_record,
+    write_config_override_record,
+    write_policy_override_record,
+    write_shell_scope_grant_record,
     write_surface_bind_record,
     write_surface_guardrail_record,
     write_surface_rebind_record,
     write_surface_select_record,
     write_target_selection_record,
+    write_workspace_scope_record,
 )
+
+
+def test_write_policy_override_record():
+    record = write_policy_override_record(
+        "events.jsonl",
+        key="shell.allowed",
+        scope="session",
+        action="add",
+        value="sh",
+        source_message_id="msg-1",
+        append_nodes_fn=_capturing_append,
+    )
+    assert record == {
+        "kind": "policy_override",
+        "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "sh"},
+        "related_to": "msg-1",
+    }
+
+
+def test_write_policy_override_record_without_optional_fields():
+    record = write_policy_override_record(
+        "events.jsonl",
+        key="llm.target",
+        scope="workspace",
+        action="unset",
+        append_nodes_fn=_capturing_append,
+    )
+    assert record == {
+        "kind": "policy_override",
+        "payload": {"key": "llm.target", "scope": "workspace", "action": "unset"},
+    }
+    assert "related_to" not in record
 
 
 def test_write_target_selection_record():
@@ -101,3 +138,18 @@ def test_write_surface_select_record():
     )
     assert record["kind"] == "surface_select"
     assert record["payload"]["surface_id"] == "s1"
+
+
+def test_write_records_with_source_message_id():
+    cmd = write_command_context_record("events.jsonl", cwd="/tmp", source_message_id="msg-1", append_nodes_fn=_capturing_append)
+    assert cmd["related_to"] == "msg-1"
+
+    ws = write_workspace_scope_record("events.jsonl", mode="strict", roots=["/tmp"], source_message_id="msg-1", append_nodes_fn=_capturing_append)
+    assert ws["related_to"] == "msg-1"
+
+    cfg = write_config_override_record("events.jsonl", {"a": 1}, source_message_id="msg-1", append_nodes_fn=_capturing_append)
+    assert cfg["related_to"] == "msg-1"
+
+    sh = write_shell_scope_grant_record("events.jsonl", scope="session", action="add", grant="sh", source_message_id="msg-1", append_nodes_fn=_capturing_append)
+    assert sh["related_to"] == "msg-1"
+

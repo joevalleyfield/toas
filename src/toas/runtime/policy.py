@@ -232,7 +232,7 @@ class PolicyResolver:
         allowed = set(configured)
         sources: dict[str, set[str]] = {grant: {"defaults"} for grant in configured}
         scope_state = active_shell_scope_grants(events)
-        order = ("global", "user", "workspace", "head", "session", "transient")
+        order = ("global", "user", "workspace", "session", "transient")
         for scope in order:
             state = scope_state.get(scope, {"added": set(), "removed": set()})
             for grant in state["removed"]:
@@ -311,13 +311,13 @@ def parse_transcript_shell_grant_events(nodes: list[dict]) -> list[dict]:
                     scope_idx = tokens.index("--scope")
                     if scope_idx + 2 == len(tokens):
                         candidate_scope = tokens[scope_idx + 1]
-                        if candidate_scope not in {"global", "user", "workspace", "head", "session", "transient"}:
+                        if candidate_scope not in {"global", "user", "workspace", "session", "transient"}:
                             continue
                         scope = candidate_scope
                         tokens = tokens[:scope_idx]
                     else:
                         continue
-                if scope in {"global", "user", "workspace", "head", "session", "transient"}:
+                if scope in {"global", "user", "workspace", "session", "transient"}:
                     action_kind = "add" if action in {"add", "allow"} else ("remove" if action in {"remove", "deny"} else "unset")
                     for grant_token in tokens:
                         if grant_token and not grant_token.startswith("--"):
@@ -333,6 +333,6 @@ def parse_transcript_shell_grant_events(nodes: list[dict]) -> list[dict]:
                 scope = "session"
                 if len(args) == 3 and args[1] == "--scope":
                     scope = args[2]
-                if scope in {"global", "user", "workspace", "head", "session", "transient"}:
+                if scope in {"global", "user", "workspace", "session", "transient"}:
                     events.append({"kind": "shell_scope_grant", "payload": {"scope": scope, "action": "reset"}})
     return events
