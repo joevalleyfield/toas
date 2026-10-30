@@ -3,14 +3,18 @@ FKA:
 AKA: windows shell launcher; bash -ic; msys find resolution
 Legacy index:
 
-keywords: tooling, implementation, active, compatibility, shell, windows, path
+keywords: tooling, implementation, closed, compatibility, shell, windows, path
+
+Status: CLOSED — 2026-10-30
 
 # Windows Shell Launcher And Path Resolution
 
 ## Current Reality
 
-The environment-policy implementation pass is landed, but the result still
-needs verification on a real Windows box.
+The environment-policy implementation pass is landed. Real Windows runtime
+matrix verification was recorded on 2026-10-15. The October 29 operator
+failure provides secondary evidence of correct GNU find selection; its
+argument-corruption fix and successful execution complete the evidence chain.
 
 - The shared shell launcher now prefers `bash -lc` instead of `bash -ic` for
   Windows non-TTY subprocess execution.
@@ -22,8 +26,10 @@ needs verification on a real Windows box.
   prepend/append composition.
 - The legacy launcher duplication in `src/toas/tools.py` has been collapsed
   onto the shared shell launcher.
-- The remaining uncertainty is now narrower: we need both a code-level fix for
-  `find` precedence and a real Windows verification pass afterward.
+- The old implicit PATH-reordering fix was superseded by explicit environment
+  policy. Do not restore executable-derived PATH shaping to force `find`
+  precedence. Verify the intended inherited/configured environment at the
+  operator's bound-process boundary.
 
 ## Desired Reality
 
@@ -127,8 +133,24 @@ matching executable names do not imply matching environments or utility semantic
   precedence over family bindings, and PATH prepend/append composition is
   deduplicated with case-insensitive comparison on Windows.
 
-## Next Actions
+## Evidence audit — 2026-10-30
 
-- Verify the launcher and command-resolution behavior on a real Windows host.
-- Confirm that `find` resolves to the intended MSYS/Git-Bash binary in the
-  bound stdio TOAS process, not just in isolated tests.
+The October 15 evidence covers native default discovery and explicit WSL/Git
+Bash/Windows PowerShell/pwsh execution, cwd, environment, and utility resolution.
+The October 30 native full check also passes the runtime matrix (10 tests).
+
+Commit `8bd9769d` and closed task `261029-preserve-literal-shell-argv` record
+the missing secondary operator evidence: `/usr/bin/find` emitted GNU find's
+`paths must precede expression` diagnostic for `attachments\\.jj`. That identifies
+the intended utility already running before the fix. Python-side glob expansion
+had replaced the literal `*/.*` predicate argument with filesystem matches;
+executable selection was not the cause of that failure.
+
+The fix removes that expansion from assistant argv execution, adds a literal
+argument regression, and records successful end-to-end `find . -maxdepth 2
+-not -path '*/.*'` execution. Together with the real Windows matrix and today's
+green full spine, this satisfies the verification intent. This is secondary
+evidence, not a newly captured executable-path trace from the bound process.
+
+Closed after reconciling that evidence. The separate MSYS Vim harness/operator
+setup question remains in `261017-msys-vim-native-host`.

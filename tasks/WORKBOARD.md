@@ -26,7 +26,7 @@ corruption-refusal proof chain is complete enough to stop driving the queue.
 | State-mode operation | 5 | Alpha exists. Request-composition/resilience has concrete experiments; artifact capture and failure memory need bounded design choices. |
 | Policy, authority, and explicit objectives | 5 | Branch reducers and grant machinery largely exist. Provenance inspection and one-shot control ingress have explicit remaining seams; audit broad parents before extending them. |
 | Execution ingress and source fidelity | 6 | Native/text ingress, language fences, source references, retry adapters, materialization, and extraction boundaries have mixed landed and prospective scope. |
-| Platform and patch behavior | 5 | Native Windows and macOS checks have recorded green baselines. MSYS Vim works for the operator; historical harness failure and current gVim status require separate evidence. Patch research remains parked. |
+| Platform and patch behavior | 5 | October 20 inventory; October 30 follow-up closes launcher and MSYS verification. Native Windows checks, gVim smoke, and initialized MSYS smoke pass. Patch research remains parked. |
 | Operator projections and provenance | 6 | Discovery, turn IDs, highlighting, focus/map projections, and assistance trailers are mostly design or partial-probe work. |
 | Architecture, history, and stream observation | 7 | Coordination and research homes; no new storage or corruption project is implied. Telemetry and stderr separation need a concrete consumer or reproduction. |
 | Release operation | 2 | Existing recurring release process plus conditional helper ergonomics; not missing release infrastructure. |
@@ -47,10 +47,10 @@ corruption-refusal proof chain is complete enough to stop driving the queue.
    `260920-one-shot-control-ingress-disposition` (caller inventory before
    changing the ingress contract). This is a candidate list, not three
    simultaneous implementation commitments.
-3. **Handle platform reports through current reproductions.** Reconcile the
-   old launcher task and mixed-runtime harness evidence with the completed
-   Windows restoration slices and operator reports. Retest gVim before
-   diagnosing it; Linux parity remains unmeasured in this session.
+3. **Handle platform reports through current reproductions.** October 30
+   verification closes the old launcher and MSYS evidence questions; gVim smoke
+   also passes. MSYS Vim requires its initialized MSYS environment; direct
+   native launch is outside scope. Linux parity remains unmeasured here.
 4. **Keep larger capability research conditional.** Transcript parallelism,
    merged-history provenance, alternative frontends, inferred focus, and
    workboard automation should produce one bounded consumer/contract before
@@ -136,7 +136,6 @@ Neither dated vote is a literal current queue.
 - **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more... ⚠️ Stale
 - **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
-- **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures ⚠️ Stale
 - **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging ⚠️ Stale
@@ -166,8 +165,6 @@ Neither dated vote is a literal current queue.
 - **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
-- **[T261015-windows-compatibility-restoration]** Status: OPEN; coordinate restoration of native Windows behavior and routine verification
-- **[T261017-msys-vim-native-host]** Status: OPEN; reconcile historical harness failure with working operator MSYS Vim
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -181,9 +178,13 @@ Neither dated vote is a literal current queue.
 *Raw current operator friction; resolve or link entries when evidence changes.*
 
 - **Windows editor evidence:** MSYS Vim works in operator use. Windows gVim
-  failed historically and has not been retried after recent fixes. The older
-  MSYS E282 harness probe is a separate reproduction question under
-  `261017-msys-vim-native-host`.
+  failed historically; its real-host startup/render/exit smoke passes on
+  2026-10-30. The native-launched MSYS harness fails, but a login MSYS Bash
+  facsimile with MSYS fixture paths passes host/render/exit checks both with
+  clean and normal Vim configuration. Closed under `261017-msys-vim-native-host`;
+  MSYS Bash → MSYS Vim → native TOAS/Python is a primary supported workflow;
+  launching MSYS Vim outside its initialized environment is unsupported and
+  requires no detection or repair feature.
 - **State-mode reliability:** Recorded model format/composition failures are
   under `261010-state-inference-response-resilience`; inspect proposal and
   state-maintenance quality as well as format adherence.
@@ -207,12 +208,15 @@ should return only with a current timing reproduction.
 - **macOS:** Full `scripts/check.sh` at `622742c9`: 3,595 passed, nine skipped,
   17 deselected; 100.00% statement coverage; all 17 acceptance scenarios, Ruff,
   and mypy passed. Actual scratch rendering and Vim result buffer inspected.
-- **Windows:** The restoration task records a full check with explicit native
-  Vim before the latest macOS fixes. This is a platform baseline, not evidence
-  that the current revision or gVim has been rechecked there.
+- **Windows:** Full `scripts/check.sh` on 2026-10-30 at `85a7b4ce` with explicit
+  native Vim: 3,612 passed, eight skipped, 17 deselected; 100.00% coverage;
+  all 17 acceptance scenarios, Ruff, and mypy pass. Separate gVim real-host
+  smoke passes. MSYS login-environment facsimile passes; see editor evidence
+  for the failing native-launched harness and its environment/path mismatch.
 - **Linux:** No current run recorded in this review.
 - **Check policy:** `docs/checks.md` owns the gated local spine. Ruff and mypy
-  are gates, not advisory. Hosted CI has not been adopted.
+  are gates, not advisory. Hosted cross-platform CI is implemented; see
+  `docs/checks.md` for its contract.
 - **Maintenance:** Generated stale markers measure age; they do not establish
   bugs, urgency, or unfinished implementation. Recurring templates remain
   available under `tasks/recurring/`; this review is not a full docs audit.

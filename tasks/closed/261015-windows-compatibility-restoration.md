@@ -5,11 +5,11 @@ FKA:
 AKA: Windows restoration master task; Windows check spine; win32 compatibility
 Legacy index:
 
-keywords: runtime, hardening, active, compatibility, windows, parity, coverage
+keywords: runtime, hardening, closed, compatibility, windows, parity, coverage
 
 Related: `260621-windows-shell-launcher-and-path-resolution`; `260515-apply-patch-windows-crlf-hardening`; `260628-project-checks-and-ci-posture`
 
-Status: OPEN; coordinate restoration of native Windows behavior and routine verification
+Status: CLOSED — 2026-10-30; restoration and supported-platform verification complete
 
 ## Intent
 
@@ -54,31 +54,31 @@ checkout or proof that every observed failure is Windows-specific.
 | Order | Slice | Evidence / initial targets | Status |
 | --- | --- | --- | --- |
 | 1 | Prompt asset discovery | Shared loader emitted native separators in logical references; repaired and verified through actual CLI. Child: `261015-portable-asset-discovery`. | Complete on Windows |
-| 2 | Paths and filesystem behavior | Path assertions, native controls, search rendering, and file-edit fixtures repaired in the linked closed children. Symlink behavior and remaining filesystem classification remain. | In progress |
-| 3 | Subprocess pipes and streaming | Synchronous client, subscription observation, typed cancellation, and reader-stall simulations repaired in closed children. Full stand-in integration module passes (11 tests). | Focused checks green |
-| 4 | Shell, execution, and environment | Native default launcher and explicit WSL/Git Bash/Windows PowerShell/pwsh matrix verified in `261015-shell-launcher-reader-portability`. State experiments restored in `261017-state-experiment-windows`; broader full-spine verification remains. | In progress |
-| 5 | Vim harness portability | Native ConPTY harness and 30 original failures restored in `261017-vim-harness-windows`. Native Vim selected explicitly from Git Bash is verified; mixed MSYS/native-host behavior is tracked separately in `261017-msys-vim-native-host`. | Native Windows complete |
+| 2 | Paths and filesystem behavior | Path assertions, native controls, search rendering, and file-edit fixtures repaired in the linked closed children. Real junction containment is verified in `261017-state-experiment-windows`. | Complete |
+| 3 | Subprocess pipes and streaming | Synchronous client, subscription observation, typed cancellation, and reader-stall simulations repaired in closed children. Full stand-in integration module passes (11 tests). | Complete; full spine green |
+| 4 | Shell, execution, and environment | Native default launcher and explicit WSL/Git Bash/Windows PowerShell/pwsh matrix verified in `261015-shell-launcher-reader-portability`. State experiments restored in `261017-state-experiment-windows`; October 30 full spine passes. | Complete |
+| 5 | Vim harness portability | Native ConPTY harness and 30 original failures restored in `261017-vim-harness-windows`. Native Vim selected explicitly from Git Bash is verified; supported MSYS launch and gVim smoke pass in closed `261017-msys-vim-native-host`. | Complete |
 | 6 | Static checks | Upstream Ruff cleanup and platform-aware journal-lock typing pass repository-wide Ruff and mypy, including Linux platform typing. | Complete |
 | 7 | Acceptance early exit | Safe Windows process liveness probes restore completion; portable command fixtures restore all 17 scenarios. | Complete on native Windows |
-| 8 | Coverage and full spine | Native suite passes with 100% coverage and zero missing files. Complete check.sh and POSIX checkout parity remain separate gates. | Native gates green |
+| 8 | Coverage and full spine | Native suite passes with 100% coverage and zero missing files. Windows full check passes October 30; macOS parity is recorded October 20. | Complete |
 
-These are investigation groups, not a complete causal attribution of all 79
-failures. Other failures include daemon runner, backend lifecycle writer, task
-capture, and safe-overwrite tests; assign each to a verified cause or a new
-focused slice rather than assuming it belongs to an existing group.
+These investigation groups are resolved by the linked children and progress
+ledger below, including daemon lifecycle, journal locking, task capture, and
+safe-overwrite fixtures. Historical run totals remain evidence of those runs;
+they are not a current failure inventory.
 
 ## Verification and Closure
 
 - [x] Capture initial Windows check-spine results and establish this master task.
-- [ ] Reproduce and classify every baseline failure; link focused children and
+- [x] Reproduce and classify every baseline failure; link focused children and
   record targeted red/green evidence as fixes land.
-- [ ] Inspect real CLI/transcript artifacts for user-facing repairs, following
+- [x] Inspect real CLI/transcript artifacts for user-facing repairs, following
   the operator-perspective verification requirements in `AGENTS.md`.
 - [x] Resolve acceptance's unexplained early termination and record a complete run.
 - [x] Pass `uv run pytest`, including 100% coverage and zero missing files.
 - [x] Pass `uv run pytest tests/acceptance -m acceptance --no-cov -q`.
 - [x] Pass `uv run ruff check src tests` and `uv run mypy`.
-- [ ] Pass the complete `scripts/check.sh` entrypoint on Windows and verify
+- [x] Pass the complete `scripts/check.sh` entrypoint on Windows and verify
   affected portable behavior on a POSIX checkout before closure.
 
 Record revision, environment, commands, results, remaining failures, and child
@@ -285,3 +285,46 @@ Ruff and mypy pass. This closes the missing macOS parity evidence; Linux has
 not been run in this session. The operator reports working MSYS Vim and
 historical, not yet retried Windows gVim failures. See
 `261017-msys-vim-native-host` for the evidence distinction.
+
+## Native Windows recheck — 2026-10-30
+
+Fetched origin through `c9855b71`; preserved the local README/license commit
+by rebasing it onto main, yielding parent `85a7b4ce`. Native Windows Python
+3.12.13, Git Bash entrypoint, portable `uv`, explicit
+`TOAS_TEST_VIM_BIN=C:/tools/vim/vim92/vim.exe`:
+
+- Complete `scripts/check.sh` exits 0.
+- Default suite: 3,612 passed, eight skipped, 17 deselected in 205.04 seconds;
+  23,066 statements, 100.00% coverage, zero missing statements/files.
+- Replay acceptance: all 17 scenarios pass in 6.19 seconds.
+- Repository-wide Ruff and mypy pass (156 source files checked).
+- Separate gVim real-host smoke passes; actual returned transcript contains
+  the expected reply and successful async host status. MSYS Vim's native-path
+  and E282 harness failure reproduces. Commands and interpretation are recorded
+  in `261017-msys-vim-native-host`.
+
+The workboard's Windows baseline is now current. Prior macOS evidence remains
+historical; this run makes no new POSIX claim. The MSYS editor task is closed:
+the initialized MSYS launch facsimile passes; supporting direct native launch
+of MSYS Vim outside that environment is explicitly out of scope. No detection
+or environment-repair feature is required. The older shell task is closed after
+reconciling secondary operator evidence from `261029-preserve-literal-shell-argv`:
+GNU find was selected correctly, but Python glob expansion corrupted its args;
+`8bd9769d` fixes that defect and records successful execution. No runtime code
+changed in this audit.
+
+## Closure audit — 2026-10-30
+
+All 14 tasks declaring this parent are closed. The ledger and checkboxes above
+are reconciled with their recorded evidence: filesystem/junction behavior in
+`261017-state-experiment-windows`; task capture and native Vim in their October
+17 children; daemon/journal/static checks in the October 20 mechanical-gates
+entry; real CLI and transcript inspections in the repair children; complete
+Windows spine on October 30; macOS parity on October 20; and supported MSYS
+launch plus gVim smoke in `261017-msys-vim-native-host`.
+
+No identified restoration blocker remains. Linux was not newly measured in this
+chat; the POSIX acceptance criterion was satisfied by the recorded macOS run.
+The separate parked `260515-apply-patch-windows-crlf-hardening` research task is
+related work, not an unmet restoration gate. No new code or test run was needed
+for this bookkeeping closure.

@@ -10,6 +10,20 @@ native Windows Vim when testing the native Windows Python host. An MSYS Vim
 selected by PATH is a different runtime, with Unix path and job conventions;
 the native Windows contract does not establish MSYS/native-host interoperability.
 
+MSYS Bash → MSYS Vim → native Windows TOAS/Python is an explicitly supported,
+primary operator workflow. Launch Vim from an initialized MSYS environment,
+preserving its shell environment. MSYS verification must use MSYS-compatible
+Vim fixture paths and appropriate native-host argument paths. The October 30
+real-host smoke passed in that environment with both clean and normal Vim
+startup configuration; evidence is in
+`tasks/closed/261017-msys-vim-native-host.md`.
+
+Directly launching MSYS Vim from an uninitialized native Windows environment
+is outside the support contract. Automatic environment detection or repair is
+not required. The checked native Windows harness is not a substitute for the
+supported MSYS launch setup, and the exploratory MSYS smoke adapter has not
+been promoted into a checked harness mode.
+
 The checked drivers use `vim_terminal.py`: pexpect PTYs on POSIX and pywinpty
 ConPTY on Windows. Windows `.bat`/`.cmd` Vim launchers run through cmd.exe.
 Both paths run actual Vim, including the foreground keystrokes in the async timer
