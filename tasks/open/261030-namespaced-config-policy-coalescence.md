@@ -79,9 +79,9 @@ authoritative, provenance-aware policy inspection surface.
 
 ## Acceptance Criteria
 
-- [ ] `shell.allowed` and `llm.target` are recognized as first-class keys in the configuration schema and `valid_config_keys()`.
-- [ ] `active_policy_state()` reduces all keys through the 5-tier scope hierarchy into a unified state structure containing resolved values, winning scopes, and source message provenance.
-- [ ] Retires the three internal buckets in `active_policy_state()`; consumer modules query unified policy state.
+- [x] `shell.allowed` and `llm.target` are recognized as first-class keys in the configuration schema and `valid_config_keys()`.
+- [x] `active_policy_state()` reduces all keys through the 5-tier scope hierarchy into a unified state structure containing resolved values, winning scopes, and source message provenance.
+- [x] Retires the three internal buckets in `active_policy_state()`; consumer modules query unified policy state.
 - [ ] `/config show --sources` renders the winning scope and source message ID (or config file / default) for all keys.
 - [ ] `/config show [topic]` displays the unified effective policy for that topic (including shell grants and model selections).
 - [ ] `./scripts/check.sh` passes at 100.00% statement coverage across all tests.

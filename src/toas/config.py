@@ -84,6 +84,7 @@ class EndpointCatalogEntry:
 class LLMPolicy:
     base_url: str = ""
     model: str = ""
+    target: str = ""
     api_key_source: str = "env"
     api_key_ref: str = "TOAS_LLM_API_KEY"
     provider: str = ""

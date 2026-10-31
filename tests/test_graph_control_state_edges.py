@@ -26,8 +26,9 @@ def test_active_target_selection_ignores_invalid_events():
             {"kind": "target_selection", "payload": "bad"},
             {"kind": "target_selection", "payload": {"action": "set", "target_id": ""}},
             {"kind": "other", "payload": {"action": "set", "target_id": "x"}},
+            {"kind": "target_selection", "related_to": "msg_legacy_tgt", "payload": {"action": "set", "target_id": "valid"}},
         ]
-    ) is None
+    ) == "valid"
 
 
 def test_active_workspace_scope_ignores_empty_normalized_roots():
@@ -56,8 +57,8 @@ def test_active_surface_id_ignores_non_matching_events():
     ]
     assert active_surface_id(events) == "surf-1"
     events = [
-        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "x"}},
-        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "remove", "grant": "x"}},
+        {"kind": "shell_scope_grant", "related_to": "msg_add", "payload": {"scope": "session", "action": "add", "grant": "x"}},
+        {"kind": "shell_scope_grant", "related_to": "msg_rm", "payload": {"scope": "session", "action": "remove", "grant": "x"}},
     ]
     state = active_shell_scope_grants(events)
     assert state["session"]["added"] == set()
@@ -75,7 +76,7 @@ def test_active_shell_scope_grants_ignores_non_shell_scope_records():
 
 def test_active_config_overrides_unset_ignores_non_string_key():
     events = [
-        {"kind": "config_override", "payload": {"foo": {"bar": 1}}},
+        {"kind": "config_override", "related_to": "msg_cfg", "payload": {"foo": {"bar": 1}}},
         {"kind": "config_override", "payload": {"__op__": "unset", "key": None}},
     ]
     assert active_config_overrides(events) == {"foo": {"bar": 1}}
@@ -142,19 +143,23 @@ def test_active_policy_state_processes_policy_overrides():
         {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": ["cargo", "pytest"]}},
         {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "remove", "value": "cargo"}},
         {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "reset"}},
-        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "sh"}},
+        {"kind": "policy_override", "related_to": "msg_sh", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "sh"}},
+        {"kind": "policy_override", "related_to": "msg_rm", "payload": {"key": "shell.allowed", "scope": "session", "action": "remove", "value": "other"}},
         {"kind": "policy_override", "payload": {"key": "llm.target", "scope": "workspace", "action": "set", "value": "gpt-4o"}},
         {"kind": "policy_override", "payload": {"key": "llm.target", "scope": "workspace", "action": "unset"}},
-        {"kind": "policy_override", "payload": {"key": "llm.target", "scope": "user", "action": "set", "value": "claude-3-5"}},
+        {"kind": "policy_override", "related_to": "msg_tgt", "payload": {"key": "llm.target", "scope": "user", "action": "set", "value": "claude-3-5"}},
         {"kind": "policy_override", "payload": {"key": "model.name", "scope": "global", "action": "set", "value": "deepseek"}},
         {"kind": "policy_override", "payload": {"key": "model.name", "scope": "global", "action": "unset"}},
-        {"kind": "policy_override", "payload": {"key": "system.prompt", "scope": "workspace", "action": "set", "value": "hello"}},
+        {"kind": "policy_override", "related_to": "msg_sys", "payload": {"key": "system.prompt", "scope": "workspace", "action": "set", "value": "hello"}},
     ]
     state = active_policy_state(events)
     assert state["shell_grants"]["session"]["added"] == {"sh"}
     assert state["scalars"]["user"]["llm.target"] == "claude-3-5"
     assert active_target_selection(events) == "claude-3-5"
     assert state["config_overrides"] == {"system": {"prompt": "hello"}}
+    assert state["sources"]["system.prompt"] == {"scope": "workspace", "source_id": "msg_sys"}
+    assert state["sources"]["llm.target"] == {"scope": "user", "source_id": "msg_tgt"}
+    assert state["scopes"]["session"]["collections"]["shell.allowed_commands"]["sources"]["sh"] == "msg_sh"
 
 
 def test_active_policy_state_restore_action():

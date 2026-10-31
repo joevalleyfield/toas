@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+from .config_overrides import deep_merge
+
 POLICY_SCOPES = ("global", "user", "workspace", "session", "transient")
 
 
@@ -42,107 +44,186 @@ def active_workspace_scope(events: list[dict]) -> tuple[str, list[str]]:
     return mode, roots
 
 
+def _flatten_dict(d: dict, prefix: str = "") -> dict[str, Any]:
+    items: dict[str, Any] = {}
+    for k, v in d.items():
+        p = f"{prefix}.{k}" if prefix else str(k)
+        if isinstance(v, dict):
+            items.update(_flatten_dict(v, p))
+        else:
+            items[p] = v
+    return items
+
+
 def active_policy_state(events: list[dict]) -> dict[str, Any]:
-    shell_grants: dict[str, dict[str, set[str]]] = {
-        scope: {"added": set(), "removed": set()} for scope in POLICY_SCOPES
+    scopes: dict[str, dict[str, Any]] = {
+        scope: {
+            "scalars": {},
+            "sources": {},
+            "config": {},
+            "collections": {
+                "shell.allowed_commands": {"added": set(), "removed": set(), "sources": {}}
+            },
+        }
+        for scope in POLICY_SCOPES
     }
-    scalars: dict[str, dict[str, Any]] = {scope: {} for scope in POLICY_SCOPES}
-    config_overrides: dict = {}
 
     for event in events:
         kind = event.get("kind")
+        source_id = event.get("related_to")
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+
         if kind == "policy_override":
-            payload = event.get("payload")
-            if not isinstance(payload, dict):
-                continue
             key = payload.get("key")
             scope = payload.get("scope")
             action = payload.get("action")
             value = payload.get("value")
-            if not isinstance(key, str) or not key or not isinstance(scope, str) or scope not in shell_grants:
+            if not isinstance(key, str) or not key or not isinstance(scope, str) or scope not in scopes or not isinstance(action, str):
                 continue
-            if key == "shell.allowed":
+            canon_key = "shell.allowed_commands" if key in {"shell.allowed", "shell.allowed_commands"} else key
+
+            if canon_key == "shell.allowed_commands":
+                coll = scopes[scope]["collections"]["shell.allowed_commands"]
                 if action == "reset":
-                    shell_grants[scope] = {"added": set(), "removed": set()}
+                    coll["added"].clear()
+                    coll["removed"].clear()
+                    coll["sources"].clear()
                 elif action == "add":
-                    vals = [value] if isinstance(value, str) else (value if isinstance(value, (list, tuple)) else [])
+                    vals = [value] if isinstance(value, str) else (value if isinstance(value, (list, tuple, set)) else [])
                     for v in vals:
                         if isinstance(v, str) and v:
-                            shell_grants[scope]["added"].add(v)
-                            shell_grants[scope]["removed"].discard(v)
+                            coll["added"].add(v)
+                            coll["removed"].discard(v)
+                            if isinstance(source_id, str):
+                                coll["sources"][v] = source_id
                 elif action in {"remove", "unset"}:
-                    vals = [value] if isinstance(value, str) else (value if isinstance(value, (list, tuple)) else [])
+                    vals = [value] if isinstance(value, str) else (value if isinstance(value, (list, tuple, set)) else [])
                     for v in vals:
                         if isinstance(v, str) and v:
-                            shell_grants[scope]["removed"].add(v)
-                            shell_grants[scope]["added"].discard(v)
-            elif key == "llm.target":
-                if action == "unset":
-                    scalars[scope].pop("llm.target", None)
-                elif action == "set" and isinstance(value, str) and value.strip():
-                    scalars[scope]["llm.target"] = value.strip()
+                            coll["removed"].add(v)
+                            coll["added"].discard(v)
+                            if isinstance(source_id, str):
+                                coll["sources"][v] = source_id
             else:
-                if action == "unset":
-                    scalars[scope].pop(key, None)
-                    config_overrides = deep_delete(config_overrides, key)
-                elif action == "restore":
-                    scalars[scope].clear()
-                    config_overrides = {}
+                if action == "restore":
+                    scopes[scope]["scalars"].clear()
+                    scopes[scope]["sources"].clear()
+                    scopes[scope]["config"] = {}
+                elif action == "unset":
+                    to_remove = [k for k in scopes[scope]["scalars"] if k == canon_key or k.startswith(canon_key + ".")]
+                    for k in to_remove:
+                        scopes[scope]["scalars"].pop(k, None)
+                        scopes[scope]["sources"].pop(k, None)
+                    scopes[scope]["config"] = deep_delete(scopes[scope]["config"], canon_key)
                 elif action == "set":
-                    scalars[scope][key] = value
-                    nested: dict[str, Any] = {}
-                    parts = key.split(".")
-                    cur = nested
-                    for p in parts[:-1]:
-                        cur[p] = {}
-                        cur = cur[p]
-                    cur[parts[-1]] = value
-                    config_overrides = deep_merge(config_overrides, nested)
+                    if canon_key == "llm.target":
+                        if isinstance(value, str) and value.strip():
+                            scopes[scope]["scalars"][canon_key] = value.strip()
+                            if isinstance(source_id, str):
+                                scopes[scope]["sources"][canon_key] = source_id
+                    else:
+                        scopes[scope]["scalars"][canon_key] = value
+                        if isinstance(source_id, str):
+                            scopes[scope]["sources"][canon_key] = source_id
+                        nested: dict[str, Any] = {}
+                        parts = canon_key.split(".")
+                        cur = nested
+                        for p in parts[:-1]:
+                            cur = cur.setdefault(p, {})
+                        cur[parts[-1]] = value
+                        scopes[scope]["config"] = deep_merge(scopes[scope]["config"], nested)
+
         elif kind == "shell_scope_grant":
-            payload = event.get("payload")
-            if not isinstance(payload, dict):
-                continue
-            scope = payload.get("scope")
+            scope = payload.get("scope", "session")
             if scope == "head":
                 scope = "session"
-            if not isinstance(scope, str) or scope not in shell_grants:
+            if not isinstance(scope, str) or scope not in scopes:
                 continue
             action = payload.get("action")
             grant = payload.get("grant")
+            coll = scopes[scope]["collections"]["shell.allowed_commands"]
             if action == "reset":
-                shell_grants[scope] = {"added": set(), "removed": set()}
+                coll["added"].clear()
+                coll["removed"].clear()
+                coll["sources"].clear()
             elif action == "add" and isinstance(grant, str) and grant:
-                shell_grants[scope]["added"].add(grant)
-                shell_grants[scope]["removed"].discard(grant)
+                coll["added"].add(grant)
+                coll["removed"].discard(grant)
+                if isinstance(source_id, str):
+                    coll["sources"][grant] = source_id
             elif action in {"remove", "unset"} and isinstance(grant, str) and grant:
-                shell_grants[scope]["removed"].add(grant)
-                shell_grants[scope]["added"].discard(grant)
+                coll["removed"].add(grant)
+                coll["added"].discard(grant)
+                if isinstance(source_id, str):
+                    coll["sources"][grant] = source_id
+
         elif kind == "target_selection":
-            payload = event.get("payload")
-            if isinstance(payload, dict):
-                action = payload.get("action")
-                target_id = payload.get("target_id")
-                if action == "unset":
-                    scalars["session"].pop("llm.target", None)
-                elif action == "set" and isinstance(target_id, str) and target_id.strip():
-                    scalars["session"]["llm.target"] = target_id.strip()
+            action = payload.get("action")
+            target_id = payload.get("target_id")
+            if action == "unset":
+                scopes["session"]["scalars"].pop("llm.target", None)
+                scopes["session"]["sources"].pop("llm.target", None)
+            elif action == "set" and isinstance(target_id, str) and target_id.strip():
+                scopes["session"]["scalars"]["llm.target"] = target_id.strip()
+                if isinstance(source_id, str):
+                    scopes["session"]["sources"]["llm.target"] = source_id
+
         elif kind == "config_override":
-            payload = event.get("payload")
-            if isinstance(payload, dict):
-                op = payload.get("__op__")
-                if op == "restore":
-                    config_overrides = {}
-                elif op == "unset":
-                    dotted = payload.get("key")
-                    if isinstance(dotted, str) and dotted:
-                        config_overrides = deep_delete(config_overrides, dotted)
-                else:
-                    config_overrides = deep_merge(config_overrides, payload)
+            op = payload.get("__op__")
+            if op == "restore":
+                scopes["session"]["scalars"].clear()
+                scopes["session"]["sources"].clear()
+                scopes["session"]["config"] = {}
+            elif op == "unset":
+                dotted = payload.get("key")
+                if isinstance(dotted, str) and dotted:
+                    scopes["session"]["scalars"].pop(dotted, None)
+                    scopes["session"]["sources"].pop(dotted, None)
+                    scopes["session"]["config"] = deep_delete(scopes["session"]["config"], dotted)
+            else:
+                scopes["session"]["config"] = deep_merge(scopes["session"]["config"], payload)
+                for k, v in _flatten_dict(payload).items():
+                    scopes["session"]["scalars"][k] = v
+                    if isinstance(source_id, str):
+                        scopes["session"]["sources"][k] = source_id
+
+    effective_scalars: dict[str, Any] = {}
+    scalar_sources: dict[str, dict[str, Any]] = {}
+    for scope in reversed(POLICY_SCOPES):
+        for k, v in scopes[scope]["scalars"].items():
+            if k not in effective_scalars:
+                effective_scalars[k] = v
+                scalar_sources[k] = {
+                    "scope": scope,
+                    "source_id": scopes[scope]["sources"].get(k),
+                }
+
+    config_overrides: dict[str, Any] = {}
+    for scope in POLICY_SCOPES:
+        config_overrides = deep_merge(config_overrides, scopes[scope]["config"])
+
+    shell_grants = {
+        scope: {
+            "added": set(scopes[scope]["collections"]["shell.allowed_commands"]["added"]),
+            "removed": set(scopes[scope]["collections"]["shell.allowed_commands"]["removed"]),
+        }
+        for scope in POLICY_SCOPES
+    }
+    scalars = {
+        scope: dict(scopes[scope]["scalars"])
+        for scope in POLICY_SCOPES
+    }
 
     return {
+        "scopes": scopes,
+        "effective": effective_scalars,
+        "sources": scalar_sources,
         "shell_grants": shell_grants,
         "scalars": scalars,
         "config_overrides": config_overrides,
+        "target": effective_scalars.get("llm.target"),
     }
 
 
@@ -155,12 +236,7 @@ def active_config_overrides(events: list[dict]) -> dict:
 
 
 def active_target_selection(events: list[dict]) -> str | None:
-    scalars = active_policy_state(events)["scalars"]
-    for scope in reversed(POLICY_SCOPES):
-        target = scalars[scope].get("llm.target")
-        if target is not None:
-            return target
-    return None
+    return active_policy_state(events)["target"]
 
 
 def surface_bindings(events: list[dict]) -> dict[str, str]:
@@ -194,16 +270,6 @@ def active_surface_id(events: list[dict]) -> str | None:
             continue
         selected = surface_id
     return selected
-
-
-def deep_merge(base: dict, override: dict) -> dict:
-    result = dict(base)
-    for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = deep_merge(result[key], value)
-        else:
-            result[key] = value
-    return result
 
 
 def deep_delete(base: dict, dotted_key: str) -> dict:

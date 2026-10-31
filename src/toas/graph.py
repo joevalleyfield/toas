@@ -578,6 +578,7 @@ def branch_policy_records(events: list[dict], *, head_id: str | None = None) -> 
     """Partition policy records into selected-lineage evidence and legacy fallback."""
     lineage_ids = {event.get("id") for event in message_lineage(events, head_id=head_id)}
     supported = {
+        "policy_override",
         "config_override",
         "config_load_resolution",
         "shell_scope_grant",
@@ -613,11 +614,20 @@ def branch_policy_provenance(events: list[dict], *, head_id: str | None = None) 
     domains: dict[str, list[dict]] = {}
     for event in records["visible"]:
         kind = event.get("kind")
-        domain = domain_for_kind.get(kind)
         payload = event.get("payload")
         source_id = event.get("related_to")
-        if domain is None or not isinstance(payload, dict) or not isinstance(source_id, str):
+        if not isinstance(payload, dict) or not isinstance(source_id, str):
             continue
+        if kind == "policy_override":
+            key = payload.get("key", "")
+            if key in {"shell.allowed", "shell.allowed_commands"}:
+                domain = "shell_grants"
+            elif key == "llm.target":
+                domain = "target"
+            else:
+                domain = "config"
+        else:
+            domain = domain_for_kind[kind]
         domains.setdefault(domain, []).append(
             {"kind": kind, "source_message_id": source_id, "payload": payload}
         )

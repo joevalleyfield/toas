@@ -115,6 +115,32 @@ def test_branch_policy_provenance_groups_visible_records_by_domain():
     assert provenance["legacy_fallback"] == []
 
 
+def test_branch_policy_provenance_groups_policy_overrides_by_domain():
+    events = [
+        {"id": "n1", "role": "user", "content": "root"},
+        {"id": "n2", "parent": "n1", "role": "control", "content": "/model select sonnet"},
+        {"kind": "policy_override", "related_to": "n2", "payload": "bad"},
+        {"kind": "policy_override", "related_to": 123, "payload": {}},
+        {"kind": "policy_override", "related_to": "n2", "payload": {"key": "llm.target", "scope": "session", "action": "set", "value": "sonnet"}},
+        {"id": "n3", "parent": "n2", "role": "control", "content": "/shell add pytest"},
+        {"kind": "policy_override", "related_to": "n3", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "pytest"}},
+        {"id": "n4", "parent": "n3", "role": "control", "content": "/config set shell.assistant_timeout_s 15"},
+        {"kind": "policy_override", "related_to": "n4", "payload": {"key": "shell.assistant_timeout_s", "scope": "session", "action": "set", "value": 15}},
+    ]
+
+    provenance = branch_policy_provenance(events, head_id="n4")
+
+    assert provenance["head_id"] == "n4"
+    assert provenance["domains"]["target"][0]["payload"]["value"] == "sonnet"
+    assert provenance["domains"]["target"][0]["source_message_id"] == "n2"
+    assert provenance["domains"]["shell_grants"][0]["payload"]["value"] == "pytest"
+    assert provenance["domains"]["shell_grants"][0]["source_message_id"] == "n3"
+    assert provenance["domains"]["config"][0]["payload"]["value"] == 15
+    assert provenance["domains"]["config"][0]["source_message_id"] == "n4"
+    assert len(provenance["legacy_fallback"]) == 1
+    assert provenance["legacy_fallback"][0]["related_to"] == 123
+
+
 def test_read_logical_history_stitches_segments_and_hot_file(tmp_path):
     hot_path = tmp_path / ".toas" / "events.jsonl"
     segments_dir = hot_path.parent / "segments"
