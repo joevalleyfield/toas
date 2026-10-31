@@ -959,7 +959,8 @@ def test_config_help_handler_config_show_sources(monkeypatch):
     assert "llm.base_url = override-url    [source=session_override]" in content
     assert "llm.model = file-model    [source=file.toml]" in content
     assert "precedence stack (highest to lowest):" in content
-    assert "1. ephemeral_secrets" in content
+    assert "1. transient" in content
+    assert "2. session" in content
     assert "timing semantics:" in content
 
     migration_context = _ctx(config=cfg, config_sources=legacy_sources)
@@ -1163,6 +1164,52 @@ def test_config_show_execution_structured_flat_and_sources():
     assert "tool_writes.newline_style = auto    [source=config_file]" in with_sources
     assert "shell.allowed_commands = ('echo', 'pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg', 'find', 'sed', 'awk')    [source=default]" in with_sources
     assert "backend.mode" not in with_sources
+
+
+def test_config_show_shell_and_models_with_unified_policy():
+    import toas.step as step_mod
+
+    events = [
+        {"kind": "policy_override", "related_to": "n2", "payload": {"key": "llm.target", "scope": "session", "action": "set", "value": "sonnet"}},
+        {"kind": "policy_override", "related_to": "n3", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "pytest"}},
+    ]
+    sources = {
+        "llm.target": "session (n2)",
+        "shell.allowed_commands": "session (n3)",
+        "shell.allowed": "session (n3)",
+        "shell.assistant_timeout_s": "session (n2)",
+        "generation.max_tokens": "/path/to/toas.toml",
+    }
+    context = _ctx(
+        events=events,
+        config_sources=sources,
+    )
+
+    # /config show shell renders overview with active shell commands
+    shell_overview = handle_config_help_commands("config", ["show", "shell"], step_mod=step_mod, context=context)[0]["content"]
+    assert "execution configuration" in shell_overview
+    assert "shell:" in shell_overview
+    assert "12 commands" in shell_overview
+
+    # /config show shell --sources renders shell keys with provenance
+    shell_sources = handle_config_help_commands("config", ["show", "shell", "--sources"], step_mod=step_mod, context=context)[0]["content"]
+    assert "shell.allowed_commands =" in shell_sources
+    assert "[source=session (n3)]" in shell_sources
+    assert "shell.assistant_timeout_s = 5    [source=session (n2)]" in shell_sources
+
+    # /config show models renders models overview with active target
+    models_overview = handle_config_help_commands("config", ["show", "models"], step_mod=step_mod, context=context)[0]["content"]
+    assert "model configuration" in models_overview
+    assert "target: sonnet" in models_overview
+
+    # /config show models --sources renders model keys including llm.target with provenance
+    models_sources = handle_config_help_commands("config", ["show", "models", "--sources"], step_mod=step_mod, context=context)[0]["content"]
+    assert "llm.target = sonnet    [source=session (n2)]" in models_sources
+
+    no_events_ctx = _ctx(events=None)
+    no_events_overview = handle_config_help_commands("config", ["show", "execution"], step_mod=step_mod, context=no_events_ctx)[0]["content"]
+    assert "execution configuration" in no_events_overview
+
 
 
 def test_bare_config_is_compact_navigation_not_state_dump():
@@ -2365,6 +2412,10 @@ def test_config_target_authoring_lists_and_emits_structured_updates():
     with pytest.raises(ValueError, match="already exists: local"):
         handle_config_help_commands(
             "config", ["target", "add", "local", "openai", "qwen3.6"], step_mod=step_mod, context=_ctx(config=cfg)
+        )
+    with pytest.raises(ValueError, match="unknown endpoint: unknown_ep"):
+        handle_config_help_commands(
+            "config", ["target", "add", "newtarget", "unknown_ep", "m1"], step_mod=step_mod, context=_ctx(config=cfg)
         )
     preview = handle_config_help_commands(
         "config", ["target", "add", "--all-known", "local", "--preview"], step_mod=step_mod, context=_ctx(config=endpoint_cfg)

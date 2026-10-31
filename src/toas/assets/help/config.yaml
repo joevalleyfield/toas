@@ -23,7 +23,7 @@ overview:
   - "  - /config save writes the effective configuration to disk"
   - ""
   - "precedence stack (highest to lowest):"
-  - "  ephemeral_secrets > session_override > config_file > env > defaults"
+  - "  transient > session > workspace > user > global > defaults"
   - ""
   - "compatibility notes:"
   - "  extraction.yaml_position remains available for legacy extraction flows."
@@ -47,7 +47,7 @@ topics:
         next_actions: ["/config endpoint add local BASE_URL", "/models refresh local", "/model select local MODEL", "/models known local"]
       config:
         summary: "Endpoints can be configured with base_url, default_model, models, provider, api_key_source, api_key_ref, and notes using `/config endpoint set NAME.FIELD VALUE`. For environment-variable authentication, api_key_source is env and api_key_ref is the variable name (default: TOAS_LLM_API_KEY). First setup: add an endpoint, run /models refresh NAME, then use a displayed /model select NAME MODEL command. Selection creates its target automatically; a default model is optional. `live` reads the endpoint without writing; `known` reads local catalog state; `refresh` probes and writes the catalog; target creation is local and non-probing."
-        related_keys: [llm.model, llm.endpoints, llm.targets, llm.base_url, llm.api_key_source, llm.api_key_ref, llm.provider, backend.mode]
+        related_keys: [llm.target, llm.model, llm.endpoints, llm.targets, llm.base_url, llm.api_key_source, llm.api_key_ref, llm.provider, backend.mode]
         next_actions: ["/config show models", "/config show models --flat", "/config show models --sources", "/config endpoint list", "/config endpoint add NAME BASE_URL", "/config endpoint set NAME.api_key_ref ENV_VAR_NAME", "/models live [ENDPOINT] [--details|--raw]", "/models known [ENDPOINT] [--details]", "/models refresh [ENDPOINT] [--details|--raw]", "/model select ENDPOINT MODEL", "/config target list", "/model targets", "/model select TARGET"]
   - id: generation
     aliases: [generate, thinking, tokens, retries]
@@ -150,6 +150,7 @@ topics:
           - "/config show execution --flat"
           - "/config show execution --sources"
 key_descriptions:
+  llm.target: "Selects the active named model target."
   llm.model: "Selects the active model for generation."
   llm.endpoints: "Defines configured endpoint entries and their known models."
   llm.targets: "Defines durable named endpoint/model/generation selections."
@@ -171,6 +172,7 @@ key_descriptions:
   health_timing.host_request_deadline_ms: "Controls the host request deadline."
   health_timing.recovery_timeout_ms: "Controls recovery timing after a stalled activity."
   shell.assistant_timeout_s: "Limits assistant-directed shell execution time."
+  shell.allowed: "Specifies allowed assistant shell commands (alias for shell.allowed_commands)."
   shell.allowed_commands: "Specifies allowed assistant shell commands."
   backend.mode: "Selects the model execution backend mode."
   backend.managed_local: "Configures managed local backend process spawning."

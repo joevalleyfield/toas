@@ -161,6 +161,8 @@ def test_valid_config_keys_complete():
     assert "health_timing.host_request_deadline_ms" in keys
     assert "health_timing.recovery_timeout_ms" in keys
     assert "shell.allowed_commands" in keys
+    assert "shell.allowed" in keys
+    assert "llm.target" in keys
     assert "capability_advertisement.profile" in keys
     assert "capability_advertisement.hidden_tools" in keys
     assert "prompt.mode" in keys
@@ -295,8 +297,17 @@ def test_parse_config_value_runtime_enabled_disabled_toggles():
 def test_parse_config_value_shell_allowed_commands():
     assert parse_config_value("shell.allowed_commands", "echo,pwd,rg") == ("echo", "pwd", "rg")
     assert parse_config_value("shell.allowed_commands", "glob:python*,prefix:jj") == ("glob:python*", "prefix:jj")
+    assert parse_config_value("shell.allowed", "echo,pwd,rg") == ("echo", "pwd", "rg")
     with pytest.raises(ValueError, match="comma-separated non-empty"):
         parse_config_value("shell.allowed_commands", " , ")
+    with pytest.raises(ValueError, match="comma-separated non-empty"):
+        parse_config_value("shell.allowed", " , ")
+
+
+def test_apply_overrides_with_shell_allowed_alias():
+    cfg = OperatorConfig()
+    updated = apply_overrides(cfg, {"shell": {"allowed": ("cat", "grep")}})
+    assert updated.shell.allowed_commands == ("cat", "grep")
 
 
 def test_parse_config_value_shell_assistant_timeout_is_positive_int():

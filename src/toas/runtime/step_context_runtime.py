@@ -14,7 +14,7 @@ from ..config import (
 )
 from ..graph import (
     active_command_context,
-    active_config_overrides,
+    active_policy_state,
     active_workspace_scope,
 )
 from .step_generation_runtime import GenerationRunner, StepCliDeps
@@ -166,13 +166,15 @@ def resolve_runtime_generation_context(*, deps: StepCliDeps, events_path: Path, 
             for dotted in flatten_nested_config(loaded):
                 file_key_sources[dotted] = str(candidate)
     file_config = config_from_discovered_paths(workdir=Path.cwd())
-    session_overrides = active_config_overrides(events)
+    policy_state = active_policy_state(events)
+    session_overrides = policy_state["config_overrides"]
     operator_config = apply_overrides(file_config, session_overrides)
     config_sources = deps.build_config_sources(
         file_nested=file_nested,
         session_overrides=session_overrides,
         operator_config=operator_config,
         file_key_sources=file_key_sources,
+        policy_sources=policy_state.get("sources"),
         legacy_config_paths=tuple(
             sorted(
                 {

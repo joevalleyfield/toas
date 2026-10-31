@@ -56,6 +56,11 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
         nested_llm = dict(nested_llm)
         nested_llm["targets"] = _merge_named_target_maps(base.get("llm", {}).get("targets", []), nested_llm["targets"])
         nested["llm"] = nested_llm
+    nested_shell = nested.get("shell")
+    if isinstance(nested_shell, dict) and "allowed" in nested_shell:
+        nested_shell = dict(nested_shell)
+        nested_shell.setdefault("allowed_commands", nested_shell.pop("allowed"))
+        nested["shell"] = nested_shell
     merged = deep_merge(base, nested)
     extraction = classes["ExtractionPolicy"](**merged.get("extraction", {}))
     generation_values = merged.get("generation", {})

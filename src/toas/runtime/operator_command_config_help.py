@@ -141,7 +141,13 @@ def _config_key_matches(keys: list[str], filter_text: str | None) -> list[str]:
     return sorted(token_matches)
 
 
-def _effective_config_values(flat: dict[str, object], *, step_mod) -> dict[str, object]:
+def _effective_config_values(
+    flat: dict[str, object],
+    *,
+    step_mod,
+    events: list[dict] | None = None,
+    config: OperatorConfig | None = None,
+) -> dict[str, object]:
     values = dict(flat)
     runtime_settings = None
     for key in ("llm.base_url", "llm.model"):
@@ -154,6 +160,13 @@ def _effective_config_values(flat: dict[str, object], *, step_mod) -> dict[str, 
             "llm.model": runtime_settings.llm_model,
         }
         values[key] = fallback[key]
+    if events is not None and config is not None:
+        from ..graph import active_policy_state
+        policy = active_policy_state(events)
+        if "shell.allowed_commands" in policy.get("effective", {}):
+            values["shell.allowed_commands"] = policy["effective"]["shell.allowed_commands"]
+        if "llm.target" in policy.get("effective", {}) and not values.get("llm.target"):
+            values["llm.target"] = policy["effective"]["llm.target"]
     return values
 
 
@@ -167,7 +180,7 @@ def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
     from .policy_edges import settings_for_runtime
 
     settings, _sources = settings_for_runtime(context.config, runtime_secrets={})
-    active_id = active_target_selection(context.events)
+    active_id = context.config.llm.target or active_target_selection(context.events)
     active_target = resolve_model_target(context.config, active_id) if active_id else None
     invocation = (
         resolve_target_invocation(
@@ -253,7 +266,7 @@ def _config_models_overview(*, step_mod, context: OperatorCommandContext) -> str
     from .policy_edges import settings_for_runtime
 
     settings, _sources = settings_for_runtime(context.config, runtime_secrets={})
-    active_id = active_target_selection(context.events)
+    active_id = context.config.llm.target or active_target_selection(context.events)
     active_target = None
     if active_id:
         from .model_targets import (
@@ -344,7 +357,10 @@ def _config_models_overview(*, step_mod, context: OperatorCommandContext) -> str
 def _config_execution_overview(*, step_mod, context: OperatorCommandContext) -> str:
     """Render execution configuration as an operator-readable composed view."""
     shell = context.config.shell
-    allowed = shell.allowed_commands
+    if hasattr(step_mod, "resolve_effective_shell_allowed") and context.events is not None:
+        allowed = step_mod.resolve_effective_shell_allowed(context.working, context.config, context.events)
+    else:
+        allowed = shell.allowed_commands
     allowed_summary = f"{len(allowed)} commands ({', '.join(allowed[:5])}...)" if len(allowed) > 8 else (", ".join(allowed) or "(none)")
     tool_writes = context.config.tool_writes
 
@@ -369,7 +385,7 @@ def _config_execution_overview(*, step_mod, context: OperatorCommandContext) -> 
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     filter_text, show_sources, show_flat = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
 
-    flat = _effective_config_values(step_mod.flatten_config(context.config), step_mod=step_mod)
+    flat = _effective_config_values(step_mod.flatten_config(context.config), step_mod=step_mod, events=context.events, config=context.config)
     keys = _config_key_matches(list(flat), filter_text)
     if filter_text is not None and not keys:
         return [
@@ -384,7 +400,7 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
     model_topic = resolve_config_help_topic(load_config_help_catalog(), filter_text) if filter_text else None
     if filter_text and model_topic is not None and model_topic.topic_id == "models" and not show_sources and not show_flat:
         return [_result_node(_config_models_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
-    if filter_text and model_topic is not None and model_topic.topic_id == "execution" and not show_sources and not show_flat:
+    if filter_text and (filter_text == "shell" or (model_topic is not None and model_topic.topic_id == "execution")) and not show_sources and not show_flat:
         return [_result_node(_config_execution_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
     if filter_text is None and not show_sources and not show_flat:
         return [_result_node(_config_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
@@ -409,12 +425,11 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
         [
             "",
             "precedence stack (highest to lowest):",
-            "  1. ephemeral_secrets (runtime in-memory secrets)",
-            "  2. session_override (durable event log config_override events)",
-            "  3. config_file (local/project toas.toml / .toas/config.toml)",
-            "  4. global_config_file (global ~/.toas.toml / ~/.config/toas/config.toml)",
-            "  5. env (TOAS_LLM_BASE_URL, etc.)",
-            "  6. default (in-code fallback defaults)",
+            "  1. transient (in-memory; expires after immediate next step)",
+            "  2. session (working transcript session.md)",
+            "  3. workspace (.toas/config.toml)",
+            "  4. user (~/.config/toas/config.toml)",
+            "  5. global / defaults (built-in system defaults)",
             "",
             "timing semantics:",
             "  - session overrides (via /config set) are written to durable events when the current step completes.",

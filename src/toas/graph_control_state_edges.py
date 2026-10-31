@@ -123,6 +123,7 @@ def active_policy_state(events: list[dict]) -> dict[str, Any]:
                             scopes[scope]["scalars"][canon_key] = value.strip()
                             if isinstance(source_id, str):
                                 scopes[scope]["sources"][canon_key] = source_id
+                            scopes[scope]["config"] = deep_merge(scopes[scope]["config"], {"llm": {"target": value.strip()}})
                     else:
                         scopes[scope]["scalars"][canon_key] = value
                         if isinstance(source_id, str):
@@ -162,13 +163,18 @@ def active_policy_state(events: list[dict]) -> dict[str, Any]:
         elif kind == "target_selection":
             action = payload.get("action")
             target_id = payload.get("target_id")
-            if action == "unset":
+            if action in {"unset", "clear"}:
                 scopes["session"]["scalars"].pop("llm.target", None)
                 scopes["session"]["sources"].pop("llm.target", None)
+                scopes["session"]["config"] = deep_delete(scopes["session"]["config"], "llm.target")
             elif action == "set" and isinstance(target_id, str) and target_id.strip():
                 scopes["session"]["scalars"]["llm.target"] = target_id.strip()
                 if isinstance(source_id, str):
                     scopes["session"]["sources"]["llm.target"] = source_id
+                scopes["session"]["config"] = deep_merge(
+                    scopes["session"]["config"],
+                    {"llm": {"target": target_id.strip()}},
+                )
 
         elif kind == "config_override":
             op = payload.get("__op__")
@@ -189,6 +195,29 @@ def active_policy_state(events: list[dict]) -> dict[str, Any]:
                     if isinstance(source_id, str):
                         scopes["session"]["sources"][k] = source_id
 
+    has_shell_collection_edits = any(
+        scopes[s]["collections"]["shell.allowed_commands"]["added"]
+        or scopes[s]["collections"]["shell.allowed_commands"]["removed"]
+        for s in POLICY_SCOPES
+    )
+    if has_shell_collection_edits:
+        from .config import ShellPolicy
+
+        current_allowed = list(ShellPolicy().allowed_commands)
+        for scope in POLICY_SCOPES:
+            coll = scopes[scope]["collections"]["shell.allowed_commands"]
+            for r in sorted(coll["removed"]):
+                if r in current_allowed:
+                    current_allowed.remove(r)
+            for a in sorted(coll["added"]):
+                if a not in current_allowed:
+                    current_allowed.append(a)
+            if coll["added"] or coll["removed"]:
+                scopes[scope]["config"] = deep_merge(
+                    scopes[scope]["config"],
+                    {"shell": {"allowed_commands": tuple(current_allowed)}},
+                )
+
     effective_scalars: dict[str, Any] = {}
     scalar_sources: dict[str, dict[str, Any]] = {}
     for scope in reversed(POLICY_SCOPES):
@@ -199,6 +228,25 @@ def active_policy_state(events: list[dict]) -> dict[str, Any]:
                     "scope": scope,
                     "source_id": scopes[scope]["sources"].get(k),
                 }
+
+    if "shell.allowed_commands" not in scalar_sources and has_shell_collection_edits:
+        for scope in reversed(POLICY_SCOPES):
+            coll = scopes[scope]["collections"]["shell.allowed_commands"]
+            if coll["added"] or coll["removed"]:
+                last_src = list(coll["sources"].values())[-1] if coll["sources"] else None
+                scalar_sources["shell.allowed_commands"] = {
+                    "scope": scope,
+                    "source_id": last_src,
+                }
+                break
+
+    if "shell.allowed_commands" not in effective_scalars and has_shell_collection_edits:
+        effective_scalars["shell.allowed_commands"] = tuple(current_allowed)
+
+    if "shell.allowed_commands" in scalar_sources and "shell.allowed" not in scalar_sources:
+        scalar_sources["shell.allowed"] = scalar_sources["shell.allowed_commands"]
+    if "shell.allowed_commands" in effective_scalars and "shell.allowed" not in effective_scalars:
+        effective_scalars["shell.allowed"] = effective_scalars["shell.allowed_commands"]
 
     config_overrides: dict[str, Any] = {}
     for scope in POLICY_SCOPES:

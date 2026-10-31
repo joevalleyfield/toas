@@ -128,3 +128,55 @@ def test_settings_for_runtime_gemini_rest_base_url_default():
     assert settings.llm_base_url == "https://generativelanguage.googleapis.com"
     assert settings.llm_provider == "gemini-rest"
     assert sources["endpoint"] == "env_or_default"
+
+
+def test_build_config_sources_with_policy_sources():
+    config = OperatorConfig()
+    policy_sources = {
+        "llm.target": {"scope": "session", "source_id": "n2"},
+        "shell.allowed_commands": {"scope": "session", "source_id": "n3"},
+        "generation.max_tokens": {"scope": "workspace", "source_id": None},
+    }
+    sources = build_config_sources(
+        file_nested={"llm": {"base_url": "http://file/v1"}},
+        session_overrides={"llm": {"target": "custom"}},
+        operator_config=config,
+        file_key_sources={"generation.thinking_mode": "/path/to/toas.toml"},
+        policy_sources=policy_sources,
+    )
+    assert sources["llm.target"] == "session (n2)"
+    assert sources["shell.allowed_commands"] == "session (n3)"
+    assert sources["shell.allowed"] == "session (n3)"
+    assert sources["generation.max_tokens"] == "workspace"
+    assert sources["generation.thinking_mode"] == "/path/to/toas.toml"
+    assert sources["llm.base_url"] == "config_file"
+    assert sources["generation.avoid_terms"] == "default"
+
+
+def test_build_config_sources_with_policy_sources_plain_scope_string():
+    config = OperatorConfig()
+    policy_sources = {
+        "llm.target": "user",
+    }
+    sources = build_config_sources(
+        file_nested={},
+        session_overrides={},
+        operator_config=config,
+        policy_sources=policy_sources,
+    )
+    assert sources["llm.target"] == "user"
+
+
+def test_build_config_sources_detects_env_vars(monkeypatch):
+    monkeypatch.setenv("TOAS_LLM_BASE_URL", "http://env-host/v1")
+    monkeypatch.setenv("TOAS_LLM_MODEL", "env-model")
+    config = OperatorConfig()
+    sources = build_config_sources(
+        file_nested={},
+        session_overrides={},
+        operator_config=config,
+    )
+    assert sources["llm.base_url"] == "env"
+    assert sources["llm.model"] == "env"
+
+

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 from .cli_session_commands import run_step as run_session_step
 from .cli_session_views import (
@@ -98,6 +99,7 @@ def _build_config_sources(
     operator_config: OperatorConfig,
     file_key_sources: dict[str, str] | None = None,
     legacy_config_paths: tuple[str, ...] | None = None,
+    policy_sources: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, str]:
     return _policy_build_config_sources(
         file_nested=file_nested,
@@ -105,6 +107,7 @@ def _build_config_sources(
         operator_config=operator_config,
         file_key_sources=file_key_sources,
         legacy_config_paths=legacy_config_paths,
+        policy_sources=policy_sources,
     )
 
 

@@ -251,7 +251,7 @@ def _nested_override(dotted_key: str, value: object) -> dict:
     return {parts[0]: _nested_override(parts[1], value)}
 
 
-_VALID_KEYS: frozenset[str] = build_valid_config_keys(OperatorConfig)
+_VALID_KEYS: frozenset[str] = build_valid_config_keys(OperatorConfig) | {"shell.allowed"}
 
 
 def valid_config_keys() -> list[str]:

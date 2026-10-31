@@ -3,6 +3,7 @@ import os
 import re
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 from ..config import (
     OperatorConfig,
@@ -126,14 +127,21 @@ def build_config_sources(
     operator_config: OperatorConfig,
     file_key_sources: dict[str, str] | None = None,
     legacy_config_paths: tuple[str, ...] | None = None,
+    policy_sources: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, str]:
     sources: dict[str, str] = {}
     for key in valid_config_keys():
-        if has_nested_key(session_overrides, key):
+        lookup_key = "shell.allowed_commands" if (policy_sources and key == "shell.allowed" and "shell.allowed" not in policy_sources) else key
+        if policy_sources and lookup_key in policy_sources:
+            entry = policy_sources[lookup_key]
+            scope = entry.get("scope", "session") if isinstance(entry, dict) else str(entry)
+            source_id = entry.get("source_id") if isinstance(entry, dict) else None
+            sources[key] = f"{scope} ({source_id})" if source_id else scope
+        elif has_nested_key(session_overrides, lookup_key) or has_nested_key(session_overrides, key):
             sources[key] = "session_override"
-        elif file_key_sources and key in file_key_sources:
-            sources[key] = file_key_sources[key]
-        elif has_nested_key(file_nested, key):
+        elif file_key_sources and (key in file_key_sources or lookup_key in file_key_sources):
+            sources[key] = file_key_sources.get(key) or file_key_sources[lookup_key]
+        elif has_nested_key(file_nested, lookup_key) or has_nested_key(file_nested, key):
             sources[key] = "config_file"
         elif key == "llm.base_url" and os.environ.get("TOAS_LLM_BASE_URL", "").strip():
             sources[key] = "env"

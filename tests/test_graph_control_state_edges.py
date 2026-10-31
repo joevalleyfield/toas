@@ -144,7 +144,7 @@ def test_active_policy_state_processes_policy_overrides():
         {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "remove", "value": "cargo"}},
         {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "session", "action": "reset"}},
         {"kind": "policy_override", "related_to": "msg_sh", "payload": {"key": "shell.allowed", "scope": "session", "action": "add", "value": "sh"}},
-        {"kind": "policy_override", "related_to": "msg_rm", "payload": {"key": "shell.allowed", "scope": "session", "action": "remove", "value": "other"}},
+        {"kind": "policy_override", "related_to": "msg_rm", "payload": {"key": "shell.allowed", "scope": "session", "action": "remove", "value": ["other", "echo"]}},
         {"kind": "policy_override", "payload": {"key": "llm.target", "scope": "workspace", "action": "set", "value": "gpt-4o"}},
         {"kind": "policy_override", "payload": {"key": "llm.target", "scope": "workspace", "action": "unset"}},
         {"kind": "policy_override", "related_to": "msg_tgt", "payload": {"key": "llm.target", "scope": "user", "action": "set", "value": "claude-3-5"}},
@@ -156,7 +156,10 @@ def test_active_policy_state_processes_policy_overrides():
     assert state["shell_grants"]["session"]["added"] == {"sh"}
     assert state["scalars"]["user"]["llm.target"] == "claude-3-5"
     assert active_target_selection(events) == "claude-3-5"
-    assert state["config_overrides"] == {"system": {"prompt": "hello"}}
+    assert state["config_overrides"]["system"] == {"prompt": "hello"}
+    assert state["config_overrides"]["llm"] == {"target": "claude-3-5"}
+    assert "sh" in state["config_overrides"]["shell"]["allowed_commands"]
+    assert "echo" not in state["config_overrides"]["shell"]["allowed_commands"]
     assert state["sources"]["system.prompt"] == {"scope": "workspace", "source_id": "msg_sys"}
     assert state["sources"]["llm.target"] == {"scope": "user", "source_id": "msg_tgt"}
     assert state["scopes"]["session"]["collections"]["shell.allowed_commands"]["sources"]["sh"] == "msg_sh"

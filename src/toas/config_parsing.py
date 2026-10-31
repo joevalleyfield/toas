@@ -47,7 +47,8 @@ def config_value_choices(
         raise ValueError(f"unknown config key: {dotted_key}")
     if dotted_key in _CHOICE_MAP:
         return _CHOICE_MAP[dotted_key]
-    section_name, field_name = dotted_key.split(".", 1)
+    canon = "shell.allowed_commands" if dotted_key == "shell.allowed" else dotted_key
+    section_name, field_name = canon.split(".", 1)
     section_map = {f.name: f for f in fields(operator_config_cls)}
     sub_cls = section_map[section_name].default_factory()  # type: ignore[misc]
     current = getattr(sub_cls, field_name)
@@ -57,7 +58,8 @@ def config_value_choices(
 
 
 def _field_default_for_key(dotted_key: str, *, operator_config_cls):
-    section_name, field_name = dotted_key.split(".", 1)
+    canon = "shell.allowed_commands" if dotted_key == "shell.allowed" else dotted_key
+    section_name, field_name = canon.split(".", 1)
     section_map = {f.name: f for f in fields(operator_config_cls)}
     if section_name not in section_map:
         raise ValueError(f"unknown config key: {dotted_key}")
@@ -150,7 +152,7 @@ def parse_config_value(
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
     if dotted_key == "llm.targets":
         raise ValueError("llm.targets cannot be set via /config set; edit toas.toml")
-    if dotted_key == "shell.allowed_commands":
+    if dotted_key in {"shell.allowed", "shell.allowed_commands"}:
         commands_value = normalize_shell_grants(tuple(part.strip() for part in raw.split(",") if part.strip()))
         if not commands_value:
             raise ValueError(f"{dotted_key}: expected comma-separated non-empty shell grants")
