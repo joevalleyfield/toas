@@ -110,6 +110,11 @@ def test_config_help_topic_keys_preserve_asset_order_and_omit_missing_keys():
         "llm.model",
         "backend.mode",
     ]
+    assert resolve_config_help_keys("shell", ["shell.allowed", "shell.assistant_timeout_s"]) == [
+        "shell.allowed",
+        "shell.assistant_timeout_s",
+    ]
+    assert "config help: execution" in render_config_help("shell", valid_keys=[])
     assert resolve_config_help_keys("precedence", ["llm.model"]) == []
     assert resolve_config_help_keys("unknown", ["llm.model"]) is None
 
@@ -132,8 +137,32 @@ def test_plain_help_renders_behavioral_facet_and_config_cross_link():
     assert generation is not None
     assert "thinking posture" in generation
     assert "configuration: /help config generation" in generation
-    assert render_plain_help("precedence") is None
+
+    precedence = render_plain_help("precedence")
+    assert precedence is not None
+    assert "transient > session" in precedence
+    assert "configuration: /help config precedence" in precedence
+    for alias in ("sources", "provenance"):
+        assert render_plain_help(alias) == precedence
+
+    shell_plain = render_plain_help("shell")
+    assert shell_plain is not None
+    assert shell_plain.startswith("help: execution")
+    assert "/shell list" in shell_plain
+    assert render_plain_help("grants") == shell_plain
+
     assert render_plain_help("unknown") is None
+
+
+def test_plain_help_topic_without_plain_facet_returns_none(monkeypatch):
+    dummy_catalog = ConfigHelpCatalog(
+        summary="dummy",
+        overview_lines=(),
+        topics=(HelpTopic(topic_id="nofacet", aliases=(), summary="no facet summary", facets={}),),
+        key_descriptions={},
+    )
+    monkeypatch.setattr(help_catalog, "load_config_help_catalog", lambda: dummy_catalog)
+    assert render_plain_help("nofacet") is None
 
 
 def test_plain_help_renders_extraction_invariant_and_execution_boundary():

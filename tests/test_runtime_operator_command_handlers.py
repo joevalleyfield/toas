@@ -908,6 +908,29 @@ def test_config_help_handler_help(monkeypatch):
         handle_config_help_commands("help", ["bad"], step_mod=step_mod, context=_ctx())
 
 
+def test_help_handler_resolves_topics_and_multiword_queries():
+    import toas.step as step_mod
+
+    out_precedence = handle_config_help_commands("help", ["precedence"], step_mod=step_mod, context=_ctx())
+    assert out_precedence is not None
+    assert "help: precedence" in out_precedence[0]["content"]
+    assert "transient > session" in out_precedence[0]["content"]
+
+    out_shell = handle_config_help_commands("help", ["shell"], step_mod=step_mod, context=_ctx())
+    assert out_shell is not None
+    assert "help: execution" in out_shell[0]["content"]
+    assert "/shell list" in out_shell[0]["content"]
+
+    out_multiword = handle_config_help_commands("help", ["endpoint", "set"], step_mod=step_mod, context=_ctx())
+    assert out_multiword is not None
+    assert "help: models" in out_multiword[0]["content"]
+
+    out_config_shell = handle_config_help_commands("help", ["config", "shell"], step_mod=step_mod, context=_ctx())
+    assert out_config_shell is not None
+    assert "config help: execution" in out_config_shell[0]["content"]
+    assert "shell.allowed" in out_config_shell[0]["content"]
+
+
 def test_config_help_handler_config_paths(tmp_path):
     import toas.step as step_mod
 

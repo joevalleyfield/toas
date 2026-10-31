@@ -3855,7 +3855,8 @@ def test_slash_help_full_includes_common_goals_guidance():
     assert "/config set extraction.intent_arbitration strict" in content
     assert "/replay --index #r1" in content
     assert "/queue approve" in content
-    assert "/config set llm.model qwen3.5-35b-a3b" in content
+    assert "/model select local qwen3.5-35b-a3b" in content
+    assert "/config set llm.target default" in content
 
 
 def test_render_help_approvals_includes_queue_and_replay_guidance():

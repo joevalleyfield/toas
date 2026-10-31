@@ -61,11 +61,18 @@ topics:
         next_actions: [/config show generation, /config values generation.thinking_mode]
   - id: precedence
     aliases: [sources, provenance]
-    summary: "Configuration precedence determines which source supplies each effective value."
+    summary: "Configuration precedence determines which source supplies each effective value across the scoped policy hierarchy."
     facets:
+      plain:
+        summary: "Values resolve through a 5-tier scope hierarchy: transient > session > workspace > user > global > defaults. Transcript overlay scopes override workspace and user configuration files, which in turn override global settings and factory defaults."
+        next_actions:
+          - "/help config precedence"
+          - "/config show --sources"
       config:
-        summary: "The effective value comes from the highest-precedence source that provides it; source output identifies that winning source only."
-        next_actions: [/config show <topic> --sources]
+        summary: "The effective value comes from the highest-precedence source that provides it. Precedence flows from transient (temporary turn) > session (transcript overrides) > workspace (.toas/config.toml) > user (~/.toas/config.toml) > global (/etc/toas/config.toml) > defaults. In source inspection, output identifies the winning source only: [source=session (n...)] for transcript events, [source=file (...)] for config files, or [source=default]."
+        next_actions:
+          - "/config show --sources"
+          - "/config show <topic> --sources"
   - id: extraction
     aliases: [intent, intents, arbitration]
     summary: "Extraction identifies candidate operator, tool, and shell intent before later execution or authorization decisions."
@@ -130,25 +137,28 @@ topics:
           - "/config set runtime.thinking_stream_mode enabled"
           - "/config set runtime.prompt_progress_mode enabled"
   - id: execution
-    aliases: [execute, run, action, actions, subprocess]
+    aliases: [execute, run, action, actions, subprocess, shell, grants]
     summary: "Execution governs assistant shell command bounds, allowed commands, and tool write mutations."
     facets:
       plain:
         summary: "Execution follows model generation and candidate extraction: the runtime enforces assistant shell command timeouts and permissions, and materializes tool write mutations according to configured policy."
         next_actions:
           - "/config show execution        inspect composed execution configuration"
-          - "/help config shell            inspect shell command bounds"
+          - "/help config shell            inspect shell configuration and allowed commands"
+          - "/shell list                   inspect active shell grants and scopes"
           - "/help tools                   inspect callable tool reference"
       config:
-        summary: "Inspect and configure assistant shell execution bounds, allowed commands, and tool write mechanics."
+        summary: "Inspect and configure assistant shell execution bounds, allowed commands, and tool write mechanics. Shell grants can be configured or scoped dynamically with /shell add <grant> [--scope <scope>]."
         related_keys:
-          - shell.assistant_timeout_s
+          - shell.allowed
           - shell.allowed_commands
+          - shell.assistant_timeout_s
           - tool_writes.newline_style
         next_actions:
           - "/config show execution"
           - "/config show execution --flat"
           - "/config show execution --sources"
+          - "/shell list"
 key_descriptions:
   llm.target: "Selects the active named model target."
   llm.model: "Selects the active model for generation."

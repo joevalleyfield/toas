@@ -66,12 +66,17 @@ ephemeral child environment/secrets durable.
 
 - Added a head-aware graph projection that partitions supported policy records
   into source-linked selected-lineage evidence and explicitly labeled unlinked
-  compatibility fallback. Rendering and domain reduction remain next.
+  compatibility fallback.
+- Integrated branch-visible policy provenance reporting directly into `/config show`
+  and `/config show <topic>` using `--sources` flag with winning provenance annotations.
 
 ## Completion Evidence
 
-- Compact inspection output demonstrates a branch-local source, an immutable
-  config-load reconstitution source, and an explicitly labeled fallback.
-- `ruff check .` and the full test suite pass at 100% coverage.
+- Compact inspection output demonstrates branch-local sources (`[source=session (n...)]`),
+  immutable config-load reconstitution sources, configuration file baselines
+  (`[source=file (...)]`), and defaults (`[source=default]`).
+- Tests in `tests/test_runtime_operator_command_handlers.py` and `tests/test_runtime_config_show_sources.py`
+  verify full functionality.
+- `./scripts/check.sh` passes at 100.00% statement coverage.
 
-Status: Active.
+Status: Closed.

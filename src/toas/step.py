@@ -73,7 +73,7 @@ __all__ = [
     "validate_result_node",
 ]
 
-SHELL_USAGE = "/shell [list|add <grant> [--scope <global|user|workspace|head|session|transient>]|remove <grant> [--scope <...>]|unset <grant> [--scope <...>]|reset [--scope <...>]|config ...]"
+SHELL_USAGE = "/shell [list|add <grant> [--scope <global|user|workspace|session|transient>]|remove <grant> [--scope <...>]|unset <grant> [--scope <...>]|reset [--scope <...>]|config ...]"
 SHELL_CONFIG_USAGE = "/shell config [list|add <grant>|remove <grant>|reset]"
 SHELL_TRANSCRIPT_MODIFIER_LINES = (
     "  /shell add <grant>     (compat: /shell allow <grant>)",
@@ -123,7 +123,7 @@ INERT_REGION_END = "[[/inert]]"
 def render_session_help() -> str:
     lines: list[str] = [
         "help (compact):",
-        "topics: /help full | /help commands | /help tools | /help cli | /help approvals | /help config | /help history | /help capabilities",
+        "topics: /help full | /help commands | /help tools | /help cli | /help approvals | /help config | /help history | /help capabilities | /help <topic>",
         "common quick actions:",
         "  /run [oN|oN..]         run all, or an operation from the first plan",
         "  /stage [oN|oN..]       defer a source reference for a later /run",
@@ -192,9 +192,11 @@ def render_session_help_full() -> str:
     lines.append("    /session slot 2")
     lines.append("    /session name triage")
     lines.append("    /session path .toas/session-custom.md")
-    lines.append("  Set runtime endpoint/model")
-    lines.append("    /config set llm.base_url http://localhost:8080/v1")
-    lines.append("    /config set llm.model qwen3.5-35b-a3b")
+    lines.append("  Configure and select model targets")
+    lines.append("    /config endpoint add local http://localhost:8080/v1")
+    lines.append("    /models refresh local")
+    lines.append("    /model select local qwen3.5-35b-a3b")
+    lines.append("    /config set llm.target default")
     lines.append("  Runtime-adjustable policy toggles")
     lines.append("    /config set runtime.context_budget_mode strict")
     lines.append("    /config set runtime.streaming_mode enabled")
@@ -202,7 +204,8 @@ def render_session_help_full() -> str:
     lines.append("    /config set runtime.cancellation_mode enabled")
     lines.append("    /config set runtime.thinking_stream_mode enabled")
     lines.append("    /config set runtime.prompt_progress_mode enabled")
-    lines.append("    /config set shell.allowed_commands echo,pwd,rg")
+    lines.append("    /config set shell.allowed echo,pwd,rg")
+    lines.append("    /shell add rg --scope workspace")
     lines.append("  Capability advertisement controls")
     lines.append("    /config set capability_advertisement.profile core")
     lines.append("    /config set capability_advertisement.hidden_tools echo_block")
