@@ -1497,7 +1497,6 @@ def run_step(  # noqa: PLR0913
     events: list[dict] | None = None,
     stream_stdout_enabled: bool | None = None,
     bind_index: int = 0,
-    injected_control: bool = False,
 ):
     step_mod = importlib.import_module("toas.step")
 
@@ -1516,7 +1515,7 @@ def run_step(  # noqa: PLR0913
     # A branch rewrite must not inherit unrelated journal grants.  The direct
     # declarations in the reconstructed transcript are the Phase-1 policy
     # projection; linear callers retain the legacy durable-event fallback.
-    is_rewrite = not injected_control and handoff.lcp_index < len(log) - handoff.bind_index
+    is_rewrite = handoff.lcp_index < len(log) - handoff.bind_index
     branch_grant_events = _branch_shell_grant_events(handoff.working_for_frontier)
     branch_config, branch_config_present = _branch_config_from_direct_declarations(
         step_mod=step_mod,
@@ -1540,11 +1539,6 @@ def run_step(  # noqa: PLR0913
         workspace_mode=workspace_mode,
         workspace_roots=workspace_roots,
     )
-    # CLI-injected `control=` turns are intentionally ephemeral transcript
-    # input.  They materialize as sibling control records, rather than edits
-    # to session.md, so their LCP with the selected message lineage is not a
-    # user-authored transcript rewrite.  Preserve their existing
-    # history-forward configuration lane.
     if is_rewrite or branch_config_present:
         config = branch_config
     policy_events = durable_events if not is_rewrite and not branch_grant_events else branch_grant_events

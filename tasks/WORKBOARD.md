@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-10-31
+> **Last Sync:** 2026-11-01
 
 ## 0. Manual Triage
 
@@ -100,7 +100,6 @@ Neither dated vote is a literal current queue.
   - 261010-rolling-tool-failure-memory Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends (related `261009-batch-tool-non-fatal-execution-mode`)
   - 261010-state-inference-response-resilience Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures (related `261010-preview-request-pretty-inspection`, `261010-rolling-tool-failure-memory`)
 - 260920-branch-projected-policy-program Branch-Projected Transcript Policy Program (related `260920-lcp-policy-reevaluation-contract`, `260920-transcript-policy-reinterpretation-examples`, `260920-transcript-control-documentation-contract`, `260831-transcript-source-reference-operations`, `325-config-override-lifecycle-load-save-restore-and-unset`, `330-semi-durable-shell-grants-transcript-and-config-lanes`, `310-transcript-env-modifiers-as-execution-surface`)
-  - 260920-one-shot-control-ingress-disposition Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que... (related `260920-lcp-direct-policy-deltas`, `260920-lcp-policy-reevaluation-contract`, `260920-transcript-control-state-contract`)
 - 260803-tool-intent-ingress-separation Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... (related `260803-language-exec-fenced-block-lane`, `260412-json-callable-lane-parser-and-policy`, `260803-seed-prompt-composition-study`, `260803-first-failure-plan-recovery`, `260628-gemini-endpoint-discovery`, `171`, `174`)
   - 260831-transcript-source-reference-operations Transcript-Native Assistant Source Reference Operations (related `260803-language-exec-fenced-block-lane`, `260803-first-failure-plan-recovery`, `260831-verbatim-staged-plan-restaging`, `260627-history-affordances-semantic-restaging`, `260830-exec-grant-policy-matchers`)
     - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
@@ -156,7 +155,6 @@ Neither dated vote is a literal current queue.
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe... ⚠️ Stale
 - **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program ⚠️ Stale
-- **[T260920-one-shot-control-ingress-disposition]** Determine whether `toas step --control` remains a useful operator-facing convenience, becomes transcript-materializing, is restricted to transient que... ⚠️ Stale
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends

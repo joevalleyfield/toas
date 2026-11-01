@@ -7,6 +7,51 @@ from ..graph import maybe_seal_hot_journal, read_log
 from ..graph_journal_lock_edges import journal_write_lock
 from .step_generation_runtime import StepCliDeps
 
+_DURABLE_SIDE_EFFECT_KEYS = {
+    "command_context",
+    "context_update",
+    "workspace_scope",
+    "workspace_update",
+    "secret_update",
+    "config_load_resolution",
+    "config_update",
+    "policy_update",
+    "policy_updates",
+    "target_selection_update",
+    "shell_scope_update",
+    "visible_prompt_update",
+    "compaction_update",
+    "concept_graph_update",
+    "config_save",
+    "session_update",
+    "queue_update",
+    "lens_update",
+    "intent_update",
+    "coordination_state_update",
+    "extract_execution",
+    "replay_execution",
+}
+
+
+def has_durable_mutation(
+    result_nodes: list[dict],
+    persisted_message_nodes: list[dict],
+) -> bool:
+    if any(node.get("role") != "control" for node in persisted_message_nodes):
+        return True
+    if len(persisted_message_nodes) > 1:
+        return True
+    for node in result_nodes:
+        if not isinstance(node, dict):
+            continue
+        if node.get("origin_kind") in {"tool_call", "user_shell"}:
+            return True
+        for key in _DURABLE_SIDE_EFFECT_KEYS:
+            val = node.get(key)
+            if val is not None and val != {} and val != []:
+                return True
+    return False
+
 
 @dataclass(frozen=True)
 class StepPersistenceResult:
@@ -27,13 +72,23 @@ def persist_step_outputs_runtime(
     append_set: list[dict],
     stdout_set: list[dict],
     stream_state: dict[str, object],
+    injected_control_command: str | None = None,
 ) -> StepPersistenceResult:
+    _, persisted_message_nodes, result_nodes = deps.split_append_nodes(append_set)
+    if injected_control_command is not None and not has_durable_mutation(result_nodes, persisted_message_nodes):
+        return StepPersistenceResult(
+            projection_nodes=list(stdout_set),
+            needs_trailing_newline=bool(
+                stream_state["enabled"] and stream_state["emitted"] and not stream_state["ends_with_newline"]
+            ),
+        )
+
     with journal_write_lock(events_path):
-        _, persisted_message_nodes, result_nodes = deps.split_append_nodes(append_set)
         redacted_transcript = deps.redact_secret_lines(normalized_transcript)
-        if redacted_transcript != normalized_transcript:
+        if (injected_control_command is not None) or (redacted_transcript != normalized_transcript):
             from .session_file_edges import write_text_with_newline_style
 
+            session_path.parent.mkdir(parents=True, exist_ok=True)
             write_text_with_newline_style(
                 path=session_path,
                 text=redacted_transcript,

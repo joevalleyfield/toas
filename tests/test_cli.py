@@ -211,7 +211,7 @@ def test_run_step_local_appends_stdin_and_control_to_transcript(monkeypatch, tmp
 def test_run_step_local_fresh_events_uses_virtual_root_sentinel(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
 
-    cli._run_step(control="/help cli")
+    cli._run_step(control="/shell add rg")
 
     events = [
         json.loads(line)
@@ -221,7 +221,54 @@ def test_run_step_local_fresh_events_uses_virtual_root_sentinel(monkeypatch, tmp
     assert messages[0]["id"] == "n1"
     assert messages[0]["parent"] == "n0"
     assert all(message["id"] != "n0" for message in messages)
+    assert "rg" in capsys.readouterr().out
+
+
+def test_run_step_control_ephemeral_query_does_not_persist_events_or_transcript(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    cli._run_step(control="/help cli")
+
     assert "commands:" in capsys.readouterr().out
+    events = [
+        json.loads(line)
+        for line in Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    messages = [event for event in events if "role" in event and "content" in event]
+    assert messages == []
+    session_file = Path(".toas/session.md")
+    assert not session_file.exists() or session_file.read_text(encoding="utf-8") == ""
+
+
+def test_run_step_control_policy_mutation_materializes_transcript_and_events(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    cli._run_step(control="/shell add rg")
+
+    session_content = Path(".toas/session.md").read_text(encoding="utf-8")
+    assert "## TOAS:CONTROL\n\n/shell add rg\n" in session_content
+    events = [
+        json.loads(line)
+        for line in Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    messages = [event for event in events if "role" in event and "content" in event]
+    assert len(messages) == 1
+    assert messages[0]["role"] == "control"
+    assert messages[0]["content"] == "/shell add rg"
+    policy_overrides = [event for event in events if event.get("kind") == "policy_override"]
+    assert len(policy_overrides) == 1
+    assert policy_overrides[0]["related_to"] == messages[0]["id"]
+
+    # Subsequent step without control sees matching transcript and events
+    capsys.readouterr()
+    cli._run_step()
+    events_after = [
+        json.loads(line)
+        for line in Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    # No rewrite occurred; no duplicate messages
+    messages_after = [event for event in events_after if "role" in event and "content" in event]
+    assert len(messages_after) == 1
 
 
 def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch, tmp_path, capsys):

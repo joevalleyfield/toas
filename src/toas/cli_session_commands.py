@@ -98,8 +98,6 @@ def _build_step_kwargs(
         step_kwargs["events"] = runtime_ctx["events"]
     if "bind_index" in params:
         step_kwargs["bind_index"] = runtime_ctx["bind_index"]
-    if runtime_ctx.get("injected_control") and "injected_control" in params:
-        step_kwargs["injected_control"] = True
     if stream_stdout_enabled is not None and "stream_stdout_enabled" in params:
         step_kwargs["stream_stdout_enabled"] = stream_stdout_enabled
     return step_kwargs
@@ -120,6 +118,7 @@ def _persist_step_outputs(
     stream_state: dict[str, object],
     on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
+    injected_control_command: str | None = None,
 ) -> None:
     persistence = persist_step_outputs_runtime(
         events_path=events_path,
@@ -133,6 +132,7 @@ def _persist_step_outputs(
         append_set=append_set,
         stdout_set=stdout_set,
         stream_state=stream_state,
+        injected_control_command=injected_control_command,
     )
     if on_projection_nodes is not None:
         on_projection_nodes(persistence.projection_nodes)
@@ -262,7 +262,6 @@ def run_step(
     if debug_prompt_progress_file is not None:
         generation_runner.debug_prompt_progress_file = debug_prompt_progress_file
 
-    runtime_ctx["injected_control"] = control is not None
     build_kwargs = {
         "deps": deps,
         "runtime_ctx": runtime_ctx,
@@ -289,6 +288,7 @@ def run_step(
         stream_state=stream_state,
         on_projection_nodes=on_projection_nodes,
         on_projection_delta=on_projection_delta,
+        injected_control_command=control,
     )
 
 

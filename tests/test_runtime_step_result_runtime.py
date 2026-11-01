@@ -3,7 +3,10 @@ from types import SimpleNamespace
 from toas.config import OperatorConfig, StoragePolicy
 from toas.graph import read_log, read_logical_history, write_message_events
 from toas.runtime.session_step_edges import persist_messages_and_llm_calls, split_append_nodes
-from toas.runtime.step_result_runtime import persist_step_outputs_runtime
+from toas.runtime.step_result_runtime import (
+    has_durable_mutation,
+    persist_step_outputs_runtime,
+)
 
 
 def _runtime_deps():
@@ -248,4 +251,111 @@ def test_persist_step_outputs_resolves_existing_frontier_on_restep(tmp_path):
     )
     assert stitched_args[0]["frontier"] == lineage[-1]
     assert effects_args[0]["source_message_id"] == "msg_existing"
+
+
+def test_has_durable_mutation_classification():
+    # Role other than control is durable
+    assert has_durable_mutation([], [{"role": "assistant"}]) is True
+    assert has_durable_mutation([], [{"role": "user"}]) is True
+
+    # More than 1 persisted message node is durable
+    assert has_durable_mutation([], [{"role": "control"}, {"role": "control"}]) is True
+
+    # Non-dict in result_nodes is ignored
+    assert has_durable_mutation(["not-a-dict"], [{"role": "control"}]) is False
+
+    # Tool call or user shell origin is durable
+    assert has_durable_mutation([{"origin_kind": "tool_call"}], [{"role": "control"}]) is True
+    assert has_durable_mutation([{"origin_kind": "user_shell"}], [{"role": "control"}]) is True
+
+    # Side effect keys with truthy values are durable
+    assert has_durable_mutation([{"policy_update": {"key": "shell.allowed"}}], [{"role": "control"}]) is True
+    assert has_durable_mutation([{"policy_updates": [{"key": "shell.allowed"}]}], [{"role": "control"}]) is True
+    assert has_durable_mutation([{"context_update": {"cwd": "/tmp"}}], [{"role": "control"}]) is True
+
+    # Empty or None values for side effect keys are not durable
+    assert has_durable_mutation([{"policy_updates": []}], [{"role": "control"}]) is False
+    assert has_durable_mutation([{"policy_update": {}}], [{"role": "control"}]) is False
+    assert has_durable_mutation([{"context_update": None}], [{"role": "control"}]) is False
+
+    # Pure query projection is not durable
+    assert has_durable_mutation([{"role": "result", "content": "help text"}], [{"role": "control"}]) is False
+
+
+def test_persist_step_outputs_injected_control_ephemeral_query_does_not_touch_storage(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    session_path = tmp_path / ".toas" / "session.md"
+
+    deps = SimpleNamespace(
+        split_append_nodes=lambda _nodes: ([], [{"role": "control", "content": "/help"}], [{"role": "result", "content": "help text"}]),
+        redact_secret_lines=lambda text: text,
+        apply_newline_style=lambda text, _newline: text,
+        persist_messages_and_llm_calls=lambda _path, _nodes: [],
+        stitch_frontier_records=lambda **_kwargs: [],
+        apply_result_side_effects=lambda **_kwargs: None,
+    )
+
+    result = persist_step_outputs_runtime(
+        deps=deps,
+        events_path=events_path,
+        session_path=session_path,
+        session_newline="\n",
+        normalized_transcript="## TOAS:CONTROL\n\n/help\n",
+        materialized_head_id=None,
+        materialized_lineage=[],
+        operator_config=None,
+        append_set=[],
+        stdout_set=[{"role": "result", "content": "help text"}],
+        stream_state={"enabled": True, "emitted": True, "ends_with_newline": False},
+        injected_control_command="/help",
+    )
+
+    assert result.projection_nodes == [{"role": "result", "content": "help text"}]
+    assert result.needs_trailing_newline is True
+    assert not events_path.exists()
+    assert not session_path.exists()
+
+
+def test_persist_step_outputs_injected_control_mutation_writes_transcript_and_events(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    session_path = tmp_path / ".toas" / "session.md"
+    effects_called = []
+
+    deps = SimpleNamespace(
+        split_append_nodes=lambda _nodes: (
+            [],
+            [{"role": "control", "content": "/shell add rg"}],
+            [{"role": "result", "content": "added", "policy_update": {"key": "shell.allowed"}}],
+        ),
+        redact_secret_lines=lambda text: text,
+        apply_newline_style=lambda text, _newline: text,
+        persist_messages_and_llm_calls=lambda path, nodes: write_message_events(str(path), nodes),
+        stitch_frontier_records=lambda **_kwargs: [],
+        apply_result_side_effects=lambda **kwargs: effects_called.append(kwargs),
+    )
+
+    result = persist_step_outputs_runtime(
+        deps=deps,
+        events_path=events_path,
+        session_path=session_path,
+        session_newline="\n",
+        normalized_transcript="## TOAS:CONTROL\n\n/shell add rg\n",
+        materialized_head_id=None,
+        materialized_lineage=[],
+        operator_config=None,
+        append_set=[],
+        stdout_set=[{"role": "result", "content": "added"}],
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        injected_control_command="/shell add rg",
+    )
+
+    assert result.projection_nodes == [{"role": "result", "content": "added"}]
+    assert session_path.read_text(encoding="utf-8") == "## TOAS:CONTROL\n\n/shell add rg\n"
+    events = read_log(str(events_path))
+    assert len(events) == 1
+    assert events[0]["role"] == "control"
+    assert events[0]["content"] == "/shell add rg"
+    assert len(effects_called) == 1
+    assert effects_called[0]["source_message_id"] == events[0]["id"]
+
 
