@@ -1,0 +1,48 @@
+"""Example TOAS workspace executable grant policy.
+
+Copy this file to `.toas/policy.py` in your repository root to configure
+granular execution authorization for assistant tool calls (shell, shell_script,
+python_script, powershell_script, interpreter_script).
+"""
+from __future__ import annotations
+
+from toas.runtime.executable_grants import ExecutableGrantPolicy
+from toas.runtime.matchers import (
+    allow_all,
+    allow_subcommands,
+    deny_flags,
+    deny_subcommands,
+)
+
+# Exported policy instance
+policy = ExecutableGrantPolicy(
+    default=False,  # Unmatched commands are denied by default
+    prefix_matchers={
+        # Common read-only shell utilities
+        "ls": (allow_all(),),
+        "pwd": (allow_all(),),
+        "cat": (allow_all(),),
+        "head": (allow_all(),),
+        "tail": (allow_all(),),
+        "wc": (allow_all(),),
+        "rg": (allow_all(),),
+        "find": (allow_all(),),
+
+        # Git: Allow non-destructive inspection, deny remote/destructive ops
+        "git": (
+            deny_flags("--force", "-f", "--hard"),
+            deny_subcommands("push", "clean", "reset", "rebase"),
+            allow_subcommands("status", "diff", "log", "branch", "show", "rev-parse"),
+        ),
+
+        # Python / uv testing runners
+        "uv": (
+            deny_flags("--network", "--upgrade", "-U"),
+            allow_subcommands("run"),
+        ),
+        "pytest": (
+            deny_flags("--network"),
+            allow_all(),
+        ),
+    },
+)
