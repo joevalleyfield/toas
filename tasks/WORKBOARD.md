@@ -102,6 +102,7 @@ Neither dated vote is a literal current queue.
     - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
 - 260803-language-exec-fenced-block-lane Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... (related `260412-json-callable-lane-parser-and-policy`, `260803-first-failure-plan-recovery`, `260803-seed-prompt-composition-study`, `260803-tool-intent-ingress-separation`, `299`)
   - 260831-language-write-materialization-fences Language-Native Write Materialization Fences (related `260831-transcript-source-reference-operations`, `260829-generic-interpreter-runtime-lane`, `260829-canonical-action-ingress-contract`)
+  - 261102-executable-policy-module-and-validators Connect the central post-resolution executable grant evaluator to user-authored policy by establishing a discovery convention for workspace policy mod... (related `260830-exec-grant-policy-matchers`, `261030-namespaced-config-policy-coalescence`)
 - 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
@@ -155,6 +156,7 @@ Neither dated vote is a literal current queue.
 - **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
+- **[T261102-executable-policy-module-and-validators]** Connect the central post-resolution executable grant evaluator to user-authored policy by establishing a discovery convention for workspace policy mod...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
