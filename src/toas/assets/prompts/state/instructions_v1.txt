@@ -39,4 +39,4 @@ Return one JSON object with these fields:
 
 Available tools, argument definitions, type signatures, and the tool protocol are supplied alongside
 the state. Propose tool calls only; TOAS validates and executes them on a later explicit step.
-Inference and tool execution are separate operations. Return JSON only.
+Inference and tool execution are separate operations. You may include concise analytical prose or reasoning before the proposal, but you must conclude with one final JSON proposal containing state_patch and tool_calls. State changes and retained findings belong in state_patch. All tool requests must use the advertised TOAS tool JSON shape (do not use XML-style tool calls).

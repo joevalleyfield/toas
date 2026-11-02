@@ -10,7 +10,7 @@ keywords: runtime, investigation, active, contract, state, inference, recovery, 
 Parent: `260926-state-step-requirements`
 Related: `261010-preview-request-pretty-inspection`; `261010-rolling-tool-failure-memory`
 
-Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
+Status: COMPLETED; prose tolerance, unambiguous proposal extraction, required state_patch validation, and format rejection recovery delivered
 
 ## Intent
 
@@ -376,6 +376,13 @@ alongside format adherence.
 - Inspect concrete preview and SDK artifacts for every initial layout; verify
   configuration precedence, scoped overrides, model-target switching, and message
   fidelity with focused tests when implementation begins.
+
+- 2026-11-02: Delivered prefix-tolerant proposal extraction, strict field validation, and recovery feedback:
+  - `_parse_state_response` extracts unambiguous structured proposals with leading, trailing, or mixed prose, supporting both fenced and bare JSON while rejecting ambiguous multiple proposals.
+  - Distinguishes explicit empty `state_patch: {}` from missing `state_patch`, rejecting omissions cleanly.
+  - Feeds bounded format-rejection error feedback into the next attempt's `observation.format_rejection` while preserving previous tool outcomes in `_compound_observation`.
+  - Updated `state/instructions_v1` prompt asset to explicitly allow analytical thinking before proposals and reinforce the required JSON proposal contract.
+  - Full suite verified: 3,713 tests passing, 100.00% statement coverage, mypy clean, ruff clean.
 
 Likely ownership: effective configuration and `runtime/model_targets.py` resolve
 policy; the state request projection/composer owns message arrangement;

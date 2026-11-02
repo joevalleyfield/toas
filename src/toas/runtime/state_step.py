@@ -181,12 +181,68 @@ def _log_tool_failure(
 
 
 def _parse_state_response(content: str) -> Any:
-    """Parse bare JSON or JSON inside one conventional Markdown fence."""
+    """Parse bare JSON or JSON inside conventional Markdown fences or following prose."""
     candidate = content.strip()
     lines = candidate.splitlines()
     if len(lines) >= 3 and lines[0].strip().lower() in {"```", "```json"} and lines[-1].strip() == "```":
-        candidate = "\n".join(lines[1:-1])
-    return json.loads(candidate)
+        inner = "\n".join(lines[1:-1]).strip()
+        try:
+            return json.loads(inner)
+        except json.JSONDecodeError:
+            pass
+
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        pass
+
+    # Search for markdown fenced code blocks (```json ... ``` or ``` ... ```)
+    fences: list[tuple[int, int, dict[str, Any]]] = []
+    for m in re.finditer(r"```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```", candidate):
+        fence_text = m.group(1).strip()
+        try:
+            parsed = json.loads(fence_text)
+            if isinstance(parsed, dict) and (
+                isinstance(parsed.get("state_patch"), dict) or isinstance(parsed.get("tool_calls"), list)
+            ):
+                fences.append((m.start(), m.end(), parsed))
+        except json.JSONDecodeError:
+            continue
+
+    # Scan for raw JSON proposals outside fences
+    prose_text = candidate
+    if fences:
+        chars = list(candidate)
+        for start, end, _ in fences:
+            for i in range(start, end):
+                chars[i] = " "
+        prose_text = "".join(chars)
+
+    raw_proposals: list[dict[str, Any]] = []
+    decoder = json.JSONDecoder()
+    idx = 0
+    length = len(prose_text)
+    while idx < length:
+        brace_pos = prose_text.find("{", idx)
+        if brace_pos == -1:
+            break
+        try:
+            parsed, end_idx = decoder.raw_decode(prose_text[brace_pos:])
+            if isinstance(parsed, dict) and (
+                isinstance(parsed.get("state_patch"), dict) or isinstance(parsed.get("tool_calls"), list)
+            ):
+                raw_proposals.append(parsed)
+            idx = brace_pos + max(end_idx, 1)
+        except json.JSONDecodeError:
+            idx = brace_pos + 1
+
+    candidates = [p for _, _, p in fences] + raw_proposals
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        raise ValueError("multiple candidate state-step JSON proposals found in response")
+
+    raise json.JSONDecodeError("no valid state-step JSON proposal found in response", candidate, 0)
 
 
 def _normalize_tool_call_aliases(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1477,8 +1533,19 @@ def _compound_observation(
 ) -> dict[str, Any]:
     prior_transitions = [record for record in records if record.get("kind") == "state_transition"]
     prior_outcomes: list[dict] = []
+    format_rejection: dict[str, Any] | None = None
     for transition in reversed(prior_transitions):
         if transition.get("status") in {"completed", "failed", "cancelled", "indeterminate"}:
+            if transition.get("failure_phase") == "response_validation" and format_rejection is None:
+                format_rejection = {
+                    "error": transition.get("error"),
+                    "response_preview": (transition.get("response_content") or "")[:200],
+                }
+                obs = transition.get("observation")
+                if isinstance(obs, dict) and obs.get("tool_outcomes"):
+                    prior_outcomes = obs["tool_outcomes"]
+                    break
+                continue
             transition_id = transition.get("transition_id")
             origin = next(
                 (
@@ -1496,7 +1563,10 @@ def _compound_observation(
                     and record.get("transition_id") == transition_id
                 ]
                 if observations and isinstance(observations[-1].get("observation"), dict):
-                    return observations[-1]["observation"]
+                    obs_dict = dict(observations[-1]["observation"])
+                    if format_rejection is not None:
+                        obs_dict["format_rejection"] = format_rejection
+                    return obs_dict
             prior_outcomes = [
                 {
                     key: value
@@ -1540,6 +1610,8 @@ def _compound_observation(
         "operator_observation": _operator_observation(operator_observation),
         "tool_outcomes": outcomes,
     }
+    if format_rejection is not None:
+        result["format_rejection"] = format_rejection
     user_inputs = _user_observation_inputs(operator_observation)
     if user_inputs:
         result["user_inputs"] = user_inputs
@@ -2721,7 +2793,7 @@ def _step_state_impl(  # noqa: PLR0913
         raise ValueError(error)
     try:
         response = _parse_state_response(content)
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, ValueError) as exc:
         preview = content[:240].replace("\n", "\\n")
         error = f"invalid state-step JSON response: {exc}; response preview={preview!r}"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
@@ -2730,8 +2802,8 @@ def _step_state_impl(  # noqa: PLR0913
         error = "state-step response must be a JSON object"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
         raise ValueError(error)
-    patch = response.get("state_patch", {})
-    calls = response.get("tool_calls", [])
+    raw_patch = response.get("state_patch")
+    raw_calls = response.get("tool_calls")
     outcome = response.get("outcome", "continue")
     report = response.get("report")
     continue_on_error_val = response.get("continue_on_error")
@@ -2741,9 +2813,11 @@ def _step_state_impl(  # noqa: PLR0913
         raise ValueError(error)
     continue_on_error = bool(continue_on_error_val)
     if (
-        not isinstance(patch, dict)
-        or not isinstance(calls, list)
-        or not all(isinstance(c, dict) for c in calls)
+        raw_patch is None
+        or not isinstance(raw_patch, dict)
+        or raw_calls is None
+        or not isinstance(raw_calls, list)
+        or not all(isinstance(c, dict) for c in raw_calls)
         or (report is not None and not isinstance(report, str))
     ):
         error = "state-step response requires an object state_patch and an array of tool_calls"
@@ -2751,6 +2825,8 @@ def _step_state_impl(  # noqa: PLR0913
             error = "state-step response report must be a string if provided"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)
         raise ValueError(error)
+    patch = raw_patch
+    calls = raw_calls
     if outcome not in {"continue", "complete"}:
         error = "state-step outcome must be 'continue' or 'complete'"
         _record_invalid_response(path, transition_id, state, compound_observation, packet, answer, error)

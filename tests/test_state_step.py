@@ -3102,6 +3102,303 @@ def test_step_state_user_batch_continue_on_error(tmp_path):
     assert res["outcomes"][1]["status"] == "completed"
 
 
+def test_parse_state_response_prose_resilience():
+    # Whole fence with invalid JSON inside falls through to raw scan
+    content_broken_fence = "```json\n{invalid json}\n```\n{\"state_patch\": {\"step\": 1}, \"tool_calls\": []}"
+    res = _parse_state_response(content_broken_fence)
+    assert res["state_patch"] == {"step": 1}
+
+    # Leading prose before fenced JSON
+    content_leading = (
+        "I have analyzed the repository state.\n"
+        "Here is the proposed update:\n"
+        "```json\n"
+        "{\n"
+        '  "state_patch": {"progress": ["analyzed"]},\n'
+        '  "tool_calls": []\n'
+        "}\n"
+        "```\n"
+    )
+    res = _parse_state_response(content_leading)
+    assert res["state_patch"] == {"progress": ["analyzed"]}
+
+    # Trailing prose after fenced JSON
+    content_trailing = (
+        "```json\n"
+        "{\n"
+        '  "state_patch": {"step": 2},\n'
+        '  "tool_calls": []\n'
+        "}\n"
+        "```\n"
+        "Please proceed with executing the plan.\n"
+    )
+    res = _parse_state_response(content_trailing)
+    assert res["state_patch"] == {"step": 2}
+
+    # Both leading and trailing prose
+    content_both = (
+        "Thinking about the problem...\n"
+        "```json\n"
+        '{"state_patch": {"step": 3}, "tool_calls": []}\n'
+        "```\n"
+        "Done thinking."
+    )
+    res = _parse_state_response(content_both)
+    assert res["state_patch"] == {"step": 3}
+
+    # Non-JSON code fences in prose followed by JSON proposal
+    content_mixed_fences = (
+        "Here is some shell code:\n"
+        "```bash\n"
+        "toas step\n"
+        "```\n"
+        "And here is the JSON proposal:\n"
+        "```json\n"
+        '{"state_patch": {"step": 4}, "tool_calls": []}\n'
+        "```\n"
+    )
+    res = _parse_state_response(content_mixed_fences)
+    assert res["state_patch"] == {"step": 4}
+
+    # Bare JSON inside prose (no code fences)
+    content_bare = (
+        "I suggest we patch the state:\n"
+        '{"state_patch": {"step": 5}, "tool_calls": []}\n'
+        "Thank you."
+    )
+    res = _parse_state_response(content_bare)
+    assert res["state_patch"] == {"step": 5}
+
+    # Bare JSON with non-proposal JSON snippet in prose
+    content_snippet = (
+        'Example config is {"max_tokens": 100}.\n'
+        'Actual proposal:\n{"state_patch": {"step": 6}, "tool_calls": []}\n'
+    )
+    res = _parse_state_response(content_snippet)
+    assert res["state_patch"] == {"step": 6}
+
+    # XML tag followed by valid JSON proposal
+    content_xml_prefix = (
+        "<tool_call>\n"
+        '{"state_patch": {"step": 7}, "tool_calls": []}'
+    )
+    res = _parse_state_response(content_xml_prefix)
+    assert res["state_patch"] == {"step": 7}
+
+
+def test_parse_state_response_rejects_ambiguity_and_missing_fields(tmp_path):
+    events = tmp_path / "events.jsonl"
+
+    # Ambiguous fenced proposals
+    content_fenced_ambiguous = (
+        "```json\n"
+        '{"state_patch": {"step": 1}, "tool_calls": []}\n'
+        "```\n"
+        "```json\n"
+        '{"state_patch": {"step": 2}, "tool_calls": []}\n'
+        "```\n"
+    )
+    with pytest.raises(ValueError, match="multiple candidate state-step JSON proposals"):
+        _parse_state_response(content_fenced_ambiguous)
+
+    # Ambiguous bare proposals
+    content_bare_ambiguous = (
+        '{"state_patch": {"step": 1}, "tool_calls": []}\n'
+        '{"state_patch": {"step": 2}, "tool_calls": []}\n'
+    )
+    with pytest.raises(ValueError, match="multiple candidate state-step JSON proposals"):
+        _parse_state_response(content_bare_ambiguous)
+
+    # Ambiguous fenced and bare proposals
+    content_mixed_ambiguous = (
+        '{"state_patch": {"step": 1}, "tool_calls": []}\n'
+        "```json\n"
+        '{"state_patch": {"step": 2}, "tool_calls": []}\n'
+        "```\n"
+    )
+    with pytest.raises(ValueError, match="multiple candidate state-step JSON proposals"):
+        _parse_state_response(content_mixed_ambiguous)
+
+    # XML-only failure without JSON proposal
+    content_xml_only = "<tool_call><function=read_file></function></tool_call>"
+    with pytest.raises(json.JSONDecodeError, match="no valid state-step JSON proposal"):
+        _parse_state_response(content_xml_only)
+
+    # Missing state_patch in step_state must be rejected
+    with pytest.raises(ValueError, match="requires an object state_patch and an array of tool_calls"):
+        step_state(
+            events_path=events,
+            state={},
+            observation=None,
+            generate=lambda _p: {"content": '{"tool_calls": []}'},
+            execute_call=lambda _c: None,
+        )
+
+    # Missing tool_calls in step_state must be rejected
+    with pytest.raises(ValueError, match="requires an object state_patch and an array of tool_calls"):
+        step_state(
+            events_path=events,
+            state={},
+            observation=None,
+            generate=lambda _p: {"content": '{"state_patch": {}}'},
+            execute_call=lambda _c: None,
+        )
+
+    # Explicit empty patch is accepted
+    res = step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        generate=lambda _p: {"content": '{"state_patch": {}, "tool_calls": []}'},
+        execute_call=lambda _c: None,
+    )
+    assert res["status"] == "completed"
+
+
+def test_step_state_rejection_recovery_feedback_and_outcome_preservation(tmp_path):
+    events = tmp_path / "events.jsonl"
+    executed_tools = []
+
+    def mock_executor(call):
+        executed_tools.append(call)
+        return [{"result": "ok", "call": call}]
+
+    # Turn 1: model proposes tool call
+    res1 = step_state(
+        events_path=events,
+        state={"goal": "test"},
+        observation=None,
+        generate=lambda _p: {
+            "content": json.dumps({
+                "state_patch": {"progress": ["tool requested"]},
+                "tool_calls": [{"tool_name": "read_file", "args": {"path": "a.txt"}}],
+            })
+        },
+        execute_call=mock_executor,
+    )
+    assert res1["status"] == "pending"
+    assert res1["phase"] == "infer"
+
+    # Turn 2: execute pending tools
+    res2 = step_state(
+        events_path=events,
+        state=res1["state"],
+        observation=None,
+        generate=lambda _p: None,
+        execute_call=mock_executor,
+    )
+    assert res2["status"] == "completed"
+    assert res2["phase"] == "execute_batch"
+    assert len(executed_tools) == 1
+
+    # Turn 3: model emits invalid XML response (missing JSON state proposal)
+    with pytest.raises(ValueError, match="invalid state-step JSON response"):
+        step_state(
+            events_path=events,
+            state=res1["state"],
+            observation=None,
+            generate=lambda _p: {
+                "content": "I am thinking...\n<tool_call><function=read_file></function></tool_call>"
+            },
+            execute_call=mock_executor,
+        )
+
+    log = read_log(str(events))
+    assert log[-1]["status"] == "failed"
+    assert log[-1]["failure_phase"] == "response_validation"
+
+    # Turn 4: Recovery step
+    packet_captured = []
+
+    def recovery_gen(packet):
+        packet_captured.append(packet)
+        return {
+            "content": (
+                "Understood the error. Here is the valid proposal:\n"
+                "```json\n"
+                '{"state_patch": {"progress": ["tool requested", "recovered"]}, "tool_calls": []}\n'
+                "```\n"
+            )
+        }
+
+    res4 = step_state(
+        events_path=events,
+        state=res1["state"],
+        observation=None,
+        generate=recovery_gen,
+        execute_call=mock_executor,
+    )
+    assert res4["status"] == "completed"
+    assert res4["state"]["progress"] == ["tool requested", "recovered"]
+
+    # Verify recovery packet had format_rejection and preserved tool outcomes
+    packet = packet_captured[0]
+    obs = packet["observation"]
+    assert "format_rejection" in obs
+    assert "invalid state-step JSON response" in obs["format_rejection"]["error"]
+    assert len(obs["tool_outcomes"]) == 1
+    assert obs["tool_outcomes"][0]["result"][0]["result"] == "ok"
+
+    # Turn 5: Subsequent step should not carry format_rejection
+    next_packet_captured = []
+    res5 = step_state(
+        events_path=events,
+        state=res4["state"],
+        observation="new task",
+        generate=lambda p: next_packet_captured.append(p) or {
+            "content": '{"state_patch": {}, "tool_calls": []}'
+        },
+        execute_call=mock_executor,
+    )
+    assert res5["status"] == "completed"
+    assert "format_rejection" not in next_packet_captured[0]["observation"]
+
+
+def test_step_state_rejection_recovery_with_user_origin_state_observation(tmp_path):
+    events = tmp_path / "events.jsonl"
+    t_id = "st_user_obs"
+
+    # Write a user-origin transition with state_observation
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": t_id,
+                "source": "user",
+                "status": "completed",
+            },
+            {
+                "kind": "state_observation",
+                "transition_id": t_id,
+                "observation": {"operator_observation": "user input", "tool_outcomes": []},
+            },
+            {
+                "kind": "state_transition",
+                "transition_id": "st_failed_response",
+                "status": "failed",
+                "failure_phase": "response_validation",
+                "error": "syntax error",
+                "response_content": "broken",
+            },
+        ],
+    )
+
+    packet_seen = []
+    step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        generate=lambda p: packet_seen.append(p) or {"content": '{"state_patch": {}, "tool_calls": []}'},
+        execute_call=lambda _c: None,
+    )
+    assert len(packet_seen) == 1
+    obs = packet_seen[0]["observation"]
+    assert obs["operator_observation"] == "user input"
+    assert "format_rejection" in obs
+    assert obs["format_rejection"]["error"] == "syntax error"
+
+
 
 
 
