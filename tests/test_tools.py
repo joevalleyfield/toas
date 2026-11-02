@@ -207,6 +207,46 @@ def test_execute_plan_applies_executable_grant_policy_to_shell_calls(fake_shell_
     assert user_run[0]["ok"] is True
 
 
+def test_execute_plan_with_standard_matchers_library(fake_shell_subprocess):
+    from toas.runtime.matchers import allow_subcommands, deny_flags
+
+    policy = ExecutableGrantPolicy(
+        default=False,
+        prefix_matchers={
+            "git": (
+                deny_flags("--force", "-f"),
+                allow_subcommands("status", "diff"),
+            ),
+        },
+    )
+
+    allowed = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["git", "status"]}}],
+        executable_grant_policy=policy,
+        authority="assistant",
+        shell_allowed_commands=["git"],
+    )
+    assert allowed[0]["ok"] is True
+
+    denied_flag = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["git", "diff", "--force"]}}],
+        executable_grant_policy=policy,
+        authority="assistant",
+        shell_allowed_commands=["git"],
+    )
+    assert denied_flag[0]["ok"] is False
+    assert "grant policy matcher" in denied_flag[0]["error"]
+
+    denied_subcommand = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["git", "push"]}}],
+        executable_grant_policy=policy,
+        authority="assistant",
+        shell_allowed_commands=["git"],
+    )
+    assert denied_subcommand[0]["ok"] is False
+    assert "grant policy default" in denied_subcommand[0]["error"]
+
+
 def test_execute_plan_applies_executable_grant_policy_to_shell_script_commands(fake_shell_subprocess):
     deny_policy = ExecutableGrantPolicy(default=False)
     denied = execute_plan(
@@ -217,6 +257,29 @@ def test_execute_plan_applies_executable_grant_policy_to_shell_script_commands(f
     )
     assert denied[0]["ok"] is False
     assert "tool shell_script disallows runtime: echo (grant policy default)" in denied[0]["error"]
+
+    # Explicit runtime disallow
+    runtime_deny_policy = ExecutableGrantPolicy(
+        default=True,
+        prefix_matchers={"/bin/sh": (lambda _argv: False,)},
+    )
+    denied_runtime = execute_plan(
+        [{"tool_name": "shell_script", "args": {"script": "echo hi", "runtime": ["/bin/sh", "-c"]}}],
+        executable_grant_policy=runtime_deny_policy,
+        authority="assistant",
+        shell_allowed_commands=["echo"],
+    )
+    assert denied_runtime[0]["ok"] is False
+    assert "tool shell_script disallows runtime: /bin/sh -c (grant policy matcher)" in denied_runtime[0]["error"]
+
+    # None runtime rejects
+    denied_none = execute_plan(
+        [{"tool_name": "shell_script", "args": {"script": "echo hi", "runtime": None}}],
+        authority="assistant",
+        shell_allowed_commands=["echo"],
+    )
+    assert denied_none[0]["ok"] is False
+    assert "shell runtime must be a non-empty list[str]" in denied_none[0]["error"]
 
 
 def test_step_execute_plan_forwards_executable_grant_policy(fake_shell_subprocess):

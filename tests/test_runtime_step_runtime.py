@@ -523,6 +523,43 @@ def test_step_runtime_helper_dependency_resolution_uses_explicit_functions():
     assert out_exe is exe
 
 
+def test_resolve_execution_dependencies_wires_discovered_executable_policy(tmp_path):
+    toas_dir = tmp_path / ".toas"
+    toas_dir.mkdir()
+    policy_file = toas_dir / "policy.py"
+    policy_file.write_text(
+        "from toas.runtime.executable_grants import ExecutableGrantPolicy\n"
+        "policy = ExecutableGrantPolicy(default=True)\n",
+        encoding="utf-8",
+    )
+    captured = {}
+
+    def fake_execute_plan(*args, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    step_mod = SimpleNamespace(
+        _execute_plan=fake_execute_plan,
+        resolve_effective_env_modifiers=lambda _w: {},
+        resolve_effective_shell_allowed=lambda _w, _c, _e: ("ls",),
+        resolve_effective_shell_stream_stdout=lambda _c, _e: False,
+    )
+    _, exe = _resolve_execution_dependencies(
+        step_mod=step_mod,
+        command_cwd=str(tmp_path),
+        workspace_mode="strict",
+        workspace_roots=[str(tmp_path)],
+        config=OperatorConfig(),
+        generate=None,
+        execute=None,
+        events=[],
+    )
+    exe([{"role": "assistant"}], [{"tool_name": "shell", "args": {"argv": ["ls"]}}])
+    assert "executable_grant_policy" in captured
+    assert captured["executable_grant_policy"] is not None
+    assert captured["executable_grant_policy"].default is True
+
+
 def test_step_runtime_helper_collect_frontier_intents_obeys_extraction_flags():
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="any": ([{"tool_name": "echo_block", "args": {"content": "x"}}], False),

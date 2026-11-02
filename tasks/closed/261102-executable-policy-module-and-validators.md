@@ -86,3 +86,22 @@ power genuinely usable by human operators and repository owners, TOAS needs:
 - 2026-11-02: Task opened as the direct follow-on to
   `260830-exec-grant-policy-matchers` to bridge the internal evaluator engine
   with user policy discovery and composable matcher primitives.
+- 2026-11-02: Implemented and verified:
+  - Standard matcher library in `src/toas/runtime/matchers.py`:
+    `extract_subcommand`, `allow_all`, `deny_all`, `deny_flags`,
+    `allow_subcommands`, `deny_subcommands`, `allow_pattern`, `deny_pattern`,
+    `all_of`, `any_of`, `not_matcher`.
+  - User policy discovery and loading in `src/toas/runtime/policy_loader.py`:
+    discovers candidate policy module at `.toas/policy.py` (or configured
+    `runtime.policy_module`), supporting `get_policy` factories, explicit
+    `policy` instances, and `prefix_matchers` mappings with fail-closed diagnostics.
+  - Added `policy_module: str = ".toas/policy.py"` to `RuntimePolicy` in
+    `src/toas/config.py`.
+  - Wired policy resolution into `src/toas/runtime/step_runtime.py` default
+    executor creation so active workspace policy is resolved per step execution.
+  - Added tests in `tests/test_runtime_matchers.py`,
+    `tests/test_runtime_policy_loader.py`, `tests/test_runtime_step_runtime.py`,
+    and `tests/test_tools.py`.
+  - All 3,691 unit tests and 17 acceptance tests pass under `./scripts/check.sh`
+    with 100.00% statement coverage across all 157 source files.
+

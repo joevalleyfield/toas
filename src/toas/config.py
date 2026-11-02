@@ -104,6 +104,7 @@ class RuntimePolicy:
     python_runtime: tuple[str, ...] = ()
     powershell_runtime: tuple[str, ...] = ()
     shell_runtime: tuple[str, ...] = ()
+    policy_module: str = ".toas/policy.py"
 
 
 @dataclass(frozen=True)

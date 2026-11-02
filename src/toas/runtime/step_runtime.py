@@ -23,6 +23,7 @@ from .frontier_resolution import (
 from .intent_arbitration_edges import select_user_intent_candidates
 from .operator_command_parse import split_operator_command
 from .operator_config_endpoint_ops import endpoint_declaration_update
+from .policy_loader import resolve_executable_grant_policy
 from .reconciliation_handoff import (
     ReconciliationDiagnostics,
     ReconciliationHandoff,
@@ -59,6 +60,10 @@ def _resolve_execution_dependencies(
     live_config = [config]
 
     def execute_fn(_working, plan):
+        executable_policy = resolve_executable_grant_policy(
+            workspace_root=command_cwd,
+            config=live_config[0],
+        )
         return step_mod._execute_plan(
             plan,
             origin_role=_working[-1]["role"] if _working else "assistant",
@@ -67,6 +72,7 @@ def _resolve_execution_dependencies(
             workspace_roots=workspace_roots,
             env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
             shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, live_config[0], events),
+            executable_grant_policy=executable_policy,
             assistant_timeout_s=live_config[0].shell.assistant_timeout_s,
             assistant_timeout_source=(config_sources or {}).get("shell.assistant_timeout_s", "default"),
             stream_stdout_enabled=(
