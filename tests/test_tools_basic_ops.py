@@ -371,6 +371,21 @@ def test_run_read_file_line_start_end_aliases_and_scratch_path(tmp_path):
     assert len(out["content"].splitlines()) == 30
 
 
+def test_run_read_file_normalizes_crlf_and_double_cr(tmp_path):
+    path = tmp_path / "mixed.txt"
+    # Simulate a file with \r\r\n and \r\n
+    path.write_bytes(b"line 1\r\r\nline 2\r\nline 3\n")
+
+    out = run_read_file(
+        {"path": "mixed.txt", "show_line_numbers": True},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out["ok"] is True
+    assert out["content"] == "line 1\nline 2\nline 3\n"
+    assert out["display_content"] == "   1: line 1\n   2: line 2\n   3: line 3\n"
+    assert out["summary"] == "mixed.txt"
+
+
 def test_run_search_validates_and_runs(tmp_path):
     path = tmp_path / "x.txt"
     path.write_text("alpha\nbeta\n", encoding="utf-8")

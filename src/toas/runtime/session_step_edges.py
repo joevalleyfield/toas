@@ -421,7 +421,7 @@ def _materialize_concept_graph_artifact(*, events_path: Path, content: str) -> t
             break
         counter += 1
     temporary = candidate.with_name(f".{candidate.name}.tmp")
-    temporary.write_text(normalized, encoding="utf-8", newline="\n")
+    temporary.write_bytes(normalized.encode("utf-8"))
     temporary.replace(candidate)
     return candidate.relative_to(workspace_root).as_posix(), digest
 

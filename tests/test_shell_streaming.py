@@ -458,3 +458,13 @@ def test_drain_if_reader_alive_returns_when_read_blocks_or_errors(monkeypatch: p
     monkeypatch.setattr(shell_streaming._os, "read", lambda *_a, **_k: (_ for _ in ()).throw(OSError("boom")))
     shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
     assert emitted == []
+
+
+def test_completed_process_normalizes_crlf_and_cr_stdout() -> None:
+    completed = shell_streaming._completed_process(
+        argv=["pytest"],
+        returncode=0,
+        chunks=[b"collected 2 items\r\n", b"test_a.py .\r\ntest_b.py .\r\n"],
+    )
+    assert completed.stdout == "collected 2 items\ntest_a.py .\ntest_b.py .\n"
+    assert "\r" not in completed.stdout

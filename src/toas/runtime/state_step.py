@@ -1014,7 +1014,13 @@ def _resolve_reference_target(
                     render_import_block,
                 )
 
-                content = scratch_file.read_text(encoding="utf-8")
+                content = (
+                    scratch_file.read_bytes()
+                    .decode("utf-8", errors="replace")
+                    .replace("\r\r\n", "\n")
+                    .replace("\r\n", "\n")
+                    .replace("\r", "\n")
+                )
                 return render_import_block(
                     content=content,
                     path=f".toas/scratch/{effective_block_id}.txt",
@@ -1061,7 +1067,13 @@ def _resolve_reference_target(
                 else (Path(".toas/scratch") / f"{effective_block_id}.txt")
             )
             if scratch_file.is_file():
-                text = scratch_file.read_text(encoding="utf-8")
+                text = (
+                    scratch_file.read_bytes()
+                    .decode("utf-8", errors="replace")
+                    .replace("\r\r\n", "\n")
+                    .replace("\r\n", "\n")
+                    .replace("\r", "\n")
+                )
                 kind = "result"
     else:
         target_path = (workspace_root / target) if workspace_root else Path(target)

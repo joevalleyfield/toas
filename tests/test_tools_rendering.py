@@ -792,6 +792,56 @@ def test_spill_inert_block_lines_threshold(tmp_path):
         assert "under single-turn ephemerality" not in spilled_override
 
 
+def test_spill_inert_block_normalizes_crlf_and_writes_lf_bytes(tmp_path):
+    from hashlib import sha256
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    lf_content = "\n".join(f"symbol_{i}" for i in range(1, 101))
+    crlf_content = "\r\n".join(f"symbol_{i}" for i in range(1, 101))
+    expected_id = f"ib_{sha256(lf_content.encode('utf-8')).hexdigest()[:16]}"
+
+    spilled, rel_path, block_id = spill_inert_block(
+        crlf_content,
+        kind="result",
+        scratch_dir=scratch_dir,
+        threshold_lines=40,
+        preview_lines=30,
+    )
+    assert block_id == expected_id
+    scratch_file = scratch_dir / f"{block_id}.txt"
+    assert scratch_file.is_file()
+    disk_bytes = scratch_file.read_bytes()
+    assert b"\r" not in disk_bytes
+    assert disk_bytes == lf_content.encode("utf-8")
+    assert "100 lines); spilled" in spilled
+    assert "\r" not in spilled
+
+
+def test_render_fenced_output_with_block_id_normalizes_crlf_bytes(tmp_path):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    crlf_content = "alpha\r\nbeta\r\n"
+    out = render_fenced_output(
+        content=crlf_content,
+        kind="result",
+        source="test",
+        block_id="ib_crlf_test",
+        scratch_dir=scratch_dir,
+    )
+    scratch_file = scratch_dir / "ib_crlf_test.txt"
+    assert scratch_file.is_file()
+    assert scratch_file.read_bytes() == b"alpha\nbeta\n"
+    assert "\r" not in out
+
+
+def test_render_import_block_normalizes_crlf_for_stable_block_id():
+    out_lf = render_import_block(content="alpha\nbeta\n", path="test.txt")
+    out_crlf = render_import_block(content="alpha\r\nbeta\r\n", path="test.txt")
+    import re
+    id_lf = re.search(r"block_id=([^\s]+)", out_lf).group(1)
+    id_crlf = re.search(r"block_id=([^\s]+)", out_crlf).group(1)
+    assert id_lf == id_crlf
+
+
 def test_spill_inert_block_bytes_threshold(tmp_path):
     scratch_dir = tmp_path / ".toas" / "scratch"
     # 5 lines, but 5000 characters total (> 4000 threshold)

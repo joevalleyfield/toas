@@ -103,3 +103,23 @@ When tools with large outputs (such as `pytest`) run on Windows:
   capture + Windows `Path.write_text(newline=None)` double-translation root
   cause that produces `\r\r\n` in scratch files and empty lines under `splitlines()`
   and `tail`.
+- 2026-11-02: Resolved and verified:
+  - In `src/toas/tools_cluster/shell_streaming.py`, `_completed_process` normalizes
+    `stdout` with `.replace("\r\n", "\n").replace("\r", "\n")` so completed
+    streaming process output achieves parity with universal newlines.
+  - In `src/toas/tools_cluster/rendering.py`, `spill_inert_block`,
+    `render_fenced_output`, and `render_import_block` normalize newlines before
+    computing hashes, line counts, or previews. Scratch cache files are written
+    using `.write_bytes(content.encode("utf-8"))` to prevent Python's Windows
+    text writer from expanding `\n` to `\r\n`.
+  - In `src/toas/runtime/session_step_edges.py`, replaced unsupported `Path.write_text(newline=...)`
+    with `.write_bytes(normalized.encode("utf-8"))`.
+  - In `src/toas/tools_cluster/basic_ops.py` (`run_read_file`), read with `newline=""`
+    and normalize `\r\r\n`, `\r\n`, and `\r` defensively to protect against any
+    legacy or external mixed-newline files.
+  - In `src/toas/runtime/state_step.py`, decode scratch files and normalize
+    newlines defensively.
+  - Added unit tests in `tests/test_tools_rendering.py`, `tests/test_shell_streaming.py`,
+    and `tests/test_tools_basic_ops.py`.
+  - All 3,666 unit tests, 17 acceptance tests, linters, and 100.00% statement coverage
+    pass cleanly under `./scripts/check.sh`.

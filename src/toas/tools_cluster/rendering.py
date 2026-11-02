@@ -180,6 +180,7 @@ def spill_inert_block(
     else:
         is_ephemeral = bool(single_turn_ephemeral)
 
+    content = content.replace("\r\n", "\n").replace("\r", "\n")
     effective_block_id = block_id or f"ib_{sha256(content.encode('utf-8')).hexdigest()[:16]}"
     target_dir = scratch_dir or default_scratch_dir()
     try:
@@ -189,7 +190,7 @@ def spill_inert_block(
 
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
-        (target_dir / f"{effective_block_id}.txt").write_text(content, encoding="utf-8")
+        (target_dir / f"{effective_block_id}.txt").write_bytes(content.encode("utf-8"))
     except OSError:
         pass
 
@@ -256,6 +257,7 @@ def render_fenced_output(  # noqa: PLR0913
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
 ) -> str:
+    content = content.replace("\r\n", "\n").replace("\r", "\n")
     lines = content.splitlines()
     total_lines = len(lines)
     total_bytes = len(content.encode("utf-8"))
@@ -283,7 +285,7 @@ def render_fenced_output(  # noqa: PLR0913
             target_dir.mkdir(parents=True, exist_ok=True)
             scratch_file = target_dir / f"{block_id}.txt"
             if not scratch_file.exists():
-                scratch_file.write_text(content, encoding="utf-8")
+                scratch_file.write_bytes(content.encode("utf-8"))
         except OSError:
             pass
 
@@ -327,6 +329,7 @@ def render_import_block(  # noqa: PLR0913
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
 ) -> str:
+    content = content.replace("\r\n", "\n").replace("\r", "\n")
     effective_source = source or "workspace"
     is_bounded = line_start is not None or line_end is not None or (isinstance(path, str) and ":" in path and "-" in path)
     effective_threshold_lines = (

@@ -195,7 +195,11 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
     if not path.is_file():
         raise RuntimeError(f"tool read_file requires a file: {path_arg}")
 
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    with open(path, encoding="utf-8", newline="") as f:
+        raw_text = f.read()
+    if "\r" in raw_text:
+        raw_text = raw_text.replace("\r\r\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
+    lines = raw_text.splitlines(keepends=True)
     total_lines = len(lines)
     if start_line is None and end_line is None and max_lines is None:
         content = "".join(lines)

@@ -267,7 +267,7 @@ def _drain_if_reader_alive(*, proc: subprocess.Popen, reader: threading.Thread, 
 
 
 def _completed_process(*, argv: list[str], returncode: int, chunks: list[bytes]) -> subprocess.CompletedProcess:
-    stdout = b"".join(chunks).decode("utf-8", errors="replace")
+    stdout = b"".join(chunks).decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
     return subprocess.CompletedProcess(argv, returncode, stdout=stdout, stderr="")
 
 
