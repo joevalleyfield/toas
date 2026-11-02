@@ -46,6 +46,7 @@ class DispatchDeps:
     run_replay_script: Callable[..., None]
     run_debug_cancel_latency: Callable[..., None]
     run_session_continue: Callable[..., None] | None = None
+    run_policy: Callable[..., None] | None = None
 
 
 def require_arg(cmd: list[str], index: int, usage_line: str) -> str:
@@ -243,5 +244,9 @@ def dispatch_main(
             raise SystemExit(f"unknown debug command: {sub}")
         path = require_arg(argv, 2, "toas debug cancel-latency <jsonl_path>")
         deps.run_debug_cancel_latency(path)
+    elif argv[0] == "policy":
+        if deps.run_policy is None:
+            raise SystemExit("policy command is not configured")
+        deps.run_policy(argv[1:])
     else:
         raise SystemExit(f"unknown command: {argv[0]}")

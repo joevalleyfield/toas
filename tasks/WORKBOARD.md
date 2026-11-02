@@ -102,7 +102,6 @@ Neither dated vote is a literal current queue.
     - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
 - 260803-language-exec-fenced-block-lane Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... (related `260412-json-callable-lane-parser-and-policy`, `260803-first-failure-plan-recovery`, `260803-seed-prompt-composition-study`, `260803-tool-intent-ingress-separation`, `299`)
   - 260831-language-write-materialization-fences Language-Native Write Materialization Fences (related `260831-transcript-source-reference-operations`, `260829-generic-interpreter-runtime-lane`, `260829-canonical-action-ingress-contract`)
-  - 261102-executable-log-harvester-and-policy-scaffolder Extract observed executable commands from append-only event logs (`.toas/events.jsonl`) to profile assistant and user tool usage and scaffold tailored... (related `260830-exec-grant-policy-matchers`, `261102-executable-policy-module-and-validators`)
 - 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
@@ -156,7 +155,6 @@ Neither dated vote is a literal current queue.
 - **[T261010-state-inference-response-resilience]** Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
-- **[T261102-executable-log-harvester-and-policy-scaffolder]** Extract observed executable commands from append-only event logs (`.toas/events.jsonl`) to profile assistant and user tool usage and scaffold tailored...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -220,9 +218,9 @@ should return only with a current timing reproduction.
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261102-windows-crlf-spilled-scratch-blocks]** Prevent Windows `\r\n` output from double-translating into `\r\r\n` inside `.toas/scratch/ib_*.txt` files and eliminate downstream phantom blank lines...
 - **[T261102-executable-policy-module-and-validators]** Connect the central post-resolution executable grant evaluator to user-authored policy by establishing a discovery convention for workspace policy mod...
+- **[T261102-executable-log-harvester-and-policy-scaffolder]** Extract observed executable commands from append-only event logs (`.toas/events.jsonl`) to profile assistant and user tool usage and scaffold tailored...
 - **[T261031-sync-help-system-policy-contracts]** Sync the packaged help catalog, session help, command usage, and progressive disclosure handlers with recent namespaced configuration and scoped polic...
 - **[T261030-yaml-replace-block-indent-healing]** Heal broken YAML tool call candidates in assistant turns where `replace_block` (and related multiline code operations) suffer from indentation and out...
-- **[T261030-vim-streaming-undojoin-collapse]** Prevent intermediate undo fragmentation during streaming generation in `toas.vim` by joining incremental chunk updates into a single undo block.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -92,3 +92,20 @@ tailored to the workspace.
 
 - 2026-11-02: Task opened following completion of `261102-executable-policy-module-and-validators`
   and documentation of matcher development in `docs/executable-policy.md`.
+- 2026-11-02: Implemented, verified end-to-end, and closed:
+  - `src/toas/runtime/command_harvester.py`: Extracts and profiles executable invocations
+    from `.toas/events.jsonl` (`tool_request`, `state_transition`, and user prompt `$ ...` commands),
+    tokenizing binaries, subcommands, and flags.
+  - `src/toas/runtime/policy_scaffolder.py`: Generates starter `.toas/policy.py` modules
+    tailored to observed command profiles, defaulting read utilities to `allow_all()` and
+    multi-command binaries to `allow_subcommands(...)` with `deny_flags("--force", "-f")`.
+    Includes safety guards preventing accidental overwrites without `--force`.
+  - `src/toas/cli_policy_commands.py`, `src/toas/cli_dispatch.py`, `src/toas/cli.py`,
+    `src/toas/cli_usage.py`: Exposed `toas policy harvest` and `toas policy scaffold`.
+  - Added unit test suites `tests/test_runtime_command_harvester.py`,
+    `tests/test_runtime_policy_scaffolder.py`, and `tests/test_cli_policy.py`.
+  - Conducted end-to-end artifact inspection on live repo events (`uv run toas policy harvest`,
+    `uv run toas policy scaffold --dry-run`).
+  - All 3,709 unit tests and 17 acceptance tests pass under `./scripts/check.sh`
+    with 100.00% statement coverage across all 160 source files.
+

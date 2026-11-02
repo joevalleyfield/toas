@@ -146,6 +146,13 @@ REPLAY_SCRIPT_USAGE = "usage: toas replay-script <script_path> [--output <path>]
 DEBUG_USAGE = "usage: toas debug cancel-latency <jsonl_path>"
 
 
+POLICY_USAGE = (
+    "usage: toas policy harvest [events_path]\n"
+    "       toas policy scaffold [events_path] [--output <path>] [--force] [--dry-run]\n\n"
+    "harvest observed commands from event logs and scaffold executable grant policies"
+)
+
+
 _SUBCOMMAND_HELP: dict[str, str] = {
     "step": STEP_HELP,
     "heads": HEADS_USAGE,
@@ -171,6 +178,7 @@ _SUBCOMMAND_HELP: dict[str, str] = {
     "transport": HOST_USAGE,
     "replay-script": REPLAY_SCRIPT_USAGE,
     "debug": DEBUG_USAGE,
+    "policy": POLICY_USAGE,
 }
 
 

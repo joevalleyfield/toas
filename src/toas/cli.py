@@ -538,6 +538,12 @@ def run_debug_cancel_latency(path: str) -> None:
     print(json.dumps(out, indent=2, sort_keys=True))
 
 
+def run_policy(args: list[str]) -> None:
+    from .cli_policy_commands import run_cli_policy
+
+    run_cli_policy(args, default_events_path=resolve_events_path(), print_fn=print)
+
+
 # --- entry point ---
 
 def _build_dispatch_deps() -> DispatchDeps:
@@ -566,6 +572,7 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_host=run_host,
         run_replay_script=run_replay_script,
         run_debug_cancel_latency=run_debug_cancel_latency,
+        run_policy=run_policy,
     )
 
 
