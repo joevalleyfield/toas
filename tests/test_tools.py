@@ -168,6 +168,74 @@ def test_execute_plan_applies_runtime_grants_only_to_assistant_calls(monkeypatch
     assert seen == [call["args"]]
 
 
+def test_execute_plan_applies_executable_grant_policy_to_shell_calls(fake_shell_subprocess):
+    def deny_network(argv):
+        return False if "--network" in argv else None
+
+    def allow_all(argv):
+        return True
+
+    policy = ExecutableGrantPolicy(
+        default=False,
+        prefix_matchers={"uv": (deny_network, allow_all)},
+    )
+
+    denied = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["uv", "run", "pytest", "--network"]}}],
+        executable_grant_policy=policy,
+        authority="assistant",
+        shell_allowed_commands=["uv"],
+    )
+    assert denied[0]["ok"] is False
+    assert "tool shell disallows runtime: uv run pytest --network (grant policy matcher)" in denied[0]["error"]
+
+    allowed = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["uv", "run", "pytest"]}}],
+        executable_grant_policy=policy,
+        authority="assistant",
+        shell_allowed_commands=["uv"],
+    )
+    assert allowed[0]["ok"] is True
+    assert fake_shell_subprocess.call_args.args[0] == ["uv", "run", "pytest"]
+
+    user_run = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["uv", "run", "pytest", "--network"]}}],
+        executable_grant_policy=policy,
+        authority="user",
+        shell_allowed_commands=["uv"],
+    )
+    assert user_run[0]["ok"] is True
+
+
+def test_execute_plan_applies_executable_grant_policy_to_shell_script_commands(fake_shell_subprocess):
+    deny_policy = ExecutableGrantPolicy(default=False)
+    denied = execute_plan(
+        [{"tool_name": "shell_script", "args": {"script": "echo hi | head -1"}}],
+        executable_grant_policy=deny_policy,
+        authority="assistant",
+        shell_allowed_commands=["echo", "head"],
+    )
+    assert denied[0]["ok"] is False
+    assert "tool shell_script disallows runtime: echo (grant policy default)" in denied[0]["error"]
+
+
+def test_step_execute_plan_forwards_executable_grant_policy(fake_shell_subprocess):
+    from toas.step import _execute_plan
+
+    deny_policy = ExecutableGrantPolicy(default=False)
+    results = _execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["echo", "hi"]}}],
+        origin_role="assistant",
+        command_cwd=".",
+        workspace_mode="workspace",
+        workspace_roots=["."],
+        shell_allowed_commands=("echo",),
+        executable_grant_policy=deny_policy,
+    )
+    assert results[0]["payload"]["ok"] is False
+    assert "tool shell disallows runtime: echo hi (grant policy default)" in results[0]["payload"]["error"]
+
+
 def test_phase0_contract_core_tool_required_args_are_stable():
     assert REGISTRY["read_file"].required_args == ("path",)
     assert REGISTRY["search"].required_args == ("query",)

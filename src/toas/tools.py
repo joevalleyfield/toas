@@ -11,6 +11,7 @@ from .runtime.environment_policy import active_environment_policy
 from .runtime.executable_grants import ExecutableGrantPolicy
 from .shell_grants import (
     normalize_shell_grants,
+    shell_script_segment_commands,
 )
 from .tools_cluster.apply_patch_ops import run_apply_patch as run_cluster_apply_patch
 from .tools_cluster.basic_ops import run_echo_block as run_cluster_echo_block
@@ -269,7 +270,7 @@ def _executable_grant_policy(*, policy: ExecutableGrantPolicy | None, authority:
 
 
 def _authorize_resolved_runtime(runtime: list[str], *, tool_name: str) -> None:
-    if _EXECUTION_AUTHORITY != "assistant" or _EXECUTABLE_GRANT_POLICY is None:
+    if _EXECUTION_AUTHORITY != "assistant" or _EXECUTABLE_GRANT_POLICY is None or not runtime:
         return
     decision = _EXECUTABLE_GRANT_POLICY.evaluate(runtime)
     if not decision.allowed:
@@ -305,6 +306,9 @@ def _workspace_path(path_arg: str) -> Path:
 
 
 def _run_shell(args: dict) -> dict:
+    if "argv" in args and isinstance(args["argv"], list) and args["argv"]:
+        normalized = [str(x) if not isinstance(x, str) else x for x in args["argv"]]
+        _authorize_resolved_runtime(normalized, tool_name="shell")
     return execute_shell_call(args, context="assistant")
 
 
@@ -314,6 +318,8 @@ def _run_shell_script(args: dict) -> dict:
         workspace_path_fn=_workspace_path,
         effective_shell_allowed=_effective_shell_allowed(),
     )
+    for cmd in shell_script_segment_commands(script):
+        _authorize_resolved_runtime([cmd], tool_name="shell_script")
     from .runtime.shell_runtime import configured_shell_runtime
 
     runtime = args.get("runtime") if "runtime" in args else list(configured_shell_runtime(_WORKSPACE_BASE or Path.cwd())) or None

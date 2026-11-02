@@ -101,7 +101,6 @@ Neither dated vote is a literal current queue.
   - 260831-transcript-source-reference-operations Transcript-Native Assistant Source Reference Operations (related `260803-language-exec-fenced-block-lane`, `260803-first-failure-plan-recovery`, `260831-verbatim-staged-plan-restaging`, `260627-history-affordances-semantic-restaging`, `260830-exec-grant-policy-matchers`)
     - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
 - 260803-language-exec-fenced-block-lane Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... (related `260412-json-callable-lane-parser-and-policy`, `260803-first-failure-plan-recovery`, `260803-seed-prompt-composition-study`, `260803-tool-intent-ingress-separation`, `299`)
-  - 260830-exec-grant-policy-matchers Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered... (related `260530-shell-lane-spawn-semantics`, `260829-configurable-interpreter-runtime-lane`, `260829-generic-interpreter-runtime-lane`)
   - 260831-language-write-materialization-fences Language-Native Write Materialization Fences (related `260831-transcript-source-reference-operations`, `260829-generic-interpreter-runtime-lane`, `260829-canonical-action-ingress-contract`)
 - 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
@@ -146,7 +145,6 @@ Neither dated vote is a literal current queue.
 - **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ... ⚠️ Stale
 - **[T260825-visible-transcript-turn-ids]** Define transcript-facing human names and explicit references backed by canonical identity, so users and editor or CLI surfaces can select a turn witho...
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context. ⚠️ Stale
-- **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered... ⚠️ Stale
 - **[T260831-language-write-materialization-fences]** Language-Native Write Materialization Fences ⚠️ Stale
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations ⚠️ Stale
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale

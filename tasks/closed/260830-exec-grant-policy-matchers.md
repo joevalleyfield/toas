@@ -148,3 +148,23 @@ commands/results, and the closing commit.
   slice.
 - 2026-08-30: Added `src/toas/shell_grants.py` to the configured mypy file
   set so the shared shell/evaluator adapter is statically checked.
+- 2026-11-02: Unified post-resolution executable grant authorization seam:
+  - Wired `_run_shell` to pass resolved `argv` through `_authorize_resolved_runtime(normalized, tool_name="shell")`, enabling prefix matchers to evaluate subcommands/flags.
+  - Wired `_run_shell_script` to evaluate each segmented command through `_authorize_resolved_runtime`.
+  - Added `executable_grant_policy` forwarding to `_execute_plan` in `src/toas/step.py`.
+  - Added unit test coverage for `shell` prefix matchers (subcommand/flag denials), `shell_script` segmented command denial, and `_execute_plan` policy forwarding.
+  - Verified targeted coverage at 100.00% on `toas.tools`, `toas.runtime.executable_grants`, `toas.shell_grants`.
+  - Verified full repository checks and coverage gate via `./scripts/check.sh` (3,661 unit tests + 17 acceptance tests, 100.00% statement coverage across 155 source files).
+
+## Completion evidence
+
+- Evaluator shape: `ExecutableGrantPolicy` (`src/toas/runtime/executable_grants.py`) with prefix matchers `Callable[[Sequence[str]], bool | None]`, exact first-argv prefix dispatch, ordered tri-state short-circuiting, configurable boolean fallthrough, and `ExecutableGrantDecision`.
+- Post-resolution authorization seam: `_authorize_resolved_runtime` in `src/toas/tools.py` applies to `shell`, `shell_script`, `python_script`, `powershell_script`, and `interpreter_script` whenever authority is `"assistant"`. Direct user execution (`authority="user"`) intentionally bypasses evaluation.
+- User policy module discovery and custom DSL remain deliberately deferred; matchers remain trusted Python callables.
+- Test verification:
+  - `tests/test_runtime_executable_grants.py`: unit tests for ordering, tri-state short-circuiting, default allow/deny, invalid argv/decisions.
+  - `tests/test_shell_grants.py`: unit tests for legacy exact/prefix/glob normalization and translation to `ExecutableGrantPolicy`.
+  - `tests/test_tools.py`: unit tests for assistant runtime authorization across all execution tools, prefix matchers inspecting full argv (e.g. `--network`), segmented commands in shell scripts, and direct user bypass.
+  - `./scripts/check.sh`: passes with 3,661 unit tests, 17 acceptance tests, 0 mypy issues, and 100.00% statement coverage across 155 source files.
+
+Status: Closed.

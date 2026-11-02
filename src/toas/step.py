@@ -27,6 +27,7 @@ from .runtime.frontier_resolution import (
     render_plan_as_yaml_preview as _render_plan_as_yaml_preview,
     render_plan_recovery as _render_plan_recovery,
 )
+from .runtime.executable_grants import ExecutableGrantPolicy
 from .runtime.result_nodes import (
     RESULT_ORIGIN_KINDS,
     RESULT_ORIGIN_ROLES,
@@ -633,6 +634,7 @@ def _execute_plan(
     workspace_roots: list[str],
     env_modifiers: dict[str, str | None] | None = None,
     shell_allowed_commands: tuple[str, ...] | None = None,
+    executable_grant_policy: ExecutableGrantPolicy | None = None,
     stream_stdout_enabled: bool | None = None,
     assistant_timeout_s: int | None = 5,
     assistant_timeout_source: str = "default",
@@ -653,6 +655,7 @@ def _execute_plan(
             workspace_roots=workspace_roots,
             default_process_env=effective_env,
             shell_allowed_commands=shell_allowed_commands,
+            executable_grant_policy=executable_grant_policy,
             assistant_timeout_s=assistant_timeout_s,
             assistant_timeout_source=assistant_timeout_source,
             authority=origin_role,
