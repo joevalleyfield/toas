@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-01
+> **Last Sync:** 2026-11-02
 
 ## 0. Manual Triage
 
@@ -24,7 +24,7 @@ corruption-refusal proof chain is complete enough to stop driving the queue.
 | Theme | Open | Current disposition |
 | --- | ---: | --- |
 | State-mode operation | 5 | Alpha exists. Request-composition/resilience has concrete experiments; artifact capture and failure memory need bounded design choices. |
-| Policy, authority, and explicit objectives | 5 | Branch reducers and grant machinery largely exist. Provenance inspection and one-shot control ingress have explicit remaining seams; audit broad parents before extending them. |
+| Policy, authority, and explicit objectives | 4 | Branch-projected policy program, scoped engine, provenance inspection, and one-shot ingress are complete. Central exec-grant matchers and declared objectives remain open. |
 | Execution ingress and source fidelity | 6 | Native/text ingress, language fences, source references, retry adapters, materialization, and extraction boundaries have mixed landed and prospective scope. |
 | Platform and patch behavior | 5 | October 20 inventory; October 30 follow-up closes launcher and MSYS verification. Native Windows checks, gVim smoke, and initialized MSYS smoke pass. Patch research remains parked. |
 | Operator projections and provenance | 6 | Discovery, turn IDs, highlighting, focus/map projections, and assistance trailers are mostly design or partial-probe work. |
@@ -42,11 +42,10 @@ corruption-refusal proof chain is complete enough to stop driving the queue.
 2. **Choose a concrete operator-facing slice.** The clearest documented fronts
    are `261010-state-inference-response-resilience` (selectable request
    composition; configuration/history policy still needs agreement),
-   `260920-effective-policy-provenance-inspection` (projection exists;
-   domain reduction/rendering remain), and
-   `260920-one-shot-control-ingress-disposition` (caller inventory before
-   changing the ingress contract). This is a candidate list, not three
-   simultaneous implementation commitments.
+   `260830-exec-grant-policy-matchers` (centralizing post-resolution
+   executable grant authorization), and `261010-rolling-tool-failure-memory`
+   (compact tool failure memory to prevent dead loops). This is a candidate
+   list, not three simultaneous implementation commitments.
 3. **Handle platform reports through current reproductions.** October 30
    verification closes the old launcher and MSYS evidence questions; gVim smoke
    also passes. MSYS Vim requires its initialized MSYS environment; direct
@@ -83,7 +82,6 @@ Neither dated vote is a literal current queue.
 
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->
 - `260926-state-step-requirements`
-- `260920-branch-projected-policy-program`
 - `260803-tool-intent-ingress-separation`
 - `260803-language-exec-fenced-block-lane`
 - `260614-architecture-follow-through-coordination`
@@ -99,7 +97,6 @@ Neither dated vote is a literal current queue.
   - 261010-direct-tool-artifact-capture Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution (related `261009-explicit-reference-expansion-and-report-projection`, `261010-scratch-read-file-ingestion-threshold`)
   - 261010-rolling-tool-failure-memory Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends (related `261009-batch-tool-non-fatal-execution-mode`)
   - 261010-state-inference-response-resilience Status: ACTIVE requirements and request inspection; clarify state-update output and recover from model format failures (related `261010-preview-request-pretty-inspection`, `261010-rolling-tool-failure-memory`)
-- 260920-branch-projected-policy-program Branch-Projected Transcript Policy Program (related `260920-lcp-policy-reevaluation-contract`, `260920-transcript-policy-reinterpretation-examples`, `260920-transcript-control-documentation-contract`, `260831-transcript-source-reference-operations`, `325-config-override-lifecycle-load-save-restore-and-unset`, `330-semi-durable-shell-grants-transcript-and-config-lanes`, `310-transcript-env-modifiers-as-execution-surface`)
 - 260803-tool-intent-ingress-separation Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... (related `260803-language-exec-fenced-block-lane`, `260412-json-callable-lane-parser-and-policy`, `260803-seed-prompt-composition-study`, `260803-first-failure-plan-recovery`, `260628-gemini-endpoint-discovery`, `171`, `174`)
   - 260831-transcript-source-reference-operations Transcript-Native Assistant Source Reference Operations (related `260803-language-exec-fenced-block-lane`, `260803-first-failure-plan-recovery`, `260831-verbatim-staged-plan-restaging`, `260627-history-affordances-semantic-restaging`, `260830-exec-grant-policy-matchers`)
     - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
@@ -154,7 +151,6 @@ Neither dated vote is a literal current queue.
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations ⚠️ Stale
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe... ⚠️ Stale
-- **[T260920-branch-projected-policy-program]** Branch-Projected Transcript Policy Program ⚠️ Stale
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends

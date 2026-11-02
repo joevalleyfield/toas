@@ -132,16 +132,36 @@ input identity/digest, and reconstitution eligibility. A rewritten matching or
 explicitly referencing control can reuse that immutable result without reading
 the external source; a fresh load produces a new result.
 
+Status: Complete (`260920-config-load-result-reconstitution`). Source-linked
+canonical results are persisted, and recreated matching declarations reconstitute
+directly from their structural predecessor without rereading disk.
+
 ### Phase 4 — inspection and optional checkpoints
 
 Expose effective-policy provenance and source layers to operators. Consider
 settings checkpoints only as explicit projections, distinguishing transcript
 overlay snapshots from fully resolved current-baseline snapshots.
 
-The first bounded Phase-4 slice is
-`260920-effective-policy-provenance-inspection`: inspect the completed
-branch-local domains and their source/fallback provenance without introducing
-a checkpoint.
+Status: Complete (`260920-effective-policy-provenance-inspection`). Compact
+inspection surface (`/config --sources`, `/help precedence`, `/help sources`,
+`/help provenance`) explains effective branch-visible policy and provenance
+without checkpoints.
+
+### Phase 5 — consolidation, unified engine, and ingress disposition
+
+Consolidate domain-specific reducers into a unified, explicit scoped policy engine
+and eliminate historical transcript/lineage impedance mismatches:
+- Unified scoped policy engine (`261030-unified-scoped-policy-engine`):
+  Hierarchical `global` -> `user` -> `workspace` -> `session` -> `transient`
+  scopes with programmatic evaluation.
+- Namespaced config policy coalescence (`261030-namespaced-config-policy-coalescence`):
+  Unified `llm.*` and `shell.*` namespaces across file, transcript, and runtime.
+- Help system sync (`261031-sync-help-system-policy-contracts`): Progressive
+  disclosure and topic catalogs aligned with the scoped policy model.
+- One-shot control ingress disposition (`260920-one-shot-control-ingress-disposition`):
+  Ephemeral transient queries leave storage untouched; policy mutations materialize
+  into `session.md` in lockstep with `events.jsonl`. Historical `not injected_control`
+  rewrite hack removed.
 
 ## Boundaries and deferred choices
 
@@ -157,6 +177,18 @@ a checkpoint.
 
 ## Completion evidence
 
-This parent remains active until the follow-on slices have either landed or
-been deliberately reprioritized. Each implementation follow-on must update
-this task with its scope, evidence, and remaining compatibility gaps.
+All follow-on implementation slices have landed, verified, and closed:
+1. `260920-lcp-direct-policy-deltas`: Direct declarative branch projection.
+2. `260920-branch-projected-target-selection`: Branch-scoped active target selection.
+3. `260920-branch-projected-command-context`: Ordered `/cd` projection from process baseline.
+4. `260920-branch-projected-workspace-scope`: Direct workspace roots/mode validation.
+5. `260920-config-load-result-reconstitution`: Immutable external resolution reconstitution.
+6. `260920-effective-policy-provenance-inspection`: Effective policy provenance inspection.
+7. `261030-unified-scoped-policy-engine`: Programmatic scoped policy evaluation engine.
+8. `261030-namespaced-config-policy-coalescence`: Namespaced configuration coalescence.
+9. `261031-sync-help-system-policy-contracts`: Help catalog and session help contract sync.
+10. `260920-one-shot-control-ingress-disposition`: Dual disposition for one-shot ingress and elimination of rewrite hacks.
+
+Full test suite passes with 100.00% statement coverage (3,658 unit tests + 17 acceptance tests).
+
+Status: Closed.
