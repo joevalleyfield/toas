@@ -100,8 +100,11 @@ def test_partition_collects_trailing_user_and_control_turns():
 
 def test_control_results_are_observed_without_projecting_control_text():
     observation = observation_with_user_turns(
-        {"kind": "toas.compound-observation/1", "operator_observation": "existing note",
-         "control_results": [{"content": "prior result"}]},
+        {
+            "kind": "toas.compound-observation/1",
+            "operator_observation": "existing note",
+            "control_results": [{"content": "prior result"}],
+        },
         [
             {"role": "user", "content": "Inspect this."},
             {
@@ -114,7 +117,7 @@ def test_control_results_are_observed_without_projecting_control_text():
     assert observation["user_inputs"] == [{"content": "Inspect this."}]
     assert observation["control_results"] == [
         {"content": "prior result"},
-        {"content": "/work/project", "source": "control"}
+        {"content": "/work/project", "source": "control"},
     ]
     assert "/pwd" not in json.dumps(observation)
 
@@ -185,7 +188,9 @@ def test_template_driven_initial_state_and_rendering():
 
     # Render triage_v1
     triage_turn = render_state_template("triage_v1")
-    assert triage_turn.startswith("## TOAS:STATE/1\n\nprotocol:\n  handle: toas.state-step/triage_v1")
+    assert triage_turn.startswith(
+        "## TOAS:STATE/1\n\nprotocol:\n  handle: toas.state-step/triage_v1"
+    )
     assert "tools:" in triage_turn
     assert "read_file" in triage_turn
     assert "Maintain the minimal triage state" in triage_turn
@@ -223,7 +228,9 @@ def test_load_state_instructions():
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
         "toas.assets.loader.load_packaged_asset",
-        lambda *args, **kwargs: PackagedAsset("prompts", "raw", ".txt", "Raw instructions without frontmatter"),
+        lambda *args, **kwargs: PackagedAsset(
+            "prompts", "raw", ".txt", "Raw instructions without frontmatter"
+        ),
     )
     assert load_state_instructions("raw") == "Raw instructions without frontmatter"
     monkeypatch.undo()
@@ -235,14 +242,26 @@ def test_expand_state_turn_protocol():
     expanded_swe = expand_state_turn_protocol("swe_v1")
     assert expanded_swe["handle"] == "toas.state-step/1"
     assert "Advance the supplied TOAS state" in expanded_swe["instructions"]
-    assert set(expanded_swe["tools"].keys()) == {"read_file", "replace_block", "shell", "write_file"}
+    assert set(expanded_swe["tools"].keys()) == {
+        "read_file",
+        "replace_block",
+        "shell",
+        "write_file",
+    }
     assert expanded_swe["tools"]["read_file"]["required_args"] == ["path"]
     assert "start_line" in expanded_swe["tools"]["read_file"]["optional_args"]
     assert expanded_swe["tools"]["read_file"]["arg_types"]["path"] == "str"
     assert expanded_swe["tools"]["shell"]["required_args"] == ["argv"]
     assert expanded_swe["tools"]["shell"]["arg_types"]["argv"] == "list[str]"
     assert expanded_swe["schema"]["state_patch"] == "object"
-    assert expanded_swe["schema"]["tool_calls"] == [{"tool_name": "string", "args": "object"}]
+    assert expanded_swe["schema"]["tool_calls"] == [
+        {
+            "tool_name": "string",
+            "args": "object",
+            "label": "string (optional)",
+            "target": "string (optional)",
+        }
+    ]
     assert expanded_swe["schema"]["report"] == "string"
 
     expanded_triage = expand_state_turn_protocol("triage_v1")
@@ -307,10 +326,14 @@ def test_load_state_template_and_initial_state_validation(monkeypatch):
         "toas.assets.loader.load_packaged_asset",
         lambda *args, **kwargs: PackagedAsset("state", "bad", ".yaml", "name: bad\n"),
     )
-    with pytest.raises(RuntimeError, match="invalid state template: bad \\(missing state_template\\)"):
+    with pytest.raises(
+        RuntimeError, match="invalid state template: bad \\(missing state_template\\)"
+    ):
         initial_state("bad")
 
-    with pytest.raises(RuntimeError, match="invalid state template: bad \\(missing state_template\\)"):
+    with pytest.raises(
+        RuntimeError, match="invalid state template: bad \\(missing state_template\\)"
+    ):
         render_state_template("bad")
 
 
@@ -331,18 +354,29 @@ def test_operator_api_route_and_explicit_model_packet_boundary(tmp_path):
         request_messages=request,
         operator_config=OperatorConfig(),
         base_settings=Settings(llm_base_url="http://model", llm_model="base"),
-        settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
+        settings_sources={
+            "model": "default",
+            "endpoint": "default",
+            "api_key": "default",
+            "transport": "default",
+        },
         policy=type("Policy", (), {"extra_body": {}})(),
         events_path=path,
-        project_messages=lambda _working: pytest.fail("state packet must bypass conversation projection"),
+        project_messages=lambda _working: pytest.fail(
+            "state packet must bypass conversation projection"
+        ),
     )
     assert invocation.messages == request
 
 
-def test_graph_state_writer_rejects_non_state_record_and_projection_skips_malformed_payload(tmp_path):
+def test_graph_state_writer_rejects_non_state_record_and_projection_skips_malformed_payload(
+    tmp_path,
+):
     path = tmp_path / "events.jsonl"
     with pytest.raises(ValueError, match="unsupported record kind"):
-        append_state_step_records(str(path), [{"kind": "assistant", "role": "assistant", "content": "bad"}])
+        append_state_step_records(
+            str(path), [{"kind": "assistant", "role": "assistant", "content": "bad"}]
+        )
     projected = branch_policy_provenance(
         [
             {"id": "m1", "role": "user", "content": "hi"},
@@ -461,7 +495,9 @@ def test_invalid_response_preserves_request_and_response_evidence(tmp_path):
             generate=lambda _p: {"content": "not json"},
             execute_call=lambda _c: None,
         )
-    transition = next(record for record in read_log(str(events)) if record.get("kind") == "state_transition")
+    transition = next(
+        record for record in read_log(str(events)) if record.get("kind") == "state_transition"
+    )
     assert transition["kind"] == "state_transition"
     assert transition["status"] == "failed"
     assert transition["state_before"] == {"goal": "keep"}
@@ -530,7 +566,11 @@ def test_parser_rejects_invalid_turns_and_renderer_rejects_unknown_format():
 )
 def test_invalid_response_variants_are_rejected_with_diagnostic_history(tmp_path, content, message):
     events = tmp_path / "events.jsonl"
-    answer = content if content is None else {"content": content, "_llm_call": {"requested_model": "test"}}
+    answer = (
+        content
+        if content is None
+        else {"content": content, "_llm_call": {"requested_model": "test"}}
+    )
     with pytest.raises(ValueError, match=message):
         step_state(
             events_path=events,
@@ -539,7 +579,9 @@ def test_invalid_response_variants_are_rejected_with_diagnostic_history(tmp_path
             generate=lambda _p: answer,
             execute_call=lambda _c: None,
         )
-    transition = next(record for record in read_log(str(events)) if record.get("kind") == "state_transition")
+    transition = next(
+        record for record in read_log(str(events)) if record.get("kind") == "state_transition"
+    )
     assert transition["status"] == "failed"
     assert transition["failure_phase"] == "response_validation"
     assert "request_packet" in transition
@@ -641,7 +683,11 @@ def test_step_state_tool_failure_retains_tool_name_traceback_and_logs(tmp_path):
         raise SyntaxError("invalid syntax in test.py", ("test.py", 3, 1, "bad syntax"))
 
     result = step_state(
-        events_path=events, state={}, observation=None, generate=lambda _p: None, execute_call=fail_with_syntax_error
+        events_path=events,
+        state={},
+        observation=None,
+        generate=lambda _p: None,
+        execute_call=fail_with_syntax_error,
     )
     assert result["status"] == "failed"
     outcomes = result["outcomes"]
@@ -675,66 +721,109 @@ def test_state_step_small_helpers_cover_sparse_and_observation_edges(tmp_path):
     assert _merge_patch({"nested": {"keep": 1}}, {"nested": {"drop": None}}) == {
         "nested": {"keep": 1}
     }
-    assert _operator_observation({"kind": "toas.compound-observation/1", "operator_observation": "note"}) == "note"
+    assert (
+        _operator_observation(
+            {"kind": "toas.compound-observation/1", "operator_observation": "note"}
+        )
+        == "note"
+    )
     compound = {"kind": "toas.compound-observation/1", "user_inputs": [{"content": "x"}, 7]}
     assert _user_observation_inputs(compound) == [{"content": "x"}]
     assert _user_observation_inputs("plain") == []
     assert transcript_observation_with_tool_outcomes(
-        {"kind": "toas.compound-observation/1", "operator_observation": "note",
-         "user_inputs": [{"content": "prompt"}], "control_results": [{"content": "result"}]},
+        {
+            "kind": "toas.compound-observation/1",
+            "operator_observation": "note",
+            "user_inputs": [{"content": "prompt"}],
+            "control_results": [{"content": "result"}],
+        },
         [{"status": "completed"}],
     ) == {
-        "kind": "toas.compound-observation/1", "operator_observation": "note",
-        "tool_outcomes": [{"status": "completed"}], "user_inputs": [{"content": "prompt"}],
+        "kind": "toas.compound-observation/1",
+        "operator_observation": "note",
+        "tool_outcomes": [{"status": "completed"}],
+        "user_inputs": [{"content": "prompt"}],
         "control_results": [{"content": "result"}],
     }
     assert transcript_observation_with_tool_outcomes("plain", []) == {
-        "kind": "toas.compound-observation/1", "operator_observation": "plain", "tool_outcomes": []
+        "kind": "toas.compound-observation/1",
+        "operator_observation": "plain",
+        "tool_outcomes": [],
     }
-    fenced = '```text block_id=ib_x\nbody\n```'
-    ref = '```text block_id=ib_x\n(ref: ib_x)\n```'
+    fenced = "```text block_id=ib_x\nbody\n```"
+    ref = "```text block_id=ib_x\n(ref: ib_x)\n```"
     assert condense_inert_blocks(ref) == ref
-    assert expand_inert_blocks('```text block_id=ib_missing\n(ref: ib_missing)\n```', {}) .endswith('```')
-    assert expand_inert_blocks('```text lines=1-2 block_id=ib_x\n(ref: ib_x)\n```', {"ib_x": "body"}).endswith('(ref: ib_x)\n```')
-    records = [{"payload": {"stdout": fenced}, "content": '```text block_id=ib_y\nother\n```'}]
+    assert expand_inert_blocks("```text block_id=ib_missing\n(ref: ib_missing)\n```", {}).endswith(
+        "```"
+    )
+    assert expand_inert_blocks(
+        "```text lines=1-2 block_id=ib_x\n(ref: ib_x)\n```", {"ib_x": "body"}
+    ).endswith("(ref: ib_x)\n```")
+    records = [{"payload": {"stdout": fenced}, "content": "```text block_id=ib_y\nother\n```"}]
     assert module.extract_inert_blocks_by_id(records) == {"ib_x": "body", "ib_y": "other"}
     assert module.extract_inert_blocks_by_id(fenced) == {"ib_x": "body"}
-    _log_tool_failure(path=tmp_path / "events.jsonl", transition_id="t", index=0,
-                      tool_name="shell", call={}, status="failed", error="x", traceback=None)
+    _log_tool_failure(
+        path=tmp_path / "events.jsonl",
+        transition_id="t",
+        index=0,
+        tool_name="shell",
+        call={},
+        status="failed",
+        error="x",
+        traceback=None,
+    )
 
 
 def test_user_state_edit_detection_compares_snapshot_and_observation(tmp_path):
     events = tmp_path / "events.jsonl"
-    assert user_state_edit_needed(events_path=events, state={"goal": "new"}, observation=None,
-                                  has_user_tool_calls=False)
-    append_state_step_records(str(events), [
-        {"kind": "state_snapshot", "state": {"goal": "same"}},
-        {"kind": "state_observation", "observation": {"kind": "toas.compound-observation/1",
-                                                           "operator_observation": "old"}},
-    ])
-    assert not user_state_edit_needed(events_path=events, state={"goal": "same"}, observation="old",
-                                     has_user_tool_calls=False)
-    assert user_state_edit_needed(events_path=events, state={"goal": "same"}, observation="old",
-                                  has_user_tool_calls=True)
-    assert user_state_edit_needed(events_path=events, state={"goal": "same"}, observation="new",
-                                  has_user_tool_calls=False)
+    assert user_state_edit_needed(
+        events_path=events, state={"goal": "new"}, observation=None, has_user_tool_calls=False
+    )
+    append_state_step_records(
+        str(events),
+        [
+            {"kind": "state_snapshot", "state": {"goal": "same"}},
+            {
+                "kind": "state_observation",
+                "observation": {
+                    "kind": "toas.compound-observation/1",
+                    "operator_observation": "old",
+                },
+            },
+        ],
+    )
+    assert not user_state_edit_needed(
+        events_path=events, state={"goal": "same"}, observation="old", has_user_tool_calls=False
+    )
+    assert user_state_edit_needed(
+        events_path=events, state={"goal": "same"}, observation="old", has_user_tool_calls=True
+    )
+    assert user_state_edit_needed(
+        events_path=events, state={"goal": "same"}, observation="new", has_user_tool_calls=False
+    )
 
 
 def test_state_step_user_batch_consolidation_and_idempotency(tmp_path):
     events = tmp_path / "events.jsonl"
     calls = []
     result = step_state(
-        events_path=events, state={"goal": "new"}, observation="look",
+        events_path=events,
+        state={"goal": "new"},
+        observation="look",
         user_tool_calls=[{"tool_name": "echo", "args": {"text": "hi"}}],
-        user_turn_digest="user-turn-1", generate=lambda _: pytest.fail("user intent does not infer"),
+        user_turn_digest="user-turn-1",
+        generate=lambda _: pytest.fail("user intent does not infer"),
         execute_call=lambda _: None,
         execute_user_call=lambda call: calls.append(call) or [{"role": "result", "content": "hi"}],
     )
     assert result["phase"] == "consolidate_user" and result["status"] == "completed"
     assert calls[0]["tool_name"] == "echo"
     repeated = step_state(
-        events_path=events, state={"goal": "new"}, observation="edited",
-        user_turn_digest="user-turn-1", generate=lambda _: pytest.fail("digest replay must not execute"),
+        events_path=events,
+        state={"goal": "new"},
+        observation="edited",
+        user_turn_digest="user-turn-1",
+        generate=lambda _: pytest.fail("digest replay must not execute"),
         execute_call=lambda _: pytest.fail("digest replay must not execute"),
     )
     assert repeated["transition_id"] == result["transition_id"]
@@ -744,10 +833,16 @@ def test_state_step_user_batch_consolidation_and_idempotency(tmp_path):
 def test_user_batch_observation_projects_user_inputs(tmp_path):
     events = tmp_path / "events.jsonl"
     result = step_state(
-        events_path=events, state={},
-        observation={"kind": "toas.compound-observation/1", "operator_observation": "note",
-                     "user_inputs": [{"content": "follow this"}]},
-        user_turn_digest="with-input", generate=lambda _: None, execute_call=lambda _: None,
+        events_path=events,
+        state={},
+        observation={
+            "kind": "toas.compound-observation/1",
+            "operator_observation": "note",
+            "user_inputs": [{"content": "follow this"}],
+        },
+        user_turn_digest="with-input",
+        generate=lambda _: None,
+        execute_call=lambda _: None,
     )
     assert result["observation"]["user_inputs"] == [{"content": "follow this"}]
 
@@ -755,17 +850,32 @@ def test_user_batch_observation_projects_user_inputs(tmp_path):
 @pytest.mark.parametrize("failure_kind", ["payload", "typed", "exception", "unavailable"])
 def test_state_step_user_batch_records_failure_and_stops(failure_kind, tmp_path):
     events = tmp_path / "events.jsonl"
+
     def execute(_call):
         if failure_kind == "payload":
-            return [{"payload": {"ok": False, "outcome": "unexpected", "summary": "stopped",
-                                 "tool_name": "shell", "traceback": "trace"}}]
+            return [
+                {
+                    "payload": {
+                        "ok": False,
+                        "outcome": "unexpected",
+                        "summary": "stopped",
+                        "tool_name": "shell",
+                        "traceback": "trace",
+                    }
+                }
+            ]
         if failure_kind == "typed":
             raise ToolOutcomeError("indeterminate", "unknown", tool_name="python", traceback="tb")
         raise RuntimeError("denied")
+
     result = step_state(
-        events_path=events, state={}, observation=None,
+        events_path=events,
+        state={},
+        observation=None,
         user_tool_calls=[{"tool_name": "echo", "args": {}}, {"tool_name": "echo", "args": {}}],
-        user_turn_digest="digest", generate=lambda _: None, execute_call=lambda _: None,
+        user_turn_digest="digest",
+        generate=lambda _: None,
+        execute_call=lambda _: None,
         execute_user_call=None if failure_kind == "unavailable" else execute,
     )
     assert result["status"] in {"cancelled", "indeterminate", "failed"}
@@ -775,58 +885,150 @@ def test_state_step_user_batch_records_failure_and_stops(failure_kind, tmp_path)
 
 def test_state_step_preview_and_pending_batch_error_paths(tmp_path):
     from toas.runtime.state_step import preview_state_request
+
     events = tmp_path / "events.jsonl"
     assert preview_state_request(events_path=events, state={}, observation=None)["phase"] == "infer"
-    step_state(events_path=events, state={}, observation=None,
-               generate=lambda _: {"content": '```json\n{"state_patch":{},"tool_calls":[{"tool_name":"echo","args":{}}]}\n```'},
-               execute_call=lambda _: None, message_id="message-id")
+    step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        generate=lambda _: {
+            "content": '```json\n{"state_patch":{},"tool_calls":[{"tool_name":"echo","args":{}}]}\n```'
+        },
+        execute_call=lambda _: None,
+        message_id="message-id",
+    )
     preview = preview_state_request(events_path=events, state={}, observation=None)
     assert preview["phase"] == "execute_batch"
-    err = step_state(events_path=events, state={}, observation=None, generate=lambda _: None,
-                     execute_call=lambda _: (_ for _ in ()).throw(
-                         ToolOutcomeError("cancelled", "stopped", tool_name="echo", traceback="tb")))
+    err = step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        generate=lambda _: None,
+        execute_call=lambda _: (_ for _ in ()).throw(
+            ToolOutcomeError("cancelled", "stopped", tool_name="echo", traceback="tb")
+        ),
+    )
     assert err["status"] == "cancelled"
     assert preview_state_request(events_path=events, state={}, observation=None)["phase"] == "infer"
 
 
 def test_state_step_user_running_recovery_and_pending_running_recovery(tmp_path):
     events = tmp_path / "events.jsonl"
-    append_state_step_records(str(events), [{"kind": "state_transition", "transition_id": "u",
-        "source": "user", "user_turn_digest": "d", "status": "running", "state_after": {},
-        "observation": {}, "tool_calls": [{"tool_name": "echo"}]}])
-    recovered = step_state(events_path=events, state={}, observation="new", user_turn_digest="d",
-        generate=lambda _: None, execute_call=lambda _: None)
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": "u",
+                "source": "user",
+                "user_turn_digest": "d",
+                "status": "running",
+                "state_after": {},
+                "observation": {},
+                "tool_calls": [{"tool_name": "echo"}],
+            }
+        ],
+    )
+    recovered = step_state(
+        events_path=events,
+        state={},
+        observation="new",
+        user_turn_digest="d",
+        generate=lambda _: None,
+        execute_call=lambda _: None,
+    )
     assert recovered["status"] == "indeterminate"
-    append_state_step_records(str(events), [{"kind": "state_transition", "transition_id": "m",
-        "source": "model", "status": "running", "tool_calls": [{"tool_name": "echo"}]}])
-    no_retry = step_state(events_path=events, state={}, observation=None, generate=lambda _: None,
-                          execute_call=lambda _: pytest.fail("running batch must not retry"))
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": "m",
+                "source": "model",
+                "status": "running",
+                "tool_calls": [{"tool_name": "echo"}],
+            }
+        ],
+    )
+    no_retry = step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        generate=lambda _: None,
+        execute_call=lambda _: pytest.fail("running batch must not retry"),
+    )
     assert no_retry["status"] == "indeterminate"
 
 
 def test_user_recovery_uses_prior_failures_and_builds_missing_observation(tmp_path):
     events = tmp_path / "events.jsonl"
-    append_state_step_records(str(events), [
-        {"kind": "state_transition", "transition_id": "u1", "source": "user",
-         "user_turn_digest": "failed", "status": "running", "state_after": {},
-         "tool_calls": [{"tool_name": "echo"}]},
-        {"kind": "state_tool_result", "transition_id": "u1", "status": "cancelled", "error": "stop"},
-        {"kind": "state_transition", "transition_id": "u2", "source": "user",
-         "user_turn_digest": "done", "status": "completed", "state_after": {},
-         "observation": "carried note", "tool_calls": []},
-        {"kind": "state_transition", "transition_id": "u3", "source": "user",
-         "user_turn_digest": "all-done", "status": "running", "state_after": {},
-         "tool_calls": [{"tool_name": "echo"}]},
-        {"kind": "state_tool_result", "transition_id": "u3", "status": "completed"},
-    ])
-    failed = step_state(events_path=events, state={}, observation=None, user_turn_digest="failed",
-        generate=lambda _: None, execute_call=lambda _: None)
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": "u1",
+                "source": "user",
+                "user_turn_digest": "failed",
+                "status": "running",
+                "state_after": {},
+                "tool_calls": [{"tool_name": "echo"}],
+            },
+            {
+                "kind": "state_tool_result",
+                "transition_id": "u1",
+                "status": "cancelled",
+                "error": "stop",
+            },
+            {
+                "kind": "state_transition",
+                "transition_id": "u2",
+                "source": "user",
+                "user_turn_digest": "done",
+                "status": "completed",
+                "state_after": {},
+                "observation": "carried note",
+                "tool_calls": [],
+            },
+            {
+                "kind": "state_transition",
+                "transition_id": "u3",
+                "source": "user",
+                "user_turn_digest": "all-done",
+                "status": "running",
+                "state_after": {},
+                "tool_calls": [{"tool_name": "echo"}],
+            },
+            {"kind": "state_tool_result", "transition_id": "u3", "status": "completed"},
+        ],
+    )
+    failed = step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        user_turn_digest="failed",
+        generate=lambda _: None,
+        execute_call=lambda _: None,
+    )
     assert failed["status"] == "cancelled"
-    done = step_state(events_path=events, state={}, observation="fallback", user_turn_digest="done",
-        generate=lambda _: None, execute_call=lambda _: None)
+    done = step_state(
+        events_path=events,
+        state={},
+        observation="fallback",
+        user_turn_digest="done",
+        generate=lambda _: None,
+        execute_call=lambda _: None,
+    )
     assert done["observation"]["operator_observation"] == "fallback"
-    completed = step_state(events_path=events, state={}, observation=None, user_turn_digest="all-done",
-        generate=lambda _: None, execute_call=lambda _: None)
+    completed = step_state(
+        events_path=events,
+        state={},
+        observation=None,
+        user_turn_digest="all-done",
+        generate=lambda _: None,
+        execute_call=lambda _: None,
+    )
     assert completed["status"] == "completed"
 
 
@@ -839,9 +1041,11 @@ def test_state_parser_error_shapes_and_renderer_user_calls():
     ):
         with pytest.raises(ValueError, match=message):
             parse_state_turn("## TOAS:STATE/1\n\n" + content)
-    parsed = parse_state_turn(render_state_turn(
-        {}, user_tool_calls=[{"tool_name": "echo"}], pending_tools=[{"tool_name": "read_file"}]
-    ))
+    parsed = parse_state_turn(
+        render_state_turn(
+            {}, user_tool_calls=[{"tool_name": "echo"}], pending_tools=[{"tool_name": "read_file"}]
+        )
+    )
     assert parsed["user_tool_calls"] == [{"tool_name": "echo"}]
     assert parsed["pending_tools"] == parsed["tool_calls"] == [{"tool_name": "read_file"}]
 
@@ -859,74 +1063,141 @@ def test_state_outcome_reconciliation_handles_dict_scalar_and_unmatched_results(
     assert _reconcile_tool_outcomes([{"result": [None, {}, {}]}], ["only"])[0]["result"] == [
         {"role": "result", "content": "only", "projection_lane": "user"}
     ]
-    assert _sanitize_projected_tool_outcomes([{"result": ["kept", {"content": "x", "payload": {"internal": 1}}]}]) == [
-        {"result": ["kept", {"content": "x"}]}
-    ]
+    assert _sanitize_projected_tool_outcomes(
+        [{"result": ["kept", {"content": "x", "payload": {"internal": 1}}]}]
+    ) == [{"result": ["kept", {"content": "x"}]}]
 
 
 def test_compound_observation_reconciles_transcript_and_prior_records(tmp_path):
     events = tmp_path / "events.jsonl"
-    append_state_step_records(str(events), [
-        {"kind": "state_transition", "transition_id": "t", "status": "failed",
-         "tool_calls": [{"tool_name": "echo"}]},
-        {"kind": "state_tool_result", "transition_id": "t", "status": "failed",
-         "result": [{"role": "result", "content": "old"}]},
-    ])
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": "t",
+                "status": "failed",
+                "tool_calls": [{"tool_name": "echo"}],
+            },
+            {
+                "kind": "state_tool_result",
+                "transition_id": "t",
+                "status": "failed",
+                "result": [{"role": "result", "content": "old"}],
+            },
+        ],
+    )
     observation = _compound_observation(
-        state_records(str(events)), {"kind": "toas.compound-observation/1", "operator_observation": "operator",
-                                    "user_inputs": [{"content": "prompt"}]}, session_text=(
+        state_records(str(events)),
+        {
+            "kind": "toas.compound-observation/1",
+            "operator_observation": "operator",
+            "user_inputs": [{"content": "prompt"}],
+        },
+        session_text=(
             "## TOAS:STATE/1\n\nstate: {}\n\n## TOAS:USER\n\nnew prompt\n\n## RESULT\n\nnew result"
         ),
     )
     assert observation["operator_observation"] == "operator"
     assert observation["user_inputs"] == [{"content": "prompt"}]
     assert observation["tool_outcomes"][0]["result"][0]["content"] == "new result"
-    assert _compound_observation([], {"kind": "toas.compound-observation/1", "operator_observation": "x"})["operator_observation"] == "x"
+    assert (
+        _compound_observation(
+            [], {"kind": "toas.compound-observation/1", "operator_observation": "x"}
+        )["operator_observation"]
+        == "x"
+    )
 
 
 def test_compound_observation_prefers_prior_user_outcome_and_covers_fallback_sources():
     from toas.runtime.state_step import _compound_observation
+
     user_history = [
         {"kind": "state_transition", "transition_id": "u", "source": "user", "status": "completed"},
         {"kind": "state_observation", "transition_id": "u", "observation": {"source": "prior"}},
     ]
     assert _compound_observation(user_history, "ignored")["source"] == "prior"
-    prior_outcome = [{"kind": "state_transition", "transition_id": "m", "status": "failed"},
-                     {"kind": "state_tool_result", "transition_id": "m", "status": "failed"}]
-    assert _compound_observation(prior_outcome, {"user_results": ["result"]})["tool_outcomes"][0]["status"] == "failed"
-    assert _compound_observation([], {"tool_outcomes": [{"status": "kept"}]})["tool_outcomes"][0]["status"] == "kept"
-    assert _compound_observation([], {"control_results": [{"content": "control"}]})["control_results"] == [
-        {"content": "control"}
+    prior_outcome = [
+        {"kind": "state_transition", "transition_id": "m", "status": "failed"},
+        {"kind": "state_tool_result", "transition_id": "m", "status": "failed"},
     ]
-    assert _compound_observation([], "plain", session_text="not a state transcript")["tool_outcomes"] == []
-    assert _compound_observation([], {"tool_outcomes": [{"status": "kept"}]},
-                                 session_text="## TOAS:STATE/1\n\nstate: {}")["tool_outcomes"] == [
-        {"status": "kept"}
-    ]
+    assert (
+        _compound_observation(prior_outcome, {"user_results": ["result"]})["tool_outcomes"][0][
+            "status"
+        ]
+        == "failed"
+    )
+    assert (
+        _compound_observation([], {"tool_outcomes": [{"status": "kept"}]})["tool_outcomes"][0][
+            "status"
+        ]
+        == "kept"
+    )
+    assert _compound_observation([], {"control_results": [{"content": "control"}]})[
+        "control_results"
+    ] == [{"content": "control"}]
+    assert (
+        _compound_observation([], "plain", session_text="not a state transcript")["tool_outcomes"]
+        == []
+    )
+    assert _compound_observation(
+        [], {"tool_outcomes": [{"status": "kept"}]}, session_text="## TOAS:STATE/1\n\nstate: {}"
+    )["tool_outcomes"] == [{"status": "kept"}]
 
 
 def test_preview_terminal_and_invalid_tool_call_evidence(tmp_path):
     from toas.runtime.state_step import preview_state_request
+
     events = tmp_path / "events.jsonl"
-    step_state(events_path=events, state={"goal": "done"}, observation=None,
+    step_state(
+        events_path=events,
+        state={"goal": "done"},
+        observation=None,
         generate=lambda _: {"content": '{"state_patch":{},"tool_calls":[],"outcome":"complete"}'},
-        execute_call=lambda _: None)
-    assert preview_state_request(events_path=events, state={"goal": "done"}, observation=None)["phase"] == "terminal"
+        execute_call=lambda _: None,
+    )
+    assert (
+        preview_state_request(events_path=events, state={"goal": "done"}, observation=None)["phase"]
+        == "terminal"
+    )
     with pytest.raises(ValueError, match="missing callable name"):
-        step_state(events_path=events, state={"goal": "next"}, observation=None,
+        step_state(
+            events_path=events,
+            state={"goal": "next"},
+            observation=None,
             generate=lambda _: {"content": '{"state_patch":{},"tool_calls":[{"args":{}}]}'},
-            execute_call=lambda _: None)
+            execute_call=lambda _: None,
+        )
     invalid = read_log(str(events))[-1]
     assert invalid["failure_phase"] == "response_validation"
 
 
-def test_log_tool_failure_swallows_logging_errors_and_state_lineage_empty_paths(monkeypatch, tmp_path):
+def test_log_tool_failure_swallows_logging_errors_and_state_lineage_empty_paths(
+    monkeypatch, tmp_path
+):
     from toas.runtime import async_activity_store_impl
-    monkeypatch.setattr(async_activity_store_impl, "error_log", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk")))
-    _log_tool_failure(path=tmp_path / "events.jsonl", transition_id="t", index=0,
-                      tool_name="echo", call={}, status="failed", error="x", traceback="tb")
-    assert materialize_state_turns(events_path=tmp_path / "events.jsonl", unmaterialized_turns=[], parent_id=None) == []
 
+    monkeypatch.setattr(
+        async_activity_store_impl,
+        "error_log",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk")),
+    )
+    _log_tool_failure(
+        path=tmp_path / "events.jsonl",
+        transition_id="t",
+        index=0,
+        tool_name="echo",
+        call={},
+        status="failed",
+        error="x",
+        traceback="tb",
+    )
+    assert (
+        materialize_state_turns(
+            events_path=tmp_path / "events.jsonl", unmaterialized_turns=[], parent_id=None
+        )
+        == []
+    )
 
 
 def test_generation_runner_resolves_and_executes_explicit_state_packet(monkeypatch, tmp_path):
@@ -956,7 +1227,12 @@ def test_generation_runner_resolves_and_executes_explicit_state_packet(monkeypat
     assert runner.prepare_state_request({"state": {"goal": "x"}}) == "plan"
     assert captured["working"] == []
     assert json.loads(captured["request_messages"][0]["content"]) == {"state": {"goal": "x"}}
-    assert runner.prepare_state_request({"request_messages": [{"role": "system", "content": "prompt"}]}) == "plan"
+    assert (
+        runner.prepare_state_request(
+            {"request_messages": [{"role": "system", "content": "prompt"}]}
+        )
+        == "plan"
+    )
     assert captured["request_messages"] == [{"role": "system", "content": "prompt"}]
 
     monkeypatch.setattr(GenerationRunner, "prepare_state_request", lambda _self, _packet: "plan")
@@ -1009,7 +1285,9 @@ def test_state_turn_parses_and_renders_handles_and_vectors():
     assert parsed_node["state"] == {"goal": "node"}
 
     # 3. render_state_turn with vector
-    rendered_vector = render_state_turn({}, state_patch={"goal": "patched"}, vector=("alpha", "bravo"))
+    rendered_vector = render_state_turn(
+        {}, state_patch={"goal": "patched"}, vector=("alpha", "bravo")
+    )
     assert rendered_vector.startswith("## TOAS:STATE-DIFF [[alpha->bravo]]\n")
     parsed_vector = parse_state_turn(rendered_vector)
     assert parsed_vector["handle"] == "alpha->bravo"
@@ -1020,8 +1298,16 @@ def test_state_turn_parses_and_renders_handles_and_vectors():
 
     # 4. find_state_turn_index_by_label with handles and vectors
     turns = [
-        {"role": "state", "content": "state: {step: 1}", "marker": "## TOAS:STATE [[alpha]] [key:true]"},
-        {"role": "state-diff", "content": "state_patch: {step: 2}", "marker": "## TOAS:STATE-DIFF [[alpha->bravo]]"},
+        {
+            "role": "state",
+            "content": "state: {step: 1}",
+            "marker": "## TOAS:STATE [[alpha]] [key:true]",
+        },
+        {
+            "role": "state-diff",
+            "content": "state_patch: {step: 2}",
+            "marker": "## TOAS:STATE-DIFF [[alpha->bravo]]",
+        },
         {"role": "state", "content": "state: {step: 2}", "marker": "## TOAS:STATE [[bravo]]"},
         {"role": "state", "content": "state: {step: 3}", "marker": "## TOAS:STATE/3 [[charlie]]"},
     ]
@@ -1163,11 +1449,7 @@ def test_build_state_step_packet_expands_references_from_durable_events(tmp_path
     }
     state = {
         "goal": "read",
-        "artifact": (
-            '````markdown block_id=ib_durable123\n'
-            "(ref: ib_durable123)\n"
-            "````"
-        ),
+        "artifact": ("````markdown block_id=ib_durable123\n(ref: ib_durable123)\n````"),
     }
     packet = build_state_step_packet(
         events_path=events,
@@ -1189,12 +1471,7 @@ def test_build_multi_state_sequence_packet_expands_references(tmp_path):
     record = {
         "kind": "tool_result",
         "payload": {
-            "stdout": (
-                '```python block_id=ib_seq999\n'
-                "def sequence_code():\n"
-                "    return True\n"
-                "```"
-            )
+            "stdout": ("```python block_id=ib_seq999\ndef sequence_code():\n    return True\n```")
         },
     }
     events.write_text(json.dumps(record) + "\n", encoding="utf-8")
@@ -1203,12 +1480,7 @@ def test_build_multi_state_sequence_packet_expands_references(tmp_path):
         {"role": "state", "content": "state: {step: 1}", "marker": "## TOAS:STATE [[alpha]]"},
         {
             "role": "user",
-            "content": (
-                "Here is the code:\n"
-                "```python block_id=ib_seq999\n"
-                "(ref: ib_seq999)\n"
-                "```"
-            ),
+            "content": ("Here is the code:\n```python block_id=ib_seq999\n(ref: ib_seq999)\n```"),
         },
     ]
     state = {
@@ -1232,20 +1504,22 @@ def test_build_multi_state_sequence_packet_expands_references(tmp_path):
     assert '"read_file"' in sys_msg
 
 
-
 def test_extract_inert_blocks_by_id_handles_nested_structures():
     data = {
         "outer": [
-            ("tuple_elem", {
-                "nested_stdout": (
-                    '```text block_id=ib_nested1\n'
-                    "nested body\n"
-                    "```\n"
-                    '```text block_id=ib_refonly\n'
-                    "(ref: ib_refonly)\n"
-                    "```"
-                )
-            })
+            (
+                "tuple_elem",
+                {
+                    "nested_stdout": (
+                        "```text block_id=ib_nested1\n"
+                        "nested body\n"
+                        "```\n"
+                        "```text block_id=ib_refonly\n"
+                        "(ref: ib_refonly)\n"
+                        "```"
+                    )
+                },
+            )
         ]
     }
     blocks = extract_inert_blocks_by_id(data)
@@ -1253,18 +1527,14 @@ def test_extract_inert_blocks_by_id_handles_nested_structures():
 
 
 def test_expand_inert_blocks_unresolved_references_fail_soft():
-    content = (
-        "```text block_id=ib_missing\n"
-        "(ref: ib_missing)\n"
-        "```"
-    )
+    content = "```text block_id=ib_missing\n(ref: ib_missing)\n```"
     expanded = expand_inert_blocks(content, {})
     assert expanded == content
 
 
 def test_expand_inert_blocks_standalone_reference_and_full_blocks():
     full_block = (
-        '````markdown toas-output kind=file path=spec.md block_id=ib_spec42\n'
+        "````markdown toas-output kind=file path=spec.md block_id=ib_spec42\n"
         "# Specification\n"
         "1. Do this\n"
         "````"
@@ -1286,11 +1556,17 @@ def test_expand_inert_blocks_standalone_reference_and_full_blocks():
     assert expanded_body == "# Specification\n1. Do this"
 
     # Preserves reference if unknown
-    assert expand_inert_blocks("(ref: ib_unknown)", blocks_by_id={"ib_spec42": "body"}) == "(ref: ib_unknown)"
+    assert (
+        expand_inert_blocks("(ref: ib_unknown)", blocks_by_id={"ib_spec42": "body"})
+        == "(ref: ib_unknown)"
+    )
 
     # Cycle protection in standalone expansion
     cycle_ref = "(ref: ib_self)"
-    assert expand_inert_blocks(cycle_ref, blocks_by_id={"ib_self": "(ref: ib_self)"}) == "(ref: ib_self)"
+    assert (
+        expand_inert_blocks(cycle_ref, blocks_by_id={"ib_self": "(ref: ib_self)"})
+        == "(ref: ib_self)"
+    )
 
 
 def test_expand_inert_blocks_preserves_inline_prose_citation():
@@ -1335,9 +1611,7 @@ def test_expand_inert_blocks_bounded_slice_notation(tmp_path):
 
     # 1. Parens slice ref: (ref: ib_src:2-4)
     ref_parens = "(ref: ib_src:2-4)"
-    expanded_parens = expand_inert_blocks(
-        ref_parens, blocks, full_blocks, workspace_root=tmp_path
-    )
+    expanded_parens = expand_inert_blocks(ref_parens, blocks, full_blocks, workspace_root=tmp_path)
     assert "line_start=2 line_end=4" in expanded_parens
     assert "path=ib_src:2-4" in expanded_parens
     assert "line 2\nline 3\nline 4\n" in expanded_parens
@@ -1346,17 +1620,13 @@ def test_expand_inert_blocks_bounded_slice_notation(tmp_path):
 
     # 2. Prefixed slice ref: ref: ib_src:2-4
     ref_prefix = "ref: ib_src:2-4"
-    expanded_prefix = expand_inert_blocks(
-        ref_prefix, blocks, full_blocks, workspace_root=tmp_path
-    )
+    expanded_prefix = expand_inert_blocks(ref_prefix, blocks, full_blocks, workspace_root=tmp_path)
     assert "path=ib_src:2-4" in expanded_prefix
     assert "line 2\nline 3\nline 4\n" in expanded_prefix
 
     # 3. Direct slice ref: ib_src:2-4
     ref_direct = "ib_src:2-4"
-    expanded_direct = expand_inert_blocks(
-        ref_direct, blocks, full_blocks, workspace_root=tmp_path
-    )
+    expanded_direct = expand_inert_blocks(ref_direct, blocks, full_blocks, workspace_root=tmp_path)
     assert "path=ib_src:2-4" in expanded_direct
     assert "line 2\nline 3\nline 4\n" in expanded_direct
 
@@ -1365,9 +1635,7 @@ def test_expand_inert_blocks_bounded_slice_notation(tmp_path):
     sample_file.write_text("print(1)\nprint(2)\nprint(3)\nprint(4)\n", encoding="utf-8")
 
     ref_file = "(ref: sample.py:2-3)"
-    expanded_file = expand_inert_blocks(
-        ref_file, {}, {}, workspace_root=tmp_path
-    )
+    expanded_file = expand_inert_blocks(ref_file, {}, {}, workspace_root=tmp_path)
     assert "path=sample.py:2-3" in expanded_file
     assert "```python" in expanded_file
     assert "print(2)\nprint(3)\n" in expanded_file
@@ -1380,9 +1648,7 @@ def test_expand_inert_blocks_bounded_slice_notation(tmp_path):
     scratch_file.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
 
     ref_scratch = "ib_from_scratch:2-3"
-    expanded_scratch = expand_inert_blocks(
-        ref_scratch, {}, {}, workspace_root=tmp_path
-    )
+    expanded_scratch = expand_inert_blocks(ref_scratch, {}, {}, workspace_root=tmp_path)
     assert "path=ib_from_scratch:2-3" in expanded_scratch
     assert "beta\ngamma\n" in expanded_scratch
 
@@ -1404,9 +1670,7 @@ def test_expand_inert_blocks_bounded_slice_notation(tmp_path):
     assert expand_inert_blocks(ref_missing, {}, {}, workspace_root=tmp_path) == ref_missing
 
     # File without slice: (ref: sample.py)
-    expanded_whole_file = expand_inert_blocks(
-        "(ref: sample.py)", {}, {}, workspace_root=tmp_path
-    )
+    expanded_whole_file = expand_inert_blocks("(ref: sample.py)", {}, {}, workspace_root=tmp_path)
     assert "print(1)" in expanded_whole_file
 
 
@@ -1451,7 +1715,6 @@ def test_build_state_step_packet_observation_ephemerality_and_bounded_persistenc
     assert "path=core.py:1-2" in expanded_state["artifacts"]["dict_ref"]
 
 
-
 def test_reconcile_state_lineage_and_materialize(tmp_path):
     events_path = tmp_path / "events.jsonl"
     events_path.touch()
@@ -1485,6 +1748,7 @@ def test_reconcile_state_lineage_and_materialize(tmp_path):
 
     # Reconcile again with the newly written events: 100% LCP match
     from toas.graph import read_log
+
     new_events = read_log(str(events_path))
     recon2 = reconcile_state_lineage(
         events=new_events,
@@ -1503,8 +1767,18 @@ def test_find_lineage_state_snapshot_respects_branch_lineage(tmp_path):
     # Branch A: state_snapshot st_a linked to message n1
     # Branch B: state_snapshot st_b linked to message n2 (appended later)
     records = [
-        {"kind": "state_snapshot", "transition_id": "st_a", "state": {"goal": "branch_a"}, "message_id": "n1"},
-        {"kind": "state_snapshot", "transition_id": "st_b", "state": {"goal": "branch_b"}, "message_id": "n2"},
+        {
+            "kind": "state_snapshot",
+            "transition_id": "st_a",
+            "state": {"goal": "branch_a"},
+            "message_id": "n1",
+        },
+        {
+            "kind": "state_snapshot",
+            "transition_id": "st_b",
+            "state": {"goal": "branch_b"},
+            "message_id": "n2",
+        },
     ]
     append_state_step_records(str(events_path), records)
 
@@ -1543,13 +1817,17 @@ def test_reconcile_tool_outcomes_truncation_and_deletion():
         {
             "index": 0,
             "status": "completed",
-            "result": [{"role": "result", "content": "original 5000 lines", "projection_lane": "user"}],
+            "result": [
+                {"role": "result", "content": "original 5000 lines", "projection_lane": "user"}
+            ],
             "source": "model",
         },
         {
             "index": 1,
             "status": "completed",
-            "result": [{"role": "result", "content": "second tool result", "projection_lane": "user"}],
+            "result": [
+                {"role": "result", "content": "second tool result", "projection_lane": "user"}
+            ],
             "source": "model",
         },
     ]
@@ -1577,13 +1855,24 @@ def test_build_state_step_packet_transcript_supremacy_over_history(tmp_path):
     append_state_step_records(
         str(events),
         [
-            {"kind": "state_transition", "transition_id": "st_test1", "status": "completed", "source": "model"},
+            {
+                "kind": "state_transition",
+                "transition_id": "st_test1",
+                "status": "completed",
+                "source": "model",
+            },
             {
                 "kind": "state_tool_result",
                 "transition_id": "st_test1",
                 "index": 0,
                 "status": "completed",
-                "result": [{"role": "result", "content": "untruncated original 1000 lines", "projection_lane": "user"}],
+                "result": [
+                    {
+                        "role": "result",
+                        "content": "untruncated original 1000 lines",
+                        "projection_lane": "user",
+                    }
+                ],
                 "source": "model",
             },
         ],
@@ -1607,8 +1896,7 @@ def test_build_state_step_packet_transcript_supremacy_over_history(tmp_path):
 
     # 2. Transcript has deleted result (no RESULT blocks after STATE)
     session_text_deleted = (
-        "## TOAS:STATE/1\n\nstate: {goal: test}\n\n"
-        "## TOAS:USER\n\nI removed the tool output.\n"
+        "## TOAS:STATE/1\n\nstate: {goal: test}\n\n## TOAS:USER\n\nI removed the tool output.\n"
     )
     packet_deleted = build_state_step_packet(
         events_path=events,
@@ -1646,9 +1934,9 @@ def test_build_state_step_packet_inert_blocks_prefer_session_text(tmp_path):
                     {
                         "role": "result",
                         "content": (
-                            '````markdown toas-output kind=file block_id=ib_mod123\n'
-                            'OLD 5000 LINES\n'
-                            '````'
+                            "````markdown toas-output kind=file block_id=ib_mod123\n"
+                            "OLD 5000 LINES\n"
+                            "````"
                         ),
                         "projection_lane": "user",
                     }
@@ -1662,9 +1950,9 @@ def test_build_state_step_packet_inert_blocks_prefer_session_text(tmp_path):
         "## TOAS:STATE/1\n\nstate: {goal: test}\n\n"
         "## TOAS:USER\n\n"
         "## RESULT\n\n"
-        '````markdown toas-output kind=file block_id=ib_mod123\n'
-        'EDITED 2 LINES\n'
-        '````\n'
+        "````markdown toas-output kind=file block_id=ib_mod123\n"
+        "EDITED 2 LINES\n"
+        "````\n"
     )
     packet = build_state_step_packet(
         events_path=events,
@@ -1687,7 +1975,12 @@ def test_build_state_step_packet_strips_internal_payload_from_result_nodes(tmp_p
     append_state_step_records(
         str(events),
         [
-            {"kind": "state_transition", "transition_id": "st_p1", "status": "completed", "source": "model"},
+            {
+                "kind": "state_transition",
+                "transition_id": "st_p1",
+                "status": "completed",
+                "source": "model",
+            },
             {
                 "kind": "state_tool_result",
                 "transition_id": "st_p1",
@@ -1742,6 +2035,7 @@ def test_build_state_step_packet_strips_internal_payload_from_result_nodes(tmp_p
     assert "payload" in tool_results[0]["result"][0]
     assert len(tool_results[0]["result"][0]["payload"]["structure"]) == 500
 
+
 def test_spilled_tool_result_in_state_step_packet_projection(tmp_path):
     events = tmp_path / "events.jsonl"
     preview_body = "\n".join(f"symbol_{i}" for i in range(1, 31))
@@ -1753,12 +2047,21 @@ def test_spilled_tool_result_in_state_step_packet_projection(tmp_path):
         "```\n"
         '[70 lines remaining. Inspect with `read_file`, `grep`, or script via path=".toas/scratch/ib_12345.txt"]'
     )
-    raw_payload = {"tool_name": "get_structure", "ok": True, "symbols": [f"symbol_{i}" for i in range(1, 101)]}
+    raw_payload = {
+        "tool_name": "get_structure",
+        "ok": True,
+        "symbols": [f"symbol_{i}" for i in range(1, 101)],
+    }
 
     append_state_step_records(
         str(events),
         [
-            {"kind": "state_transition", "transition_id": "st_spill", "status": "completed", "source": "model"},
+            {
+                "kind": "state_transition",
+                "transition_id": "st_spill",
+                "status": "completed",
+                "source": "model",
+            },
             {
                 "kind": "state_tool_result",
                 "transition_id": "st_spill",
@@ -1837,7 +2140,10 @@ def test_normalize_projection_spec():
 
     # explicit values
     assert normalize_projection_spec(snapshots="key", diffs="step") == ("key", "step")
-    assert normalize_projection_spec(snapshots="anchor", diffs="cumulative") == ("anchor", "cumulative")
+    assert normalize_projection_spec(snapshots="anchor", diffs="cumulative") == (
+        "anchor",
+        "cumulative",
+    )
 
     # invalid alias
     with pytest.raises(ValueError, match="unknown projection alias"):
@@ -2003,7 +2309,11 @@ def test_cartesian_state_projections_all_cells(tmp_path):
     turns_extracted = [
         {"role": "state", "content": "state: {step: 0}", "marker": "## TOAS:STATE [[alpha]]"},
         {"role": "state", "content": "state: {step: 1}", "marker": "## TOAS:STATE [[bravo]]"},
-        {"role": "state-diff", "content": "state_patch: {step: 2}", "marker": "## TOAS:STATE-DIFF [[bravo->charlie]]"},
+        {
+            "role": "state-diff",
+            "content": "state_patch: {step: 2}",
+            "marker": "## TOAS:STATE-DIFF [[bravo->charlie]]",
+        },
     ]
     extracted_pts = extract_state_history_points(turns_extracted, events_path=events_file)
     assert extracted_pts[0].is_key is True  # genesis is always key
@@ -2067,16 +2377,25 @@ def test_sync_directive_and_step_execution(tmp_path):
     assert c3[0]["content"] == "plain text"
 
     from toas.runtime.state_step import extract_state_history_points
+
     edge_turns = [
         {"role": "user", "content": "skip me"},
         {"role": "state", "content": "state: {step: 0}", "marker": "## TOAS:STATE [[alpha]]"},
-        {"role": "state-diff", "content": "state_patch: {step: 1}", "marker": "## TOAS:STATE-DIFF [[alpha->bravo]]"},
+        {
+            "role": "state-diff",
+            "content": "state_patch: {step: 1}",
+            "marker": "## TOAS:STATE-DIFF [[alpha->bravo]]",
+        },
         {
             "role": "state",
             "content": "state: {step: 1}\ninstructions: do something\npending_tools: []\nobservation: obs_1\noutcome: continue\nreport: rep_1",
             "marker": "## TOAS:STATE [[bravo]]",
         },
-        {"role": "state-diff", "content": "state_patch: {step: 2}\noutcome: complete\nreport: rep_2", "marker": "## TOAS:STATE-DIFF [[bravo->bravo]]"},
+        {
+            "role": "state-diff",
+            "content": "state_patch: {step: 2}\noutcome: complete\nreport: rep_2",
+            "marker": "## TOAS:STATE-DIFF [[bravo->bravo]]",
+        },
     ]
     edge_pts = extract_state_history_points(edge_turns)
     assert len(edge_pts) == 2
@@ -2180,7 +2499,14 @@ def test_default_protocol_structure():
     assert proto["instructions"] == STATE_INSTRUCTIONS
     assert proto["schema"] == {
         "state_patch": "object",
-        "tool_calls": [{"tool_name": "string", "args": "object"}],
+        "tool_calls": [
+            {
+                "tool_name": "string",
+                "args": "object",
+                "label": "string (optional)",
+                "target": "string (optional)",
+            }
+        ],
         "continue_on_error": "boolean (optional)",
         "outcome": ["continue", "complete"],
         "report": "string",
@@ -2222,7 +2548,10 @@ def test_parse_state_turn_protocol_validation_errors():
         ("protocol: 123\nstate: {}", "state turn protocol must be a string or mapping"),
         ("protocol: {instructions: 123}\nstate: {}", "protocol instructions must be a string"),
         ("protocol: {handle: 123}\nstate: {}", "protocol handle must be a string"),
-        ("protocol: {instructions_ref: 123}\nstate: {}", "protocol instructions_ref must be a string"),
+        (
+            "protocol: {instructions_ref: 123}\nstate: {}",
+            "protocol instructions_ref must be a string",
+        ),
         ("protocol: {ref: 123}\nstate: {}", "protocol ref must be a string"),
         ("protocol: {schema: 123}\nstate: {}", "protocol schema must be a mapping"),
         ("protocol: {tools: 123}\nstate: {}", "protocol tools must be a list or mapping"),
@@ -2247,16 +2576,32 @@ def test_resolve_state_turn_protocol_handles_and_assets():
         resolve_state_turn_protocol("STATE/1", turns=None)
 
     turns = [
-        {"role": "state", "content": "protocol: toas.state-step/1\nstate: {}", "marker": "## TOAS:STATE/1"},
-        {"role": "state", "content": "protocol:\n  ref: STATE/1\nstate: {}", "marker": "## TOAS:STATE/2"},
+        {
+            "role": "state",
+            "content": "protocol: toas.state-step/1\nstate: {}",
+            "marker": "## TOAS:STATE/1",
+        },
+        {
+            "role": "state",
+            "content": "protocol:\n  ref: STATE/1\nstate: {}",
+            "marker": "## TOAS:STATE/2",
+        },
     ]
     resolved = resolve_state_turn_protocol("STATE/2", turns=turns)
     assert resolved == base
 
     # Circular reference detection
     cycle_turns = [
-        {"role": "state", "content": "protocol:\n  ref: STATE/2\nstate: {}", "marker": "## TOAS:STATE/1"},
-        {"role": "state", "content": "protocol:\n  ref: STATE/1\nstate: {}", "marker": "## TOAS:STATE/2"},
+        {
+            "role": "state",
+            "content": "protocol:\n  ref: STATE/2\nstate: {}",
+            "marker": "## TOAS:STATE/1",
+        },
+        {
+            "role": "state",
+            "content": "protocol:\n  ref: STATE/1\nstate: {}",
+            "marker": "## TOAS:STATE/2",
+        },
     ]
     with pytest.raises(ValueError, match="circular protocol reference detected: 'STATE/1'"):
         resolve_state_turn_protocol("STATE/1", turns=cycle_turns)
@@ -2270,7 +2615,11 @@ def test_resolve_state_turn_protocol_overlays():
     from toas.runtime.state_step import resolve_state_turn_protocol
 
     turns = [
-        {"role": "state", "content": "protocol: toas.state-step/1\nstate: {}", "marker": "## TOAS:STATE/1"},
+        {
+            "role": "state",
+            "content": "protocol: toas.state-step/1\nstate: {}",
+            "marker": "## TOAS:STATE/1",
+        },
     ]
 
     # Overlay instructions and schema
@@ -2287,7 +2636,9 @@ def test_resolve_state_turn_protocol_overlays():
     assert resolved["custom_meta"] == 42
 
     # Non-dict schema overlay replacement
-    resolved_schema_raw = resolve_state_turn_protocol({"ref": "STATE/1", "schema": "bare-schema"}, turns=turns)
+    resolved_schema_raw = resolve_state_turn_protocol(
+        {"ref": "STATE/1", "schema": "bare-schema"}, turns=turns
+    )
     assert resolved_schema_raw["schema"] == "bare-schema"
 
     # Overlay tools as list
@@ -2316,22 +2667,35 @@ def test_resolve_state_turn_protocol_overlays():
     assert resolved_tools_scalar["tools"] == "any_tool"
 
     # Overlay tools as list with unknown tool
-    tools_unknown = resolve_state_turn_protocol({"ref": "STATE/1", "tools": ["read_file", "unknown_tool"]}, turns=turns)
+    tools_unknown = resolve_state_turn_protocol(
+        {"ref": "STATE/1", "tools": ["read_file", "unknown_tool"]}, turns=turns
+    )
     assert tools_unknown["tools"]["available"] == ["read_file", "unknown_tool"]
     assert tools_unknown["tools"]["definitions"]["unknown_tool"]["description"] == "unknown_tool"
 
     # Overlay tools as dict with available and unknown tool
-    tools_avail = resolve_state_turn_protocol({"ref": "STATE/1", "tools": {"available": ["read_file", "unknown_avail"]}}, turns=turns)
+    tools_avail = resolve_state_turn_protocol(
+        {"ref": "STATE/1", "tools": {"available": ["read_file", "unknown_avail"]}}, turns=turns
+    )
     assert tools_avail["tools"]["available"] == ["read_file", "unknown_avail"]
     assert tools_avail["tools"]["definitions"]["unknown_avail"]["description"] == "unknown_avail"
 
     # Overlay tools as dict with definitions only
-    tools_defs = resolve_state_turn_protocol({"ref": "STATE/1", "tools": {"definitions": {"custom_def": {"description": "d", "required_args": []}}}}, turns=turns)
+    tools_defs = resolve_state_turn_protocol(
+        {
+            "ref": "STATE/1",
+            "tools": {"definitions": {"custom_def": {"description": "d", "required_args": []}}},
+        },
+        turns=turns,
+    )
     assert tools_defs["tools"]["available"] == ["custom_def"]
     assert tools_defs["tools"]["definitions"]["custom_def"]["description"] == "d"
 
     # Overlay tools as tool map
-    tools_map = resolve_state_turn_protocol({"ref": "STATE/1", "tools": {"custom_map": {"description": "m", "required_args": ["x"]}}}, turns=turns)
+    tools_map = resolve_state_turn_protocol(
+        {"ref": "STATE/1", "tools": {"custom_map": {"description": "m", "required_args": ["x"]}}},
+        turns=turns,
+    )
     assert tools_map["tools"]["available"] == ["custom_map"]
     assert tools_map["tools"]["definitions"]["custom_map"]["required_args"] == ["x"]
 
@@ -2437,9 +2801,17 @@ def test_build_multi_state_sequence_packet_hydrates_protocol(tmp_path):
     events_path.write_text("", encoding="utf-8")
 
     turns = [
-        {"role": "state", "content": "protocol: toas.state-step/1\nstate: {s: 1}", "marker": "## TOAS:STATE/1"},
+        {
+            "role": "state",
+            "content": "protocol: toas.state-step/1\nstate: {s: 1}",
+            "marker": "## TOAS:STATE/1",
+        },
         {"role": "user", "content": "advance"},
-        {"role": "state", "content": "protocol:\n  ref: STATE/1\n  tools: [read_file]\n  schema:\n    outcome: [continue]\nstate: {s: 2}", "marker": "## TOAS:STATE/2"},
+        {
+            "role": "state",
+            "content": "protocol:\n  ref: STATE/1\n  tools: [read_file]\n  schema:\n    outcome: [continue]\nstate: {s: 2}",
+            "marker": "## TOAS:STATE/2",
+        },
     ]
 
     packet = build_multi_state_sequence_packet(
@@ -2567,7 +2939,9 @@ def test_protocol_coverage_edge_branches(tmp_path):
     assert seq_pkt["instructions"] == "seq override"
 
 
-def test_preview_state_request_with_operator_authored_pending_tools_without_prior_transition(tmp_path):
+def test_preview_state_request_with_operator_authored_pending_tools_without_prior_transition(
+    tmp_path,
+):
     from toas.runtime.state_step import preview_state_request
 
     events_path = tmp_path / "events.jsonl"
@@ -2604,12 +2978,14 @@ def test_state_step_with_report_and_terminal_outcome(tmp_path):
         state={"goal": "list tasks"},
         observation="here are tasks",
         generate=lambda _p: {
-            "content": json.dumps({
-                "state_patch": {"progress": ["done"]},
-                "tool_calls": [],
-                "outcome": "complete",
-                "report": "Found 46 open tasks in repository.",
-            })
+            "content": json.dumps(
+                {
+                    "state_patch": {"progress": ["done"]},
+                    "tool_calls": [],
+                    "outcome": "complete",
+                    "report": "Found 46 open tasks in repository.",
+                }
+            )
         },
         execute_call=lambda _c: None,
     )
@@ -2654,11 +3030,13 @@ def test_state_step_invalid_report_type_raises(tmp_path):
             state={"goal": "test"},
             observation=None,
             generate=lambda _p: {
-                "content": json.dumps({
-                    "state_patch": {},
-                    "tool_calls": [],
-                    "report": 12345,
-                })
+                "content": json.dumps(
+                    {
+                        "state_patch": {},
+                        "tool_calls": [],
+                        "report": 12345,
+                    }
+                )
             },
             execute_call=lambda _c: None,
         )
@@ -2808,7 +3186,9 @@ def test_build_multi_state_sequence_packet_expands_scratch_artifact_references(t
     scratch_dir = tmp_path / ".toas" / "scratch"
     scratch_dir.mkdir(parents=True, exist_ok=True)
     block_id = "ib_multi98765432"
-    (scratch_dir / f"{block_id}.txt").write_text("item_alpha\nitem_beta\nitem_gamma", encoding="utf-8")
+    (scratch_dir / f"{block_id}.txt").write_text(
+        "item_alpha\nitem_beta\nitem_gamma", encoding="utf-8"
+    )
 
     events = tmp_path / ".toas" / "events.jsonl"
     events.touch()
@@ -2843,7 +3223,9 @@ def test_terminal_report_reference_expansion(tmp_path):
     scratch_dir = tmp_path / ".toas" / "scratch"
     scratch_dir.mkdir(parents=True, exist_ok=True)
     block_id = "ib_tasks_report_99"
-    (scratch_dir / f"{block_id}.txt").write_text("task_1.md\ntask_2.md\ntask_3.md\n", encoding="utf-8")
+    (scratch_dir / f"{block_id}.txt").write_text(
+        "task_1.md\ntask_2.md\ntask_3.md\n", encoding="utf-8"
+    )
 
     events_path = tmp_path / ".toas" / "events.jsonl"
     events_path.touch()
@@ -2990,14 +3372,16 @@ def test_step_state_model_batch_continue_on_error(tmp_path):
         state={"goal": "survey"},
         observation=None,
         generate=lambda _p: {
-            "content": json.dumps({
-                "state_patch": {"step": 1},
-                "tool_calls": [
-                    {"tool_name": "read_file", "args": {"path": "missing.txt"}},
-                    {"tool_name": "echo", "args": {"text": "hello"}},
-                ],
-                "continue_on_error": True,
-            })
+            "content": json.dumps(
+                {
+                    "state_patch": {"step": 1},
+                    "tool_calls": [
+                        {"tool_name": "read_file", "args": {"path": "missing.txt"}},
+                        {"tool_name": "echo", "args": {"text": "hello"}},
+                    ],
+                    "continue_on_error": True,
+                }
+            )
         },
         execute_call=lambda _c: None,
     )
@@ -3104,7 +3488,9 @@ def test_step_state_user_batch_continue_on_error(tmp_path):
 
 def test_parse_state_response_prose_resilience():
     # Whole fence with invalid JSON inside falls through to raw scan
-    content_broken_fence = "```json\n{invalid json}\n```\n{\"state_patch\": {\"step\": 1}, \"tool_calls\": []}"
+    content_broken_fence = (
+        '```json\n{invalid json}\n```\n{"state_patch": {"step": 1}, "tool_calls": []}'
+    )
     res = _parse_state_response(content_broken_fence)
     assert res["state_patch"] == {"step": 1}
 
@@ -3162,9 +3548,7 @@ def test_parse_state_response_prose_resilience():
 
     # Bare JSON inside prose (no code fences)
     content_bare = (
-        "I suggest we patch the state:\n"
-        '{"state_patch": {"step": 5}, "tool_calls": []}\n'
-        "Thank you."
+        'I suggest we patch the state:\n{"state_patch": {"step": 5}, "tool_calls": []}\nThank you.'
     )
     res = _parse_state_response(content_bare)
     assert res["state_patch"] == {"step": 5}
@@ -3178,10 +3562,7 @@ def test_parse_state_response_prose_resilience():
     assert res["state_patch"] == {"step": 6}
 
     # XML tag followed by valid JSON proposal
-    content_xml_prefix = (
-        "<tool_call>\n"
-        '{"state_patch": {"step": 7}, "tool_calls": []}'
-    )
+    content_xml_prefix = '<tool_call>\n{"state_patch": {"step": 7}, "tool_calls": []}'
     res = _parse_state_response(content_xml_prefix)
     assert res["state_patch"] == {"step": 7}
 
@@ -3225,7 +3606,9 @@ def test_parse_state_response_rejects_ambiguity_and_missing_fields(tmp_path):
         _parse_state_response(content_xml_only)
 
     # Missing state_patch in step_state must be rejected
-    with pytest.raises(ValueError, match="requires an object state_patch and an array of tool_calls"):
+    with pytest.raises(
+        ValueError, match="requires an object state_patch and an array of tool_calls"
+    ):
         step_state(
             events_path=events,
             state={},
@@ -3235,7 +3618,9 @@ def test_parse_state_response_rejects_ambiguity_and_missing_fields(tmp_path):
         )
 
     # Missing tool_calls in step_state must be rejected
-    with pytest.raises(ValueError, match="requires an object state_patch and an array of tool_calls"):
+    with pytest.raises(
+        ValueError, match="requires an object state_patch and an array of tool_calls"
+    ):
         step_state(
             events_path=events,
             state={},
@@ -3269,10 +3654,12 @@ def test_step_state_rejection_recovery_feedback_and_outcome_preservation(tmp_pat
         state={"goal": "test"},
         observation=None,
         generate=lambda _p: {
-            "content": json.dumps({
-                "state_patch": {"progress": ["tool requested"]},
-                "tool_calls": [{"tool_name": "read_file", "args": {"path": "a.txt"}}],
-            })
+            "content": json.dumps(
+                {
+                    "state_patch": {"progress": ["tool requested"]},
+                    "tool_calls": [{"tool_name": "read_file", "args": {"path": "a.txt"}}],
+                }
+            )
         },
         execute_call=mock_executor,
     )
@@ -3345,9 +3732,9 @@ def test_step_state_rejection_recovery_feedback_and_outcome_preservation(tmp_pat
         events_path=events,
         state=res4["state"],
         observation="new task",
-        generate=lambda p: next_packet_captured.append(p) or {
-            "content": '{"state_patch": {}, "tool_calls": []}'
-        },
+        generate=lambda p: (
+            next_packet_captured.append(p) or {"content": '{"state_patch": {}, "tool_calls": []}'}
+        ),
         execute_call=mock_executor,
     )
     assert res5["status"] == "completed"
@@ -3389,7 +3776,9 @@ def test_step_state_rejection_recovery_with_user_origin_state_observation(tmp_pa
         events_path=events,
         state={},
         observation=None,
-        generate=lambda p: packet_seen.append(p) or {"content": '{"state_patch": {}, "tool_calls": []}'},
+        generate=lambda p: (
+            packet_seen.append(p) or {"content": '{"state_patch": {}, "tool_calls": []}'}
+        ),
         execute_call=lambda _c: None,
     )
     assert len(packet_seen) == 1
@@ -3399,8 +3788,502 @@ def test_step_state_rejection_recovery_with_user_origin_state_observation(tmp_pa
     assert obs["format_rejection"]["error"] == "syntax error"
 
 
+def test_extract_tool_result_content_variants():
+    from toas.runtime.state_step import _extract_tool_result_content
+
+    # 1. string directly
+    assert _extract_tool_result_content("hello string") == "hello string"
+
+    # 2. dict variants
+    assert _extract_tool_result_content({"content": "content text"}) == "content text"
+    assert _extract_tool_result_content({"stdout": "stdout text"}) == "stdout text"
+    assert _extract_tool_result_content({"output": "output text"}) == "output text"
+    assert _extract_tool_result_content({"summary": "summary text"}) == "summary text"
+    assert (
+        _extract_tool_result_content({"payload": {"content": "payload nested"}}) == "payload nested"
+    )
+    assert _extract_tool_result_content({"text": "text field"}) == "text field"
+
+    # 3. list of result nodes
+    nodes = [
+        {"role": "result", "content": "line 1"},
+        {"role": "result", "content": {"text": "line 2"}},
+        {"role": "other", "data": "line 3"},
+    ]
+    extracted = _extract_tool_result_content(nodes)
+    assert "line 1" in extracted
+    assert "line 2" in extracted
+    assert "line 3" in extracted
+
+    # 4. empty list or non-dict items
+    assert _extract_tool_result_content([]) == ""
+    assert _extract_tool_result_content(12345) == "12345"
 
 
+def test_resolve_reference_target_wrapped_ref():
+    from toas.runtime.state_step import _resolve_reference_target
+
+    res = _resolve_reference_target("(ref: ib_test)", blocks_by_id={"ib_test": "resolved_content"})
+    assert res == "resolved_content"
 
 
+def test_write_scratch_artifact(tmp_path, monkeypatch):
+    from pathlib import Path
 
+    from toas.runtime.state_step import _write_scratch_artifact
+
+    # with explicit workspace_root
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    rel_path = _write_scratch_artifact(ws, "ib_test123", "sample content")
+    assert rel_path == ".toas/scratch/ib_test123.txt"
+    assert (ws / ".toas" / "scratch" / "ib_test123.txt").read_text() == "sample content"
+
+    # with workspace_root=None (writes relative to cwd)
+    monkeypatch.chdir(ws)
+    rel_path2 = _write_scratch_artifact(None, "ib_test456", "content 2")
+    assert rel_path2 == ".toas/scratch/ib_test456.txt"
+    assert (ws / ".toas" / "scratch" / "ib_test456.txt").read_text() == "content 2"
+
+    # with OSError during write
+    def raise_oserror(*args, **kwargs):
+        raise OSError("mocked write error")
+
+    monkeypatch.setattr(Path, "mkdir", raise_oserror)
+    assert _write_scratch_artifact(ws, "ib_oserr", "content") == ".toas/scratch/ib_oserr.txt"
+
+
+def test_inject_artifact_into_state():
+    from toas.runtime.state_step import inject_artifact_into_state
+
+    desc1 = {"id": "ib_1", "label": "l1", "ref": ".toas/scratch/ib_1.txt"}
+    desc2 = {"id": "ib_2", "label": "l2", "ref": ".toas/scratch/ib_2.txt"}
+
+    # 1. default target None -> artifacts list
+    s1 = inject_artifact_into_state({}, "l1", None, desc1)
+    assert s1 == {"artifacts": [desc1]}
+
+    # 2. default target empty string -> artifacts list
+    s1_empty = inject_artifact_into_state({}, "l1", "   ", desc1)
+    assert s1_empty == {"artifacts": [desc1]}
+
+    # 3. append to existing list
+    s2 = inject_artifact_into_state(s1, "l2", "artifacts", desc2)
+    assert s2 == {"artifacts": [desc1, desc2]}
+
+    # 4. target is dict -> insert label as key
+    s3 = inject_artifact_into_state({"notes": {}}, "l1", "notes", desc1)
+    assert s3 == {"notes": {"l1": desc1}}
+
+    # 5. target is primitive at artifacts -> replace with list
+    s4 = inject_artifact_into_state({"artifacts": "invalid"}, "l1", "artifacts", desc1)
+    assert s4 == {"artifacts": [desc1]}
+
+    # 6. target is primitive at non-artifacts -> replace with dict
+    s5 = inject_artifact_into_state({"notes": "invalid"}, "l1", "notes", desc1)
+    assert s5 == {"notes": {"l1": desc1}}
+
+    # 7. dotted path -> create intermediate dicts
+    s6 = inject_artifact_into_state({}, "l1", "notes.evidence", desc1)
+    assert s6 == {"notes": {"evidence": {"l1": desc1}}}
+
+    # 8. dotted path with artifacts list -> create intermediate dicts, list at end
+    s7 = inject_artifact_into_state({}, "l1", "deep.section.artifacts", desc1)
+    assert s7 == {"deep": {"section": {"artifacts": [desc1]}}}
+
+    # 9. dotted path where intermediate is non-dict -> overwritten with dict
+    s8 = inject_artifact_into_state({"deep": "string"}, "l1", "deep.section.artifacts", desc1)
+    assert s8 == {"deep": {"section": {"artifacts": [desc1]}}}
+
+
+def test_ensure_artifact_in_state():
+    from toas.runtime.state_step import _ensure_artifact_in_state
+
+    desc1 = {"id": "ib_1", "label": "l1", "ref": ".toas/scratch/ib_1.txt"}
+    desc2 = {"id": "ib_2", "label": "l1", "ref": ".toas/scratch/ib_2.txt"}
+    desc3 = {"id": "ib_3", "label": "l3", "ref": ".toas/scratch/ib_3.txt"}
+
+    # List target deduplication by id or label
+    state_list = {"artifacts": [desc1]}
+    assert _ensure_artifact_in_state(state_list, "l1", "artifacts", desc2) == state_list
+    assert _ensure_artifact_in_state(state_list, "l2", "artifacts", desc1) == state_list
+
+    # Dict target deduplication by label
+    state_dict = {"notes": {"l1": desc1}}
+    assert _ensure_artifact_in_state(state_dict, "l1", "notes", desc2) == state_dict
+
+    # New insertion when not matching
+    s_new = _ensure_artifact_in_state(state_list, "l3", "artifacts", desc3)
+    assert len(s_new["artifacts"]) == 2
+
+
+def test_apply_captured_artifacts_from_records():
+    from toas.runtime.state_step import _apply_captured_artifacts_from_records
+
+    # 1. records without state_tool_result or captured_artifact
+    records = [
+        {"kind": "state_transition", "status": "completed"},
+        {"kind": "state_tool_result", "tool_name": "read_file", "status": "completed"},
+        {"kind": "state_tool_result", "captured_artifact": "not-a-dict"},
+        {"kind": "state_tool_result", "captured_artifact": {"label": ""}},
+        {
+            "kind": "state_tool_result",
+            "captured_artifact": {"label": "l1", "descriptor": "not-a-dict"},
+        },
+    ]
+    state = {"goal": "test"}
+    assert _apply_captured_artifacts_from_records(records, state) == state
+
+    # 2. records with valid captured_artifact
+    desc = {"id": "ib_valid", "label": "listing", "ref": ".toas/scratch/ib_valid.txt"}
+    records_with_capture = [
+        *records,
+        {
+            "kind": "state_tool_result",
+            "captured_artifact": {
+                "label": "listing",
+                "target": "artifacts",
+                "descriptor": desc,
+            },
+        },
+    ]
+    synced = _apply_captured_artifacts_from_records(records_with_capture, state)
+    assert synced["artifacts"] == [desc]
+
+
+def test_direct_tool_artifact_capture_execute_batch_and_expansion(tmp_path):
+    from toas.graph import read_log
+    from toas.runtime.state_step import (
+        append_state_step_records,
+        build_state_step_packet,
+        step_state,
+    )
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+    t_id = "st_direct_capture_1"
+
+    # Seed an infer turn with pending tool call specifying label (default target "artifacts")
+    pending_tool = {
+        "tool_name": "read_file",
+        "args": {"path": "tasks.txt"},
+        "label": "open_tasks_listing",
+    }
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": t_id,
+                "status": "pending",
+                "source": "model",
+                "state_before": {"goal": "list tasks"},
+                "state_after": {"goal": "list tasks", "artifacts": []},
+                "tool_calls": [pending_tool],
+            },
+            {
+                "kind": "state_snapshot",
+                "transition_id": t_id,
+                "state": {"goal": "list tasks", "artifacts": []},
+            },
+        ],
+    )
+
+    executed_calls = []
+
+    def fake_execute(call):
+        executed_calls.append(call)
+        return [{"role": "result", "content": "- task alpha\n- task beta\n- task gamma"}]
+
+    # Turn N: execute_batch runs and captures artifact
+    batch_res = step_state(
+        events_path=events,
+        state={"goal": "list tasks", "artifacts": []},
+        observation=None,
+        generate=lambda _: None,
+        execute_call=fake_execute,
+    )
+
+    assert batch_res["phase"] == "execute_batch"
+    assert batch_res["status"] == "completed"
+    assert len(batch_res["outcomes"]) == 1
+    assert "captured_artifact" in batch_res["outcomes"][0]
+    captured = batch_res["outcomes"][0]["captured_artifact"]
+    assert captured["label"] == "open_tasks_listing"
+    assert captured["target"] == "artifacts"
+
+    # Verify state in result has the artifact descriptor
+    artifacts = batch_res["state"]["artifacts"]
+    assert len(artifacts) == 1
+    art = artifacts[0]
+    assert art["label"] == "open_tasks_listing"
+    assert art["id"].startswith("ib_")
+    assert art["path"] == f".toas/scratch/{art['id']}.txt"
+    assert art["ref"] == f".toas/scratch/{art['id']}.txt"
+
+    # Verify scratch file exists with content
+    scratch_file = tmp_path / ".toas" / "scratch" / f"{art['id']}.txt"
+    assert scratch_file.is_file()
+    assert "- task alpha" in scratch_file.read_text(encoding="utf-8")
+
+    # Verify log records: state_diff and state_snapshot appended
+    records = read_log(str(events))
+    snapshots = [r for r in records if r.get("kind") == "state_snapshot"]
+    assert len(snapshots) >= 2
+    assert snapshots[-1]["state"]["artifacts"][0]["label"] == "open_tasks_listing"
+
+    tool_results = [r for r in records if r.get("kind") == "state_tool_result"]
+    assert len(tool_results) == 1
+    assert "captured_artifact" in tool_results[0]
+
+    # Turn N+1: build_state_step_packet has the artifact's ref expanded!
+    packet = build_state_step_packet(
+        events_path=events,
+        state=batch_res["state"],
+        observation=None,
+    )
+    expanded_art = packet["state"]["artifacts"][0]
+    assert expanded_art["id"] == art["id"]
+    assert expanded_art["label"] == "open_tasks_listing"
+    assert expanded_art["path"] == art["path"]
+    assert "- task alpha" in expanded_art["ref"]
+    assert "- task beta" in expanded_art["ref"]
+
+
+def test_direct_tool_artifact_capture_dotted_target(tmp_path):
+    from toas.runtime.state_step import (
+        append_state_step_records,
+        build_state_step_packet,
+        step_state,
+    )
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+    t_id = "st_direct_capture_dotted"
+
+    pending_tool = {
+        "tool_name": "shell",
+        "args": {"argv": ["git", "diff", "--stat"]},
+        "label": "diff_stat",
+        "target": "notes.evidence",
+    }
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": t_id,
+                "status": "pending",
+                "source": "model",
+                "state_before": {"goal": "review diff"},
+                "state_after": {"goal": "review diff"},
+                "tool_calls": [pending_tool],
+            },
+            {
+                "kind": "state_snapshot",
+                "transition_id": t_id,
+                "state": {"goal": "review diff"},
+            },
+        ],
+    )
+
+    batch_res = step_state(
+        events_path=events,
+        state={"goal": "review diff"},
+        observation=None,
+        generate=lambda _: None,
+        execute_call=lambda _: {"stdout": "2 files changed, 10 insertions"},
+    )
+
+    assert batch_res["phase"] == "execute_batch"
+    target_dict = batch_res["state"]["notes"]["evidence"]
+    assert "diff_stat" in target_dict
+    art = target_dict["diff_stat"]
+    assert art["label"] == "diff_stat"
+    assert art["id"].startswith("ib_")
+
+    # Turn N+1 expansion
+    packet = build_state_step_packet(
+        events_path=events,
+        state=batch_res["state"],
+        observation=None,
+    )
+    expanded_ref = packet["state"]["notes"]["evidence"]["diff_stat"]["ref"]
+    assert "2 files changed" in expanded_ref
+
+
+def test_tool_execution_without_label_leaves_state_untouched(tmp_path):
+    from toas.graph import read_log
+    from toas.runtime.state_step import append_state_step_records, step_state
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+    t_id = "st_normal_tool"
+
+    pending_tool = {
+        "tool_name": "shell",
+        "args": {"argv": ["pwd"]},
+    }
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": t_id,
+                "status": "pending",
+                "source": "model",
+                "state_before": {"goal": "normal"},
+                "state_after": {"goal": "normal"},
+                "tool_calls": [pending_tool],
+            },
+            {
+                "kind": "state_snapshot",
+                "transition_id": t_id,
+                "state": {"goal": "normal"},
+            },
+        ],
+    )
+
+    batch_res = step_state(
+        events_path=events,
+        state={"goal": "normal"},
+        observation=None,
+        generate=lambda _: None,
+        execute_call=lambda _: "/current/dir",
+    )
+
+    assert batch_res["phase"] == "execute_batch"
+    assert batch_res["state"] == {"goal": "normal"}
+    assert "captured_artifact" not in batch_res["outcomes"][0]
+
+    # Verify no new snapshot appended for unchanged state
+    records = read_log(str(events))
+    snapshots = [r for r in records if r.get("kind") == "state_snapshot"]
+    assert len(snapshots) == 1
+
+
+def test_tool_failure_with_label_does_not_modify_state(tmp_path):
+    from toas.runtime.state_step import ToolOutcomeError, append_state_step_records, step_state
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+    t_id = "st_failed_tool"
+
+    pending_tool = {
+        "tool_name": "shell",
+        "args": {"argv": ["fail"]},
+        "label": "failing_capture",
+    }
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": t_id,
+                "status": "pending",
+                "source": "model",
+                "state_before": {"goal": "fail test"},
+                "state_after": {"goal": "fail test"},
+                "tool_calls": [pending_tool],
+            },
+            {
+                "kind": "state_snapshot",
+                "transition_id": t_id,
+                "state": {"goal": "fail test"},
+            },
+        ],
+    )
+
+    def failing_execute(_):
+        raise ToolOutcomeError("failed execution", status="failed")
+
+    batch_res = step_state(
+        events_path=events,
+        state={"goal": "fail test"},
+        observation=None,
+        generate=lambda _: None,
+        execute_call=failing_execute,
+    )
+
+    assert batch_res["phase"] == "execute_batch"
+    assert batch_res["status"] == "failed"
+    assert batch_res["state"] == {"goal": "fail test"}
+    assert "captured_artifact" not in batch_res["outcomes"][0]
+
+
+def test_user_authored_tool_direct_artifact_capture(tmp_path):
+    from toas.runtime.state_step import step_state
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+
+    user_calls = [
+        {
+            "tool_name": "shell",
+            "args": {"argv": ["git", "status"]},
+            "label": "user_git_status",
+        }
+    ]
+
+    res = step_state(
+        events_path=events,
+        state={"goal": "user run"},
+        observation="run status",
+        user_turn_digest="digest_user_tool",
+        user_tool_calls=user_calls,
+        execute_call=lambda _: None,
+        execute_user_call=lambda _: {"stdout": "On branch main\nnothing to commit"},
+        generate=lambda _: None,
+    )
+
+    assert res["phase"] == "consolidate_user"
+    assert "artifacts" in res["state"]
+    assert len(res["state"]["artifacts"]) == 1
+    art = res["state"]["artifacts"][0]
+    assert art["label"] == "user_git_status"
+    assert art["id"].startswith("ib_")
+
+    # Calling again with same user_turn_digest returns cached state with captured artifact
+    res_repeat = step_state(
+        events_path=events,
+        state={"goal": "user run"},
+        observation="run status",
+        user_turn_digest="digest_user_tool",
+        user_tool_calls=user_calls,
+        execute_call=lambda _: None,
+        execute_user_call=lambda _: None,
+        generate=lambda _: None,
+    )
+    assert res_repeat["state"]["artifacts"][0]["label"] == "user_git_status"
+
+
+def test_user_authored_tool_failure_does_not_capture_artifact(tmp_path):
+    from toas.runtime.state_step import step_state
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+
+    user_calls = [
+        {
+            "tool_name": "shell",
+            "args": {"argv": ["bad_cmd"]},
+            "label": "failing_user_op",
+        }
+    ]
+
+    res = step_state(
+        events_path=events,
+        state={"goal": "user fail"},
+        observation="run fail",
+        user_turn_digest="digest_user_fail",
+        user_tool_calls=user_calls,
+        execute_call=lambda _: None,
+        execute_user_call=lambda _: [
+            {"payload": {"ok": False, "summary": "not found", "outcome": "failed"}}
+        ],
+        generate=lambda _: None,
+    )
+
+    assert res["phase"] == "consolidate_user"
+    assert res["status"] == "failed"
+    assert "artifacts" not in res["state"]

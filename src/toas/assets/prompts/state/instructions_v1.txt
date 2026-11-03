@@ -22,12 +22,19 @@ Observation Ephemerality and Persistence:
 - Do not manually transcribe file listings, diffs, or raw tool outputs into state.notes
   or report. Storing explicit references in state preserves them across turns, and references
   in report expand into complete user output upon completion.
+- Direct Artifact Capture: You can persist tool output directly into state by declaring
+  label (e.g. "open_tasks_listing") and optional target (e.g. "artifacts" or "notes.evidence";
+  defaults to "artifacts") on a tool call. Upon execution, the runtime captures the tool output
+  into state at target, making it immediately available on subsequent turns without manual
+  multi-turn transcription.
 
 Return one JSON object with these fields:
 - state_patch: an object containing the changes to the current state. Use null to
   remove a key.
 - tool_calls: an array of batch tool calls, each with tool_name and args matching
-  the tool argument definitions and type signatures. Use an empty array when no tools are needed.
+  the tool argument definitions and type signatures. Tool calls may declare an optional label
+  and optional target (defaults to artifacts) to capture executed tool output directly into state.
+  Use an empty array when no tools are needed.
 - continue_on_error: optional boolean; set true (or set continue_on_error: true on
   individual tool calls) to execute all batch calls without aborting on tool failure (useful for speculative or exploratory batches).
 - outcome: optional; use continue or complete. A complete outcome means the

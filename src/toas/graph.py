@@ -1558,6 +1558,21 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
         trimmed = normalized_intent.strip()
         if trimmed:
             normalized["intention"] = trimmed
+    label = item.get("label")
+    if label is not None:
+        if not isinstance(label, str) or not label.strip():
+            return None, "label must be a non-empty string"
+        normalized["label"] = label.strip()
+    target = item.get("target")
+    if target is not None:
+        if not isinstance(target, str) or not target.strip():
+            return None, "target must be a non-empty string"
+        normalized["target"] = target.strip()
+    continue_on_error = item.get("continue_on_error")
+    if continue_on_error is not None:
+        if not isinstance(continue_on_error, bool):
+            return None, "continue_on_error must be a boolean"
+        normalized["continue_on_error"] = continue_on_error
     return normalized, None
 
 

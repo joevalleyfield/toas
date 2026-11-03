@@ -2647,6 +2647,43 @@ def test_graph_additional_coverage(tmp_path, monkeypatch):
     assert plan is None
     assert "intent must be a string" in err
 
+    # label validation
+    plan, err = normalize_tool_plan({"tool_name": "test", "label": 123})
+    assert plan is None
+    assert err == "label must be a non-empty string"
+    plan, err = normalize_tool_plan({"tool_name": "test", "label": "   "})
+    assert plan is None
+    assert err == "label must be a non-empty string"
+
+    # target validation
+    plan, err = normalize_tool_plan({"tool_name": "test", "target": 123})
+    assert plan is None
+    assert err == "target must be a non-empty string"
+    plan, err = normalize_tool_plan({"tool_name": "test", "target": "   "})
+    assert plan is None
+    assert err == "target must be a non-empty string"
+
+    # continue_on_error validation
+    plan, err = normalize_tool_plan({"tool_name": "test", "continue_on_error": "not-a-bool"})
+    assert plan is None
+    assert err == "continue_on_error must be a boolean"
+
+    # valid label, target, continue_on_error preservation
+    plan, err = normalize_tool_plan({
+        "tool_name": "test",
+        "label": " my_label ",
+        "target": " notes.artifacts ",
+        "continue_on_error": True,
+    })
+    assert err is None
+    assert plan == [{
+        "tool_name": "test",
+        "args": {},
+        "label": "my_label",
+        "target": "notes.artifacts",
+        "continue_on_error": True,
+    }]
+
     # 7. extract_plan_with_status YAMLError
     # first position YAMLError
     content_first_bad = "```yaml\n{invalid: yaml: :\n```"

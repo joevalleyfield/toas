@@ -14,6 +14,8 @@ protocol:
     tool_calls:
       - tool_name: string
         args: object
+        label: string (optional)
+        target: string (optional)
     outcome:
       - continue
       - complete

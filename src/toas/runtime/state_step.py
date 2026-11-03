@@ -9,6 +9,7 @@ import traceback
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -89,7 +90,14 @@ def default_protocol() -> dict[str, Any]:
         "instructions": load_state_instructions("state/instructions_v1"),
         "schema": {
             "state_patch": "object",
-            "tool_calls": [{"tool_name": "string", "args": "object"}],
+            "tool_calls": [
+                {
+                    "tool_name": "string",
+                    "args": "object",
+                    "label": "string (optional)",
+                    "target": "string (optional)",
+                }
+            ],
             "continue_on_error": "boolean (optional)",
             "outcome": ["continue", "complete"],
             "report": "string",
@@ -178,6 +186,122 @@ def _log_tool_failure(
     except Exception:
         pass
 
+
+def _extract_tool_result_content(result: Any) -> str:
+    """Extract textual content or body from a tool execution result."""
+    if isinstance(result, str):
+        return result
+    if isinstance(result, dict):
+        if "content" in result and isinstance(result["content"], str):
+            return result["content"]
+        if "stdout" in result and isinstance(result["stdout"], str):
+            return result["stdout"]
+        if "output" in result and isinstance(result["output"], str):
+            return result["output"]
+        if "summary" in result and isinstance(result["summary"], str):
+            return result["summary"]
+        if "payload" in result:
+            return _extract_tool_result_content(result["payload"])
+        if "text" in result and isinstance(result["text"], str):
+            return result["text"]
+    if isinstance(result, list):
+        parts = []
+        for item in result:
+            text = _extract_tool_result_content(item)
+            if text:
+                parts.append(text)
+        return "\n".join(parts)
+    return str(result)
+
+
+def _write_scratch_artifact(workspace_root: Path | None, block_id: str, content: str) -> str:
+    """Persist artifact content to .toas/scratch/<block_id>.txt and return the relative path."""
+    scratch_dir = (workspace_root / ".toas" / "scratch") if workspace_root else (Path(".toas") / "scratch")
+    try:
+        scratch_dir.mkdir(parents=True, exist_ok=True)
+        (scratch_dir / f"{block_id}.txt").write_bytes(content.encode("utf-8"))
+    except OSError:
+        pass
+    return f".toas/scratch/{block_id}.txt"
+
+
+def inject_artifact_into_state(
+    state: dict[str, Any],
+    label: str,
+    target: str | None,
+    descriptor: dict[str, Any],
+) -> dict[str, Any]:
+    """Inject an artifact descriptor into state at target (defaulting to 'artifacts')."""
+    new_state = copy.deepcopy(state)
+    target_path = target.strip() if (target and target.strip()) else "artifacts"
+    parts = target_path.split(".")
+
+    curr = new_state
+    for part in parts[:-1]:
+        if part not in curr or not isinstance(curr[part], dict):
+            curr[part] = {}
+        curr = curr[part]
+
+    last_key = parts[-1]
+    if last_key in curr:
+        if isinstance(curr[last_key], list):
+            curr[last_key].append(descriptor)
+        elif isinstance(curr[last_key], dict):
+            curr[last_key][label] = descriptor
+        else:
+            curr[last_key] = [descriptor] if last_key == "artifacts" else {label: descriptor}
+    else:
+        if last_key == "artifacts":
+            curr[last_key] = [descriptor]
+        else:
+            curr[last_key] = {label: descriptor}
+
+    return new_state
+
+
+def _ensure_artifact_in_state(
+    state: dict[str, Any],
+    label: str,
+    target: str | None,
+    descriptor: dict[str, Any],
+) -> dict[str, Any]:
+    """Ensure that descriptor is present in state at target without duplicate insertion."""
+    target_path = target.strip() if (target and target.strip()) else "artifacts"
+    parts = target_path.split(".")
+    curr = state
+    found_target = True
+    for part in parts:
+        if isinstance(curr, dict) and part in curr:
+            curr = curr[part]
+        else:
+            found_target = False
+            break
+
+    if found_target:
+        if isinstance(curr, list):
+            for item in curr:
+                if isinstance(item, dict) and (item.get("id") == descriptor.get("id") or item.get("label") == label):
+                    return state
+        elif isinstance(curr, dict):
+            if label in curr:
+                return state
+
+    return inject_artifact_into_state(state, label, target, descriptor)
+
+
+def _apply_captured_artifacts_from_records(records: list[dict[str, Any]], state: dict[str, Any]) -> dict[str, Any]:
+    """Ensure any artifacts captured in state_tool_result events are reflected in state."""
+    new_state = copy.deepcopy(state)
+    for record in records:
+        if record.get("kind") == "state_tool_result":
+            captured = record.get("captured_artifact")
+            if isinstance(captured, dict):
+                label = captured.get("label")
+                target = captured.get("target") or "artifacts"
+                descriptor = captured.get("descriptor")
+                if label and isinstance(descriptor, dict):
+                    new_state = _ensure_artifact_in_state(new_state, label, target, descriptor)
+    return new_state
 
 
 def _parse_state_response(content: str) -> Any:
@@ -1040,13 +1164,16 @@ def _resolve_reference_target(
     full_blocks_by_id: dict[str, str] | None = None,
     workspace_root: Path | None = None,
 ) -> str | None:
-    match = re.match(r"^(.*?):(\d+)-(\d+)$", ref_str.strip())
+    clean_ref = ref_str.strip()
+    if clean_ref.startswith("(ref:") and clean_ref.endswith(")"):
+        clean_ref = clean_ref[5:-1].strip()
+    match = re.match(r"^(.*?):(\d+)-(\d+)$", clean_ref)
     if match:
         target = match.group(1).strip()
         start_line = int(match.group(2))
         end_line = int(match.group(3))
     else:
-        target = ref_str.strip()
+        target = clean_ref
         start_line = None
         end_line = None
 
@@ -1880,6 +2007,7 @@ def _build_state_step_packet_impl(
         resolved_protocol["instructions"] = instructions
 
     compound = _compound_observation(records, observation, session_text=session_text)
+    state = _apply_captured_artifacts_from_records(records, state)
     blocks_by_id = extract_inert_blocks_by_id(records)
     full_blocks_by_id = extract_inert_blocks_by_id(records, full_blocks=True)
     if session_text:
@@ -2264,6 +2392,8 @@ def _step_state_impl(  # noqa: PLR0913
     continue_on_error: bool = False,
 ) -> dict[str, Any]:
     path = str(events_path)
+    events_file = Path(events_path)
+    workspace_root = events_file.parent.parent if events_file.parent.name == ".toas" else events_file.parent
     records = read_log(path)
     transitions = [record for record in records if record.get("kind") == "state_transition"]
     user_origin = next(
@@ -2355,10 +2485,20 @@ def _step_state_impl(  # noqa: PLR0913
             )
         else:
             compound = observation_record.get("observation")
+        latest_snapshot = next(
+            (
+                record.get("state")
+                for record in reversed(records)
+                if record.get("kind") == "state_snapshot"
+                and record.get("transition_id") == transition_id
+            ),
+            None,
+        )
+        returned_state = latest_snapshot if latest_snapshot is not None else existing.get("state_after", state)
         return {
             "phase": "consolidate_user",
             "transition_id": transition_id,
-            "state": existing.get("state_after", state),
+            "state": returned_state,
             "outcomes": outcomes,
             "observation": compound,
             "status": existing.get("status", "completed"),
@@ -2462,6 +2602,8 @@ def _step_state_impl(  # noqa: PLR0913
             ],
         )
         outcomes = []
+        current_state = copy.deepcopy(state)
+        state_modified = False
         calls_to_execute = (
             pending_tool_calls
             if pending_tool_calls is not None
@@ -2489,6 +2631,25 @@ def _step_state_impl(  # noqa: PLR0913
                     "result": result,
                     "source": call_source,
                 }
+                label = call.get("label") or normalized_call.get("label")
+                if label:
+                    target = call.get("target") or normalized_call.get("target") or "artifacts"
+                    artifact_content = _extract_tool_result_content(result)
+                    block_id = f"ib_{sha256(artifact_content.encode('utf-8')).hexdigest()[:16]}"
+                    rel_scratch = _write_scratch_artifact(workspace_root, block_id, artifact_content)
+                    descriptor = {
+                        "id": block_id,
+                        "label": label,
+                        "path": rel_scratch,
+                        "ref": rel_scratch,
+                    }
+                    current_state = inject_artifact_into_state(current_state, label, target, descriptor)
+                    state_modified = True
+                    outcome["captured_artifact"] = {
+                        "label": label,
+                        "target": target,
+                        "descriptor": descriptor,
+                    }
             except ToolOutcomeError as exc:
                 tname = exc.tool_name or tool_name
                 tb = exc.traceback or traceback.format_exc().strip()
@@ -2572,10 +2733,19 @@ def _step_state_impl(  # noqa: PLR0913
                 }
             ],
         )
+        if state_modified:
+            patch = state_delta(state, current_state)
+            append_state_step_records(
+                path,
+                [
+                    {"kind": "state_diff", "transition_id": pending["transition_id"], "patch": patch},
+                    {"kind": "state_snapshot", "transition_id": pending["transition_id"], "state": current_state},
+                ],
+            )
         return {
             "phase": "execute_batch",
             "transition_id": pending["transition_id"],
-            "state": state,
+            "state": current_state,
             "outcomes": outcomes,
             "status": status,
         }
@@ -2616,6 +2786,7 @@ def _step_state_impl(  # noqa: PLR0913
                 [{"kind": "state_tool_request", "transition_id": transition_id, "source": "user", "tool_calls": calls}],
             )
         batch_continue_on_error = bool(continue_on_error)
+        user_state_modified = False
         for index, call in enumerate(calls):
             call_continue_on_error = bool(
                 call.get("continue_on_error")
@@ -2664,6 +2835,26 @@ def _step_state_impl(  # noqa: PLR0913
                         error=execution_outcome["error"],
                         traceback=execution_outcome.get("traceback"),
                     )
+                else:
+                    label = call.get("label")
+                    if label:
+                        target = call.get("target") or "artifacts"
+                        artifact_content = _extract_tool_result_content(result)
+                        block_id = f"ib_{sha256(artifact_content.encode('utf-8')).hexdigest()[:16]}"
+                        rel_scratch = _write_scratch_artifact(workspace_root, block_id, artifact_content)
+                        descriptor = {
+                            "id": block_id,
+                            "label": label,
+                            "path": rel_scratch,
+                            "ref": rel_scratch,
+                        }
+                        accepted = inject_artifact_into_state(accepted, label, target, descriptor)
+                        user_state_modified = True
+                        execution_outcome["captured_artifact"] = {
+                            "label": label,
+                            "target": target,
+                            "descriptor": descriptor,
+                        }
             except ToolOutcomeError as exc:
                 tname = exc.tool_name or tool_name
                 tb = exc.traceback or traceback.format_exc().strip()
@@ -2722,6 +2913,15 @@ def _step_state_impl(  # noqa: PLR0913
             append_state_step_records(
                 path,
                 [{"kind": "state_transition", "transition_id": transition_id, "status": status}],
+            )
+        if user_state_modified:
+            patch = state_delta(before, accepted)
+            append_state_step_records(
+                path,
+                [
+                    {"kind": "state_diff", "transition_id": transition_id, "patch": patch},
+                    {"kind": "state_snapshot", "transition_id": transition_id, "state": accepted},
+                ],
             )
         compound = {
             "kind": "toas.compound-observation/1",

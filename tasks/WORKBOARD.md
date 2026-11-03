@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-02
+> **Last Sync:** 2026-11-03
 
 ## 0. Manual Triage
 
@@ -94,7 +94,6 @@ Neither dated vote is a literal current queue.
 
 <!-- WORKBOARD:RELATIONSHIP_TREE:START -->
 - 260926-state-step-requirements Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run... (depends on `260926-state-simulation-checkpoint`; related `260926-state-step-contract-spike`, `260926-state-experiment-harness`, `260926-state-experiment-plan-tools`, `260803-session-rotation-lifecycle`, `260927-state-step-history-projections`, `260928-state-user-control-turn-lifecycle`, `261002-state-transcript-branching-and-modification`, `261010-state-inference-response-resilience`, `261010-state-result-history-sideslip`)
-  - 261010-direct-tool-artifact-capture Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution (related `261009-explicit-reference-expansion-and-report-projection`, `261010-scratch-read-file-ingestion-threshold`)
   - 261010-rolling-tool-failure-memory Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends (related `261009-batch-tool-non-fatal-execution-mode`)
 - 260803-tool-intent-ingress-separation Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... (related `260803-language-exec-fenced-block-lane`, `260412-json-callable-lane-parser-and-policy`, `260803-seed-prompt-composition-study`, `260803-first-failure-plan-recovery`, `260628-gemini-endpoint-discovery`, `171`, `174`)
   - 260831-transcript-source-reference-operations Transcript-Native Assistant Source Reference Operations (related `260803-language-exec-fenced-block-lane`, `260803-first-failure-plan-recovery`, `260831-verbatim-staged-plan-restaging`, `260627-history-affordances-semantic-restaging`, `260830-exec-grant-policy-matchers`)
@@ -149,7 +148,6 @@ Neither dated vote is a literal current queue.
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale
 - **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe... ⚠️ Stale
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
-- **[T261010-direct-tool-artifact-capture]** Status: OPEN; allow tool calls to declare an artifact label and auto-populate state upon execution
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
