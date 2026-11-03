@@ -17,6 +17,7 @@ from .executable_fence_lanes import (
     extract_json_exec_plans,
     extract_powershell_exec_plans,
     extract_python_exec_plans,
+    extract_write_fence_plans,
 )
 from .fence_activation import classify_fence_activation
 from .markdown_fence import scan_markdown_fences
@@ -89,6 +90,8 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
             (*candidate, None) for candidate in extract_powershell_exec_plans(content)
         ] + [
             (*candidate, None) for candidate in extract_interpreter_exec_plans(content)
+        ] + [
+            (*candidate, None) for candidate in extract_write_fence_plans(content)
         ]
 
     candidates: list[tuple[list[dict], int, str | None]] = []
@@ -117,6 +120,7 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
         + [(*candidate, None) for candidate in extract_python_exec_plans(content)]
         + [(*candidate, None) for candidate in extract_powershell_exec_plans(content)]
         + [(*candidate, None) for candidate in extract_interpreter_exec_plans(content)]
+        + [(*candidate, None) for candidate in extract_write_fence_plans(content)]
     )
 
 
@@ -141,10 +145,10 @@ def _unsupported_exec_candidates(content: str) -> list[tuple[dict, int]]:
     for fence in scan_markdown_fences(content):
         activation = classify_fence_activation(fence)
         if (
-            activation.predicate == "explicit-exec"
+            activation.predicate in {"explicit-exec", "explicit-write", "explicit-write-exec"}
             and (
                 activation.status == "unsupported"
-                or (activation.status == "active" and activation.language not in implemented_languages)
+                or (activation.status == "active" and activation.has_exec and activation.language not in implemented_languages)
             )
         ):
             candidates.append(

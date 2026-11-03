@@ -89,3 +89,49 @@ def test_classify_fence_activation_treats_output_and_missing_structure_as_inert_
 
     assert output.status == "inert"
     assert malformed.status == "malformed"
+
+
+def test_classify_fence_activation_accepts_pure_write_fence():
+    result = classify_fence_activation(_fence("python write path=src/example.py"))
+    assert result.status == "active"
+    assert result.language == "python"
+    assert result.predicate == "explicit-write"
+    assert result.path == "src/example.py"
+    assert result.has_write is True
+    assert result.has_exec is False
+
+
+def test_classify_fence_activation_pure_write_is_open_over_unregistered_languages():
+    result = classify_fence_activation(_fence("rust write path=src/main.rs"))
+    assert result.status == "active"
+    assert result.language == "rust"
+    assert result.predicate == "explicit-write"
+    assert result.path == "src/main.rs"
+    assert result.has_write is True
+    assert result.has_exec is False
+
+
+def test_classify_fence_activation_accepts_composite_write_and_exec():
+    result = classify_fence_activation(_fence("python write path=scripts/migrate.py exec"))
+    assert result.status == "active"
+    assert result.language == "python"
+    assert result.predicate == "explicit-write-exec"
+    assert result.path == "scripts/migrate.py"
+    assert result.has_write is True
+    assert result.has_exec is True
+
+
+def test_classify_fence_activation_rejects_write_without_path_or_empty_path():
+    no_path = classify_fence_activation(_fence("python write"))
+    empty_path = classify_fence_activation(_fence("python write path="))
+
+    assert no_path.status == "unsupported"
+    assert no_path.reason == "write fence requires path attribute"
+    assert empty_path.status == "unsupported"
+    assert empty_path.reason == "path value is empty"
+
+
+def test_classify_fence_activation_rejects_repeated_verbs():
+    result = classify_fence_activation(_fence("python write write path=foo.py"))
+    assert result.status == "unsupported"
+    assert result.reason == "activation form repeats a verb"

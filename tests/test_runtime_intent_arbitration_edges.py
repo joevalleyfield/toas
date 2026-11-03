@@ -398,3 +398,98 @@ def test_shell_candidates_from_content_skips_incomplete_span():
 def test_shell_candidates_from_content_skips_parse_failure(monkeypatch):
     monkeypatch.setattr(iae, "shell_argv_from_command", lambda _command: None)
     assert iae._shell_candidates_from_content("$ echo hi\n") == []
+
+
+def test_select_user_intent_candidates_captures_write_fence_plan():
+    content = "```python write path=src/example.py\nprint('hello world')\n```"
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert len(out) == 1
+    assert out[0]["kind"] == "plan"
+    assert out[0]["value"] == [
+        {"tool_name": "write_file", "args": {"path": "src/example.py", "content": "print('hello world')\n"}}
+    ]
+
+
+def test_select_user_intent_candidates_captures_write_fence_with_yaml_block():
+    content = (
+        "```yaml\n- operation: echo\n  arguments:\n    text: preamble\n```\n"
+        "```text write path=data.txt\nalpha\n```"
+    )
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert len(out) == 2
+    assert out[0]["kind"] == "plan"
+    assert out[0]["value"][0]["tool_name"] == "echo"
+    assert out[1]["kind"] == "plan"
+    assert out[1]["value"][0]["tool_name"] == "write_file"
+
+
+def test_select_user_intent_candidates_reports_unsupported_write_fence():
+    content = "```python write\nprint('missing path')\n```"
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert len(out) == 1
+    assert out[0]["kind"] == "unsupported_exec"
+    assert "write fence requires path attribute" in out[0]["value"]["reason"]
+
+
+def test_intent_arbitration_edges_branch_coverage():
+    # Line 31: empty content for _last_prefixed_line_position
+    assert iae._last_prefixed_line_position("", prefix="/") is None
+
+    # Line 59: yaml_position == "first"
+    content_two = (
+        "```yaml\n- operation: echo\n  arguments:\n    text: first\n```\n"
+        "```yaml\n- operation: echo\n  arguments:\n    text: second\n```\n"
+    )
+    pos_first = iae._plan_position(content_two, plan=[{"tool_name": "echo", "args": {"text": "first"}}], yaml_position="first")
+    assert pos_first == content_two.index("```yaml")
+
+    # Line 71: yaml_position == "any" with one valid plan
+    content_any = (
+        "```yaml\ninvalid: structure\n```\n"
+        "```yaml\n- operation: echo\n  arguments:\n    text: valid\n```\n"
+    )
+    pos_any = iae._plan_position(content_any, plan=[{"tool_name": "echo", "args": {"text": "valid"}}], yaml_position="any")
+    assert pos_any == content_any.index("```yaml\n- operation: echo")
+
+    # Line 84: raw plan without fences
+    raw_plan_content = "- operation: echo\n  arguments:\n    text: raw\n"
+    candidates = iae._plan_candidates_from_content(raw_plan_content)
+    assert any(c[0][0]["tool_name"] == "echo" for c in candidates)
+
+    # Line 113: yaml block with non-plan content skipped
+    content_non_plan = (
+        "```yaml\nfoo: bar\n```\n"
+        "```yaml\n- operation: echo\n  arguments:\n    text: ok\n```\n"
+    )
+    candidates_non_plan = iae._plan_candidates_from_content(content_non_plan)
+    assert len(candidates_non_plan) == 1
+    assert candidates_non_plan[0][0][0]["tool_name"] == "echo"
+
+
