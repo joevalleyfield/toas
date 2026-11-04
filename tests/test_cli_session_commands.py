@@ -266,6 +266,86 @@ def test_generation_runner_build_artifacts_sets_provenance():
     assert node["_llm_call"]["request_messages"] == [{"role": "user", "content": "hi"}]
 
 
+def test_generation_runner_build_artifacts_with_telemetry_decorations():
+    from toas.config import SessionPolicy
+
+    runner_inline = GenerationRunner(
+        deps=SimpleNamespace(model_name=lambda _s: "base-model"),
+        operator_config=OperatorConfig(session=SessionPolicy(telemetry_decorations="inline")),
+        base_settings=Settings(
+            llm_base_url="http://localhost:8080/v1",
+            llm_api_key="k",
+            llm_model="base-model",
+            llm_trace=False,
+            llm_transport_mode="chat_messages",
+            llm_stream_mode=True,
+        ),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+
+    plan = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "selected_settings": Settings(
+                llm_base_url="http://localhost:8080/v1",
+                llm_api_key="k",
+                llm_model="base-model",
+                llm_trace=False,
+                llm_transport_mode="chat_messages",
+                llm_stream_mode=True,
+            ),
+        },
+    )()
+    result = type(
+        "R",
+        (),
+        {
+            "node": {"content": "hello", "response": {"model": "gpt-4o", "duration_ms": 1500}},
+            "attempt": 1,
+            "max_attempts": 1,
+        },
+    )()
+
+    node_inline = runner_inline.build_artifacts(plan, result)
+    assert "## TOAS:ASSISTANT [target=gpt-4o" in node_inline["marker"]
+    assert "duration=1.5s" in node_inline["marker"]
+
+    runner_comment = GenerationRunner(
+        deps=SimpleNamespace(model_name=lambda _s: "base-model"),
+        operator_config=OperatorConfig(session=SessionPolicy(telemetry_decorations="comment")),
+        base_settings=Settings(
+            llm_base_url="http://localhost:8080/v1",
+            llm_api_key="k",
+            llm_model="base-model",
+            llm_trace=False,
+            llm_transport_mode="chat_messages",
+            llm_stream_mode=True,
+        ),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+    result_comment = type(
+        "R",
+        (),
+        {
+            "node": {"content": "hello", "response": {"model": "gpt-4o", "duration_ms": 1500}},
+            "attempt": 1,
+            "max_attempts": 1,
+        },
+    )()
+    node_comment = runner_comment.build_artifacts(plan, result_comment)
+    assert "<!-- toas: target=gpt-4o" in node_comment["telemetry_comment"]
+    assert "duration=1.5s" in node_comment["telemetry_comment"]
+
+
+
 def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monkeypatch):
 
     runner = GenerationRunner(

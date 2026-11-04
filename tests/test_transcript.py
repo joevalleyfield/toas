@@ -311,3 +311,37 @@ def test_lcp_and_eq_with_state_turns():
     assert _lcp(lineage_a, lineage_b) == 2
 
 
+def test_transcript_telemetry_comment_round_trip_and_lcp_invariance():
+    from toas.graph import project_llm_input_from_messages
+    from toas.transcript import _eq, _lcp
+
+    transcript = (
+        "## TOAS:ASSISTANT\n"
+        "<!-- toas: target=claude-3-7-sonnet timestamp=2026-11-04T11:41:31Z duration=1.2s -->\n"
+        "I am ready to help.\n"
+    )
+    parsed = parse_transcript(transcript)
+    assert len(parsed) == 1
+    assert parsed[0]["role"] == "assistant"
+    assert parsed[0]["content"] == "I am ready to help."
+    assert parsed[0]["telemetry_comment"] == "<!-- toas: target=claude-3-7-sonnet timestamp=2026-11-04T11:41:31Z duration=1.2s -->"
+
+    # Round trip rendering (spaced and unspaced)
+    rendered_unspaced = render_transcript(parsed, spaced=False)
+    assert "<!-- toas: target=claude-3-7-sonnet" in rendered_unspaced
+    rendered_spaced = render_transcript(parsed, spaced=True)
+    assert "<!-- toas: target=claude-3-7-sonnet" in rendered_spaced
+
+    # LCP and equality invariance with and without telemetry comment
+    clean_assistant = {"role": "assistant", "content": "I am ready to help."}
+    assert _eq(parsed[0], clean_assistant)
+    assert _lcp([parsed[0]], [clean_assistant]) == 1
+
+    # Model input sanitization completely omits telemetry comment
+    llm_input = project_llm_input_from_messages(parsed)
+    assert len(llm_input) == 1
+    assert llm_input[0]["content"] == "I am ready to help."
+    assert "toas:" not in llm_input[0]["content"]
+
+
+

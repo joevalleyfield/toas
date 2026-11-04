@@ -196,3 +196,38 @@ def test_render_transcript_blocks_allows_raw_turn_result_rendering():
         "## TOAS:USER\n\n/prompt state/swe_v1\n\n"
         "## TOAS:STATE/1\n\nprotocol: toas.state-step/1\nstate: {}\n\n"
     )
+
+
+def test_render_transcript_blocks_with_telemetry_decorations():
+    # Ordinary role node with telemetry comment and custom marker
+    assistant_node = {
+        "role": "assistant",
+        "marker": "## TOAS:ASSISTANT [target=claude duration=1.0s]",
+        "telemetry_comment": "<!-- toas: target=claude duration=1.0s -->",
+        "content": "Hello!",
+    }
+    rendered_assistant = render_transcript_blocks([assistant_node])
+    assert rendered_assistant == (
+        "## TOAS:ASSISTANT [target=claude duration=1.0s]\n"
+        "<!-- toas: target=claude duration=1.0s -->\n\n"
+        "Hello!\n\n"
+    )
+
+    # Result node with telemetry comment and result marker
+    result_node = _result(
+        "summary: OK",
+        result_marker="## RESULT [status=OK duration=42ms]",
+        telemetry_comment="<!-- toas: status=OK duration=42ms -->",
+    )
+    rendered_result = render_transcript_blocks([result_node])
+    assert "## RESULT [status=OK duration=42ms]\n<!-- toas: status=OK duration=42ms -->\n\nsummary: OK" in rendered_result
+
+    # Result node rendered as assistant message with telemetry
+    as_msg_result = _result(
+        "assistant content",
+        transcript_render="assistant_message",
+        telemetry_comment="<!-- toas: target=gpt-4o -->",
+    )
+    rendered_as_msg = render_transcript_blocks([as_msg_result])
+    assert "## TOAS:ASSISTANT\n<!-- toas: target=gpt-4o -->\n\nassistant content" in rendered_as_msg
+

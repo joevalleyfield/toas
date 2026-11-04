@@ -40,10 +40,13 @@ def render_transcript(messages: list[dict], *, spaced: bool = False) -> str:
     for message in messages:
         separator = "\n\n" if spaced else "\n"
         marker = message.get("marker") or render_transcript_marker(message["role"])
-        blocks.append(
-            f"{marker}{separator}"
-            f"{escape_transcript_content(message['content'])}\n"
-        )
+        telemetry = message.get("telemetry_comment")
+        body = escape_transcript_content(message["content"])
+        if telemetry:
+            prefix = f"{marker}\n{telemetry}"
+            blocks.append(f"{prefix}{separator}{body}\n")
+        else:
+            blocks.append(f"{marker}{separator}{body}\n")
     return "\n".join(blocks)
 
 
@@ -61,12 +64,24 @@ def parse_transcript(text: str) -> list[dict]:
             current_lines = []
             return
 
+        lines_to_process = list(current_lines)
+        telemetry_comment = None
+        non_empty_indices = [i for i, l in enumerate(lines_to_process) if l.strip()]
+        if non_empty_indices:
+            first_idx = non_empty_indices[0]
+            first_line = lines_to_process[first_idx].strip()
+            if first_line.startswith("<!-- toas:") and first_line.endswith("-->"):
+                telemetry_comment = first_line
+                lines_to_process.pop(first_idx)
+
         msg: dict[str, str] = {
             "role": current_role,
-            "content": unescape_transcript_content("\n".join(current_lines).strip()),
+            "content": unescape_transcript_content("\n".join(lines_to_process).strip()),
         }
         if current_marker:
             msg["marker"] = current_marker
+        if telemetry_comment:
+            msg["telemetry_comment"] = telemetry_comment
         messages.append(msg)
         current_lines = []
         current_marker = None

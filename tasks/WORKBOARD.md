@@ -151,7 +151,6 @@ Neither dated vote is a literal current queue.
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
-- **[T261104-transcript-turn-telemetry-decorations]** Transcript Turn Telemetry And Execution Status Decorations
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -213,11 +212,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261104-transcript-turn-telemetry-decorations]** Transcript Turn Telemetry And Execution Status Decorations
 - **[T261102-windows-crlf-spilled-scratch-blocks]** Prevent Windows `\r\n` output from double-translating into `\r\r\n` inside `.toas/scratch/ib_*.txt` files and eliminate downstream phantom blank lines...
 - **[T261102-executable-policy-module-and-validators]** Connect the central post-resolution executable grant evaluator to user-authored policy by establishing a discovery convention for workspace policy mod...
 - **[T261102-executable-log-harvester-and-policy-scaffolder]** Extract observed executable commands from append-only event logs (`.toas/events.jsonl`) to profile assistant and user tool usage and scaffold tailored...
 - **[T261031-sync-help-system-policy-contracts]** Sync the packaged help catalog, session help, command usage, and progressive disclosure handlers with recent namespaced configuration and scoped polic...
-- **[T261030-yaml-replace-block-indent-healing]** Heal broken YAML tool call candidates in assistant turns where `replace_block` (and related multiline code operations) suffer from indentation and out...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -126,3 +126,20 @@ Execute (escaped less-than remains ordinary Markdown text):
   Assert SyntaxAt(3, 2) =~# 'toasEscapedLessThan'
   Assert SyntaxAt(3, 3) !~# 'htmlTag\|mkdInlineURL'
   Assert SyntaxAt(4, 2) =~# 'toasEscapedLessThan'
+
+Execute (telemetry comment and decorated headings are recognized):
+  call setline(1, [
+        \ '## TOAS:ASSISTANT [target=claude duration=1.2s]',
+        \ '<!-- toas: target=claude duration=1.2s -->',
+        \ 'response content',
+        \ '## RESULT [status=OK duration=42ms]'])
+  set syntax=markdown
+  syntax on
+  unlet! b:toas_transcript_syntax_loaded
+  execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
+  syntax sync fromstart
+  redraw!
+  Assert SyntaxAt(1, 4) =~# 'toasRoleAssistant'
+  Assert SyntaxAt(2, 4) =~# 'toasTelemetryComment'
+  Assert SyntaxAt(4, 4) =~# 'toasResultHeading'
+

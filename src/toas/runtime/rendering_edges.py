@@ -105,7 +105,10 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
             validate_result_node(node)
             if node.get("transcript_render") in {"assistant_message", "user_message"}:
                 role = "assistant" if node.get("transcript_render") == "assistant_message" else "user"
-                lines.append(render_transcript_marker(role))
+                marker = node.get("marker") or render_transcript_marker(role)
+                lines.append(marker)
+                if node.get("telemetry_comment"):
+                    lines.append(node["telemetry_comment"])
                 lines.append("")
                 lines.append(escape_transcript_content(node["content"]))
                 lines.append("")
@@ -115,9 +118,13 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
                 lines.append("")
                 continue
             projection_lane = str(node["projection_lane"])
-            lines.append(render_transcript_marker(projection_lane))
+            marker = node.get("marker") or render_transcript_marker(projection_lane)
+            lines.append(marker)
             lines.append("")
-            lines.append("## RESULT")
+            result_marker = node.get("result_marker") or "## RESULT"
+            lines.append(result_marker)
+            if node.get("telemetry_comment"):
+                lines.append(node["telemetry_comment"])
             lines.append("")
             transcript_inert = node.get("transcript_inert", True)
             if node.get("transcript_render") == "raw":
@@ -125,7 +132,10 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
             else:
                 lines.append(escape_transcript_content(maybe_inert_wrap_result_content(node["content"], transcript_inert=transcript_inert)))
         else:
-            lines.append(render_transcript_marker(node["role"]))
+            marker = node.get("marker") or render_transcript_marker(node["role"])
+            lines.append(marker)
+            if node.get("telemetry_comment"):
+                lines.append(node["telemetry_comment"])
             lines.append("")
             lines.append(escape_transcript_content(node["content"]))
         lines.append("")

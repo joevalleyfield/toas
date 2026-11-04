@@ -24,6 +24,7 @@ _CHOICE_MAP: dict[str, tuple[str, ...]] = {
     "prompt.output_profile": ("intention-tail", "plain"),
     "tool_writes.newline_style": ("auto", "lf", "crlf"),
     "session.continuation_name_format": ("datetime-slug", "datetime", "date-slug", "slug"),
+    "session.telemetry_decorations": ("off", "inline", "comment"),
     "backend.mode": ("external", "managed-local"),
 }
 

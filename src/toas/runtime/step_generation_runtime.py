@@ -5,6 +5,7 @@ import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..backend_policy import BackendGenerationPolicy
@@ -298,6 +299,31 @@ class GenerationRunner:
         outcome = self.build_outcome(plan, result)
         node = dict(outcome.node)
         node["_llm_call"] = outcome.model_call
+        telemetry_style = getattr(
+            getattr(self.operator_config, "session", None),
+            "telemetry_decorations",
+            "off",
+        )
+        if telemetry_style in {"inline", "comment"}:
+            from .turn_telemetry import format_turn_telemetry
+
+            model_call: dict = outcome.model_call if isinstance(outcome.model_call, dict) else {}
+            target = (
+                model_call.get("response_model")
+                or model_call.get("requested_model")
+            )
+            duration_ms = model_call.get("duration_ms")
+            telemetry = format_turn_telemetry(
+                target=target,
+                duration_ms=duration_ms,
+                timestamp=datetime.now(timezone.utc),
+                style=telemetry_style,
+            )
+            if telemetry:
+                if telemetry_style == "inline":
+                    node["marker"] = f"## TOAS:ASSISTANT {telemetry}"
+                elif telemetry_style == "comment":
+                    node["telemetry_comment"] = telemetry
         return node
 
     def build_outcome(self, plan, result) -> GenerationOutcome:

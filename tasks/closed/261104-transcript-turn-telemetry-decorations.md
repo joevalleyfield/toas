@@ -112,3 +112,20 @@ or CLI flags (`toas transcript --decorate=full`):
 - Update syntax highlighting (`syntax/toas.vim` / textmate) to recognize and
   optionally conceal sub-heading telemetry comments.
 - Achieve 100.00% statement coverage across all modified and new files.
+
+## Resolution
+
+- Defined `session.telemetry_decorations` configuration option (`"off"`, `"inline"`, `"comment"`) in `src/toas/config.py` and `src/toas/config_parsing.py`.
+- Implemented `src/toas/runtime/turn_telemetry.py` providing duration humanization, ISO/local timestamp formatting, telemetry string assembly, telemetry comment parsing, sub-heading extraction, and result node decoration.
+- Updated `src/toas/transcript.py`:
+  - `parse_transcript` extracts leading sub-heading comments (`<!-- toas: ... -->`) into `message["telemetry_comment"]` and strips them from `message["content"]`.
+  - `render_transcript` preserves and emits `telemetry_comment` immediately below turn markers for both spaced and unspaced rendering.
+  - Verified LCP invariance (`_eq` and `_lcp`) across transcripts with and without telemetry decorations.
+  - Verified `project_llm_input_from_messages` completely isolates model-input prompts from any presentation telemetry.
+- Updated `src/toas/runtime/rendering_edges.py`:
+  - `render_transcript_blocks` emits custom turn markers, result markers, and sub-heading telemetry comments for message and result nodes.
+- Updated `src/toas/runtime/step_generation_runtime.py`:
+  - `build_artifacts` decorates assistant turns with active model target, elapsed duration, and timestamp when `session.telemetry_decorations` is `"inline"` or `"comment"`.
+- Updated Vim syntax highlighting in `vim/syntax/toas_transcript.vim` to recognize decorated result headings and link `toasTelemetryComment` to `Comment`; verified with Vader test suite in `tests/vim/transcript_syntax_probe.vader`.
+- Verified 100.00% statement coverage across all 161 files in `./scripts/check.sh`.
+
