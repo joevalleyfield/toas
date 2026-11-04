@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-03
+> **Last Sync:** 2026-11-04
 
 ## 0. Manual Triage
 
@@ -99,6 +99,7 @@ Neither dated vote is a literal current queue.
   - 260831-transcript-source-reference-operations Transcript-Native Assistant Source Reference Operations (related `260803-language-exec-fenced-block-lane`, `260803-first-failure-plan-recovery`, `260831-verbatim-staged-plan-restaging`, `260627-history-affordances-semantic-restaging`, `260830-exec-grant-policy-matchers`)
     - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
 - 260803-language-exec-fenced-block-lane Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... (related `260412-json-callable-lane-parser-and-policy`, `260803-first-failure-plan-recovery`, `260803-seed-prompt-composition-study`, `260803-tool-intent-ingress-separation`, `299`)
+  - 261104-fence-io-channels Fence I/O Channels And Artifact Redirection (related `260831-language-write-materialization-fences`, `261010-direct-tool-artifact-capture`, `260926-state-step-requirements`, `260831-transcript-source-reference-operations`)
 - 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
@@ -140,7 +141,7 @@ Neither dated vote is a literal current queue.
 - **[T260823-conversation-map-projection]** Explore an inspectable conversation-map projection that reifies intent-tracking events, focus changes, and related provenance without adding cognitive... ⚠️ Stale
 - **[T260823-intent-tail-focus-trace]** Explore how TOAS can derive a durable or inspectable trace of changing focus from intent-tracking tails and surrounding transcript evidence. ⚠️ Stale
 - **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ... ⚠️ Stale
-- **[T260825-visible-transcript-turn-ids]** Define transcript-facing human names and explicit references backed by canonical identity, so users and editor or CLI surfaces can select a turn witho...
+- **[T260825-visible-transcript-turn-ids]** Define transcript-facing human names and explicit references backed by canonical identity, so users and editor or CLI surfaces can select a turn witho... ⚠️ Stale
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context. ⚠️ Stale
 - **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations ⚠️ Stale
 - **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale
@@ -149,6 +150,7 @@ Neither dated vote is a literal current queue.
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
+- **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
