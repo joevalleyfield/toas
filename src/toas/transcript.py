@@ -74,6 +74,22 @@ def parse_transcript(text: str) -> list[dict]:
                 telemetry_comment = first_line
                 lines_to_process.pop(first_idx)
 
+        turn_id = None
+        if current_marker:
+            match = _TRANSCRIPT_ROLE_MARKER_RE.fullmatch(current_marker)
+            if match and match.group(3):
+                from .runtime.turn_telemetry import parse_turn_stamp
+
+                parsed = parse_turn_stamp(match.group(3))
+                if "id" in parsed:
+                    turn_id = parsed["id"]
+        if not turn_id and telemetry_comment:
+            from .runtime.turn_telemetry import parse_turn_stamp
+
+            parsed = parse_turn_stamp(telemetry_comment)
+            if "id" in parsed:
+                turn_id = parsed["id"]
+
         msg: dict[str, str] = {
             "role": current_role,
             "content": unescape_transcript_content("\n".join(lines_to_process).strip()),
@@ -82,6 +98,8 @@ def parse_transcript(text: str) -> list[dict]:
             msg["marker"] = current_marker
         if telemetry_comment:
             msg["telemetry_comment"] = telemetry_comment
+        if turn_id:
+            msg["turn_id"] = turn_id
         messages.append(msg)
         current_lines = []
         current_marker = None

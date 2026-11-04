@@ -261,7 +261,7 @@ state:
 """
     parsed = parse_transcript(transcript)
     assert parsed == [
-        {"role": "state", "content": "state:\n  goal: explore", "marker": "## TOAS:STATE/2 [turn=2]"},
+        {"role": "state", "content": "state:\n  goal: explore", "marker": "## TOAS:STATE/2 [turn=2]", "turn_id": "2"},
     ]
     # Lossless round-trip preserves custom decoration
     assert render_transcript(parsed) == "## TOAS:STATE/2 [turn=2]\nstate:\n  goal: explore\n"
@@ -317,20 +317,21 @@ def test_transcript_telemetry_comment_round_trip_and_lcp_invariance():
 
     transcript = (
         "## TOAS:ASSISTANT\n"
-        "<!-- toas: target=claude-3-7-sonnet timestamp=2026-11-04T11:41:31Z duration=1.2s -->\n"
+        "<!-- toas: id=alpha target=claude-3-7-sonnet timestamp=2026-11-04T11:41:31Z duration=1.2s -->\n"
         "I am ready to help.\n"
     )
     parsed = parse_transcript(transcript)
     assert len(parsed) == 1
     assert parsed[0]["role"] == "assistant"
+    assert parsed[0]["turn_id"] == "alpha"
     assert parsed[0]["content"] == "I am ready to help."
-    assert parsed[0]["telemetry_comment"] == "<!-- toas: target=claude-3-7-sonnet timestamp=2026-11-04T11:41:31Z duration=1.2s -->"
+    assert parsed[0]["telemetry_comment"] == "<!-- toas: id=alpha target=claude-3-7-sonnet timestamp=2026-11-04T11:41:31Z duration=1.2s -->"
 
     # Round trip rendering (spaced and unspaced)
     rendered_unspaced = render_transcript(parsed, spaced=False)
-    assert "<!-- toas: target=claude-3-7-sonnet" in rendered_unspaced
+    assert "<!-- toas: id=alpha target=claude-3-7-sonnet" in rendered_unspaced
     rendered_spaced = render_transcript(parsed, spaced=True)
-    assert "<!-- toas: target=claude-3-7-sonnet" in rendered_spaced
+    assert "<!-- toas: id=alpha target=claude-3-7-sonnet" in rendered_spaced
 
     # LCP and equality invariance with and without telemetry comment
     clean_assistant = {"role": "assistant", "content": "I am ready to help."}
@@ -342,6 +343,43 @@ def test_transcript_telemetry_comment_round_trip_and_lcp_invariance():
     assert len(llm_input) == 1
     assert llm_input[0]["content"] == "I am ready to help."
     assert "toas:" not in llm_input[0]["content"]
+
+
+def test_transcript_compact_turn_id_parsing_and_invariance():
+    from toas.graph import project_llm_input_from_messages
+    from toas.transcript import _eq, _lcp
+
+    transcript = (
+        "## TOAS:USER [alpha]\n"
+        "Please check the SQLite database.\n\n"
+        "## TOAS:ASSISTANT [bravo claude-3-7-sonnet 11:42:00 1.2s]\n"
+        "I will check [[alpha]] for you.\n"
+    )
+    parsed = parse_transcript(transcript)
+    assert len(parsed) == 2
+    assert parsed[0]["turn_id"] == "alpha"
+    assert parsed[1]["turn_id"] == "bravo"
+
+    # LCP invariance
+    clean_user = {"role": "user", "content": "Please check the SQLite database."}
+    clean_assistant = {"role": "assistant", "content": "I will check [[alpha]] for you."}
+    assert _eq(parsed[0], clean_user)
+    assert _eq(parsed[1], clean_assistant)
+    assert _lcp(parsed, [clean_user, clean_assistant]) == 2
+
+    # Round trip preserves marker
+    rendered = render_transcript(parsed, spaced=True)
+    assert "[alpha]" in rendered
+    assert "[bravo claude-3-7-sonnet 11:42:00 1.2s]" in rendered
+
+    # LLM input strips all markers and turn IDs
+    llm_input = project_llm_input_from_messages(parsed)
+    assert len(llm_input) == 2
+    assert "marker" not in llm_input[0]
+    assert "turn_id" not in llm_input[0]
+    assert "marker" not in llm_input[1]
+    assert "turn_id" not in llm_input[1]
+
 
 
 

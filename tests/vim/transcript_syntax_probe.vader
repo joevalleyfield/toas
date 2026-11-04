@@ -129,10 +129,10 @@ Execute (escaped less-than remains ordinary Markdown text):
 
 Execute (telemetry comment and decorated headings are recognized):
   call setline(1, [
-        \ '## TOAS:ASSISTANT [target=claude duration=1.2s]',
-        \ '<!-- toas: target=claude duration=1.2s -->',
-        \ 'response content',
-        \ '## RESULT [status=OK duration=42ms]'])
+        \ '## TOAS:ASSISTANT [bravo claude 11:42:00 1.2s]',
+        \ '<!-- toas: id=bravo target=claude duration=1.2s -->',
+        \ 'response content citing [[alpha]] and [[bravo|alias]]',
+        \ '## RESULT [charlie OK 42ms]'])
   set syntax=markdown
   syntax on
   unlet! b:toas_transcript_syntax_loaded
@@ -141,5 +141,7 @@ Execute (telemetry comment and decorated headings are recognized):
   redraw!
   Assert SyntaxAt(1, 4) =~# 'toasRoleAssistant'
   Assert SyntaxAt(2, 4) =~# 'toasTelemetryComment'
+  Assert SyntaxAt(3, 26) =~# 'toasProseReference'
+  Assert SyntaxAt(3, 41) =~# 'toasProseReference'
   Assert SyntaxAt(4, 4) =~# 'toasResultHeading'
 

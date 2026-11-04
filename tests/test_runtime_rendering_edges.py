@@ -226,8 +226,9 @@ def test_render_transcript_blocks_with_telemetry_decorations():
     as_msg_result = _result(
         "assistant content",
         transcript_render="assistant_message",
-        telemetry_comment="<!-- toas: target=gpt-4o -->",
+        marker="## TOAS:ASSISTANT [bravo claude 1.0s]",
+        telemetry_comment="<!-- toas: id=bravo target=gpt-4o -->",
     )
     rendered_as_msg = render_transcript_blocks([as_msg_result])
-    assert "## TOAS:ASSISTANT\n<!-- toas: target=gpt-4o -->\n\nassistant content" in rendered_as_msg
+    assert "## TOAS:ASSISTANT [bravo claude 1.0s]\n<!-- toas: id=bravo target=gpt-4o -->\n\nassistant content" in rendered_as_msg
 

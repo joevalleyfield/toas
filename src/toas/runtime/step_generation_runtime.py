@@ -304,9 +304,11 @@ class GenerationRunner:
             "telemetry_decorations",
             "off",
         )
-        if telemetry_style in {"inline", "comment"}:
-            from .turn_telemetry import format_turn_telemetry
+        if telemetry_style in {"compact", "inline", "comment"}:
+            from .turn_telemetry import allocate_turn_handle, format_turn_telemetry
 
+            history_items = getattr(plan, "history", None) or []
+            turn_id = node.get("turn_id") or allocate_turn_handle(len(history_items))
             model_call: dict = outcome.model_call if isinstance(outcome.model_call, dict) else {}
             target = (
                 model_call.get("response_model")
@@ -314,13 +316,15 @@ class GenerationRunner:
             )
             duration_ms = model_call.get("duration_ms")
             telemetry = format_turn_telemetry(
+                turn_id=turn_id,
                 target=target,
                 duration_ms=duration_ms,
                 timestamp=datetime.now(timezone.utc),
                 style=telemetry_style,
             )
             if telemetry:
-                if telemetry_style == "inline":
+                node["turn_id"] = turn_id
+                if telemetry_style in {"compact", "inline"}:
                     node["marker"] = f"## TOAS:ASSISTANT {telemetry}"
                 elif telemetry_style == "comment":
                     node["telemetry_comment"] = telemetry

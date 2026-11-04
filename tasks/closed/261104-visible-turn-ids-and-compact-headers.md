@@ -75,3 +75,16 @@ event hash (`evt_01j7b2`).
 - Implement stateless turn selector resolution supporting visible handles.
 - Add Vim syntax highlighting for in-prose `[[handle]]` citations.
 - Achieve 100.00% statement coverage across all modified and new files.
+
+## Resolution
+
+- Implemented deterministic NATO phonetic turn handle allocation (`allocate_turn_handle`) in `src/toas/runtime/turn_telemetry.py` (`alpha`, `bravo`, ..., `zulu`, `alpha-2`, etc.).
+- Implemented `parse_turn_stamp` in `src/toas/runtime/turn_telemetry.py` supporting both keyless compact stamps (`[bravo claude-3-7-sonnet 11:42:00 1.2s]`, `[charlie OK 42ms read_file]`), bold/sigil handles (`**bravo**`, `@bravo`, `[[bravo]]`), and verbose key-value pairs (`[id=bravo target=...]`).
+- Extended `format_turn_telemetry` with `"compact"` style (keyless stamp where token shapes are structurally distinct) and added `"compact"` choice to `session.telemetry_decorations` in `src/toas/config_parsing.py`.
+- Updated `src/toas/transcript.py` (`parse_transcript`) to extract `turn_id` into message dictionaries while maintaining 100% LCP invariance in `_eq` / `_lcp` and prompt-packet sanitization in `project_llm_input_from_messages`.
+- Updated `src/toas/runtime/step_generation_runtime.py` to auto-allocate turn handles and project compact or verbose stamps for assistant turns.
+- Implemented stateless turn selector resolution (`resolve_turn_selector` and `_lineage` in `src/toas/graph.py`), enabling selector lookup by visible turn handle, metadata marker, or ID prefix in addition to canonical event hash.
+- Added in-prose reference extraction (`extract_in_prose_references`) for `[[handle]]` and `[[handle|alias]]`.
+- Updated Vim syntax definitions in `vim/syntax/toas_transcript.vim` linking `toasProseReference` to `Underlined`, verified with Vader test suite in `tests/vim/transcript_syntax_probe.vader`.
+- Verified 100.00% statement coverage across all 161 files in `./scripts/check.sh`.
+

@@ -22,6 +22,7 @@ syn match toasRoleStateDiff '^## TOAS:STATE-DIFF\%(/[^[:space:]]\+\)\?\%(\s\+.*\
 syn match toasResultHeading '^## RESULT\%(\s\+.*\)\?$'
 syn match toasSubregionAssistantHeading '^## ASSISTANT$'
 syn match toasTelemetryComment '^<!--\s*toas:\s*.*-->$'
+syn match toasProseReference '\[\[[a-zA-Z0-9_-]\+\%(|[^]]\+\)\?\]\]'
 
 " Language delegates are included by reference. The TOAS fence regions below
 " decide when the delegated syntax is active.
@@ -67,4 +68,5 @@ hi def link toasResultHeading PreProc
 hi def link toasSubregionAssistantHeading Special
 hi def link toasFenceDelimiter Delimiter
 hi def link toasTelemetryComment Comment
+hi def link toasProseReference Underlined
 hi def link toasInertFence Comment

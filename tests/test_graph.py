@@ -1425,6 +1425,51 @@ def test_project_transcript_rebuilds_message_blocks_from_tip_lineage():
     assert project_transcript(events) == "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n"
 
 
+def test_project_transcript_resolves_selectors_by_handle_and_prefix():
+    events = [
+        {
+            "id": "evt_01j7b2",
+            "parent": None,
+            "role": "user",
+            "content": "hello",
+            "metadata": {"marker": "## TOAS:USER [alpha]"},
+        },
+        {
+            "id": "evt_02k8c3",
+            "parent": "evt_01j7b2",
+            "role": "assistant",
+            "content": "hi",
+            "metadata": {"turn_id": "bravo"},
+        },
+        {
+            "id": "evt_03m9d4",
+            "parent": "evt_02k8c3",
+            "role": "user",
+            "content": "more",
+            "metadata": {},
+        },
+    ]
+
+    # Resolve by metadata marker turn_id
+    trans_alpha = project_transcript(events, head_id="alpha")
+    assert trans_alpha == "## TOAS:USER [alpha]\n\nhello\n"
+
+    # Resolve by metadata turn_id
+    trans_bravo = project_transcript(events, head_id="bravo")
+    assert "hello" in trans_bravo and "hi" in trans_bravo and "more" not in trans_bravo
+
+    # Resolve by prefix match (not exact)
+    trans_prefix = project_transcript(events, head_id="evt_02k8")
+    assert "hello" in trans_prefix and "hi" in trans_prefix and "more" not in trans_prefix
+
+    # Resolve by phonetic handle fallback (third turn is index 2 -> charlie)
+    trans_charlie = project_transcript(events, head_id="charlie")
+    assert "more" in trans_charlie
+
+    # Non-existent head_id returns empty transcript
+    assert project_transcript(events, head_id="nonexistent") == ""
+
+
 def test_list_heads_returns_terminal_message_events():
     events = [
         {

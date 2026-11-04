@@ -1259,6 +1259,29 @@ def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
         )
     else:
         head = event_map.get(head_id)
+        if head is None:
+            for eid, ev in event_map.items():
+                if eid.startswith(head_id):
+                    head = ev
+                    break
+                meta = ev.get("metadata")
+                if isinstance(meta, dict):
+                    if meta.get("turn_id") == head_id or meta.get("handle") == head_id:
+                        head = ev
+                        break
+                    if "marker" in meta:
+                        from .runtime.turn_telemetry import parse_turn_stamp
+
+                        if parse_turn_stamp(meta["marker"]).get("id") == head_id:
+                            head = ev
+                            break
+            if head is None:
+                from .runtime.turn_telemetry import allocate_turn_handle
+
+                for idx, ev in enumerate(_message_events_core(events)):
+                    if allocate_turn_handle(idx) == head_id:
+                        head = ev
+                        break
 
     if head is None:
         return []
