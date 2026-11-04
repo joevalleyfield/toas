@@ -1219,7 +1219,7 @@ def test_start_async_step_projection_callback_hidden_command_only_reasoning_pres
     assert not any(e["type"] == "llm_delta" and e.get("lane") == "llm_answer" for e in run.events)
 
 
-def test_start_async_step_projection_callback_suppresses_typed_streamed_answer_projection(monkeypatch, tmp_path):
+def test_start_async_step_projection_callback_emits_canonical_answer_projection(monkeypatch, tmp_path):
     class _InlineThread:
         def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
@@ -1278,10 +1278,12 @@ def test_start_async_step_projection_callback_suppresses_typed_streamed_answer_p
     )
 
     run = created["run"]
-    assert not any(e["type"] == "projection_delta" for e in run.events)
+    projection_events = [e for e in run.events if e["type"] == "projection_delta" and e.get("lane") == "projection"]
+    assert len(projection_events) == 1
+    assert projection_events[0]["payload"]["text"] == "## TOAS:ASSISTANT\n\nanswer\n"
 
 
-def test_start_async_step_projection_does_not_replay_streamed_assistant(monkeypatch, tmp_path):
+def test_start_async_step_projection_emits_canonical_projection_on_projection_lane(monkeypatch, tmp_path):
     class _InlineThread:
         def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
@@ -1349,8 +1351,9 @@ def test_start_async_step_projection_does_not_replay_streamed_assistant(monkeypa
         and e.get("lane") == "projection"
         and e.get("payload", {}).get("projection", {}).get("source") == "runtime_step"
     ]
-    assert projection_events == []
-    assert run.output == ""
+    assert len(projection_events) == 1
+    assert projection_events[0]["payload"]["text"] == assistant_projection
+    assert run.output == assistant_projection
 
 
 def test_start_async_step_asyncio_mode_when_flag_enabled(monkeypatch, tmp_path):

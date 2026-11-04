@@ -213,10 +213,10 @@ should return only with a current timing reproduction.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261104-visible-turn-ids-and-compact-headers]** Visible Turn IDs And Compact Header Stamps
+- **[T261104-vim-telemetry-decorations-streaming-reconciliation]** Vim Telemetry Decorations and Streaming Reconciliation
 - **[T261104-transcript-turn-telemetry-decorations]** Transcript Turn Telemetry And Execution Status Decorations
 - **[T261102-windows-crlf-spilled-scratch-blocks]** Prevent Windows `\r\n` output from double-translating into `\r\r\n` inside `.toas/scratch/ib_*.txt` files and eliminate downstream phantom blank lines...
 - **[T261102-executable-policy-module-and-validators]** Connect the central post-resolution executable grant evaluator to user-authored policy by establishing a discovery convention for workspace policy mod...
-- **[T261102-executable-log-harvester-and-policy-scaffolder]** Extract observed executable commands from append-only event logs (`.toas/events.jsonl`) to profile assistant and user tool usage and scaffold tailored...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

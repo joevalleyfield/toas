@@ -569,19 +569,17 @@ def start_async_step(
         def _on_projection_delta(text: str) -> None:
             if not isinstance(text, str) or not text:
                 return
-            if _is_rendered_assistant_projection(text):
-                with run.lock:
-                    suppress = run.llm_answer_bytes > 0 or bool(run.meta.pop("suppress_next_assistant_projection", False))
-                    completion_note = run.meta.pop("pending_completion_note", None)
-                if suppress:
-                    if isinstance(completion_note, str) and completion_note:
-                        _emit_projection_delta_event(run, completion_note)
-                    return
-            else:
-                with run.lock:
-                    completion_note = run.meta.pop("pending_completion_note", None)
+            with run.lock:
+                suppress = _is_rendered_assistant_projection(text) and bool(
+                    run.meta.pop("suppress_next_assistant_projection", False)
+                )
+                completion_note = run.meta.pop("pending_completion_note", None)
+            if suppress:
                 if isinstance(completion_note, str) and completion_note:
-                    text += completion_note
+                    _emit_projection_delta_event(run, completion_note)
+                return
+            if isinstance(completion_note, str) and completion_note:
+                text += completion_note
             _raise_if_cancel_requested(run)
             _emit_projection_delta_event(run, text)
 
