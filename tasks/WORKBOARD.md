@@ -151,6 +151,7 @@ Neither dated vote is a literal current queue.
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
+- **[T261105-multi-command-step-facade]** Multi-Command Operator Execution via Step Facade
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
