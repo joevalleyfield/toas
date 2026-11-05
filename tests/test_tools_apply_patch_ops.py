@@ -253,7 +253,10 @@ def test_run_apply_patch_move_success(tmp_path, monkeypatch):
 
 def test_apply_patch_helpers_edge_cases(tmp_path, monkeypatch):
     from toas.tools_cluster.apply_patch_ops import (
+        _shift_indent,
+        find_unique_indent_shifted_chunk,
         format_change_chunk_preview,
+        format_chunk_mismatch_diff,
         split_old_new_chunk,
     )
 
@@ -265,6 +268,29 @@ def test_apply_patch_helpers_edge_cases(tmp_path, monkeypatch):
     # format_change_chunk_preview with more than max_lines
     preview = format_change_chunk_preview(["a", "b", "c", "d", "e"], max_lines=3)
     assert "..." in preview
+
+    # _shift_indent with blank lines and negative delta
+    shifted_pos = _shift_indent(["", "  code"], 2)
+    assert shifted_pos == ["", "    code"]
+    shifted_neg = _shift_indent(["", "    code"], -2)
+    assert shifted_neg == ["", "  code"]
+
+    # find_unique_indent_shifted_chunk edge cases
+    assert find_unique_indent_shifted_chunk(["a"], [], []) is None
+    assert find_unique_indent_shifted_chunk(["a"], ["   "], ["   "]) is None
+
+    # Candidate with empty line matching old_chunk empty line and mismatching
+    lines_with_empty = ["", "    target"]
+    chunk_with_empty = ["", "  target"]
+    res = find_unique_indent_shifted_chunk(lines_with_empty, chunk_with_empty, chunk_with_empty)
+    assert res is not None and res[0] == 0
+
+    lines_non_empty = ["not empty", "    target"]
+    assert find_unique_indent_shifted_chunk(lines_non_empty, chunk_with_empty, chunk_with_empty) is None
+
+    # format_chunk_mismatch_diff empty inputs
+    assert format_chunk_mismatch_diff([], ["x"]) == ""
+    assert format_chunk_mismatch_diff(["x"], []) == ""
 
 
 def test_run_apply_patch_invalid_hunk_kind(tmp_path, monkeypatch):

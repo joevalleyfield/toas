@@ -1947,6 +1947,47 @@ def test_apply_patch_move_fails_when_target_exists(tmp_path, monkeypatch):
         execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
 
 
+def test_apply_patch_tool_tolerates_uniform_indentation_shift(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "code.py"
+    path.write_text("    def foo():\n        x = 1\n        return x\n", encoding="utf-8")
+
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: code.py\n"
+        "@@\n"
+        " def foo():\n"
+        "-    x = 1\n"
+        "+    x = 2\n"
+        "     return x\n"
+        "*** End Patch\n"
+    )
+    result = execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+    assert result["ok"] is True
+    assert path.read_text(encoding="utf-8") == "    def foo():\n        x = 2\n        return x\n"
+
+
+def test_apply_patch_tool_context_mismatch_renders_unified_diff(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "sample.py"
+    path.write_text("def target():\n    value = 42\n    return value\n", encoding="utf-8")
+
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: sample.py\n"
+        "@@\n"
+        " def target():\n"
+        "-    value = 99\n"
+        "+    value = 100\n"
+        "     return value\n"
+        "*** End Patch\n"
+    )
+    with pytest.raises(RuntimeError, match="context mismatch") as excinfo:
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+    msg = str(excinfo.value)
+    assert "---" in msg or "+++" in msg
+
+
 def test_get_structure_python_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     test_file = tmp_path / "module.py"
