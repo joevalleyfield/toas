@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from difflib import SequenceMatcher, unified_diff
 
 from .file_write_edges import write_text_with_tool_newline_policy
 
@@ -76,6 +77,104 @@ def find_chunk_start(lines: list[str], chunk: list[str], start_at: int) -> int:
     return -1
 
 
+def _shift_indent(lines: list[str], delta: int) -> list[str]:
+    shifted: list[str] = []
+    for line in lines:
+        if not line.strip():
+            shifted.append(line)
+        elif delta > 0:
+            shifted.append(" " * delta + line)
+        else:
+            to_remove = -delta
+            leading = len(line) - len(line.lstrip(" "))
+            remove_count = min(to_remove, leading)
+            shifted.append(line[remove_count:])
+    return shifted
+
+
+def find_unique_indent_shifted_chunk(
+    lines: list[str], old_chunk: list[str], new_chunk: list[str]
+) -> tuple[int, list[str], list[str]] | None:
+    if not old_chunk:
+        return None
+    non_empty_indices = [idx for idx, line in enumerate(old_chunk) if line.strip()]
+    if not non_empty_indices:
+        return None
+
+    chunk_len = len(old_chunk)
+    max_start = len(lines) - chunk_len
+    matches: list[tuple[int, int]] = []
+
+    for start in range(0, max_start + 1):
+        candidate = lines[start : start + chunk_len]
+        # Verify non-blank stripped line parity
+        mismatch = False
+        deltas: list[int] = []
+        for idx in range(chunk_len):
+            c_line = candidate[idx]
+            o_line = old_chunk[idx]
+            if not o_line.strip():
+                if c_line.strip():
+                    mismatch = True
+                    break
+                continue
+            if c_line.strip() != o_line.strip():
+                mismatch = True
+                break
+            c_indent = len(c_line) - len(c_line.lstrip(" "))
+            o_indent = len(o_line) - len(o_line.lstrip(" "))
+            deltas.append(c_indent - o_indent)
+
+        if not mismatch and deltas and all(d == deltas[0] for d in deltas):
+            matches.append((start, deltas[0]))
+
+    if len(matches) == 1:
+        start_idx, delta = matches[0]
+        shifted_old = _shift_indent(old_chunk, delta)
+        shifted_new = _shift_indent(new_chunk, delta)
+        return start_idx, shifted_old, shifted_new
+    return None
+
+
+def format_chunk_mismatch_diff(original_lines: list[str], old_chunk: list[str]) -> str:
+    if not original_lines or not old_chunk:
+        return ""
+    chunk_len = len(old_chunk)
+    if len(original_lines) <= chunk_len:
+        best_window = original_lines
+    else:
+        best_start = 0
+        best_ratio = -1.0
+        search_lines = [l.strip() for l in old_chunk if l.strip()]
+        candidate_starts: set[int] = {0, max(0, len(original_lines) - chunk_len)}
+
+        for target in search_lines[:4]:
+            for line_idx, file_line in enumerate(original_lines):
+                if target in file_line:
+                    candidate_starts.add(max(0, min(line_idx, len(original_lines) - chunk_len)))
+                    candidate_starts.add(max(0, min(line_idx - chunk_len // 2, len(original_lines) - chunk_len)))
+
+        for start in candidate_starts:
+            window = original_lines[start : start + chunk_len]
+            ratio = SequenceMatcher(None, [l.strip() for l in old_chunk], [l.strip() for l in window]).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_start = start
+
+        best_window = original_lines[best_start : best_start + chunk_len]
+
+    diff_lines = list(
+        unified_diff(
+            [line + "\n" for line in best_window],
+            [line + "\n" for line in old_chunk],
+            fromfile="actual",
+            tofile="expected",
+            n=2,
+        )
+    )
+    return "".join(diff_lines).strip()
+
+
 def split_old_new_chunk(change_lines: list[str]) -> tuple[list[str], list[str]]:
     old_chunk: list[str] = []
     new_chunk: list[str] = []
@@ -122,10 +221,16 @@ def apply_update_change_lines(original_lines: list[str], change_lines: list[str]
 
     start = find_chunk_start(original_lines, old_chunk, 0)
     if start < 0:
-        raise RuntimeError(
-            "tool apply_patch failed to apply update chunk"
-            f" (context mismatch in {path_arg}; expected chunk not found; chunk: {preview})"
-        )
+        shifted = find_unique_indent_shifted_chunk(original_lines, old_chunk, new_chunk)
+        if shifted is not None:
+            start, old_chunk, new_chunk = shifted
+        else:
+            diff_text = format_chunk_mismatch_diff(original_lines, old_chunk)
+            diff_msg = f"\n{diff_text}" if diff_text else ""
+            raise RuntimeError(
+                "tool apply_patch failed to apply update chunk"
+                f" (context mismatch in {path_arg}; expected chunk not found; chunk: {preview}){diff_msg}"
+            )
 
     end = start + len(old_chunk)
     return original_lines[:start] + new_chunk + original_lines[end:]
