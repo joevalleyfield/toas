@@ -151,7 +151,6 @@ Neither dated vote is a literal current queue.
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
-- **[T261105-multi-command-step-facade]** Multi-Command Operator Execution via Step Facade
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -214,10 +213,10 @@ should return only with a current timing reproduction.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261105-user-turn-and-result-telemetry-decorations]** User Turn And Result Telemetry Decorations
+- **[T261105-multi-command-step-facade]** Multi-Command Operator Execution via Step Facade
 - **[T261104-visible-turn-ids-and-compact-headers]** Visible Turn IDs And Compact Header Stamps
 - **[T261104-vim-telemetry-decorations-streaming-reconciliation]** Vim Telemetry Decorations and Streaming Reconciliation
 - **[T261104-transcript-turn-telemetry-decorations]** Transcript Turn Telemetry And Execution Status Decorations
-- **[T261102-windows-crlf-spilled-scratch-blocks]** Prevent Windows `\r\n` output from double-translating into `\r\r\n` inside `.toas/scratch/ib_*.txt` files and eliminate downstream phantom blank lines...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

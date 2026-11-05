@@ -26,7 +26,7 @@ def given_workspace(tmp_path: Path) -> dict:
 
 
 @when("the operator submits one TOAS:CONTROL turn with multiple slash commands")
-def when_submit_multi_control_turn(acceptance_state: dict) -> None:
+def when_submit_multi_control_turn(acceptance_state: dict, capsys) -> None:
     session_path = acceptance_state["repo"] / ".toas" / "session.md"
     session_path.write_text(
         (
@@ -43,6 +43,7 @@ def when_submit_multi_control_turn(acceptance_state: dict) -> None:
         operator_step_once()
     finally:
         os.chdir(cwd)
+    acceptance_state["rendered"] = capsys.readouterr().out
     acceptance_state["events"] = read_log(str(acceptance_state["events_path"]))
 
 
@@ -55,6 +56,10 @@ def then_verify_order(acceptance_state: dict) -> None:
     assert "/config set prompt.mode mimic" in joined
     assert "/config set prompt.constraints tools-guidance-core,no-chatty" in joined
     assert "/prompt role/pragmatic-engineer_v1" in joined
+    rendered = acceptance_state.get("rendered", "")
+    assert "source=command.config" in rendered
+    assert "Act as a pragmatic senior engineer" in rendered
+    assert rendered.count("## RESULT") >= 3
 
 
 @when("the operator submits one TOAS:USER turn with mixed multi-instance intents")

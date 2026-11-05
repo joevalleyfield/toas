@@ -22,6 +22,7 @@ from .runtime.context_assembly import build_context_packet, validate_context_pac
 from .runtime.frontier_resolution import (
     extract_staged_plan as _extract_staged_plan,
     extract_operator_command as _extract_operator_command,
+    extract_operator_commands as extract_operator_commands,
     assistant_loose_command_projection as _assistant_loose_command_projection,
     extract_frontier_assistant_candidates as _extract_frontier_assistant_candidates,
     render_plan_as_yaml_preview as _render_plan_as_yaml_preview,
@@ -69,6 +70,7 @@ _lcp = _transcript_lcp
 __all__ = [
     "RESULT_ORIGIN_KINDS",
     "RESULT_ORIGIN_ROLES",
+    "extract_operator_commands",
     "make_result_node",
     "projection_lane_for_result_origin",
     "validate_result_node",

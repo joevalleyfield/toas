@@ -3569,6 +3569,52 @@ def test_step_user_mixed_plan_and_slash_command_strict_rejects_ambiguity():
     assert "#d2:operator" in out[0]["content"]
 
 
+def test_step_control_multi_slash_command_runs_in_source_order_by_default():
+    transcript = """\
+## TOAS:CONTROL
+/config set generation.thinking_mode enabled
+/help
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    assert "generation.thinking_mode" in out[0]["content"]
+    assert "enabled" in out[0]["content"]
+    assert out[0]["intent_execution"] == {"id": 1, "kind": "operator", "order": 1, "total": 2, "arbitration": "in_order"}
+    assert out[1]["role"] == "result"
+    assert "help (compact):" in out[1]["content"]
+    assert out[1]["intent_execution"] == {"id": 2, "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"}
+
+
+def test_step_user_multi_slash_command_runs_in_source_order_by_default():
+    transcript = """\
+## TOAS:USER
+/config set generation.thinking_mode enabled
+/help
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    assert "generation.thinking_mode" in out[0]["content"]
+    assert "enabled" in out[0]["content"]
+    assert out[0]["intent_execution"] == {"id": 1, "kind": "operator", "order": 1, "total": 2, "arbitration": "in_order"}
+    assert out[1]["role"] == "result"
+    assert "help (compact):" in out[1]["content"]
+    assert out[1]["intent_execution"] == {"id": 2, "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"}
+
+
+def test_step_exports_extract_operator_commands():
+    import toas.step as step_mod
+
+    assert callable(step_mod.extract_operator_commands)
+    assert "extract_operator_commands" in step_mod.__all__
+    assert step_mod.extract_operator_commands("/pwd\n/cd /tmp") == [("pwd", []), ("cd", ["/tmp"])]
+
+
 def test_step_default_config_unchanged_behavior():
     # Default config must not change observable behavior from before config existed
     transcript = """\
@@ -4389,6 +4435,16 @@ def test_resolve_selected_model_reads_legacy_scalar_selection_for_invocation_fal
 
     working = [{"role": "user", "content": "/model qwen3.6"}]
     assert resolve_selected_model(working) == "qwen3.6"
+
+
+def test_resolve_selected_model_skips_non_user_or_non_model_messages():
+    from toas.step import resolve_selected_model
+
+    working = [
+        {"role": "assistant", "content": "/model qwen3.6"},
+        {"role": "user", "content": "hello world"},
+    ]
+    assert resolve_selected_model(working) is None
 
 
 # --- resolve_selected_endpoint ---
