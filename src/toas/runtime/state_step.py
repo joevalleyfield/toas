@@ -1491,7 +1491,7 @@ def _control_result_observations(turns: list[dict[str, str]]) -> list[dict[str, 
     for turn in turns:
         if turn.get("role") != "control" or not isinstance(turn.get("content"), str):
             continue
-        blocks = re.split(r"(?m)^## RESULT\s*$", turn["content"])
+        blocks = re.split(r"(?m)^## RESULT(?:[ \t]+[^\r\n]*)?$", turn["content"])
         for block in blocks[1:]:
             content = block.strip()
             if content:
@@ -1505,7 +1505,7 @@ def _user_result_observations(turns: list[dict[str, str]]) -> list[str]:
     for turn in turns:
         if turn.get("role") != "user" or not isinstance(turn.get("content"), str):
             continue
-        blocks = re.split(r"(?m)^## RESULT\s*$", turn["content"])
+        blocks = re.split(r"(?m)^## RESULT(?:[ \t]+[^\r\n]*)?$", turn["content"])
         for block in blocks[1:]:
             content = block.strip()
             if content:
@@ -1519,7 +1519,7 @@ def _user_input_observations(turns: list[dict[str, str]]) -> list[dict[str, str]
     for turn in turns:
         if turn.get("role") != "user" or not isinstance(turn.get("content"), str):
             continue
-        blocks = re.split(r"(?m)^## RESULT\s*$", turn["content"])
+        blocks = re.split(r"(?m)^## RESULT(?:[ \t]+[^\r\n]*)?$", turn["content"])
         prose = blocks[0].strip()
         if prose:
             inputs.append({"content": condense_inert_blocks(prose)})

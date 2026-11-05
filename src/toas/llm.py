@@ -26,7 +26,7 @@ _client: OpenAI | None = None
 _client_key: tuple[str, str, str] | None = None
 _client_lock = threading.Lock()
 
-_RESULT_MARKER_RE = re.compile(r"(?m)^## RESULT(?:\n|$)")
+_RESULT_MARKER_RE = re.compile(r"(?m)^## RESULT(?:[ \t]+[^\r\n]*)?(?:\r?\n|$)")
 _ASSISTANT_USER_TURN_RE = re.compile(r"(?m)^## USER$")
 _YAML_FENCE_RE = re.compile(r"(?ms)^```ya?ml[^\n]*\n(.*?)^```[ \t]*$")
 _CALLABLE_YAML_KEY_RE = re.compile(r"(?m)^\s*(?:-\s*)?(?:tool_name|operation)\s*:")

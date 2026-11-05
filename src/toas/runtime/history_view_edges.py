@@ -17,7 +17,7 @@ def head_first_line(content: str) -> str:
 def _is_low_signal_preview_line(stripped_line: str) -> bool:
     if not stripped_line:
         return True
-    if stripped_line == "## RESULT":
+    if stripped_line == "## RESULT" or stripped_line.startswith("## RESULT "):
         return True
     return stripped_line.startswith("```") or stripped_line.startswith("~~~")
 

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 _TELEMETRY_COMMENT_RE = re.compile(r"^<!--\s*toas:\s*(.*?)\s*-->$")
 _TIMESTAMP_TOKEN_RE = re.compile(r"^\d{1,2}:\d{2}(?::\d{2})?$")
-_DURATION_TOKEN_RE = re.compile(r"^\d+(?:\.\d+)?(?:ms|s|m|h)$")
+_DURATION_TOKEN_RE = re.compile(r"^(?:\d+h(?:[0-9]+m)?|\d+m(?:[0-9]+s)?|\d+(?:\.\d+)?s|\d+ms)$")
 _STATUS_TOKENS = {"OK", "ERROR", "FAIL", "CANCELLED"}
 _PROSE_REFERENCE_RE = re.compile(r"(?<!\\)\[\[([a-zA-Z0-9_-]+)(?:\|[^\]]+)?\]\]")
 
@@ -58,7 +58,16 @@ def humanize_duration(ms: int | float | None) -> str | None:
         return None
     if ms < 1000:
         return f"{int(ms)}ms"
-    return f"{ms / 1000:.1f}s"
+    if ms < 60000:
+        return f"{ms / 1000:.1f}s"
+    total_seconds = int(ms // 1000)
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    if minutes < 60:
+        return f"{minutes}m{seconds}s" if seconds else f"{minutes}m"
+    hours = minutes // 60
+    rem_minutes = minutes % 60
+    return f"{hours}h{rem_minutes}m" if rem_minutes else f"{hours}h"
 
 
 def format_timestamp(ts: datetime | str | None, *, compact: bool = True) -> str | None:
@@ -273,6 +282,136 @@ def resolve_turn_selector(
     return None
 
 
+def resolve_node_handle(node: dict | None, default_index: int = 0) -> str:
+    """Resolve turn handle from node turn_id, handle, marker, comment, or default index."""
+    if not isinstance(node, dict):
+        return allocate_turn_handle(default_index)
+    if node.get("turn_id"):
+        return str(node["turn_id"]).strip()
+    if node.get("handle"):
+        return str(node["handle"]).strip()
+    marker = node.get("marker")
+    if isinstance(marker, str):
+        parsed = parse_turn_stamp(marker)
+        if "id" in parsed:
+            return parsed["id"]
+    comment = node.get("telemetry_comment")
+    if isinstance(comment, str):
+        parsed = parse_turn_stamp(comment)
+        if "id" in parsed:
+            return parsed["id"]
+    return allocate_turn_handle(default_index)
+
+
+def format_result_hierarchical_id(
+    parent_handle: str,
+    *,
+    plan_index: int = 1,
+    op_index: int = 1,
+) -> str:
+    """Format hierarchical provenance ID: parent_handle.p#.o#."""
+    clean_parent = parent_handle.strip() if parent_handle else "alpha"
+    p = max(1, plan_index)
+    o = max(1, op_index)
+    return f"{clean_parent}.p{p}.o{o}"
+
+
+def compute_human_dwell_ms(
+    prior_events: list[dict],
+    current_time: datetime | float | None = None,
+) -> int | None:
+    """Calculate heuristic human dwell time in ms since previous turn completion.
+
+    Returns None if there are no prior events or no prior timestamp.
+    """
+    if not prior_events:
+        return None
+    last_ts: float | None = None
+    for event in reversed(prior_events):
+        if not isinstance(event, dict):
+            continue
+        raw_ts = event.get("timestamp")
+        if raw_ts is None:
+            continue
+        if isinstance(raw_ts, (int, float)):
+            last_ts = float(raw_ts)
+            break
+        if isinstance(raw_ts, str):
+            try:
+                last_ts = datetime.fromisoformat(raw_ts.replace("Z", "+00:00")).timestamp()
+                break
+            except ValueError:
+                continue
+    if last_ts is None:
+        return None
+
+    now_ts: float
+    if current_time is None:
+        now_ts = datetime.now(timezone.utc).timestamp()
+    elif isinstance(current_time, (int, float)):
+        now_ts = float(current_time)
+    elif isinstance(current_time, datetime):
+        now_ts = current_time.timestamp()
+    else:
+        now_ts = datetime.now(timezone.utc).timestamp()
+
+    delta_s = max(0.0, now_ts - last_ts)
+    return int(delta_s * 1000)
+
+
+def is_human_user_turn(node: dict) -> bool:
+    """Check if a node represents a human-authored user turn with substantive content.
+
+    Returns False if the turn is purely a structural container enclosing tool results.
+    """
+    if not isinstance(node, dict) or node.get("role") != "user":
+        return False
+    content = str(node.get("content", ""))
+    blocks = re.split(r"(?m)^## RESULT(?:[ \t]+[^\r\n]*)?$", content)
+    prose = blocks[0].strip()
+    return bool(prose)
+
+
+def decorate_user_turn_node(
+    node: dict,
+    *,
+    style: str = "compact",
+    turn_id: str | None = None,
+    duration_ms: int | float | None = None,
+    timestamp: datetime | str | None = None,
+) -> dict:
+    """Decorate a human user turn with turn handle, timestamp, and dwell duration."""
+    if style not in {"compact", "inline", "comment"} or not is_human_user_turn(node):
+        return node
+    if not turn_id and node.get("marker"):
+        parsed = parse_turn_stamp(node["marker"])
+        if "id" in parsed:
+            turn_id = parsed["id"]
+    tid = turn_id or node.get("turn_id")
+    telemetry = format_turn_telemetry(
+        turn_id=tid,
+        duration_ms=duration_ms,
+        timestamp=timestamp or datetime.now(timezone.utc),
+        style=style,
+    )
+    if telemetry:
+        if tid:
+            node["turn_id"] = tid
+        if style in {"compact", "inline"}:
+            node["marker"] = f"## TOAS:USER {telemetry}"
+        elif style == "comment":
+            node["telemetry_comment"] = telemetry
+        meta = node.setdefault("metadata", {})
+        if node.get("marker"):
+            meta["marker"] = node["marker"]
+        if node.get("telemetry_comment"):
+            meta["telemetry_comment"] = node["telemetry_comment"]
+        if duration_ms is not None:
+            meta["duration_ms"] = duration_ms
+            node["duration_ms"] = duration_ms
+    return node
+
+
 def decorate_result_node(
     node: dict,
     *,
@@ -286,8 +425,15 @@ def decorate_result_node(
         return node
     raw_payload = node.get("payload")
     payload: dict = raw_payload if isinstance(raw_payload, dict) else {}
-    status = "OK" if payload.get("ok", True) is not False else "ERROR"
-    tool_name = payload.get("tool_name")
+    is_error = (
+        payload.get("ok") is False
+        or bool(payload.get("error"))
+        or str(node.get("content", "")).startswith("[ERROR]")
+    )
+    status = "ERROR" if is_error else "OK"
+    tool_name = payload.get("tool_name") or node.get("origin_kind")
+    if tool_name == "user_shell":
+        tool_name = "shell"
     dur = duration_ms if duration_ms is not None else payload.get("duration_ms")
     tid = turn_id or node.get("turn_id")
     telemetry = format_turn_telemetry(
@@ -299,6 +445,8 @@ def decorate_result_node(
         style=style,
     )
     if telemetry:
+        if tid:
+            node["turn_id"] = tid
         if style in {"compact", "inline"}:
             node["result_marker"] = f"## RESULT {telemetry}"
         elif style == "comment":

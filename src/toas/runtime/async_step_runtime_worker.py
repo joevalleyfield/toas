@@ -98,7 +98,7 @@ def emit_tool_events_from_line(
             }
         )
         return
-    if stripped == "## RESULT":
+    if stripped == "## RESULT" or stripped.startswith("## RESULT "):
         run.meta["in_result_block"] = True
         emit_stream_event(run, "tool_progress", {"stage": "result_block"}, lane="tool", phase="delta")
         return

@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-04
+> **Last Sync:** 2026-11-05
 
 ## 0. Manual Triage
 
@@ -136,7 +136,7 @@ Neither dated vote is a literal current queue.
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... ⚠️ Stale
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... ⚠️ Stale
 - **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri... ⚠️ Stale
-- **[T260811-activity-health-telemetry]** Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ...
+- **[T260811-activity-health-telemetry]** Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... ⚠️ Stale
 - **[T260813-transcript-highlighting-design]** Explore a role-aware syntax-highlighting model for TOAS transcripts in Vim. The transcript remains an ordinary Markdown document, but its role heading... ⚠️ Stale
 - **[T260823-conversation-map-projection]** Explore an inspectable conversation-map projection that reifies intent-tracking events, focus changes, and related provenance without adding cognitive... ⚠️ Stale
 - **[T260823-intent-tail-focus-trace]** Explore how TOAS can derive a durable or inspectable trace of changing focus from intent-tracking tails and surrounding transcript evidence. ⚠️ Stale
@@ -212,11 +212,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261105-user-turn-and-result-telemetry-decorations]** User Turn And Result Telemetry Decorations
 - **[T261104-visible-turn-ids-and-compact-headers]** Visible Turn IDs And Compact Header Stamps
 - **[T261104-vim-telemetry-decorations-streaming-reconciliation]** Vim Telemetry Decorations and Streaming Reconciliation
 - **[T261104-transcript-turn-telemetry-decorations]** Transcript Turn Telemetry And Execution Status Decorations
 - **[T261102-windows-crlf-spilled-scratch-blocks]** Prevent Windows `\r\n` output from double-translating into `\r\r\n` inside `.toas/scratch/ib_*.txt` files and eliminate downstream phantom blank lines...
-- **[T261102-executable-policy-module-and-validators]** Connect the central post-resolution executable grant evaluator to user-authored policy by establishing a discovery convention for workspace policy mod...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

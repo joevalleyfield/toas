@@ -1583,7 +1583,15 @@ def run_step(  # noqa: PLR0913
                 origin_kind="tool_call",
             )
         ]
-        return handoff.new_from_transcript + consequences, consequences
+        new_from_transcript, consequences = _decorate_step_telemetry(
+            new_from_transcript=handoff.new_from_transcript,
+            consequences=consequences,
+            frontier=handoff.frontier,
+            working=handoff.working_for_frontier,
+            events=durable_events,
+            config=config,
+        )
+        return new_from_transcript + consequences, consequences
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
         events=durable_events,
@@ -1618,10 +1626,79 @@ def run_step(  # noqa: PLR0913
             }
         )
         raise RuntimeError("callable frontier produced no consequences")
+    new_from_transcript, consequences = _decorate_step_telemetry(
+        new_from_transcript=handoff.new_from_transcript,
+        consequences=consequences,
+        frontier=handoff.frontier,
+        working=handoff.working_for_frontier,
+        events=durable_events,
+        config=config,
+    )
     if should_return_early:
-        return handoff.new_from_transcript + consequences, consequences
+        return new_from_transcript + consequences, consequences
 
-    return handoff.new_from_transcript + consequences, consequences
+    return new_from_transcript + consequences, consequences
+
+
+def _decorate_step_telemetry(
+    *,
+    new_from_transcript: list[dict],
+    consequences: list[dict],
+    frontier: dict | None,
+    working: list[dict],
+    events: list[dict],
+    config: OperatorConfig,
+) -> tuple[list[dict], list[dict]]:
+    telemetry_style = getattr(getattr(config, "session", None), "telemetry_decorations", "off")
+    if telemetry_style not in {"compact", "inline", "comment"}:
+        return new_from_transcript, consequences
+
+    from .turn_telemetry import (
+        allocate_turn_handle,
+        compute_human_dwell_ms,
+        decorate_result_node,
+        decorate_user_turn_node,
+        format_result_hierarchical_id,
+        is_human_user_turn,
+        resolve_node_handle,
+    )
+
+    # 1. Human user turns in new_from_transcript
+    prior_messages = [e for e in events if e.get("role") in {"user", "assistant", "system", "control"}]
+    dwell_ms = compute_human_dwell_ms(events)
+    for offset, node in enumerate(new_from_transcript):
+        if is_human_user_turn(node):
+            turn_idx = len(prior_messages) + offset
+            user_handle = allocate_turn_handle(turn_idx)
+            decorate_user_turn_node(
+                node,
+                style=telemetry_style,
+                turn_id=user_handle,
+                duration_ms=dwell_ms,
+            )
+
+    # 2. Result nodes in consequences
+    result_nodes = [node for node in consequences if node.get("role") == "result"]
+    if result_nodes:
+        frontier_idx = (
+            working.index(frontier)
+            if frontier in working
+            else (len(working) - 1 if working else 0)
+        )
+        parent_handle = resolve_node_handle(frontier, frontier_idx)
+        for op_idx, node in enumerate(result_nodes, start=1):
+            hierarchical_id = format_result_hierarchical_id(
+                parent_handle,
+                plan_index=node.get("plan_index", 1),
+                op_index=op_idx,
+            )
+            decorate_result_node(
+                node,
+                style=telemetry_style,
+                turn_id=hierarchical_id,
+            )
+
+    return new_from_transcript, consequences
 
 
 

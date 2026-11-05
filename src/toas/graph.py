@@ -1460,8 +1460,11 @@ def project_transcript(events: list[dict], head_id: str | None = None) -> str:
     for event in _lineage(events, head_id=head_id):
         msg: dict[str, Any] = {"role": event["role"], "content": event["content"]}
         metadata = event.get("metadata")
-        if isinstance(metadata, dict) and "marker" in metadata:
-            msg["marker"] = metadata["marker"]
+        if isinstance(metadata, dict):
+            if "marker" in metadata:
+                msg["marker"] = metadata["marker"]
+            if "telemetry_comment" in metadata:
+                msg["telemetry_comment"] = metadata["telemetry_comment"]
         messages.append(msg)
     return render_transcript(messages, spaced=True)
 
@@ -1735,14 +1738,23 @@ def write_message_events(
         events = read_log(path)
         materialized: list[dict] = []
         for node in nodes:
+            metadata = dict(node.get("metadata", {}))
+            if "marker" in node and "marker" not in metadata:
+                metadata["marker"] = node["marker"]
+            if "telemetry_comment" in node and "telemetry_comment" not in metadata:
+                metadata["telemetry_comment"] = node["telemetry_comment"]
+            if "duration_ms" in node and "duration_ms" not in metadata:
+                metadata["duration_ms"] = node["duration_ms"]
             event = {
                 "id": node.get("id", _next_message_id(events + materialized)),
                 "parent": node.get("parent", _default_parent(events + materialized)),
                 "role": node["role"],
                 "content": node["content"],
-                "metadata": node.get("metadata", {}),
+                "metadata": metadata,
                 "timestamp": node.get("timestamp", timestamp_fn()),
             }
+            if "turn_id" in node:
+                event["turn_id"] = node["turn_id"]
             if "provenance" in node:
                 event["provenance"] = node["provenance"]
             materialized.append(event)

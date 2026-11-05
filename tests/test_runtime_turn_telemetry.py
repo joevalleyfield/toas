@@ -4,14 +4,19 @@ from datetime import datetime, timezone
 
 from toas.runtime.turn_telemetry import (
     allocate_turn_handle,
+    compute_human_dwell_ms,
     decorate_result_node,
+    decorate_user_turn_node,
     extract_in_prose_references,
     extract_subheading_telemetry,
+    format_result_hierarchical_id,
     format_timestamp,
     format_turn_telemetry,
     humanize_duration,
+    is_human_user_turn,
     parse_telemetry_comment,
     parse_turn_stamp,
+    resolve_node_handle,
     resolve_turn_selector,
 )
 
@@ -34,7 +39,11 @@ def test_humanize_duration():
     assert humanize_duration(999) == "999ms"
     assert humanize_duration(1000) == "1.0s"
     assert humanize_duration(1500) == "1.5s"
-    assert humanize_duration(3600000) == "3600.0s"
+    assert humanize_duration(45000) == "45.0s"
+    assert humanize_duration(60000) == "1m"
+    assert humanize_duration(252000) == "4m12s"
+    assert humanize_duration(3600000) == "1h"
+    assert humanize_duration(4500000) == "1h15m"
 
 
 def test_format_timestamp():
@@ -237,3 +246,99 @@ def test_decorate_result_node():
     node_comment = {"role": "result", "payload": {"tool_name": "shell", "ok": False}}
     decorated_comment = decorate_result_node(node_comment, style="comment", turn_id="delta", duration_ms=50)
     assert decorated_comment["telemetry_comment"] == "<!-- toas: id=delta target=shell duration=50ms status=ERROR -->"
+
+    # error inferred from [ERROR] content prefix without payload
+    node_err_prefix = {"role": "result", "content": "[ERROR] /unknown: not found", "origin_kind": "slash_command"}
+    dec_err = decorate_result_node(node_err_prefix, style="compact", turn_id="bravo.p1.o1")
+    assert dec_err["result_marker"] == "## RESULT [bravo.p1.o1 ERROR slash_command]"
+
+    # user_shell mapped to tool_name shell
+    node_shell = {"role": "result", "content": "hello", "origin_kind": "user_shell"}
+    dec_shell = decorate_result_node(node_shell, style="compact", turn_id="alpha.p1.o1")
+    assert dec_shell["result_marker"] == "## RESULT [alpha.p1.o1 OK shell]"
+
+
+def test_resolve_node_handle():
+    assert resolve_node_handle(None, 0) == "alpha"
+    assert resolve_node_handle({}, 1) == "bravo"
+    assert resolve_node_handle({"turn_id": "charlie"}) == "charlie"
+    assert resolve_node_handle({"handle": "delta"}) == "delta"
+    assert resolve_node_handle({"marker": "## TOAS:ASSISTANT [echo OK]"}) == "echo"
+    assert resolve_node_handle({"telemetry_comment": "<!-- toas: id=foxtrot -->"}) == "foxtrot"
+
+
+def test_format_result_hierarchical_id():
+    assert format_result_hierarchical_id("bravo") == "bravo.p1.o1"
+    assert format_result_hierarchical_id("bravo", plan_index=2, op_index=3) == "bravo.p2.o3"
+    assert format_result_hierarchical_id("", plan_index=0, op_index=0) == "alpha.p1.o1"
+
+
+def test_compute_human_dwell_ms():
+    assert compute_human_dwell_ms([]) is None
+    assert compute_human_dwell_ms([{"role": "user", "content": "hi"}]) is None
+
+    # Epoch int timestamp
+    events = [{"role": "assistant", "timestamp": None}, {"role": "assistant", "timestamp": 1000}, "invalid-event"]
+    assert compute_human_dwell_ms(events, current_time=1005) == 5000
+    assert compute_human_dwell_ms(events, current_time=999) == 0
+    # current_time None and fallback string
+    assert compute_human_dwell_ms(events, current_time=None) is not None
+    assert compute_human_dwell_ms(events, current_time="unknown") is not None
+
+    # ISO string timestamp
+    events_iso = [{"role": "assistant", "timestamp": "2026-11-05T12:00:00Z"}]
+    dt = datetime(2026, 11, 5, 12, 4, 12, tzinfo=timezone.utc)
+    assert compute_human_dwell_ms(events_iso, current_time=dt) == 252000
+
+    # Invalid timestamp fallback
+    events_bad = [{"role": "assistant", "timestamp": "invalid"}]
+    assert compute_human_dwell_ms(events_bad) is None
+
+
+def test_is_human_user_turn():
+    assert not is_human_user_turn({})
+    assert not is_human_user_turn({"role": "assistant", "content": "hi"})
+    assert not is_human_user_turn({"role": "user", "content": ""})
+    assert not is_human_user_turn({"role": "user", "content": "## RESULT [bravo.p1.o1]\noutput"})
+    assert is_human_user_turn({"role": "user", "content": "What is the weather?"})
+    assert is_human_user_turn({"role": "user", "content": "$ ls -la"})
+    assert is_human_user_turn({"role": "user", "content": "Human note\n\n## RESULT [bravo.p1.o1]\noutput"})
+
+
+def test_decorate_user_turn_node():
+    # off style or non-human turn does nothing
+    node_raw = {"role": "user", "content": "hi"}
+    assert decorate_user_turn_node(node_raw, style="off") == node_raw
+
+    structural = {"role": "user", "content": "## RESULT [bravo.p1.o1]\noutput"}
+    assert decorate_user_turn_node(structural, style="compact") == structural
+
+    # compact without duration (first turn)
+    dt = datetime(2026, 11, 5, 12, 0, 0, tzinfo=timezone.utc)
+    human_first = {"role": "user", "content": "First turn"}
+    dec_first = decorate_user_turn_node(human_first, style="compact", turn_id="alpha", timestamp=dt)
+    assert dec_first["marker"] == "## TOAS:USER [alpha 12:00:00]"
+    assert dec_first["turn_id"] == "alpha"
+    assert dec_first["metadata"]["marker"] == "## TOAS:USER [alpha 12:00:00]"
+
+    # compact with dwell duration (e.g. 4m12s)
+    human_next = {"role": "user", "content": "Second turn"}
+    dec_next = decorate_user_turn_node(human_next, style="compact", turn_id="delta", duration_ms=252000, timestamp=dt)
+    assert dec_next["marker"] == "## TOAS:USER [delta 12:00:00 4m12s]"
+    assert dec_next["duration_ms"] == 252000
+    assert dec_next["metadata"]["duration_ms"] == 252000
+
+    # inline style
+    human_inline = {"role": "user", "content": "Inline turn"}
+    dec_inline = decorate_user_turn_node(human_inline, style="inline", turn_id="echo", duration_ms=1500, timestamp=dt)
+    assert dec_inline["marker"] == "## TOAS:USER [id=echo t=12:00:00 duration=1.5s]"
+
+    # comment style
+    human_comment = {"role": "user", "content": "Comment turn"}
+    dec_comment = decorate_user_turn_node(human_comment, style="comment", turn_id="foxtrot", duration_ms=60000, timestamp=dt)
+    assert dec_comment["telemetry_comment"] == "<!-- toas: id=foxtrot timestamp=2026-11-05T12:00:00+00:00 duration=1m -->"
+
+    # existing marker preserved when turn_id is None
+    human_existing = {"role": "user", "content": "Existing", "marker": "## TOAS:USER [custom_id]"}
+    dec_existing = decorate_user_turn_node(human_existing, style="compact", turn_id=None, timestamp=dt)
+    assert dec_existing["marker"] == "## TOAS:USER [custom_id 12:00:00]"

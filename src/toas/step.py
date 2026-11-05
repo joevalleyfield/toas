@@ -302,7 +302,7 @@ def render_help_topic(query: str) -> str | None:
 
 
 _RESULT_BLOCK_RE = re.compile(
-    r"(?ms)^## RESULT\n\n(.*?)(?=\n## (?:TOAS:(?:SYSTEM|USER|ASSISTANT)|RESULT)\n|\Z)"
+    r"(?ms)^## RESULT(?:[ \t]+[^\r\n]*)?\n\n(.*?)(?=\n## (?:TOAS:(?:SYSTEM|USER|ASSISTANT)|RESULT)(?:[ \t]+[^\r\n]*)?\n|\Z)"
 )
 _COLLAPSED_RESULT_RE = re.compile(r"^\[RESULT: \d+ chars, collapsed\]$")
 

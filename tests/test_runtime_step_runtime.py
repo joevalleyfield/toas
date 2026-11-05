@@ -26,6 +26,7 @@ from toas.runtime.step_runtime import (
     _build_repair_frontier,
     _build_run_step_frontier_context,
     _collect_frontier_intents,
+    _decorate_step_telemetry,
     _execute_frontier_consequences,
     _execute_plan_frontier_results,
     _expand_in_order_operator_candidates,
@@ -3313,3 +3314,115 @@ $ echo hi
     ]
     with pytest.raises(RuntimeError, match="callable frontier produced no consequences"):
         run_step(transcript=transcript, log=log)
+
+
+def test_decorate_step_telemetry_disabled():
+    new_nodes = [{"role": "user", "content": "hi"}]
+    consequences = [{"role": "result", "content": "ok"}]
+    config = OperatorConfig(session=SessionPolicy(telemetry_decorations="off"))
+    res_nodes, res_cons = _decorate_step_telemetry(
+        new_from_transcript=new_nodes,
+        consequences=consequences,
+        frontier=None,
+        working=[],
+        events=[],
+        config=config,
+    )
+    assert res_nodes == new_nodes
+    assert res_cons == consequences
+
+
+def test_decorate_step_telemetry_human_user_and_results():
+    new_nodes = [
+        {"role": "user", "content": "hello world"},
+        {"role": "user", "content": "## RESULT [bravo.p1.o1]\noutput"},  # structural
+    ]
+    consequences = [
+        {"role": "result", "content": "[OK] shell: echo 1", "payload": {"tool_name": "shell", "ok": True, "duration_ms": 15}},
+        {"role": "result", "content": "[ERROR] read_file: missing", "payload": {"tool_name": "read_file", "ok": False, "duration_ms": 2}},
+    ]
+    frontier = {"role": "assistant", "turn_id": "bravo", "content": "some plan"}
+    working = [{"role": "user", "content": "first"}, frontier]
+    events = [
+        {"role": "user", "timestamp": 1000},
+        {"role": "assistant", "timestamp": 1005},
+    ]
+    config = OperatorConfig(session=SessionPolicy(telemetry_decorations="compact"))
+
+    res_nodes, res_cons = _decorate_step_telemetry(
+        new_from_transcript=new_nodes,
+        consequences=consequences,
+        frontier=frontier,
+        working=working,
+        events=events,
+        config=config,
+    )
+    # Human user turn gets decorated
+    assert res_nodes[0]["turn_id"] == "charlie"
+    assert "## TOAS:USER [charlie" in res_nodes[0]["marker"]
+    assert "duration_ms" in res_nodes[0]
+
+    # Structural container remains bare
+    assert "marker" not in res_nodes[1]
+
+    # Results get hierarchical IDs and telemetry
+    assert res_cons[0]["turn_id"] == "bravo.p1.o1"
+    assert "## RESULT [bravo.p1.o1 OK shell" in res_cons[0]["result_marker"]
+    assert "15ms" in res_cons[0]["result_marker"]
+
+    assert res_cons[1]["turn_id"] == "bravo.p1.o2"
+    assert "## RESULT [bravo.p1.o2 ERROR read_file" in res_cons[1]["result_marker"]
+    assert "2ms" in res_cons[1]["result_marker"]
+
+
+def test_run_step_end_to_end_with_compact_telemetry(monkeypatch):
+    transcript = """\
+## TOAS:USER
+$ echo hello
+"""
+    log: list[dict] = []
+    config = OperatorConfig(session=SessionPolicy(telemetry_decorations="compact"))
+    appended, consequences = run_step(
+        transcript=transcript,
+        log=log,
+        config=config,
+    )
+    # User turn in appended should be decorated as alpha with duration omitted (first turn)
+    user_node = appended[0]
+    assert user_node["role"] == "user"
+    assert user_node["turn_id"] == "alpha"
+    assert user_node["marker"].startswith("## TOAS:USER [alpha ")
+    # First turn has no prior events, so no duration token
+    assert "ms" not in user_node["marker"] and "s" not in user_node["marker"].split()[-1]
+
+    # Result consequence should be decorated with hierarchical ID alpha.p1.o1
+    result_node = consequences[0]
+    assert result_node["role"] == "result"
+    assert result_node["turn_id"] == "alpha.p1.o1"
+    assert "## RESULT [alpha.p1.o1 OK shell" in result_node["result_marker"]
+
+
+def test_run_step_callable_near_miss_with_compact_telemetry():
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:ASSISTANT
+```yaml
+operation:
+  invalid: [
+```
+"""
+    frontier = {"role": "assistant", "turn_id": "bravo", "content": "```yaml\noperation:\n  invalid: [\n```", "id": "n1"}
+    log = [{"role": "user", "content": "hello", "turn_id": "alpha", "id": "n0"}, frontier]
+    config = OperatorConfig(session=SessionPolicy(telemetry_decorations="compact"))
+    appended, consequences = run_step(
+        transcript=transcript,
+        log=log,
+        config=config,
+    )
+    assert len(consequences) == 1
+    near_miss_res = consequences[0]
+    assert near_miss_res["role"] == "result"
+    assert near_miss_res["turn_id"] == "bravo.p1.o1"
+    assert "## RESULT [bravo.p1.o1 ERROR tool_call" in near_miss_res["result_marker"]

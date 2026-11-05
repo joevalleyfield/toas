@@ -2206,6 +2206,32 @@ def test_write_message_events_without_provenance_omits_field(tmp_path):
     assert "provenance" not in events[0]
 
 
+def test_write_message_events_preserves_marker_telemetry_and_turn_id(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_message_events(
+        str(path),
+        [
+            {
+                "role": "user",
+                "content": "hello",
+                "marker": "## TOAS:USER [alpha 12:00:00]",
+                "telemetry_comment": "<!-- toas: id=alpha -->",
+                "duration_ms": 1500,
+                "turn_id": "alpha",
+            }
+        ],
+    )
+    events = read_log(str(path))
+    assert events[0]["turn_id"] == "alpha"
+    assert events[0]["metadata"]["marker"] == "## TOAS:USER [alpha 12:00:00]"
+    assert events[0]["metadata"]["telemetry_comment"] == "<!-- toas: id=alpha -->"
+    assert events[0]["metadata"]["duration_ms"] == 1500
+
+    proj = project_transcript(events)
+    assert "## TOAS:USER [alpha 12:00:00]" in proj
+    assert "<!-- toas: id=alpha -->" in proj
+
+
 def test_write_llm_call_record_includes_message_id_when_provided(tmp_path):
     path = tmp_path / "events.jsonl"
 
