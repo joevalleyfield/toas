@@ -90,11 +90,21 @@ Ship a small, vetted set of default skills in TOAS:
 - `jj-scratch-workspace`: Isolated working-copy lifecycle in scratch space.
 - `code-review`: Local diff review and verification guidelines.
 
-### 5. CLI & Operator Surface
+### 5. Dynamic Slash Command Aliasing & Operator Surface
 
-- `toas skills [filter]`: List discovered skills, source paths, and collision status.
-- `toas skill <name>`: Display the full instructions and metadata of a skill.
-- `/skills` and `/skill <name>` in transcript sessions.
+- **Dynamic Slash Command Aliasing (Antigravity Parity)**:
+  - Discovered skills dynamically register slash command aliases (defaulting to
+    `/<skill-name>`, or customized via an optional `alias:` frontmatter field in
+    `SKILL.md`).
+  - Running `/record-task [args]` or `/code-review` dispatches directly through the
+    skill runtime without requiring hardcoded slash command entries in
+    `src/toas/step.py`.
+- **CLI Commands**:
+  - `toas skills [filter]`: List discovered skills, source paths, aliases, and collision status.
+  - `toas skill <name>`: Display the full instructions and metadata of a skill.
+- **Transcript Session Controls**:
+  - `/skills`: List all active skill aliases and summaries.
+  - `/skill <name>`: Explicitly activate a skill into the transcript.
 
 ## Out of Scope
 

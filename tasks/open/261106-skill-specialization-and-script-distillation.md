@@ -87,12 +87,26 @@ the specialization pass:
     to write clean Python utilities.
   - Requires standardized knowledge of where project skills reside (`.agents/skills/`).
 
-### Option C: Hybrid Architecture (Recommended)
-- The distillation logic lives in a standardized **meta-skill** (`specialize-skill`).
-- The **harness** provides thin sugar commands (`toas skill specialize <name>`
-  or transcript `/specialize <name>`) that stage the prompt and verify that the
-  resulting script and `SKILL.md` pass syntax checks and are placed in the
-  correct discovery root (`.agents/skills/<name>/`).
+### Option C: Generalized Skill Aliasing Architecture (Antigravity Parity)
+- Rather than implementing special-case harness logic for specialization, **Option C
+  generalizes across all skills through a dynamic aliasing and dispatch system**.
+- In this model, the harness does not hardcode procedural intelligence for
+  `/record-task`, `/specialize`, `/review`, or `/learn`. Instead:
+  1. **Dynamic Slash Command Aliasing**: Every discovered skill automatically
+     registers a slash command alias (defaulting to `/<skill-name>`, or customized
+     via an `alias:` frontmatter field in `SKILL.md`).
+  2. **Thin Harness Dispatcher**: When the operator runs a slash command (e.g.
+     `/specialize <target-skill>` or `/record-task <intent>`), the harness:
+     - Resolves the alias through the skill discovery hierarchy (workspace $\to$ global $\to$ bundled).
+     - If the skill has a deterministic companion script, routes arguments directly to the script.
+     - If the skill is prose-only, activates the skill runbook into the transcript.
+  3. **Self-Hosting Meta-Skill**: The specialization logic itself is simply a standard
+     meta-skill (`skills/specialize-skill/SKILL.md`) mapped to the `/specialize` alias.
+- **Antigravity Parity**: This mirrors Antigravity's own architecture, where slash
+  commands like `/automation`, `/plugin`, `/plan`, and `/learn` are not hardcoded
+  engine routines, but lightweight command aliases bound to progressive-disclosure
+  skills. In TOAS, this keeps `src/toas/step.py` and `cli_dispatch.py` completely
+  thin and generalizable.
 
 ## In Scope
 
