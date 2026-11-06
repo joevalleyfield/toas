@@ -133,3 +133,35 @@ explicitly so models and operators understand the slice structure:
    clamped to `DEFAULT_SPILL_SAFETY_BRAKE_LINES` (1,000 lines).
 6. **Scratch File Invariant**: `.toas/scratch/<block_id>.txt` contains the exact,
    unmodified, complete byte stream regardless of preview mode or elision.
+
+## Implementation Plan
+
+1. **Phase 1: Preview Extractors & Duplicate Elision (`src/toas/tools_cluster/rendering.py`)**
+   - **Duplicate Elision**: Implement repetitive line detection and collapse consecutive identical lines (e.g. `waiting for daemon... [repeated 38 times]`) before computing previews.
+   - **Extractors**:
+     - `head_tail`: First $H$ lines (default 10), explicit omission marker (`--- [K lines omitted; full output in <path>] ---`), and last $T$ lines (default 20).
+     - `error_focus`: Scan for diagnostic anchors (`FAILED`, `ERROR`, `Traceback (most recent call last):`, `AssertionError`, `panic:`, `fatal:`, `FAIL:`); center preview around the failure site (5 lines leading up to error, up to 25 lines following), falling back to `head_tail` if no error markers exist.
+     - `head_shuf_tail`: Strided sampling combining head, tail, and representative periodic samples across the middle.
+     - `head`: Retain top-first slicing for rank-ordered results.
+   - **Fence Header & Range Representation**: Render explicit slice ranges when non-contiguous (`lines=1..10,181..200 of 200`).
+   - **Scratch Invariant**: Ensure `.toas/scratch/<block_id>.txt` contains the exact, unmodified, complete byte stream.
+
+2. **Phase 2: Configuration Policy (`src/toas/config.py`)**
+   - Introduce `SpillProfile` and `SpillPolicy` under `OperatorConfig`:
+     - `spill.default_mode = "head_tail"`
+     - `spill.head_lines = 10`, `spill.tail_lines = 20`
+     - `spill.elide_duplicates = True`
+     - `spill.threshold_lines = 40`
+     - `spill.threshold_bytes = 4000`
+     - Predefined profiles: `test`, `raw`, `wide`.
+   - Support dotted config inspection and updates (`/config set spill.default_mode head_tail`).
+
+3. **Phase 3: Call-Time Overrides & Dense Syntax**
+   - Parse call-time options (`threshold_lines`, `spill_mode`, and dense syntax `spill: ">500"`, `"tail@300"`, `"test"`).
+   - Clamp against `DEFAULT_SPILL_SAFETY_BRAKE_LINES` (1,000 lines).
+   - Wire into tool execution and rendering (`shell`, `shell_script`, `read_file`).
+
+4. **Phase 4: TDD & Operator-Perspective Verification**
+   - Red/green/refactor with 100.00% statement coverage under `./scripts/check.sh`.
+   - Inspect concrete terminal output from the operator's perspective.
+   - Update and close the task document once criteria are met.
