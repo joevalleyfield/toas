@@ -136,17 +136,18 @@ explicitly so models and operators understand the slice structure:
 
 ## Implementation Plan
 
-1. **Phase 1: Preview Extractors & Duplicate Elision (`src/toas/tools_cluster/rendering.py`)**
-   - **Duplicate Elision**: Implement repetitive line detection and collapse consecutive identical lines (e.g. `waiting for daemon... [repeated 38 times]`) before computing previews.
+1. **Phase 1: Preview Extractors & Duplicate Elision (`src/toas/tools_cluster/rendering.py`)** [COMPLETED]
+   - **Duplicate Elision**: Implemented `elide_duplicate_lines` collapsing consecutive duplicate lines (`min_repeat=3` by default) into count markers (`waiting for daemon... [repeated 38 times]`), with raw content untouched in scratch files.
    - **Extractors**:
      - `head_tail`: First $H$ lines (default 10), explicit omission marker (`--- [K lines omitted; full output in <path>] ---`), and last $T$ lines (default 20).
-     - `error_focus`: Scan for diagnostic anchors (`FAILED`, `ERROR`, `Traceback (most recent call last):`, `AssertionError`, `panic:`, `fatal:`, `FAIL:`); center preview around the failure site (5 lines leading up to error, up to 25 lines following), falling back to `head_tail` if no error markers exist.
-     - `head_shuf_tail`: Strided sampling combining head, tail, and representative periodic samples across the middle.
-     - `head`: Retain top-first slicing for rank-ordered results.
+     - `error_focus`: Scans for diagnostic anchors (`Traceback (most recent call last):`, `panic:`, `fatal:`, `FAILED`, `FAIL:`, `AssertionError`, `ERROR`); centers preview around failure site (5 lead lines), falling back to `head_tail` if no anchors exist.
+     - `head_shuf_tail`: Strided sampling combining head, tail, and periodic samples across the middle.
+     - `head` / `tail`: Top-first and bottom-first slices.
    - **Fence Header & Range Representation**: Render explicit slice ranges when non-contiguous (`lines=1..10,181..200 of 200`).
-   - **Scratch Invariant**: Ensure `.toas/scratch/<block_id>.txt` contains the exact, unmodified, complete byte stream.
+   - **Scratch Invariant**: `.toas/scratch/<block_id>.txt` receives the exact, unmodified byte stream.
+   - **Command Spillage**: Shell stdout/stderr defaults to `head_tail` mode.
 
-2. **Phase 2: Configuration Policy (`src/toas/config.py`)**
+2. **Phase 2: Configuration Policy (`src/toas/config.py`)** [NEXT]
    - Introduce `SpillProfile` and `SpillPolicy` under `OperatorConfig`:
      - `spill.default_mode = "head_tail"`
      - `spill.head_lines = 10`, `spill.tail_lines = 20`

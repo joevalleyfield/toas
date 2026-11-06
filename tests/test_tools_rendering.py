@@ -14,6 +14,7 @@ from toas.tools_cluster.rendering import (
     render_import_block,
     render_search_excerpt_blocks,
     render_search_success,
+    render_shell_result,
     render_shell_stdout_import_block,
     shape_result_content,
     spill_inert_block,
@@ -939,7 +940,10 @@ def test_shape_result_content_shell_stdout_spills_oversized(tmp_path, monkeypatc
     }
     rendered = shape_result_content(result)
     assert "[OK] shell: exit=0\nstdout:\nOutput exceeded threshold (" in rendered
-    assert "lines=1..30 of 79" in rendered
+    assert "lines=1..10,60..79 of 79" in rendered
+    assert "stdout_line_10\n" in rendered
+    assert "stdout_line_60\n" in rendered
+    assert "--- [49 lines omitted;" in rendered
     assert "[49 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
     assert "under single-turn ephemerality" not in rendered
 
@@ -950,6 +954,28 @@ def test_shape_result_content_shell_stdout_spills_oversized(tmp_path, monkeypatc
     result_with_flag = dict(result, single_turn_ephemeral=True)
     rendered_flag = shape_result_content(result_with_flag)
     assert "under single-turn ephemerality" in rendered_flag
+
+
+def test_render_shell_result_spill_options(tmp_path, monkeypatch):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    monkeypatch.setattr("toas.tools_cluster.rendering.default_scratch_dir", lambda: scratch_dir)
+    result = {
+        "tool_name": "shell",
+        "ok": True,
+        "summary": "exit=0",
+        "stdout": "\n".join(f"out_{i}" for i in range(1, 101)),
+        "stderr": "\n".join(f"err_{i}" for i in range(1, 101)),
+        "threshold_lines": 50,
+        "threshold_bytes": 1000,
+        "spill_mode": "head_tail",
+        "head_lines": 5,
+        "tail_lines": 5,
+        "elide_duplicates": True,
+    }
+    rendered = render_shell_result(result, status="OK", tool_name="shell")
+    assert "lines=1..5,96..100 of 100" in rendered
+    assert "stdout:" in rendered
+    assert "stderr:" in rendered
 
 
 def test_spill_inert_block_size_mb_and_default_dir_and_oserror(tmp_path):
