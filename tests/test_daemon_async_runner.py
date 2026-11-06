@@ -2258,6 +2258,26 @@ def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
     )
 
 
+def test_resolve_async_step_start_options_parses_max_turns(tmp_path):
+    from toas.runtime.async_step_runtime_worker import _resolve_async_step_start_options
+
+    options = _resolve_async_step_start_options(
+        {"workdir": str(tmp_path), "max_turns": 8},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+    )
+    assert options.max_turns == 8
+
+    options_none = _resolve_async_step_start_options(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+    )
+    assert options_none.max_turns is None
+
+
 def test_requested_session_path_returns_none_for_non_string_value(monkeypatch):
     from toas.runtime.async_step_runtime_worker import _requested_session_path
 

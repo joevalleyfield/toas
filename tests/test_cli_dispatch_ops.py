@@ -35,6 +35,8 @@ def test_parse_step_options_missing_values():
         parse_step_options(["step", "--session"])
     with pytest.raises(SystemExit, match="usage: toas step"):
         parse_step_options(["step", "--surface"])
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        parse_step_options(["step", "--control"])
     with pytest.raises(SystemExit, match="unknown option"):
         parse_step_options(["step", "--bad"])
 
@@ -311,22 +313,44 @@ def test_step_option_control_session_surface_and_preview_combinations():
     from toas.cli_dispatch_ops import parse_step_options
 
     assert parse_step_options(["step", "--control", "/pwd", "--session", "s.md", "--surface", "s1"]) == (
-        False, False, False, False, "/pwd", "s.md", "s1", None
+        False, False, False, False, "/pwd", "s.md", "s1", None, None
     )
     assert parse_step_options(["step", "--infer-from", "STATE/1"]) == (
-        False, False, False, False, None, None, None, "STATE/1"
+        False, False, False, False, None, None, None, "STATE/1", None
     )
     with pytest.raises(SystemExit, match="usage: toas step"):
         parse_step_options(["step", "--infer-from"])
     assert parse_step_options(["step", "--preview-request", "--control", "/pwd"]) == (
-        False, True, False, False, "/pwd", None, None, None
+        False, True, False, False, "/pwd", None, None, None, None
     )
     assert parse_step_options(["step", "--preview-request-pretty", "--control", "/pwd"]) == (
-        False, True, True, False, "/pwd", None, None, None
+        False, True, True, False, "/pwd", None, None, None, None
     )
     assert parse_step_options(["step", "--preview-response", "--stdin"]) == (
-        True, False, False, True, None, None, None, None
+        True, False, False, True, None, None, None, None, None
     )
+    assert parse_step_options(["step", "3"]) == (
+        False, False, False, False, None, None, None, None, 3
+    )
+    assert parse_step_options(["step", "-n", "4"]) == (
+        False, False, False, False, None, None, None, None, 4
+    )
+    assert parse_step_options(["step", "--count", "5"]) == (
+        False, False, False, False, None, None, None, None, 5
+    )
+    assert parse_step_options(["step", "--max-turns", "6"]) == (
+        False, False, False, False, None, None, None, None, 6
+    )
+    with pytest.raises(SystemExit, match="step count must be a positive integer"):
+        parse_step_options(["step", "0"])
+    with pytest.raises(SystemExit, match="step count must be a positive integer"):
+        parse_step_options(["step", "-n", "0"])
+    with pytest.raises(SystemExit, match="step count must be a positive integer"):
+        parse_step_options(["step", "-n", "abc"])
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        parse_step_options(["step", "-n"])
+    with pytest.raises(SystemExit, match="usage: toas step"):
+        parse_step_options(["step", "3", "5"])
     with pytest.raises(SystemExit, match="usage: toas step"):
         parse_step_options(["step", "--help"])
     with pytest.raises(SystemExit, match="usage: toas step"):

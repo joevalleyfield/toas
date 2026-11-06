@@ -21,6 +21,9 @@ from .runtime.step_context_runtime import (
     build_runtime_context as _build_runtime_context,
 )
 from .runtime.step_context_runtime import (
+    extract_frontier_step_directive as _extract_frontier_step_directive,
+)
+from .runtime.step_context_runtime import (
     prepare_session_transcript as _prepare_session_transcript,
 )
 from .runtime.step_context_runtime import (
@@ -119,7 +122,7 @@ def _persist_step_outputs(
     on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
     injected_control_command: str | None = None,
-) -> None:
+) -> str:
     persistence = persist_step_outputs_runtime(
         events_path=events_path,
         deps=deps,
@@ -141,16 +144,18 @@ def _persist_step_outputs(
             on_projection_delta("\n")
         else:
             print()
+    rendered = deps.render_output_with_newline_style(
+        rendered=deps.render_blocks(persistence.projection_nodes),
+        newline="\n",
+        apply_newline_style_fn=deps.apply_newline_style,
+    )
     if on_projection_delta is not None:
-        rendered = deps.render_output_with_newline_style(
-            rendered=deps.render_blocks(persistence.projection_nodes),
-            newline="\n",
-            apply_newline_style_fn=deps.apply_newline_style,
-        )
         if rendered:
             on_projection_delta(rendered)
     else:
         deps.print_blocks_with_newline(persistence.projection_nodes, "\n")
+        sys.stdout.flush()
+    return rendered
 
 
 def run_step(
@@ -162,6 +167,8 @@ def run_step(
     stdin_mode: bool = False,
     control: str | None = None,
     session_path: str | None = None,
+    session_text: str | None = None,
+    max_turns: int | None = None,
     stream_stdout_enabled: bool | None = None,
     stream_thinking_enabled: bool | None = None,
     stream_prompt_progress_enabled: bool | None = None,
@@ -176,7 +183,7 @@ def run_step(
     on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
     infer_from: str | None = None,
-) -> None:
+):
     deps = _build_step_cli_deps()
     events_path = deps.resolve_events_path()
     deps.ensure_file(events_path)
@@ -187,14 +194,47 @@ def run_step(
         stdin_mode=stdin_mode,
         control=control,
         session_path=session_path,
+        session_text=session_text,
     )
+    extracted_count, normalized_transcript = _extract_frontier_step_directive(normalized_transcript)
+    effective_max_turns = max_turns if max_turns is not None else (extracted_count or 1)
+    if effective_max_turns > 1:
+        from .operator_api import step_bounded
+
+        return step_bounded(
+            max_turns=effective_max_turns,
+            generate=generate_override,
+            preview=preview,
+            preview_request_pretty=preview_request_pretty,
+            preview_response=preview_response,
+            stdin_mode=stdin_mode,
+            control=control,
+            session_path=session_path,
+            session_text=normalized_transcript,
+            stream_stdout_enabled=stream_stdout_enabled,
+            stream_thinking_enabled=stream_thinking_enabled,
+            stream_prompt_progress_enabled=stream_prompt_progress_enabled,
+            llm_stream_mode=llm_stream_mode,
+            debug_prompt_progress_enabled=debug_prompt_progress_enabled,
+            debug_prompt_progress_file=debug_prompt_progress_file,
+            on_llm_answer_delta=on_llm_answer_delta,
+            on_llm_reasoning_delta=on_llm_reasoning_delta,
+            on_llm_prompt_progress=on_llm_prompt_progress,
+            on_llm_stream_open=on_llm_stream_open,
+            on_llm_completion=on_llm_completion,
+            on_projection_nodes=on_projection_nodes,
+            on_projection_delta=on_projection_delta,
+            infer_from=infer_from,
+            run_step_fn=run_step,
+        )
+
     turns = parse_transcript(normalized_transcript)
     state_turn_indices = [
         index for index, turn in enumerate(turns)
         if turn.get("role") in {"state", "state-diff"}
     ]
     if state_turn_indices:
-        _run_state_step(
+        return _run_state_step(
             deps=deps,
             events_path=events_path,
             session_path=resolved_session_path,
@@ -222,7 +262,6 @@ def run_step(
             debug_prompt_progress_enabled=debug_prompt_progress_enabled,
             debug_prompt_progress_file=debug_prompt_progress_file,
         )
-        return
     if infer_from is not None:
         raise ValueError("--infer-from is only supported in state-oriented transcripts")
     if preview or preview_response:
@@ -274,7 +313,7 @@ def run_step(
     step_kwargs = _build_step_kwargs(**build_kwargs)
 
     append_set, stdout_set = deps.step_fn(normalized_transcript, runtime_ctx["log"], **step_kwargs)
-    _persist_step_outputs(
+    rendered = _persist_step_outputs(
         deps=deps,
         events_path=events_path,
         session_path=resolved_session_path,
@@ -289,6 +328,60 @@ def run_step(
         on_projection_nodes=on_projection_nodes,
         on_projection_delta=on_projection_delta,
         injected_control_command=control,
+    )
+
+    from . import step as step_mod
+    from .runtime.step_runtime import _frontier_has_callable_intent
+
+    has_executable = False
+    quiescent = True
+    error_summary = None
+
+    for node in [*stdout_set, *append_set]:
+        content = node.get("content", "")
+        if isinstance(content, str) and ("[ERROR]" in content or content.startswith("error:")):
+            error_summary = content
+            break
+
+    if append_set:
+        last_node = append_set[-1]
+        if last_node.get("role") == "assistant":
+            has_callable = _frontier_has_callable_intent(
+                step_mod=step_mod,
+                frontier=last_node,
+                working=[*runtime_ctx["log"], *append_set],
+                config=operator_config,
+            )
+            has_executable = has_callable
+            quiescent = not has_callable
+        elif last_node.get("role") == "result":
+            origin_role = last_node.get("origin_role")
+            origin_kind = last_node.get("origin_kind")
+            if origin_role == "assistant" or origin_kind == "tool_call":
+                quiescent = False
+                has_executable = False
+            else:
+                quiescent = True
+                has_executable = False
+
+    prefix = ""
+    if normalized_transcript and not normalized_transcript.endswith(("\n", "\r")):
+        prefix += "\n"
+    if normalized_transcript and not (normalized_transcript + prefix).endswith("\n\n"):
+        prefix += "\n"
+    updated_transcript = normalized_transcript + prefix + rendered
+
+    from .operator_api import StepOutcome
+
+    return StepOutcome(
+        completed=error_summary is None,
+        quiescent=quiescent,
+        has_executable_content=has_executable,
+        stop_reason="error" if error_summary is not None else ("quiescent" if quiescent else None),
+        turns_executed=1,
+        error=error_summary,
+        rendered_text=rendered,
+        transcript=updated_transcript,
     )
 
 
@@ -471,7 +564,7 @@ def _run_state_step(*, deps, events_path: Path, session_path: Path, normalized_t
                     stream_prompt_progress_enabled: bool | None = None,
                     llm_stream_mode: str | None = None,
                     debug_prompt_progress_enabled: bool | None = None,
-                    debug_prompt_progress_file: str | None = None) -> None:
+                    debug_prompt_progress_file: str | None = None) -> Any:
     """Adapt a typed state transcript to the independent state-step runtime."""
     from .tools_cluster.rendering import active_single_turn_ephemeral
 
@@ -526,7 +619,7 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
                          stream_prompt_progress_enabled: bool | None = None,
                          llm_stream_mode: str | None = None,
                          debug_prompt_progress_enabled: bool | None = None,
-                         debug_prompt_progress_file: str | None = None) -> None:
+                         debug_prompt_progress_file: str | None = None) -> Any:
     """Adapt a typed state transcript to the independent state-step runtime."""
     from . import step as step_mod
     from .config import apply_overrides, config_from_discovered_paths
@@ -667,7 +760,8 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
                     "phase": "resolve_user_intent",
                     "status": "input_turns_have_unresolved_executable_intent",
                 }, ensure_ascii=False, indent=2))
-                return
+                from .operator_api import StepOutcome
+                return StepOutcome(completed=False, quiescent=True, turns_executed=1)
         request = preview_state_request(
             events_path=events_path,
             state=current_state,
@@ -763,7 +857,9 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
         content = answer.get("content")
         if isinstance(content, str):
             print(content, end="")
-        return
+            sys.stdout.flush()
+        from .operator_api import StepOutcome
+        return StepOutcome(completed=True, quiescent=True, turns_executed=1, rendered_text=content if isinstance(content, str) else None)
 
     def execute_call(call: dict) -> list[dict]:
         results = step_mod._execute_plan(
@@ -830,6 +926,7 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
             on_projection_delta(output_chunk)
         else:
             print(output_chunk, end="")
+            sys.stdout.flush()
         raise
     if result["phase"] == "infer":
         prior_state_number = parsed_turn.get("state_number", 1)
@@ -875,6 +972,20 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
             on_projection_delta(output_chunk)
         else:
             print(output_chunk, end="")
+            sys.stdout.flush()
+        from .operator_api import StepOutcome
+        tool_calls = result.get("tool_calls") or None
+        has_executable = bool(tool_calls)
+        quiescent = not has_executable and (result.get("outcome") == "complete" or result.get("status") == "completed")
+        return StepOutcome(
+            completed=True,
+            quiescent=quiescent,
+            has_executable_content=has_executable,
+            stop_reason="quiescent" if quiescent else None,
+            turns_executed=1,
+            rendered_text=output_chunk,
+            transcript=normalized_transcript + prefix + rendered,
+        )
     elif result["phase"] == "execute_batch" or result.get("phase") == "terminal":
         if result.get("phase") == "terminal":
             msg = f"[{result.get('status', 'completed').upper()}] state goal completed"
@@ -931,3 +1042,15 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
             on_projection_delta(output_chunk)
         else:
             print(output_chunk, end="")
+            sys.stdout.flush()
+        from .operator_api import StepOutcome
+        is_terminal = result.get("phase") == "terminal" or result.get("status") == "completed"
+        return StepOutcome(
+            completed=True,
+            quiescent=is_terminal,
+            has_executable_content=False,
+            stop_reason="quiescent" if is_terminal else None,
+            turns_executed=1,
+            rendered_text=output_chunk,
+            transcript=normalized_transcript + prefix + rendered_results + "\n",
+        )

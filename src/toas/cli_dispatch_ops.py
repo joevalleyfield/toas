@@ -20,7 +20,7 @@ SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
 SURFACE_REBIND_USAGE = "usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>"
 
 
-def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, bool, str | None, str | None, str | None, str | None]:
+def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, bool, str | None, str | None, str | None, str | None, int | None]:
     stdin_mode = False
     preview_request = False
     preview_request_pretty = False
@@ -29,11 +29,21 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, bool, str | N
     session_path: str | None = None
     surface_id: str | None = None
     infer_from: str | None = None
+    max_turns: int | None = None
     i = 1
     while i < len(argv):
         arg = argv[i]
         if arg in {"--help", "-h"}:
             raise SystemExit(STEP_HELP)
+        if arg in {"-n", "--count", "--max-turns"}:
+            if i + 1 >= len(argv):
+                raise SystemExit(STEP_USAGE)
+            val = argv[i + 1]
+            if not val.isdigit() or int(val) <= 0:
+                raise SystemExit("step count must be a positive integer")
+            max_turns = int(val)
+            i += 2
+            continue
         if arg == "--stdin":
             stdin_mode = True
             i += 1
@@ -75,8 +85,16 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, bool, str | N
             surface_id = argv[i + 1]
             i += 2
             continue
+        if not arg.startswith("-"):
+            if max_turns is not None:
+                raise SystemExit(STEP_USAGE)
+            if not arg.isdigit() or int(arg) <= 0:
+                raise SystemExit("step count must be a positive integer")
+            max_turns = int(arg)
+            i += 1
+            continue
         raise SystemExit(f"unknown option: {arg}")
-    return stdin_mode, preview_request, preview_request_pretty, preview_response, control, session_path, surface_id, infer_from
+    return stdin_mode, preview_request, preview_request_pretty, preview_response, control, session_path, surface_id, infer_from, max_turns
 
 
 def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None]:

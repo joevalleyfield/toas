@@ -55,9 +55,13 @@ def prepare_session_transcript(
     stdin_mode: bool,
     control: str | None,
     session_path: str | None,
+    session_text: str | None = None,
 ) -> tuple[Path, str, str, str]:
     resolved_session_path = Path(session_path) if isinstance(session_path, str) and session_path.strip() else deps.resolve_session_path(events)
-    transcript = deps.read_text_preserve_newlines(resolved_session_path)
+    if session_text is not None:
+        transcript = session_text
+    else:
+        transcript = deps.read_text_preserve_newlines(resolved_session_path)
     injected_transcript = ""
     if stdin_mode:
         injected_transcript = sys.stdin.read()
@@ -71,6 +75,63 @@ def prepare_session_transcript(
     session_newline = deps.detect_newline_style(transcript)
     normalized_transcript = deps.apply_newline_style(transcript, "\n")
     return resolved_session_path, transcript, normalized_transcript, session_newline
+
+
+def extract_frontier_step_directive(
+    transcript: str,
+    *,
+    parse_transcript_fn=None,
+) -> tuple[int | None, str]:
+    """Inspect the transcript frontier for a /step [n] directive.
+
+    If present on a user or control turn outside inert regions, returns
+    (count, transcript_with_directive_stripped). Otherwise returns (None, transcript).
+    """
+    if parse_transcript_fn is None:
+        from ..transcript import parse_transcript
+        parse_transcript_fn = parse_transcript
+
+    turns = parse_transcript_fn(transcript)
+    if not turns:
+        return None, transcript
+
+    frontier = turns[-1]
+    role = frontier.get("role")
+    if role not in {"user", "control"}:
+        return None, transcript
+
+    content = frontier.get("content", "")
+    lines = content.splitlines(keepends=True)
+    count: int | None = None
+    kept_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "/step" or stripped.startswith("/step "):
+            parts = stripped.split(None, 1)
+            if len(parts) == 1:
+                count = 1
+                continue
+            if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) > 0:
+                count = int(parts[1])
+                continue
+        kept_lines.append(line)
+
+    if count is None:
+        return None, transcript
+
+    new_content = "".join(kept_lines)
+    if role == "control" and not new_content.strip():
+        idx = transcript.rfind("## TOAS:CONTROL")
+        if idx != -1:
+            return count, transcript[:idx].rstrip()
+
+    idx = transcript.rfind(content)
+    if idx != -1:
+        updated = transcript[:idx] + new_content + transcript[idx + len(content):]
+        return count, updated
+
+    return count, transcript
 
 
 def _workspace_relative_path(path: str | Path, *, workdir: Path) -> str | None:

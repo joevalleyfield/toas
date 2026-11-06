@@ -57,4 +57,12 @@ def execute_operator_command(
         if out is not None:
             return out
 
+    if command == "step":
+        count = 1
+        if args:
+            if not args[0].isdigit() or int(args[0]) <= 0:
+                return [step_mod.make_result_node("usage: /step [N]", origin_role=context.frontier_role, origin_kind="slash_command")]
+            count = int(args[0])
+        return [step_mod.make_result_node(f"[STEP] budget: {count}", origin_role=context.frontier_role, origin_kind="slash_command")]
+
     raise ValueError(f"unknown command: /{command}")

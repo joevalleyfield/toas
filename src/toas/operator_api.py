@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .backend_policy import generation_policy_from_config
 from .cli_usage import GRAPH_USAGE
@@ -67,6 +68,13 @@ _GRAPH_FULL_RENDER_NODE_LIMIT = 5000
 class StepOutcome:
     """Structured operator-API outcome for one step cycle."""
     completed: bool = True
+    quiescent: bool = True
+    has_executable_content: bool = False
+    stop_reason: str | None = "quiescent"
+    turns_executed: int = 1
+    error: str | None = None
+    rendered_text: str | None = None
+    transcript: str | None = None
 
 
 def step_state_once(
@@ -177,6 +185,8 @@ def step_once(
     stdin_mode: bool = False,
     control: str | None = None,
     session_path: str | None = None,
+    session_text: str | None = None,
+    max_turns: int | None = None,
     stream_stdout_enabled: bool | None = None,
     stream_thinking_enabled: bool | None = None,
     stream_prompt_progress_enabled: bool | None = None,
@@ -191,43 +201,113 @@ def step_once(
     on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
     infer_from: str | None = None,
-    run_step_fn: Callable[..., None] | None = None,
+    run_step_fn: Callable[..., Any] | None = None,
 ) -> StepOutcome:
     """Run one local operator step using CLI-equivalent semantics."""
     if run_step_fn is None:
         from .cli_session_commands import run_step as run_step_fn
     assert run_step_fn is not None
 
-    if (
-        stdin_mode
-        or preview
-        or preview_request_pretty
-        or preview_response
-        or control is not None
-        or session_path is not None
-        or stream_stdout_enabled is not None
-        or stream_thinking_enabled is not None
-        or stream_prompt_progress_enabled is not None
-        or llm_stream_mode is not None
-        or debug_prompt_progress_enabled is not None
-        or debug_prompt_progress_file is not None
-        or on_llm_answer_delta is not None
-        or on_llm_reasoning_delta is not None
-        or on_llm_prompt_progress is not None
-        or on_llm_stream_open is not None
-        or on_llm_completion is not None
-        or on_projection_nodes is not None
-        or on_projection_delta is not None
-        or infer_from is not None
-    ):
-        run_step_fn(
-            generate_override=generate,
+    kwargs: dict[str, Any] = {}
+    if generate is not None:
+        kwargs["generate_override"] = generate
+    if preview:
+        kwargs["preview"] = True
+    if preview_request_pretty:
+        kwargs["preview_request_pretty"] = True
+    if preview_response:
+        kwargs["preview_response"] = True
+    if stdin_mode:
+        kwargs["stdin_mode"] = True
+    if control is not None:
+        kwargs["control"] = control
+    if session_path is not None:
+        kwargs["session_path"] = session_path
+    if session_text is not None:
+        kwargs["session_text"] = session_text
+    if max_turns is not None:
+        kwargs["max_turns"] = max_turns
+    if stream_stdout_enabled is not None:
+        kwargs["stream_stdout_enabled"] = stream_stdout_enabled
+    if stream_thinking_enabled is not None:
+        kwargs["stream_thinking_enabled"] = stream_thinking_enabled
+    if stream_prompt_progress_enabled is not None:
+        kwargs["stream_prompt_progress_enabled"] = stream_prompt_progress_enabled
+    if llm_stream_mode is not None:
+        kwargs["llm_stream_mode"] = llm_stream_mode
+    if debug_prompt_progress_enabled is not None:
+        kwargs["debug_prompt_progress_enabled"] = debug_prompt_progress_enabled
+    if debug_prompt_progress_file is not None:
+        kwargs["debug_prompt_progress_file"] = debug_prompt_progress_file
+    if on_llm_answer_delta is not None:
+        kwargs["on_llm_answer_delta"] = on_llm_answer_delta
+    if on_llm_reasoning_delta is not None:
+        kwargs["on_llm_reasoning_delta"] = on_llm_reasoning_delta
+    if on_llm_prompt_progress is not None:
+        kwargs["on_llm_prompt_progress"] = on_llm_prompt_progress
+    if on_llm_stream_open is not None:
+        kwargs["on_llm_stream_open"] = on_llm_stream_open
+    if on_llm_completion is not None:
+        kwargs["on_llm_completion"] = on_llm_completion
+    if on_projection_nodes is not None:
+        kwargs["on_projection_nodes"] = on_projection_nodes
+    if on_projection_delta is not None:
+        kwargs["on_projection_delta"] = on_projection_delta
+    if infer_from is not None:
+        kwargs["infer_from"] = infer_from
+
+    result = run_step_fn(**kwargs)
+    if isinstance(result, StepOutcome):
+        return result
+    return StepOutcome(completed=True)
+
+
+def step_bounded(
+    *,
+    max_turns: int | None = None,
+    is_cancelled: Callable[[], bool] | None = None,
+    generate: Callable[[list[dict]], dict] | None = None,
+    preview: bool = False,
+    preview_request_pretty: bool = False,
+    preview_response: bool = False,
+    stdin_mode: bool = False,
+    control: str | None = None,
+    session_path: str | None = None,
+    session_text: str | None = None,
+    stream_stdout_enabled: bool | None = None,
+    stream_thinking_enabled: bool | None = None,
+    stream_prompt_progress_enabled: bool | None = None,
+    llm_stream_mode: str | None = None,
+    debug_prompt_progress_enabled: bool | None = None,
+    debug_prompt_progress_file: str | None = None,
+    on_llm_answer_delta: Callable[[str], None] | None = None,
+    on_llm_reasoning_delta: Callable[[str], None] | None = None,
+    on_llm_prompt_progress: Callable[[object], None] | None = None,
+    on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
+    on_llm_completion: Callable[[GenerationCompletion], None] | None = None,
+    on_projection_nodes: Callable[[list[dict]], None] | None = None,
+    on_projection_delta: Callable[[str], None] | None = None,
+    infer_from: str | None = None,
+    run_step_fn: Callable[..., Any] | None = None,
+) -> StepOutcome:
+    """Run up to max_turns operator steps sequentially until quiescence, turn limit, or error."""
+    if max_turns is not None and max_turns <= 0:
+        max_turns = 1
+
+    turns_executed = 0
+    last_outcome = StepOutcome(completed=True, quiescent=True, turns_executed=0)
+
+    if (max_turns is None or max_turns == 1) and is_cancelled is None:
+        return step_once(
+            generate=generate,
             preview=preview,
             preview_request_pretty=preview_request_pretty,
             preview_response=preview_response,
             stdin_mode=stdin_mode,
             control=control,
             session_path=session_path,
+            session_text=session_text,
+            max_turns=max_turns,
             stream_stdout_enabled=stream_stdout_enabled,
             stream_thinking_enabled=stream_thinking_enabled,
             stream_prompt_progress_enabled=stream_prompt_progress_enabled,
@@ -242,10 +322,93 @@ def step_once(
             on_projection_nodes=on_projection_nodes,
             on_projection_delta=on_projection_delta,
             infer_from=infer_from,
+            run_step_fn=run_step_fn,
         )
-    else:
-        run_step_fn(generate_override=generate)
-    return StepOutcome(completed=True)
+
+    current_session_text = session_text
+    rendered_parts: list[str] = []
+
+    effective_limit = max_turns if max_turns is not None else 1
+    while turns_executed < effective_limit:
+        if is_cancelled is not None and is_cancelled():
+            return StepOutcome(
+                completed=False,
+                quiescent=last_outcome.quiescent,
+                has_executable_content=last_outcome.has_executable_content,
+                stop_reason="interrupted",
+                turns_executed=turns_executed,
+                rendered_text="".join(rendered_parts),
+                transcript=current_session_text,
+            )
+
+        current_control = control if turns_executed == 0 else None
+        current_stdin = stdin_mode if turns_executed == 0 else False
+
+        outcome = step_once(
+            generate=generate,
+            preview=preview,
+            preview_request_pretty=preview_request_pretty,
+            preview_response=preview_response,
+            stdin_mode=current_stdin,
+            control=current_control,
+            session_path=session_path,
+            session_text=current_session_text,
+            max_turns=1,
+            stream_stdout_enabled=stream_stdout_enabled,
+            stream_thinking_enabled=stream_thinking_enabled,
+            stream_prompt_progress_enabled=stream_prompt_progress_enabled,
+            llm_stream_mode=llm_stream_mode,
+            debug_prompt_progress_enabled=debug_prompt_progress_enabled,
+            debug_prompt_progress_file=debug_prompt_progress_file,
+            on_llm_answer_delta=on_llm_answer_delta,
+            on_llm_reasoning_delta=on_llm_reasoning_delta,
+            on_llm_prompt_progress=on_llm_prompt_progress,
+            on_llm_stream_open=on_llm_stream_open,
+            on_llm_completion=on_llm_completion,
+            on_projection_nodes=on_projection_nodes,
+            on_projection_delta=on_projection_delta,
+            infer_from=infer_from,
+            run_step_fn=run_step_fn,
+        )
+        turns_executed += 1
+        last_outcome = outcome
+        if outcome.rendered_text:
+            rendered_parts.append(outcome.rendered_text)
+        if outcome.transcript:
+            current_session_text = outcome.transcript
+
+        if not outcome.completed or outcome.error is not None:
+            return StepOutcome(
+                completed=False,
+                quiescent=outcome.quiescent,
+                has_executable_content=outcome.has_executable_content,
+                stop_reason="error",
+                turns_executed=turns_executed,
+                error=outcome.error,
+                rendered_text="".join(rendered_parts),
+                transcript=current_session_text,
+            )
+
+        if outcome.quiescent:
+            return StepOutcome(
+                completed=True,
+                quiescent=True,
+                has_executable_content=False,
+                stop_reason="quiescent",
+                turns_executed=turns_executed,
+                rendered_text="".join(rendered_parts),
+                transcript=current_session_text,
+            )
+
+    return StepOutcome(
+        completed=True,
+        quiescent=last_outcome.quiescent,
+        has_executable_content=last_outcome.has_executable_content,
+        stop_reason="turn_limit",
+        turns_executed=turns_executed,
+        rendered_text="".join(rendered_parts),
+        transcript=current_session_text,
+    )
 
 
 def heads_lines(*, events_path: Path, source_tokens: list[str] | None = None) -> QueryLines:
