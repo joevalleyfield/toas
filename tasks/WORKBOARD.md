@@ -114,44 +114,45 @@ Neither dated vote is a literal current queue.
 *Generated inventory. Read Manual Triage for readiness and sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T260412-transcript-lcp-checkpoint-optimization]** Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay. ⚠️ Stale
-- **[T260418-weak-model-safe-apply-patch-contract]** Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models. ⚠️ Stale
-- **[T260428-cross-repo-intent-routing]** Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants. ⚠️ Stale
-- **[T260509-alternative-operator-frontends]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces. ⚠️ Stale
-- **[T260509-multi-operator-orchestration]** Evaluate how TOAS can support an operator/driver relationship in which a human or Codex holds the larger intent and trajectory, while TOAS and its con... ⚠️ Stale
-- **[T260515-apply-patch-windows-crlf-hardening]** Investigate and harden `apply_patch` behavior on Windows/CRLF files with explicit diagnostics around newline/context matching. ⚠️ Stale
-- **[T260524-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise. ⚠️ Stale
-- **[T260524-auto-inferred-task-dependencies]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy. ⚠️ Stale
-- **[T260524-exploratory-work-representation-model]** Define a flexible task schema that supports both "Verified Implementation" tasks and "Exploratory/Research" tasks without forcing one into the other's... ⚠️ Stale
-- **[T260524-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior. ⚠️ Stale
-- **[T260530-shell-lane-spawn-semantics]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ... ⚠️ Stale
-- **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more... ⚠️ Stale
+- **[T260412-transcript-lcp-checkpoint-optimization]** Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay.
+- **[T260418-weak-model-safe-apply-patch-contract]** Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models.
+- **[T260428-cross-repo-intent-routing]** Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants.
+- **[T260509-alternative-operator-frontends]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
+- **[T260509-multi-operator-orchestration]** Evaluate how TOAS can support an operator/driver relationship in which a human or Codex holds the larger intent and trajectory, while TOAS and its con...
+- **[T260515-apply-patch-windows-crlf-hardening]** Investigate and harden `apply_patch` behavior on Windows/CRLF files with explicit diagnostics around newline/context matching.
+- **[T260524-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
+- **[T260524-auto-inferred-task-dependencies]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
+- **[T260524-exploratory-work-representation-model]** Define a flexible task schema that supports both "Verified Implementation" tasks and "Exploratory/Research" tasks without forcing one into the other's...
+- **[T260524-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
+- **[T260530-shell-lane-spawn-semantics]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
+- **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination
-- **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
-- **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
-- **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures ⚠️ Stale
-- **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging ⚠️ Stale
-- **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
+- **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence
+- **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
+- **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
+- **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging
+- **[T260627-release-helper-tooling]** Release Helper Tooling
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
-- **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... ⚠️ Stale
-- **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin... ⚠️ Stale
-- **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri... ⚠️ Stale
-- **[T260811-activity-health-telemetry]** Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ... ⚠️ Stale
-- **[T260813-transcript-highlighting-design]** Explore a role-aware syntax-highlighting model for TOAS transcripts in Vim. The transcript remains an ordinary Markdown document, but its role heading... ⚠️ Stale
-- **[T260823-conversation-map-projection]** Explore an inspectable conversation-map projection that reifies intent-tracking events, focus changes, and related provenance without adding cognitive... ⚠️ Stale
-- **[T260823-intent-tail-focus-trace]** Explore how TOAS can derive a durable or inspectable trace of changing focus from intent-tracking tails and surrounding transcript evidence. ⚠️ Stale
-- **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ... ⚠️ Stale
-- **[T260825-visible-transcript-turn-ids]** Define transcript-facing human names and explicit references backed by canonical identity, so users and editor or CLI surfaces can select a turn witho... ⚠️ Stale
-- **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context. ⚠️ Stale
-- **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations ⚠️ Stale
-- **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization ⚠️ Stale
-- **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe... ⚠️ Stale
+- **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ...
+- **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin...
+- **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri...
+- **[T260811-activity-health-telemetry]** Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ...
+- **[T260813-transcript-highlighting-design]** Explore a role-aware syntax-highlighting model for TOAS transcripts in Vim. The transcript remains an ordinary Markdown document, but its role heading...
+- **[T260823-conversation-map-projection]** Explore an inspectable conversation-map projection that reifies intent-tracking events, focus changes, and related provenance without adding cognitive...
+- **[T260823-intent-tail-focus-trace]** Explore how TOAS can derive a durable or inspectable trace of changing focus from intent-tracking tails and surrounding transcript evidence.
+- **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ...
+- **[T260825-visible-transcript-turn-ids]** Define transcript-facing human names and explicit references backed by canonical identity, so users and editor or CLI surfaces can select a turn witho...
+- **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context.
+- **[T260831-transcript-source-reference-operations]** Transcript-Native Assistant Source Reference Operations
+- **[T260901-retry-materialization-adapters]** Representation-Neutral Retry Materialization
+- **[T260907-extraction-execution-boundary]** Trace one representative mixed-intent recovery/execution path from candidate extraction through the adjacent preview, adoption, authorization, and exe...
 - **[T260926-state-step-requirements]** Develop a reviewable implementation contract for an explicitly state-shaped working surface handled by a state-step operation integrated with TOAS run...
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
 - **[T261105-apply-patch-indent-leniency-and-diff-diagnostics]** apply_patch Indentation Leniency and Unified Diff Diagnostics
+- **[T261106-assistant-turn-handle-progression]** Assistant Turn Handle Progression And History Plumbing
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
