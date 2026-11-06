@@ -3487,3 +3487,97 @@ operation:
     assert near_miss_res["role"] == "result"
     assert near_miss_res["turn_id"] == "bravo.p1.o1"
     assert "## RESULT [bravo.p1.o1 ERROR tool_call" in near_miss_res["result_marker"]
+
+
+def test_run_step_multi_turn_telemetry_progression_with_generation(tmp_path):
+    from toas.llm import Settings
+    from toas.runtime.step_generation_runtime import GenerationRunner, build_step_cli_deps
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+    config = OperatorConfig(session=SessionPolicy(telemetry_decorations="compact"))
+    deps = build_step_cli_deps()
+    runner = GenerationRunner(
+        deps=deps,
+        operator_config=config,
+        base_settings=Settings(
+            llm_base_url="http://localhost:8080/v1",
+            llm_api_key="k",
+            llm_model="test-model",
+            llm_trace=False,
+            llm_transport_mode="chat_messages",
+            llm_stream_mode=True,
+        ),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=events_path,
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+    runner.invocation_port = type("Port", (), {
+        "generate": staticmethod(lambda *args, **kwargs: {"role": "assistant", "content": "mock reply", "response": {"model": "test-model", "duration_ms": 200}}),
+        "classify_error": staticmethod(lambda exc: exc),
+        "model_name": staticmethod(lambda s: "test-model"),
+        "transient_error": Exception,
+        "permanent_error": Exception,
+        "stream_presenter": type("SP", (), {}),
+        "write_audit": staticmethod(lambda *a, **k: None),
+    })()
+
+    # Turn 1: user initiates with hello
+    t1 = "## TOAS:USER\n\nhello\n"
+    new_nodes_1, _ = run_step(
+        transcript=t1,
+        log=[],
+        generate=runner.generate,
+        config=config,
+        events=[],
+    )
+    assert len(new_nodes_1) == 2
+    u1, a1 = new_nodes_1[0], new_nodes_1[1]
+    assert u1["role"] == "user" and u1["turn_id"] == "alpha"
+    assert u1["marker"].startswith("## TOAS:USER [alpha ")
+    assert a1["role"] == "assistant" and a1["turn_id"] == "bravo"
+    assert a1["marker"].startswith("## TOAS:ASSISTANT [bravo test-model ")
+
+    # Turn 2: user responds with second turn
+    events = [
+        {"role": "user", "content": "hello", "turn_id": u1["turn_id"], "id": "m1", "marker": u1["marker"]},
+        {"role": "assistant", "content": "mock reply", "turn_id": a1["turn_id"], "id": "m2", "marker": a1["marker"]},
+    ]
+    t2 = f"{u1['marker']}\n\nhello\n\n{a1['marker']}\n\nmock reply\n\n## TOAS:USER\n\nhow are you\n"
+    new_nodes_2, _ = run_step(
+        transcript=t2,
+        log=list(events),
+        generate=runner.generate,
+        config=config,
+        events=events,
+    )
+    assert len(new_nodes_2) == 2
+    u2, a2 = new_nodes_2[0], new_nodes_2[1]
+    assert u2["role"] == "user" and u2["turn_id"] == "charlie"
+    assert u2["marker"].startswith("## TOAS:USER [charlie ")
+    assert a2["role"] == "assistant" and a2["turn_id"] == "delta"
+    assert a2["marker"].startswith("## TOAS:ASSISTANT [delta test-model ")
+
+    # Turn 3: user follows up
+    events.extend([
+        {"role": "user", "content": "how are you", "turn_id": u2["turn_id"], "id": "m3", "marker": u2["marker"]},
+        {"role": "assistant", "content": "mock reply", "turn_id": a2["turn_id"], "id": "m4", "marker": a2["marker"]},
+    ])
+    t3 = f"{t2}{a2['marker']}\n\nmock reply\n\n## TOAS:USER\n\nthird turn\n"
+    new_nodes_3, _ = run_step(
+        transcript=t3,
+        log=list(events),
+        generate=runner.generate,
+        config=config,
+        events=events,
+    )
+    assert len(new_nodes_3) == 2
+    u3, a3 = new_nodes_3[0], new_nodes_3[1]
+    assert u3["role"] == "user" and u3["turn_id"] == "echo"
+    assert u3["marker"].startswith("## TOAS:USER [echo ")
+    assert a3["role"] == "assistant" and a3["turn_id"] == "foxtrot"
+    assert a3["marker"].startswith("## TOAS:ASSISTANT [foxtrot test-model ")
+
+    # Cumulative tokens accumulate monotonically across the turns
+    assert u1["tokens"] < a1["tokens"] < u2["tokens"] < a2["tokens"] < u3["tokens"] < a3["tokens"]

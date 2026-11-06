@@ -81,6 +81,7 @@ class ResolvedModelInvocation:
     attempts: int
     retry_delay_s: float
     generation: BackendGenerationPolicy
+    history: tuple[dict, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -236,4 +237,5 @@ def resolve_model_invocation(
         attempts=getattr(selected_generation, "max_retries", operator_config.generation.max_retries) + 1,
         retry_delay_s=getattr(selected_generation, "retry_delay_s", operator_config.generation.retry_delay_s),
         generation=selected_generation,
+        history=tuple(working),
     )

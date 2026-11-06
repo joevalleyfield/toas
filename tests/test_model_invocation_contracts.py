@@ -32,6 +32,7 @@ def test_resolve_model_invocation_is_independent_of_step_cli_deps(tmp_path):
     assert invocation.messages[-1] == {"role": "user", "content": "projected"}
     assert invocation.selected_settings.llm_model == "transcript-model"
     assert invocation.selected_model_source == "transcript:/model"
+    assert invocation.history == ({"role": "user", "content": "hello"},)
 
 
 def test_model_invocation_port_is_an_explicit_provider_boundary():

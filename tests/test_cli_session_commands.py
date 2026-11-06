@@ -391,6 +391,38 @@ def test_generation_runner_build_artifacts_with_telemetry_decorations():
     assert "1.8k" in node_usage["marker"]
     assert node_usage["tokens"] == 1800
 
+    # With working history in plan (turn 1 assistant reply following 1 user turn)
+    plan_with_history = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "selected_settings": plan.selected_settings,
+            "history": [{"role": "user", "content": "hi"}],
+        },
+    )()
+    node_bravo = runner_compact.build_artifacts(plan_with_history, result_compact)
+    assert "## TOAS:ASSISTANT [bravo" in node_bravo["marker"]
+    assert node_bravo["turn_id"] == "bravo"
+
+    # With working history having 3 turns (turn 2 assistant reply)
+    plan_with_3_turns = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "selected_settings": plan.selected_settings,
+            "history": [
+                {"role": "user", "content": "hi"},
+                {"role": "assistant", "content": "hello"},
+                {"role": "user", "content": "next"},
+            ],
+        },
+    )()
+    node_delta = runner_compact.build_artifacts(plan_with_3_turns, result_compact)
+    assert "## TOAS:ASSISTANT [delta" in node_delta["marker"]
+    assert node_delta["turn_id"] == "delta"
+
 
 
 def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monkeypatch):

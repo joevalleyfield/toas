@@ -187,8 +187,9 @@ class GenerationRunner:
             request_messages = packet["request_messages"]
         else:
             request_messages = [{"role": "user", "content": json.dumps(packet, ensure_ascii=False)}]
+        working = list(packet.get("events") or packet.get("history") or [])
         return resolve_model_invocation(
-            working=[],
+            working=working,
             request_messages=request_messages,
             operator_config=self.operator_config,
             base_settings=self.base_settings,
@@ -311,7 +312,7 @@ class GenerationRunner:
                 format_turn_telemetry,
             )
 
-            history_items = getattr(plan, "history", None) or []
+            history_items = list(getattr(plan, "history", None) or [])
             turn_id = node.get("turn_id") or allocate_turn_handle(len(history_items))
             model_call: dict = outcome.model_call if isinstance(outcome.model_call, dict) else {}
             target = (
