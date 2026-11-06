@@ -12,8 +12,10 @@ from toas.tools_cluster.rendering import (
     is_single_turn_ephemeral,
     render_fenced_output,
     render_import_block,
+    render_read_file_success,
     render_search_excerpt_blocks,
     render_search_success,
+    render_shell_result,
     render_shell_stdout_import_block,
     shape_result_content,
     spill_inert_block,
@@ -939,7 +941,10 @@ def test_shape_result_content_shell_stdout_spills_oversized(tmp_path, monkeypatc
     }
     rendered = shape_result_content(result)
     assert "[OK] shell: exit=0\nstdout:\nOutput exceeded threshold (" in rendered
-    assert "lines=1..30 of 79" in rendered
+    assert "lines=1..10,60..79 of 79" in rendered
+    assert "stdout_line_10\n" in rendered
+    assert "stdout_line_60\n" in rendered
+    assert "--- [49 lines omitted;" in rendered
     assert "[49 lines remaining. Read full output (up to 500 lines without spilling) or inspect with `read_file`, `grep`, or script via path=\".toas/scratch/ib_" in rendered
     assert "under single-turn ephemerality" not in rendered
 
@@ -950,6 +955,128 @@ def test_shape_result_content_shell_stdout_spills_oversized(tmp_path, monkeypatc
     result_with_flag = dict(result, single_turn_ephemeral=True)
     rendered_flag = shape_result_content(result_with_flag)
     assert "under single-turn ephemerality" in rendered_flag
+
+
+def test_render_shell_result_spill_options(tmp_path, monkeypatch):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    monkeypatch.setattr("toas.tools_cluster.rendering.default_scratch_dir", lambda: scratch_dir)
+    result = {
+        "tool_name": "shell",
+        "ok": True,
+        "summary": "exit=0",
+        "stdout": "\n".join(f"out_{i}" for i in range(1, 101)),
+        "stderr": "\n".join(f"err_{i}" for i in range(1, 101)),
+        "threshold_lines": 50,
+        "threshold_bytes": 1000,
+        "spill_mode": "head_tail",
+        "head_lines": 5,
+        "tail_lines": 5,
+        "elide_duplicates": True,
+    }
+    rendered = render_shell_result(result, status="OK", tool_name="shell")
+    assert "lines=1..5,96..100 of 100" in rendered
+    assert "stdout:" in rendered
+    assert "stderr:" in rendered
+
+
+def test_spill_inert_block_named_profile(tmp_path):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    raw = [f"line_{i}" for i in range(1, 100)]
+    raw.extend(["FAILED test_suite", "detail"])
+    raw.extend([f"tail_{i}" for i in range(1, 20)])
+    content = "\n".join(raw)
+    spilled, rel_path, block_id = spill_inert_block(
+        content,
+        kind="stdout",
+        scratch_dir=scratch_dir,
+        spill_mode="test",
+    )
+    assert "FAILED test_suite" in spilled
+
+
+def test_active_spill_policy_context(tmp_path):
+    from toas.config import SpillPolicy
+    from toas.tools_cluster.rendering import active_spill_policy
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    custom_policy = SpillPolicy(
+        default_mode="head",
+        threshold_lines=20,
+    )
+    content = "\n".join(f"line_{i}" for i in range(1, 30))
+    with active_spill_policy(custom_policy):
+        spilled = render_fenced_output(
+            content=content,
+            kind="stdout",
+            source="tool.shell",
+            scratch_dir=scratch_dir,
+        )
+        assert "lines=1..29 of 29" in spilled or "lines=1.." in spilled
+        assert "Output exceeded threshold" in spilled
+
+
+def test_safety_brake_clamping():
+    content = "\n".join(f"line_{i}" for i in range(1, 1050))
+    spilled = render_fenced_output(
+        content=content,
+        kind="stdout",
+        source="tool.shell",
+        threshold_lines=50000,
+    )
+    assert "Output exceeded threshold" in spilled
+
+    # Also test profile resolution in render_fenced_output
+    spilled_wide = render_fenced_output(
+        content=content,
+        kind="stdout",
+        source="tool.shell",
+        spill_mode="wide",
+    )
+    assert "Output exceeded threshold" in spilled_wide
+
+
+def test_call_time_threshold_elevation_ac4(tmp_path):
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    lines_250 = "\n".join(f"line_{i}" for i in range(1, 251))
+
+    # Shell result with default threshold -> spills because 250 > 40
+    result_default = {
+        "ok": True,
+        "tool_name": "shell",
+        "summary": "exit=0",
+        "argv": ["python", "script.py"],
+        "stdout": lines_250,
+        "stderr": "",
+    }
+    rendered_default = render_shell_result(result_default, status="OK", tool_name="shell")
+    assert "Output exceeded threshold" in rendered_default
+
+    # Shell result with threshold_lines=300 -> does NOT spill because 250 <= 300
+    result_elevated = {
+        "ok": True,
+        "tool_name": "shell",
+        "summary": "exit=0",
+        "argv": ["python", "script.py"],
+        "stdout": lines_250,
+        "stderr": "",
+        "threshold_lines": 300,
+    }
+    rendered_elevated = render_shell_result(result_elevated, status="OK", tool_name="shell")
+    assert "Output exceeded threshold" not in rendered_elevated
+    assert "line_250" in rendered_elevated
+
+    # read_file success with threshold_lines=300 -> does NOT spill
+    read_res_elevated = {
+        "ok": True,
+        "tool_name": "read_file",
+        "path": "test.txt",
+        "content": lines_250,
+        "threshold_lines": 300,
+    }
+    rendered_read = render_read_file_success(read_res_elevated, status="OK", tool_name="read_file", scratch_dir=scratch_dir)
+    assert "Output exceeded threshold" not in rendered_read
+    assert "line_250" in rendered_read
+
 
 
 def test_spill_inert_block_size_mb_and_default_dir_and_oserror(tmp_path):

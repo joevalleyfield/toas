@@ -26,6 +26,7 @@ _CHOICE_MAP: dict[str, tuple[str, ...]] = {
     "session.continuation_name_format": ("datetime-slug", "datetime", "date-slug", "slug"),
     "session.telemetry_decorations": ("off", "compact", "inline", "comment"),
     "backend.mode": ("external", "managed-local"),
+    "spill.default_mode": ("head_tail", "head", "tail", "error_focus", "head_shuf_tail"),
 }
 
 
@@ -168,6 +169,16 @@ def parse_config_value(
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
     if dotted_key == "backend.managed_local":
         raise ValueError("backend.managed_local cannot be set via /config set; edit toas.toml")
+    if dotted_key == "spill.profiles":
+        raise ValueError("spill.profiles cannot be set via /config set; edit toas.toml")
+    if dotted_key in {
+        "spill.head_lines",
+        "spill.tail_lines",
+        "spill.threshold_lines",
+        "spill.threshold_bytes",
+        "spill.preview_lines",
+    }:
+        return _parse_int_nonnegative(raw, dotted_key=dotted_key)
 
     if dotted_key in _CHOICE_MAP:
         return _parse_choice(raw, dotted_key=dotted_key, choices=_CHOICE_MAP[dotted_key])

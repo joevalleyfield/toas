@@ -244,17 +244,34 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     backend_values["managed_local"] = managed_local
     backend = classes["BackendPolicy"](**backend_values)
     diagnostics = classes["DiagnosticsPolicy"](**merged.get("diagnostics", {}))
-    return classes["OperatorConfig"](
-        extraction=extraction,
-        generation=generation,
-        llm=llm,
-        runtime=runtime,
-        storage=storage,
-        shell=shell,
-        capability_advertisement=capability_advertisement,
-        session=session,
-        tool_writes=tool_writes,
-        backend_startup=backend_startup,
-        backend=backend,
-        diagnostics=diagnostics,
-    )
+
+    spill_values = dict(merged.get("spill", {}))
+    raw_spill_profiles = spill_values.get("profiles", {})
+    spill_profiles = {}
+    if isinstance(raw_spill_profiles, dict):
+        for name, prof in raw_spill_profiles.items():
+            if isinstance(prof, classes.get("SpillProfile", ())):
+                spill_profiles[str(name)] = prof
+            elif isinstance(prof, dict):
+                spill_profiles[str(name)] = classes["SpillProfile"](**prof)
+    if spill_profiles:
+        spill_values["profiles"] = spill_profiles
+    spill = classes["SpillPolicy"](**spill_values) if "SpillPolicy" in classes else None
+
+    kwargs: dict[str, object] = {
+        "extraction": extraction,
+        "generation": generation,
+        "llm": llm,
+        "runtime": runtime,
+        "storage": storage,
+        "shell": shell,
+        "capability_advertisement": capability_advertisement,
+        "session": session,
+        "tool_writes": tool_writes,
+        "backend_startup": backend_startup,
+        "backend": backend,
+        "diagnostics": diagnostics,
+    }
+    if spill is not None:
+        kwargs["spill"] = spill
+    return classes["OperatorConfig"](**kwargs)

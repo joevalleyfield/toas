@@ -7,7 +7,28 @@ from contextvars import ContextVar
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
 
+from .spill_ops import extract_spill_preview
+
 _SINGLE_TURN_EPHEMERAL: ContextVar[bool] = ContextVar("toas_single_turn_ephemeral", default=False)
+_ACTIVE_SPILL_POLICY: ContextVar[object | None] = ContextVar("toas_active_spill_policy", default=None)
+
+
+def get_active_spill_policy():
+    active = _ACTIVE_SPILL_POLICY.get()
+    if active is not None:
+        return active
+    from ..config import SpillPolicy
+
+    return SpillPolicy()
+
+
+@contextmanager
+def active_spill_policy(policy) -> Iterator[None]:
+    token = _ACTIVE_SPILL_POLICY.set(policy)
+    try:
+        yield
+    finally:
+        _ACTIVE_SPILL_POLICY.reset(token)
 
 
 def is_single_turn_ephemeral() -> bool:
@@ -72,6 +93,28 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
         if hint:
             lines.append("next valid shape:")
             lines.append(hint)
+
+    threshold_lines = result.get("threshold_lines")
+    threshold_bytes = result.get("threshold_bytes")
+    spill_mode = result.get("spill_mode") or result.get("mode")
+    head_lines = result.get("head_lines")
+    tail_lines = result.get("tail_lines")
+    elide_duplicates = result.get("elide_duplicates")
+
+    spill_kwargs: dict = {}
+    if threshold_lines is not None:
+        spill_kwargs["threshold_lines"] = int(threshold_lines)
+    if threshold_bytes is not None:
+        spill_kwargs["threshold_bytes"] = int(threshold_bytes)
+    if spill_mode is not None:
+        spill_kwargs["spill_mode"] = str(spill_mode)
+    if head_lines is not None:
+        spill_kwargs["head_lines"] = int(head_lines)
+    if tail_lines is not None:
+        spill_kwargs["tail_lines"] = int(tail_lines)
+    if elide_duplicates is not None:
+        spill_kwargs["elide_duplicates"] = bool(elide_duplicates)
+
     if result.get("stdout"):
         lines.append("stdout:")
         rendered_stdout = render_shell_stdout_import_block(result)
@@ -84,6 +127,7 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
                     kind="stdout",
                     source=f"tool.{tool_name}",
                     potency="inert",
+                    **spill_kwargs,
                 )
             )
     if result.get("stderr"):
@@ -94,6 +138,7 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
                 kind="stderr",
                 source=f"tool.{tool_name}",
                 potency="inert",
+                **spill_kwargs,
             )
         )
     return "\n".join(lines)
@@ -121,11 +166,19 @@ def render_read_file_success(
     )
     is_scratch = Path(path).resolve().is_relative_to((scratch_dir or default_scratch_dir()).resolve())
     ingestion_read = is_bounded or is_scratch
-    threshold_lines = DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES if ingestion_read else DEFAULT_SPILL_THRESHOLD_LINES
-    threshold_bytes = DEFAULT_BOUNDED_SPILL_THRESHOLD_BYTES if ingestion_read else DEFAULT_SPILL_THRESHOLD_BYTES
+    threshold_lines = result.get("threshold_lines")
+    if threshold_lines is None:
+        threshold_lines = DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES if ingestion_read else DEFAULT_SPILL_THRESHOLD_LINES
+    threshold_bytes = result.get("threshold_bytes")
+    if threshold_bytes is None:
+        threshold_bytes = DEFAULT_BOUNDED_SPILL_THRESHOLD_BYTES if ingestion_read else DEFAULT_SPILL_THRESHOLD_BYTES
+    spill_mode = result.get("spill_mode") or result.get("mode")
+    head_lines = result.get("head_lines", 10)
+    tail_lines = result.get("tail_lines", 20)
+    elide_duplicates = result.get("elide_duplicates", True)
     return (
         f"[{status}] {tool_name}: {path}\n"
-        f"{render_import_block(content=content, path=rendered_path, source='workspace', line_start=result.get('line_start'), line_end=result.get('line_end'), allow_spill=allow_spill, threshold_lines=threshold_lines, threshold_bytes=threshold_bytes, scratch_dir=scratch_dir)}"
+        f"{render_import_block(content=content, path=rendered_path, source='workspace', line_start=result.get('line_start'), line_end=result.get('line_end'), allow_spill=allow_spill, threshold_lines=threshold_lines, threshold_bytes=threshold_bytes, scratch_dir=scratch_dir, spill_mode=spill_mode, head_lines=head_lines, tail_lines=tail_lines, elide_duplicates=elide_duplicates)}"
     )
 
 
@@ -159,7 +212,7 @@ def default_scratch_dir() -> Path:
     return Path(".toas/scratch")
 
 
-def spill_inert_block(
+def spill_inert_block(  # noqa: PLR0913
     content: str,
     *,
     kind: str,
@@ -171,6 +224,11 @@ def spill_inert_block(
     block_id: str | None = None,
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
+    mode: str | None = None,
+    spill_mode: str | None = None,
+    head_lines: int = 10,
+    tail_lines: int = 20,
+    elide_duplicates: bool = True,
 ) -> tuple[str, str, str]:
     """Spill an oversized inert block to a scratch file and return (spilled_text, rel_path, block_id)."""
     if single_turn_ephemeral is None:
@@ -199,10 +257,33 @@ def spill_inert_block(
     total_bytes = len(content.encode("utf-8"))
     size_str = _format_size(total_bytes)
 
-    preview_slice = lines[:preview_lines]
-    preview_body = "\n".join(preview_slice) + "\n" if preview_slice else ""
-    preview_count = len(preview_slice)
-    remaining_lines = max(0, total_lines - preview_count)
+    policy = get_active_spill_policy()
+    chosen_mode = spill_mode or mode
+    if chosen_mode and chosen_mode in policy.profiles:
+        profile = policy.profiles[chosen_mode]
+        chosen_mode = profile.mode
+        head_lines = profile.head_lines
+        tail_lines = profile.tail_lines
+        elide_duplicates = profile.elide_duplicates
+        preview_lines = profile.preview_lines
+    elif not chosen_mode:
+        chosen_mode = policy.default_mode if kind in {"stdout", "stderr", "shell"} else "head"
+        head_lines = policy.head_lines
+        tail_lines = policy.tail_lines
+        elide_duplicates = policy.elide_duplicates
+        preview_lines = preview_lines or policy.preview_lines
+
+    preview_res = extract_spill_preview(
+        lines,
+        mode=chosen_mode,
+        preview_lines=preview_lines,
+        head_lines=head_lines,
+        tail_lines=tail_lines,
+        elide_duplicates=elide_duplicates,
+        scratch_rel_path=scratch_rel_path,
+    )
+    preview_body = "\n".join(preview_res.lines) + "\n" if preview_res.lines else ""
+    remaining_lines = preview_res.omitted_lines
 
     banner = f"Output exceeded threshold ({size_str}, {total_lines} lines); spilled to `{scratch_rel_path}`."
     fence = _sized_backtick_fence(preview_body)
@@ -212,7 +293,7 @@ def spill_inert_block(
         f"kind={kind}",
         f"block_id={effective_block_id}",
         f'path="{scratch_rel_path}"',
-        f"lines=1..{preview_count} of {total_lines}",
+        preview_res.range_summary,
     ]
     if remaining_lines > 0:
         base_trailer = (
@@ -239,7 +320,6 @@ def spill_inert_block(
 def render_fenced_output(  # noqa: PLR0913
     *,
     content: str,
-
     kind: str,
     source: str = "",
     potency: str = "inert",
@@ -256,13 +336,29 @@ def render_fenced_output(  # noqa: PLR0913
     preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
+    mode: str | None = None,
+    spill_mode: str | None = None,
+    head_lines: int = 10,
+    tail_lines: int = 20,
+    elide_duplicates: bool = True,
 ) -> str:
     content = content.replace("\r\n", "\n").replace("\r", "\n")
     lines = content.splitlines()
     total_lines = len(lines)
     total_bytes = len(content.encode("utf-8"))
-    effective_threshold_lines = min(threshold_lines, DEFAULT_SPILL_SAFETY_BRAKE_LINES)
-    effective_threshold_bytes = min(threshold_bytes, DEFAULT_SPILL_SAFETY_BRAKE_BYTES)
+
+    policy = get_active_spill_policy()
+    effective_mode = spill_mode or mode
+    if effective_mode and effective_mode in policy.profiles:
+        profile = policy.profiles[effective_mode]
+        base_thresh_lines = profile.threshold_lines
+        base_thresh_bytes = profile.threshold_bytes
+    else:
+        base_thresh_lines = policy.threshold_lines if threshold_lines == DEFAULT_SPILL_THRESHOLD_LINES else threshold_lines
+        base_thresh_bytes = policy.threshold_bytes if threshold_bytes == DEFAULT_SPILL_THRESHOLD_BYTES else threshold_bytes
+
+    effective_threshold_lines = min(base_thresh_lines, DEFAULT_SPILL_SAFETY_BRAKE_LINES)
+    effective_threshold_bytes = min(base_thresh_bytes, DEFAULT_SPILL_SAFETY_BRAKE_BYTES)
     should_allow_spill = (kind in {"result", "stdout", "stderr"} and not source.startswith("command.")) if allow_spill is None else allow_spill
     if should_allow_spill and (total_lines > effective_threshold_lines or total_bytes > effective_threshold_bytes):
         spilled_text, _, _ = spill_inert_block(
@@ -276,6 +372,11 @@ def render_fenced_output(  # noqa: PLR0913
             block_id=block_id,
             single_turn_ephemeral=single_turn_ephemeral,
             ephemeral=ephemeral,
+            mode=mode,
+            spill_mode=spill_mode,
+            head_lines=head_lines,
+            tail_lines=tail_lines,
+            elide_duplicates=elide_duplicates,
         )
         return spilled_text
 
@@ -328,6 +429,11 @@ def render_import_block(  # noqa: PLR0913
     preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
+    mode: str | None = None,
+    spill_mode: str | None = None,
+    head_lines: int = 10,
+    tail_lines: int = 20,
+    elide_duplicates: bool = True,
 ) -> str:
     content = content.replace("\r\n", "\n").replace("\r", "\n")
     effective_source = source or "workspace"
@@ -366,6 +472,11 @@ def render_import_block(  # noqa: PLR0913
         preview_lines=preview_lines,
         single_turn_ephemeral=single_turn_ephemeral,
         ephemeral=ephemeral,
+        mode=mode,
+        spill_mode=spill_mode,
+        head_lines=head_lines,
+        tail_lines=tail_lines,
+        elide_duplicates=elide_duplicates,
     )
 
 

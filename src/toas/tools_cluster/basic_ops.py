@@ -9,6 +9,7 @@ from typing import Any
 from ..runtime.rendering_edges import apply_newline_style
 from ..runtime.session_file_edges import read_text_preserve_newlines
 from .file_write_edges import write_text_with_tool_newline_policy
+from .spill_ops import parse_spill_spec
 
 
 def _jj_captures_current_file_text(*, path: Path, workspace_root: Path) -> bool:
@@ -158,12 +159,28 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
     if "line_end" in normalized_args and "end_line" not in normalized_args:
         normalized_args["end_line"] = normalized_args.pop("line_end")
 
-    allowed_args = {"path", "start_line", "end_line", "max_lines", "show_line_numbers"}
+    allowed_args = {
+        "path",
+        "start_line",
+        "end_line",
+        "max_lines",
+        "show_line_numbers",
+        "threshold_lines",
+        "spill_mode",
+        "spill",
+    }
     unknown_args = sorted(set(normalized_args) - allowed_args)
     if unknown_args:
         raise RuntimeError(
             f"invalid arguments for tool read_file: unknown argument(s): {', '.join(unknown_args)}"
         )
+
+    thresh, mode = parse_spill_spec(
+        normalized_args.get("spill"),
+        threshold_lines=normalized_args.get("threshold_lines"),
+        spill_mode=normalized_args.get("spill_mode"),
+        tool_name="read_file",
+    )
 
     path_arg = normalized_args["path"]
     if not isinstance(path_arg, str) or not path_arg:
@@ -226,7 +243,7 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
             for line_no, line in enumerate(content.splitlines(keepends=True), start=display_start)
         )
 
-    return {
+    result: dict[str, Any] = {
         "tool_name": "read_file",
         "ok": True,
         "summary": summary,
@@ -236,6 +253,11 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
         "show_line_numbers": show_line_numbers,
         "max_lines": max_lines,
     }
+    if thresh is not None:
+        result["threshold_lines"] = thresh
+    if mode is not None:
+        result["spill_mode"] = mode
+    return result
 
 
 def run_search(args: dict, *, workspace_path_fn) -> dict:

@@ -509,6 +509,9 @@ def test_apply_dotted_override_generation_avoid_terms():
     updated = apply_dotted_override(config, "generation.avoid_terms", "foo,bar")
     assert updated.generation.avoid_terms == ("foo", "bar")
 
+    updated_shell = apply_dotted_override(config, "runtime.shell_runtime", "bash -c")
+    assert updated_shell.runtime.shell_runtime == ("bash", "-c")
+
 
 def test_apply_dotted_override_llm_base_url():
     config = OperatorConfig()
@@ -526,6 +529,49 @@ def test_apply_dotted_override_tool_writes_patch_atomic():
     config = OperatorConfig()
     updated = apply_dotted_override(config, "tool_writes.patch_atomic", "false")
     assert updated.tool_writes.patch_atomic is False
+
+
+def test_apply_dotted_override_spill_settings():
+    config = OperatorConfig()
+    updated = apply_dotted_override(config, "spill.default_mode", "error_focus")
+    assert updated.spill.default_mode == "error_focus"
+
+    updated = apply_dotted_override(updated, "spill.threshold_lines", "150")
+    assert updated.spill.threshold_lines == 150
+
+    updated = apply_dotted_override(updated, "spill.elide_duplicates", "false")
+    assert updated.spill.elide_duplicates is False
+
+    with pytest.raises(ValueError, match="spill.profiles cannot be set via /config set"):
+        apply_dotted_override(config, "spill.profiles", "{}")
+
+
+def test_apply_overrides_spill_profiles_and_objects():
+    from toas.config import SpillProfile
+    config = OperatorConfig()
+    prof = SpillProfile(mode="tail", head_lines=5, tail_lines=15)
+    nested = {
+        "spill": {
+            "default_mode": "head_shuf_tail",
+            "profiles": {
+                "custom_obj": prof,
+                "custom_dict": {
+                    "mode": "head",
+                    "head_lines": 20,
+                    "tail_lines": 0,
+                    "elide_duplicates": False,
+                    "threshold_lines": 80,
+                    "threshold_bytes": 8000,
+                    "preview_lines": 20,
+                },
+            },
+        }
+    }
+    updated = apply_overrides(config, nested)
+    assert updated.spill.default_mode == "head_shuf_tail"
+    assert updated.spill.profiles["custom_obj"].mode == "tail"
+    assert updated.spill.profiles["custom_dict"].mode == "head"
+    assert updated.spill.profiles["custom_dict"].elide_duplicates is False
 
 
 def test_apply_dotted_override_unknown_key():
