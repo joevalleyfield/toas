@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-05
+> **Last Sync:** 2026-11-06
 
 ## 0. Manual Triage
 
@@ -151,6 +151,8 @@ Neither dated vote is a literal current queue.
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
+- **[T261105-apply-patch-indent-leniency-and-diff-diagnostics]** apply_patch Indentation Leniency and Unified Diff Diagnostics
+- **[T261106-apply-patch-atomicity-and-healing]** apply_patch Atomicity, Indentation Healing, and Transparent Diagnostics
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
