@@ -46,6 +46,7 @@ from .tools_cluster.shell_ops import shell_launcher_argv as shell_launcher_argv_
 from .tools_cluster.shell_ops import (
     validate_shell_script_args as validate_shell_script_args_cluster,
 )
+from .tools_cluster.spill_ops import parse_spill_spec
 from .tools_cluster.survey_ops import run_code_survey as run_cluster_code_survey
 
 
@@ -338,6 +339,16 @@ def _run_shell_script(args: dict) -> dict:
     result["tool_name"] = "shell_script"
     result["script"] = script
     result["runtime_source"] = "explicit" if "runtime" in args else "configured" if runtime else "system-default"
+    thresh, mode = parse_spill_spec(
+        args.get("spill"),
+        threshold_lines=args.get("threshold_lines"),
+        spill_mode=args.get("spill_mode"),
+        tool_name="shell_script",
+    )
+    if thresh is not None:
+        result["threshold_lines"] = thresh
+    if mode is not None:
+        result["spill_mode"] = mode
     return result
 
 

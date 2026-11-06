@@ -20,6 +20,7 @@ from ..runtime.shell_runtime import configured_shell_runtime
 from ..runtime.tool_stream_context import emit_tool_done
 from ..shell_grants import shell_command_decision, shell_script_segment_commands
 from .shell_streaming import run_streaming_subprocess
+from .spill_ops import parse_spill_spec
 
 SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
 
@@ -440,6 +441,16 @@ def execute_shell_call(
                     "stderr_len": len(result.get("stderr", "") or ""),
                 }
             )
+            thresh, mode = parse_spill_spec(
+                args.get("spill"),
+                threshold_lines=args.get("threshold_lines"),
+                spill_mode=args.get("spill_mode"),
+                tool_name="shell",
+            )
+            if thresh is not None:
+                result["threshold_lines"] = thresh
+            if mode is not None:
+                result["spill_mode"] = mode
             return result
         except Exception as exc:
             _append_shell_diag(
@@ -471,13 +482,24 @@ def execute_shell_call(
     if not isinstance(command, str) or not command.strip():
         command = None
 
-    return run_user_shell(
+    res = run_user_shell(
         argv,
         cwd=resolved_cwd,
         timeout_s=user_timeout_s,
         command=command,
         env_overrides=env_overrides,
     )
+    thresh, mode = parse_spill_spec(
+        args.get("spill"),
+        threshold_lines=args.get("threshold_lines"),
+        spill_mode=args.get("spill_mode"),
+        tool_name="shell",
+    )
+    if thresh is not None:
+        res["threshold_lines"] = thresh
+    if mode is not None:
+        res["spill_mode"] = mode
+    return res
 
 
 def _resolve_user_argv(*, args: dict, command: str | None) -> list[str]:

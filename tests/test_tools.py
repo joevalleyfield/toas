@@ -947,7 +947,7 @@ def test_shell_script_tool_runs_allowed_script():
     result = execute_call(
         {
             "tool_name": "shell_script",
-            "args": {"script": "echo hi | head -1"},
+            "args": {"script": "echo hi | head -1", "threshold_lines": 50, "spill_mode": "head"},
         }
     )
     assert result["tool_name"] == "shell_script"
@@ -955,6 +955,8 @@ def test_shell_script_tool_runs_allowed_script():
     assert result["argv"][2] == "echo hi | head -1"
     assert Path(result["argv"][0]).stem in {"sh", "bash"}
     assert result["stdout"] == "hi"
+    assert result["threshold_lines"] == 50
+    assert result["spill_mode"] == "head"
 
 
 def test_shell_script_tool_rejects_disallowed_leading_command():

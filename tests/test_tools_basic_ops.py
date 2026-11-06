@@ -386,6 +386,27 @@ def test_run_read_file_normalizes_crlf_and_double_cr(tmp_path):
     assert out["summary"] == "mixed.txt"
 
 
+def test_run_read_file_spill_arguments(tmp_path):
+    path = tmp_path / "sample.txt"
+    path.write_text("hello world\n", encoding="utf-8")
+
+    out = run_read_file(
+        {"path": "sample.txt", "threshold_lines": 120, "spill_mode": "tail"},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out["ok"] is True
+    assert out["threshold_lines"] == 120
+    assert out["spill_mode"] == "tail"
+
+    out_dense = run_read_file(
+        {"path": "sample.txt", "spill": "head@80"},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out_dense["ok"] is True
+    assert out_dense["threshold_lines"] == 80
+    assert out_dense["spill_mode"] == "head"
+
+
 def test_run_search_validates_and_runs(tmp_path):
     path = tmp_path / "x.txt"
     path.write_text("alpha\nbeta\n", encoding="utf-8")

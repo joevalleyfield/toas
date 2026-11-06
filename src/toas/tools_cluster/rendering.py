@@ -10,6 +10,25 @@ from pathlib import Path, PurePosixPath
 from .spill_ops import extract_spill_preview
 
 _SINGLE_TURN_EPHEMERAL: ContextVar[bool] = ContextVar("toas_single_turn_ephemeral", default=False)
+_ACTIVE_SPILL_POLICY: ContextVar[object | None] = ContextVar("toas_active_spill_policy", default=None)
+
+
+def get_active_spill_policy():
+    active = _ACTIVE_SPILL_POLICY.get()
+    if active is not None:
+        return active
+    from ..config import SpillPolicy
+
+    return SpillPolicy()
+
+
+@contextmanager
+def active_spill_policy(policy) -> Iterator[None]:
+    token = _ACTIVE_SPILL_POLICY.set(policy)
+    try:
+        yield
+    finally:
+        _ACTIVE_SPILL_POLICY.reset(token)
 
 
 def is_single_turn_ephemeral() -> bool:
@@ -238,9 +257,21 @@ def spill_inert_block(  # noqa: PLR0913
     total_bytes = len(content.encode("utf-8"))
     size_str = _format_size(total_bytes)
 
+    policy = get_active_spill_policy()
     chosen_mode = spill_mode or mode
-    if not chosen_mode:
-        chosen_mode = "head_tail" if kind in {"stdout", "stderr", "shell"} else "head"
+    if chosen_mode and chosen_mode in policy.profiles:
+        profile = policy.profiles[chosen_mode]
+        chosen_mode = profile.mode
+        head_lines = profile.head_lines
+        tail_lines = profile.tail_lines
+        elide_duplicates = profile.elide_duplicates
+        preview_lines = profile.preview_lines
+    elif not chosen_mode:
+        chosen_mode = policy.default_mode if kind in {"stdout", "stderr", "shell"} else "head"
+        head_lines = policy.head_lines
+        tail_lines = policy.tail_lines
+        elide_duplicates = policy.elide_duplicates
+        preview_lines = preview_lines or policy.preview_lines
 
     preview_res = extract_spill_preview(
         lines,
@@ -315,8 +346,19 @@ def render_fenced_output(  # noqa: PLR0913
     lines = content.splitlines()
     total_lines = len(lines)
     total_bytes = len(content.encode("utf-8"))
-    effective_threshold_lines = min(threshold_lines, DEFAULT_SPILL_SAFETY_BRAKE_LINES)
-    effective_threshold_bytes = min(threshold_bytes, DEFAULT_SPILL_SAFETY_BRAKE_BYTES)
+
+    policy = get_active_spill_policy()
+    effective_mode = spill_mode or mode
+    if effective_mode and effective_mode in policy.profiles:
+        profile = policy.profiles[effective_mode]
+        base_thresh_lines = profile.threshold_lines
+        base_thresh_bytes = profile.threshold_bytes
+    else:
+        base_thresh_lines = policy.threshold_lines if threshold_lines == DEFAULT_SPILL_THRESHOLD_LINES else threshold_lines
+        base_thresh_bytes = policy.threshold_bytes if threshold_bytes == DEFAULT_SPILL_THRESHOLD_BYTES else threshold_bytes
+
+    effective_threshold_lines = min(base_thresh_lines, DEFAULT_SPILL_SAFETY_BRAKE_LINES)
+    effective_threshold_bytes = min(base_thresh_bytes, DEFAULT_SPILL_SAFETY_BRAKE_BYTES)
     should_allow_spill = (kind in {"result", "stdout", "stderr"} and not source.startswith("command.")) if allow_spill is None else allow_spill
     if should_allow_spill and (total_lines > effective_threshold_lines or total_bytes > effective_threshold_bytes):
         spilled_text, _, _ = spill_inert_block(

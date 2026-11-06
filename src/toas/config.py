@@ -212,6 +212,36 @@ class DiagnosticsPolicy:
 
 
 @dataclass(frozen=True)
+class SpillProfile:
+    mode: str = "head_tail"
+    head_lines: int = 10
+    tail_lines: int = 20
+    elide_duplicates: bool = True
+    threshold_lines: int = 40
+    threshold_bytes: int = 4000
+    preview_lines: int = 30
+
+
+DEFAULT_SPILL_PROFILES: dict[str, SpillProfile] = {
+    "test": SpillProfile(mode="error_focus", head_lines=10, tail_lines=20, elide_duplicates=True, threshold_lines=40, threshold_bytes=4000, preview_lines=30),
+    "raw": SpillProfile(mode="head", head_lines=30, tail_lines=0, elide_duplicates=False, threshold_lines=40, threshold_bytes=4000, preview_lines=30),
+    "wide": SpillProfile(mode="head_tail", head_lines=25, tail_lines=25, elide_duplicates=True, threshold_lines=100, threshold_bytes=10000, preview_lines=50),
+}
+
+
+@dataclass(frozen=True)
+class SpillPolicy:
+    default_mode: str = "head_tail"
+    head_lines: int = 10
+    tail_lines: int = 20
+    elide_duplicates: bool = True
+    threshold_lines: int = 40
+    threshold_bytes: int = 4000
+    preview_lines: int = 30
+    profiles: dict[str, SpillProfile] = field(default_factory=lambda: dict(DEFAULT_SPILL_PROFILES))
+
+
+@dataclass(frozen=True)
 class OperatorConfig:
     extraction: ExtractionPolicy = field(default_factory=ExtractionPolicy)
     generation: GenerationPolicy = field(default_factory=GenerationPolicy)
@@ -227,6 +257,7 @@ class OperatorConfig:
     backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
     backend: BackendPolicy = field(default_factory=BackendPolicy)
     diagnostics: DiagnosticsPolicy = field(default_factory=DiagnosticsPolicy)
+    spill: SpillPolicy = field(default_factory=SpillPolicy)
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +330,8 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "BackendManagedLocalPolicy": BackendManagedLocalPolicy,
                 "BackendPolicy": BackendPolicy,
                 "DiagnosticsPolicy": DiagnosticsPolicy,
+                "SpillPolicy": SpillPolicy,
+                "SpillProfile": SpillProfile,
             },
         ),
     )

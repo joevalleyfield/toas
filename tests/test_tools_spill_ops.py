@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from toas.tools_cluster.spill_ops import (
     DEFAULT_ERROR_ANCHORS,
     LineMeta,
@@ -8,6 +10,7 @@ from toas.tools_cluster.spill_ops import (
     elide_duplicate_lines,
     extract_spill_preview,
     find_error_anchor_index,
+    parse_spill_spec,
 )
 
 
@@ -267,3 +270,63 @@ def test_find_error_anchor_index_priority():
     # Priority prefers Traceback over generic ERROR
     idx = find_error_anchor_index(items, DEFAULT_ERROR_ANCHORS)
     assert idx == 2
+
+
+def test_parse_spill_spec_valid():
+    # Defaults
+    assert parse_spill_spec() == (None, None)
+
+    # Explicit
+    assert parse_spill_spec(threshold_lines=50, spill_mode="head") == (50, "head")
+
+    # Dense formats
+    assert parse_spill_spec(">100") == (100, None)
+    assert parse_spill_spec("tail@200") == (200, "tail")
+    assert parse_spill_spec("150") == (150, None)
+    assert parse_spill_spec("error_focus") == (None, "error_focus")
+
+    # Explicit takes precedence over dense string
+    assert parse_spill_spec(">100", threshold_lines=50) == (50, None)
+    assert parse_spill_spec("tail@200", threshold_lines=80, spill_mode="head") == (80, "head")
+    assert parse_spill_spec("300", threshold_lines=120) == (120, None)
+    assert parse_spill_spec("tail", spill_mode="error_focus") == (None, "error_focus")
+
+
+def test_parse_spill_spec_invalid():
+    with pytest.raises(RuntimeError, match="threshold_lines must be a positive int"):
+        parse_spill_spec(threshold_lines=True)
+    with pytest.raises(RuntimeError, match="threshold_lines must be a positive int"):
+        parse_spill_spec(threshold_lines=0)
+    with pytest.raises(RuntimeError, match="threshold_lines must be a positive int"):
+        parse_spill_spec(threshold_lines=-5)
+    with pytest.raises(RuntimeError, match="threshold_lines must be a positive int"):
+        parse_spill_spec(threshold_lines="100")
+
+    with pytest.raises(RuntimeError, match="spill_mode must be a non-empty string"):
+        parse_spill_spec(spill_mode="")
+    with pytest.raises(RuntimeError, match="spill_mode must be a non-empty string"):
+        parse_spill_spec(spill_mode=123)
+    with pytest.raises(RuntimeError, match="spill_mode must be a non-empty string"):
+        parse_spill_spec(spill_mode="   ")
+
+    with pytest.raises(RuntimeError, match="spill must be a non-empty string"):
+        parse_spill_spec(123)
+    with pytest.raises(RuntimeError, match="spill must be a non-empty string"):
+        parse_spill_spec("")
+    with pytest.raises(RuntimeError, match="spill must be a non-empty string"):
+        parse_spill_spec("   ")
+
+    # Invalid dense formats
+    with pytest.raises(RuntimeError, match="spill threshold must be a positive int"):
+        parse_spill_spec(">abc")
+    with pytest.raises(RuntimeError, match="spill threshold must be a positive int"):
+        parse_spill_spec(">0")
+    with pytest.raises(RuntimeError, match="spill mode must be non-empty"):
+        parse_spill_spec("@100")
+    with pytest.raises(RuntimeError, match="spill threshold must be a positive int"):
+        parse_spill_spec("tail@abc")
+    with pytest.raises(RuntimeError, match="spill threshold must be a positive int"):
+        parse_spill_spec("tail@0")
+    with pytest.raises(RuntimeError, match="spill threshold must be a positive int"):
+        parse_spill_spec("0")
+

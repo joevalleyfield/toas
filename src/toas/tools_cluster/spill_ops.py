@@ -318,3 +318,59 @@ def extract_spill_preview(
 
     # Default to head_tail
     return _extract_head_tail(items, total_lines, preview_lines, head_lines, tail_lines, scratch_rel_path)
+
+
+def parse_spill_spec(
+    spill: object = None,
+    *,
+    threshold_lines: object = None,
+    spill_mode: object = None,
+    tool_name: str = "tool",
+) -> tuple[int | None, str | None]:
+    """Parse call-time spillage options into (threshold_lines, spill_mode)."""
+    parsed_threshold: int | None = None
+    parsed_mode: str | None = None
+
+    if threshold_lines is not None:
+        if isinstance(threshold_lines, bool) or not isinstance(threshold_lines, int) or threshold_lines <= 0:
+            raise RuntimeError(f"invalid arguments for tool {tool_name}: threshold_lines must be a positive int")
+        parsed_threshold = threshold_lines
+
+    if spill_mode is not None:
+        if not isinstance(spill_mode, str) or not spill_mode.strip():
+            raise RuntimeError(f"invalid arguments for tool {tool_name}: spill_mode must be a non-empty string")
+        parsed_mode = spill_mode.strip()
+
+    if spill is not None:
+        if not isinstance(spill, str) or not spill.strip():
+            raise RuntimeError(f"invalid arguments for tool {tool_name}: spill must be a non-empty string")
+        raw = spill.strip()
+        if raw.startswith(">"):
+            num_part = raw[1:].strip()
+            if not num_part.isdigit() or int(num_part) <= 0:
+                raise RuntimeError(f"invalid arguments for tool {tool_name}: spill threshold must be a positive int")
+            if parsed_threshold is None:
+                parsed_threshold = int(num_part)
+        elif "@" in raw:
+            mode_part, thresh_part = raw.split("@", 1)
+            mode_part = mode_part.strip()
+            thresh_part = thresh_part.strip()
+            if not mode_part:
+                raise RuntimeError(f"invalid arguments for tool {tool_name}: spill mode must be non-empty")
+            if not thresh_part.isdigit() or int(thresh_part) <= 0:
+                raise RuntimeError(f"invalid arguments for tool {tool_name}: spill threshold must be a positive int")
+            if parsed_mode is None:
+                parsed_mode = mode_part
+            if parsed_threshold is None:
+                parsed_threshold = int(thresh_part)
+        elif raw.isdigit():
+            val = int(raw)
+            if val <= 0:
+                raise RuntimeError(f"invalid arguments for tool {tool_name}: spill threshold must be a positive int")
+            if parsed_threshold is None:
+                parsed_threshold = val
+        else:
+            if parsed_mode is None:
+                parsed_mode = raw
+
+    return parsed_threshold, parsed_mode

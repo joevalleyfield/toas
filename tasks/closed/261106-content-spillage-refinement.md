@@ -3,7 +3,7 @@ FKA:
 AKA: spill preview refinement; head tail spillage; error focus spillage; call time spill threshold; repetitive output elision; dense spill language
 Legacy index:
 
-keywords: rendering, tools, spillage, preview, head_tail, error_focus, elision, thresholds, active
+keywords: rendering, tools, spillage, preview, head_tail, error_focus, elision, thresholds, historical
 
 Related: `261106-bounded-step-quiescence`; `261020-tool-spill-ephemerality-comment-scoping`; `261010-scratch-read-file-ingestion-threshold`
 
@@ -136,7 +136,7 @@ explicitly so models and operators understand the slice structure:
 
 ## Implementation Plan
 
-1. **Phase 1: Preview Extractors & Duplicate Elision (`src/toas/tools_cluster/rendering.py`)** [COMPLETED]
+1. **Phase 1: Preview Extractors & Duplicate Elision (`src/toas/tools_cluster/spill_ops.py`, `rendering.py`)** [COMPLETED]
    - **Duplicate Elision**: Implemented `elide_duplicate_lines` collapsing consecutive duplicate lines (`min_repeat=3` by default) into count markers (`waiting for daemon... [repeated 38 times]`), with raw content untouched in scratch files.
    - **Extractors**:
      - `head_tail`: First $H$ lines (default 10), explicit omission marker (`--- [K lines omitted; full output in <path>] ---`), and last $T$ lines (default 20).
@@ -147,22 +147,21 @@ explicitly so models and operators understand the slice structure:
    - **Scratch Invariant**: `.toas/scratch/<block_id>.txt` receives the exact, unmodified byte stream.
    - **Command Spillage**: Shell stdout/stderr defaults to `head_tail` mode.
 
-2. **Phase 2: Configuration Policy (`src/toas/config.py`)** [NEXT]
-   - Introduce `SpillProfile` and `SpillPolicy` under `OperatorConfig`:
+2. **Phase 2: Configuration Policy (`src/toas/config.py`, `config_parsing.py`, `config_overrides.py`)** [COMPLETED]
+   - Introduced `SpillProfile` and `SpillPolicy` under `OperatorConfig`:
      - `spill.default_mode = "head_tail"`
      - `spill.head_lines = 10`, `spill.tail_lines = 20`
      - `spill.elide_duplicates = True`
      - `spill.threshold_lines = 40`
      - `spill.threshold_bytes = 4000`
      - Predefined profiles: `test`, `raw`, `wide`.
-   - Support dotted config inspection and updates (`/config set spill.default_mode head_tail`).
+   - Supported dotted config inspection and updates (`/config set spill.default_mode head_tail`, `/config set spill.threshold_lines 150`, etc.).
 
-3. **Phase 3: Call-Time Overrides & Dense Syntax**
-   - Parse call-time options (`threshold_lines`, `spill_mode`, and dense syntax `spill: ">500"`, `"tail@300"`, `"test"`).
-   - Clamp against `DEFAULT_SPILL_SAFETY_BRAKE_LINES` (1,000 lines).
-   - Wire into tool execution and rendering (`shell`, `shell_script`, `read_file`).
+3. **Phase 3: Call-Time Overrides & Dense Syntax** [COMPLETED]
+   - Implemented `parse_spill_spec` in `src/toas/tools_cluster/spill_ops.py` to parse call-time options (`threshold_lines`, `spill_mode`, and dense syntax `spill: ">500"`, `"tail@300"`, `"test"`).
+   - Enforced safety ceiling against `DEFAULT_SPILL_SAFETY_BRAKE_LINES` (1,000 lines).
+   - Wired call-time spillage options into tool execution (`shell`, `shell_script`, `read_file`) and rendering.
 
-4. **Phase 4: TDD & Operator-Perspective Verification**
-   - Red/green/refactor with 100.00% statement coverage under `./scripts/check.sh`.
-   - Inspect concrete terminal output from the operator's perspective.
-   - Update and close the task document once criteria are met.
+4. **Phase 4: TDD & Operator-Perspective Verification** [COMPLETED]
+   - 100.00% statement coverage achieved across all modified files and the entire repo via `./scripts/check.sh` (3,814 unit tests, 17 acceptance tests).
+   - Verified end-to-end rendered outputs from operator perspective: clear fence headers (`lines=1..10,81..100 of 100`), omission dividers (`--- [70 lines omitted; full output in .toas/scratch/<block_id>.txt] ---`), duplicate count markers, and exact byte preservation in `.toas/scratch/<block_id>.txt`.

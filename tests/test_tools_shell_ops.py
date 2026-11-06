@@ -705,3 +705,47 @@ def test_resolve_user_cwd_paths(tmp_path):
 
     with pytest.raises(RuntimeError, match="cwd must be a string"):
         _resolve_user_cwd(args={"cwd": 1}, base_cwd=None)
+
+
+def test_run_subprocess_with_env(tmp_path):
+    from toas.tools_cluster.shell_ops import run_subprocess
+    out = run_subprocess(["sh", "-c", "echo $CUSTOM_VAR"], cwd=tmp_path, timeout_s=5, env={"CUSTOM_VAR": "hello_from_env"})
+    assert out["ok"] is True
+    assert "hello_from_env" in out["stdout"]
+
+
+def test_execute_shell_call_spill_arguments_assistant_and_user(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.run_subprocess",
+        lambda argv, *, cwd, timeout_s, **kwargs: {"tool_name": "shell", "ok": True, "argv": argv, "cwd": str(cwd), "summary": "exit=0"},
+    )
+    # Assistant context with spill kwargs
+    out_ast = execute_shell_call(
+        {"argv": ["echo", "hi"], "cwd": str(tmp_path), "threshold_lines": 150, "spill_mode": "tail"},
+        context="assistant",
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"echo"},
+    )
+    assert out_ast["ok"] is True
+    assert out_ast["threshold_lines"] == 150
+    assert out_ast["spill_mode"] == "tail"
+
+    # User context with dense spill string
+    out_usr = execute_shell_call(
+        {"argv": ["echo", "hi"], "cwd": str(tmp_path), "spill": ">300"},
+        context="user",
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed=None,
+    )
+    assert out_usr["ok"] is True
+    assert out_usr["threshold_lines"] == 300
+
+    out_usr2 = execute_shell_call(
+        {"argv": ["echo", "hi"], "cwd": str(tmp_path), "spill": "error_focus"},
+        context="user",
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed=None,
+    )
+    assert out_usr2["ok"] is True
+    assert out_usr2["spill_mode"] == "error_focus"
+
