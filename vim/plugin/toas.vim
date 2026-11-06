@@ -730,13 +730,23 @@ function! s:toas_channel_open() abort
   endtry
 endfunction
 
-function! s:toas_step_rpc() abort
-  let l:resp = s:toas_request('step', {'workdir': s:toas_workdir()}, 5.0)
+function! s:toas_step_rpc(...) abort
+  let l:count = a:0 > 0 ? a:1 : 0
+  let l:payload = {'workdir': s:toas_workdir()}
+  if l:count > 1
+    let l:payload.max_turns = l:count
+  endif
+  let l:resp = s:toas_request('step', l:payload, 5.0)
   return get(get(l:resp, 'payload', {}), 'stdout', '')
 endfunction
 
-function! s:toas_step_rpc_async_collect() abort
-  let l:start = s:toas_request('step_async_cold', {'workdir': s:toas_workdir()}, 5.0)
+function! s:toas_step_rpc_async_collect(...) abort
+  let l:count = a:0 > 0 ? a:1 : 0
+  let l:payload = {'workdir': s:toas_workdir()}
+  if l:count > 1
+    let l:payload.max_turns = l:count
+  endif
+  let l:start = s:toas_request('step_async_cold', l:payload, 5.0)
   let l:start_payload = get(l:start, 'payload', {})
   let l:run_id = get(l:start_payload, 'run_id', '')
   if l:run_id ==# ''
@@ -2933,8 +2943,14 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
     throw 'timer support unavailable'
   endif
   call s:toas_wire_log('STEP_START lane=' . a:lane_name . ' op=' . a:op_name)
-  let l:pending_id = a:0 >= 1 ? a:1 : 'pending-' . s:toas_request_id()
-  let l:created_pending = a:0 == 0
+  let l:pending_id = a:0 >= 1 && type(a:1) == v:t_string ? a:1 : 'pending-' . s:toas_request_id()
+  let l:created_pending = a:0 == 0 || type(a:1) != v:t_string
+  let l:count = 0
+  if a:0 >= 2 && type(a:2) == v:t_number
+    let l:count = a:2
+  elseif a:0 == 1 && type(a:1) == v:t_number
+    let l:count = a:1
+  endif
   call s:toas_phase_mark(l:pending_id, 'step_start')
   if l:created_pending
     call s:toas_insert_run_region(l:pending_id, 'starting', a:insert_after)
@@ -2943,7 +2959,11 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   call s:toas_wire_log('RUN_MARKER_PENDING inserted=' . l:pending_id)
   let l:start = reltime()
   try
-    let l:resp = s:toas_request(a:op_name, {'workdir': s:toas_workdir()}, 15.0)
+    let l:payload = {'workdir': s:toas_workdir()}
+    if l:count > 1
+      let l:payload.max_turns = l:count
+    endif
+    let l:resp = s:toas_request(a:op_name, l:payload, 15.0)
   catch
     call s:toas_remove_run_region(l:pending_id)
     call remove(s:toas_run_buffers, l:pending_id)
@@ -3430,22 +3450,28 @@ function! s:toas_local_host_subscribe_frames(run_id, timeout_s) abort
   return l:frames
 endfunction
 
-function! s:toas_run_sync_cli_step() abort
+function! s:toas_run_sync_cli_step(...) abort
+  let l:count = a:0 > 0 ? a:1 : 0
+  let l:cmd = 'toas step'
+  if l:count > 1
+    let l:cmd .= ' ' . l:count
+  endif
   let l:cwd_save = getcwd()
   try
     execute 'lcd! ' . fnameescape(s:toas_workdir())
-    return system('toas step')
+    return system(l:cmd)
   finally
     execute 'lcd! ' . fnameescape(l:cwd_save)
   endtry
 endfunction
 
-function! s:toas_try_step_lane(lane, insert_after, pending_id) abort
+function! s:toas_try_step_lane(lane, insert_after, pending_id, ...) abort
+  let l:count = a:0 > 0 ? a:1 : 0
   if a:lane ==# 'default'
     if !get(g:, 'toas_step_nonblocking', 0) || !exists('*timer_start')
       throw 'default lane unavailable: nonblocking timer path disabled'
     endif
-    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async', 'default', a:pending_id)
+    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async', 'default', a:pending_id, l:count)
     let g:toas_last_step_transport = s:toas_transport_mode() ==# 'local_host' ? 'local_host_async_nonblocking' : 'rpc_async_nonblocking'
     return {'kind': 'async_started', 'run_id': l:run_id}
   endif
@@ -3454,13 +3480,13 @@ function! s:toas_try_step_lane(lane, insert_after, pending_id) abort
     if !get(g:, 'toas_step_nonblocking', 0) || !exists('*timer_start')
       throw 'warm lane unavailable: nonblocking timer path disabled'
     endif
-    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async_warm', 'warm', a:pending_id)
+    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async_warm', 'warm', a:pending_id, l:count)
     let g:toas_last_step_transport = s:toas_transport_mode() ==# 'local_host' ? 'local_host_async_nonblocking' : 'rpc_async_nonblocking'
     return {'kind': 'async_started', 'run_id': l:run_id}
   endif
 
   if a:lane ==# 'cold'
-    let l:out = s:toas_step_rpc_async_collect()
+    let l:out = s:toas_step_rpc_async_collect(l:count)
     let g:toas_last_step_transport = 'rpc_async'
     return {'kind': 'sync_output', 'out': l:out}
   endif
@@ -3470,20 +3496,21 @@ function! s:toas_try_step_lane(lane, insert_after, pending_id) abort
       throw 'local_host: synchronous lane disabled while async transport selected'
     endif
     try
-      let l:out = s:toas_step_rpc()
+      let l:out = s:toas_step_rpc(l:count)
       let g:toas_last_step_transport = 'rpc'
       return {'kind': 'sync_output', 'out': l:out}
     catch
       let s:toas_channel = v:null
       let g:toas_last_step_transport = 'cli_fallback'
-      return {'kind': 'sync_output', 'out': s:toas_run_sync_cli_step()}
+      return {'kind': 'sync_output', 'out': s:toas_run_sync_cli_step(l:count)}
     endtry
   endif
 
   throw 'unknown step lane: ' . a:lane
 endfunction
 
-function! ToasStep() abort
+function! ToasStep(...) abort
+  let l:count = a:0 > 0 ? a:1 : 0
   " ensure disk is current
   if &modified
     write
@@ -3512,7 +3539,7 @@ function! ToasStep() abort
       continue
     endif
     try
-      let l:result = s:toas_try_step_lane(l:lane, line('$'), l:pending_id)
+      let l:result = s:toas_try_step_lane(l:lane, line('$'), l:pending_id, l:count)
       call s:toas_note_lane_success(l:lane)
       call s:toas_record_lane(l:lane, join(l:fallbacks, ' | '))
       let g:toas_last_error = ''
@@ -3552,8 +3579,8 @@ function! ToasStep() abort
   echoerr 'ToasStep failed: ' . g:toas_last_error
 endfunction
 
-command! ToasStep call ToasStep()
-nnoremap <leader>s :ToasStep<CR>
+command! -count=0 -nargs=? ToasStep call ToasStep(<q-args> !=# '' ? str2nr(<q-args>) : <count>)
+nnoremap <silent> <leader>s :<C-U>call ToasStep(v:count)<CR>
 
 function! ToasStepAsync() abort
   if &modified
@@ -3992,7 +4019,8 @@ function! ToasCancel(...) abort
   endtry
 endfunction
 
-function! ToasStepHere() abort
+function! ToasStepHere(...) abort
+  let l:count = a:0 > 0 ? a:1 : 0
   if &modified
     write
   endif
@@ -4001,14 +4029,16 @@ function! ToasStepHere() abort
   let l:tail = getline(l:cur + 1, '$')
 
   " truncate buffer to cursor
-  execute (l:cur + 1) . ',$delete _'
+  if l:cur < line('$')
+    execute (l:cur + 1) . ',$delete _'
+  endif
 
   " write truncated state for TOAS input
   write
 
   if get(g:, 'toas_step_nonblocking', 0) && exists('*timer_start')
     try
-      let l:run_id = s:toas_start_nonblocking_step(line('$'), 'step_async', 'default')
+      let l:run_id = s:toas_start_nonblocking_step(line('$'), 'step_async', 'default', l:count)
       let g:toas_last_step_transport = 'rpc_async_nonblocking'
       call s:toas_record_lane('default', '')
       let g:toas_last_error = ''
@@ -4026,12 +4056,12 @@ function! ToasStepHere() abort
 
   " run step (RPC preferred, fallback CLI)
   try
-    let l:out = s:toas_step_rpc_async_collect()
+    let l:out = s:toas_step_rpc_async_collect(l:count)
     let g:toas_last_step_transport = 'rpc_async'
     let g:toas_last_error = ''
   catch
     try
-      let l:out = s:toas_step_rpc()
+      let l:out = s:toas_step_rpc(l:count)
       let g:toas_last_step_transport = 'rpc'
       let g:toas_last_error = ''
     catch
@@ -4046,13 +4076,7 @@ function! ToasStepHere() abort
       endif
       let s:toas_channel = v:null
       let g:toas_last_step_transport = 'cli_fallback'
-      let l:cwd_save = getcwd()
-      try
-        execute 'lcd! ' . fnameescape(s:toas_workdir())
-        let l:out = system('toas step')
-      finally
-        execute 'lcd! ' . fnameescape(l:cwd_save)
-      endtry
+      let l:out = s:toas_run_sync_cli_step(l:count)
     endtry
   endtry
 
@@ -4466,8 +4490,8 @@ function! ToasWatchHealth(...) abort
         \ get(l:summary, 'last_reason', ''))
 endfunction
 
-command! ToasStepHere call ToasStepHere()
-nnoremap <leader>S :ToasStepHere<CR>
+command! -count=0 -nargs=? ToasStepHere call ToasStepHere(<q-args> !=# '' ? str2nr(<q-args>) : <count>)
+nnoremap <silent> <leader>S :<C-U>call ToasStepHere(v:count)<CR>
 command! ToasStepAsync call ToasStepAsync()
 command! -nargs=* ToasContinue call ToasContinue(<f-args>)
 nnoremap <leader>r :ToasContinue<CR>

@@ -11,6 +11,7 @@ import uuid
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .async_activity_store_api import (
     AsyncRun,
@@ -51,6 +52,7 @@ class AsyncStepStartOptions:
     stream_source: str
     runtime_streaming_mode: str | None
     run_mode: str
+    max_turns: int | None = None
 
 
 def _raise_if_cancel_requested(run: AsyncRun) -> None:
@@ -485,6 +487,21 @@ def _run_in_process_worker(
                 pass
 
 
+def _dispatch_runtime_step(
+    options: AsyncStepStartOptions,
+    run: AsyncRun,
+    **kwargs: Any,
+) -> Any:
+    api = importlib.import_module("toas.operator_api")
+    if hasattr(api, "step_bounded"):
+        return api.step_bounded(
+            max_turns=options.max_turns,
+            is_cancelled=lambda: run.cancel_requested,
+            **kwargs,
+        )
+    return api.step_once(**kwargs)
+
+
 def start_async_step(
     payload: dict,
     *,
@@ -598,7 +615,9 @@ def start_async_step(
                 tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
             ),
             "write_run_event_fn": write_run_event_fn,
-            "runtime_step_fn": lambda: importlib.import_module("toas.operator_api").step_once(
+            "runtime_step_fn": lambda: _dispatch_runtime_step(
+                options=options,
+                run=run,
                 session_path=options.requested_session_path,
                 on_llm_answer_delta=_on_llm_answer_delta,
                 on_llm_reasoning_delta=_on_llm_reasoning_delta if options.thinking_enabled else None,
@@ -644,6 +663,8 @@ def _resolve_async_step_start_options(
     prompt_progress_enabled = prompt_progress_stream_enabled_fn(workdir)
     stream_enabled, stream_source, runtime_streaming_mode = _resolve_shell_stream_policy(workdir)
     run_mode = "cold_asyncio" if asyncio_runtime_enabled() else "cold"
+    raw_max_turns = payload.get("max_turns")
+    max_turns = int(raw_max_turns) if raw_max_turns is not None else None
     options = AsyncStepStartOptions(
         run_id=run_id,
         workdir=workdir,
@@ -656,6 +677,7 @@ def _resolve_async_step_start_options(
         stream_source=stream_source,
         runtime_streaming_mode=runtime_streaming_mode,
         run_mode=run_mode,
+        max_turns=max_turns,
     )
     _log_async_step_start(options)
     return options

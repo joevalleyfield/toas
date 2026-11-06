@@ -29,12 +29,21 @@ def _validate_optional_nonnegative_int(payload: dict, key: str) -> None:
         raise RuntimeError(f"{key} must be int >= 0")
 
 
+def _validate_optional_positive_int(payload: dict, key: str) -> None:
+    if key not in payload:
+        return
+    value = payload.get(key)
+    if not isinstance(value, int) or value <= 0:
+        raise RuntimeError(f"{key} must be int > 0")
+
+
 def validate_step_async_payload(payload: object) -> dict:
     out = validate_payload_object(payload)
     _validate_optional_nonempty_str(out, "workdir")
     _validate_optional_nonempty_str(out, "session_path")
     _validate_optional_nonempty_str(out, "session")
     _validate_optional_nonempty_str(out, "host_session_path")
+    _validate_optional_positive_int(out, "max_turns")
     return out
 
 

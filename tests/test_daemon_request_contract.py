@@ -27,18 +27,27 @@ def test_validate_step_async_payload_rejects_bad_optional_fields():
         validate_step_async_payload({"session": "   "})
     with pytest.raises(RuntimeError, match="host_session_path must be non-empty string"):
         validate_step_async_payload({"host_session_path": ""})
+    with pytest.raises(RuntimeError, match="max_turns must be int > 0"):
+        validate_step_async_payload({"max_turns": 0})
+    with pytest.raises(RuntimeError, match="max_turns must be int > 0"):
+        validate_step_async_payload({"max_turns": -2})
+    with pytest.raises(RuntimeError, match="max_turns must be int > 0"):
+        validate_step_async_payload({"max_turns": "5"})
+    assert validate_step_async_payload({}) == {}
     assert validate_step_async_payload(
         {
             "workdir": "/tmp",
             "session_path": "session.md",
             "session": "session.md",
             "host_session_path": "host-session.md",
+            "max_turns": 5,
         }
     ) == {
         "workdir": "/tmp",
         "session_path": "session.md",
         "session": "session.md",
         "host_session_path": "host-session.md",
+        "max_turns": 5,
     }
 
 
