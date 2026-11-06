@@ -1667,7 +1667,7 @@ def _decorate_step_telemetry(
     estimator = getattr(
         getattr(config, "session", None),
         "telemetry_token_estimator",
-        "chars:4",
+        "adaptive",
     )
     cum_items = list(events)
 

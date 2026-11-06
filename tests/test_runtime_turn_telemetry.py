@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from toas.runtime.turn_telemetry import (
     allocate_turn_handle,
+    calibrate_token_estimator_ratio,
     compute_cumulative_tokens,
     compute_human_dwell_ms,
     decorate_result_node,
@@ -375,12 +376,134 @@ def test_humanize_token_count():
     assert humanize_token_count(1200000) == "1.2M"
 
 
+def test_calibrate_token_estimator_ratio():
+    # Empty items
+    assert calibrate_token_estimator_ratio([]) == 4.0
+    assert calibrate_token_estimator_ratio([], mode="words") == 0.75
+    assert calibrate_token_estimator_ratio([], default_rate=3.2) == 3.2
+    assert calibrate_token_estimator_ratio([], mode="words", default_rate=0.8) == 0.8
+
+    # Non-dict items or items without usage
+    assert calibrate_token_estimator_ratio(["string", {"role": "user"}]) == 4.0
+
+    # 1. From node _llm_call with request_messages and content
+    node_llm = {
+        "role": "assistant",
+        "content": "b" * 100,
+        "_llm_call": {
+            "usage": {"total_tokens": 100, "prompt_tokens": 75, "completion_tokens": 25},
+            "request_messages": [{"role": "user", "content": "a" * 200}],
+        },
+    }
+    # 200 chars prompt + 100 chars completion = 300 chars / 100 tokens = 3.0 chars/tok
+    assert calibrate_token_estimator_ratio([node_llm]) == 3.0
+
+    # 2. From durable llm_call with response content and messages
+    durable_call = {
+        "kind": "llm_call",
+        "payload": {
+            "usage": {"total_tokens": 100},
+            "response": {"content": "c" * 150},
+            "messages": [{"role": "user", "content": "d" * 150}],
+        },
+    }
+    # 300 chars / 100 tokens = 3.0
+    assert calibrate_token_estimator_ratio([durable_call]) == 3.0
+
+    # 3. Durable call without messages in payload, gathers preceding transcript turns
+    history_prev = [
+        {"role": "user", "content": "u" * 100},
+        {"role": "assistant", "content": "a" * 100, "id": "m1"},
+        {
+            "kind": "llm_call",
+            "payload": {
+                "message_id": "m1",
+                "usage": {"prompt_tokens": 50, "completion_tokens": 50},  # total_tokens inferred
+            },
+        },
+    ]
+    # 100 chars prompt (user) + 100 chars completion (m1) = 200 / 100 tokens = 2.0
+    assert calibrate_token_estimator_ratio(history_prev) == 2.0
+
+    # 3b. Durable call with preceding assistant turn when message_id absent
+    history_preceding = [
+        {"role": "user", "content": "u" * 150},
+        {"role": "assistant", "content": "a" * 150},
+        {
+            "kind": "llm_call",
+            "payload": {
+                "usage": {"total_tokens": 100},
+            },
+        },
+    ]
+    # 150 prompt + 150 completion = 300 / 100 = 3.0
+    assert calibrate_token_estimator_ratio(history_preceding) == 3.0
+
+    # 4. Words mode
+    words_call = {
+        "kind": "llm_call",
+        "payload": {
+            "usage": {"total_tokens": 100},
+            "response": {"content": "one two three four five"},
+            "messages": [{"role": "user", "content": "six seven eight nine ten"}],
+        },
+    }
+    # 10 words / 100 tokens = 0.1 -> clamped to min_clamp 0.3
+    assert calibrate_token_estimator_ratio([words_call], mode="words") == 0.3
+
+    # 5. Clamping bounds
+    dense_call = {
+        "kind": "llm_call",
+        "payload": {
+            "usage": {"total_tokens": 1000},
+            "response": {"content": "x" * 100},
+        },
+    }
+    # 100 chars / 1000 tokens = 0.1 -> clamped to min 1.5
+    assert calibrate_token_estimator_ratio([dense_call]) == 1.5
+
+    sparse_call = {
+        "kind": "llm_call",
+        "payload": {
+            "usage": {"total_tokens": 100},
+            "response": {"content": "x" * 1000},
+        },
+    }
+    # 1000 chars / 100 tokens = 10.0 -> clamped to max 6.0
+    assert calibrate_token_estimator_ratio([sparse_call]) == 6.0
+
+    # 6. Usage with 0 total tokens skipped
+    bad_usage = {"kind": "llm_call", "payload": {"usage": {"total_tokens": 0}}}
+    assert calibrate_token_estimator_ratio([bad_usage]) == 4.0
+
+    # 7. Empty combined text skipped
+    empty_text_call = {"kind": "llm_call", "payload": {"usage": {"total_tokens": 100}, "response": {"content": "   "}}}
+    assert calibrate_token_estimator_ratio([empty_text_call]) == 4.0
+
+
 def test_estimate_tokens():
     assert estimate_tokens(None) == 0
     assert estimate_tokens("") == 0
-    # chars default
+    # adaptive default
     assert estimate_tokens("test") == 1
     assert estimate_tokens("a" * 400) == 100
+    assert estimate_tokens("a" * 400, heuristic="adaptive") == 100
+    assert estimate_tokens("a" * 400, heuristic="adaptive:chars") == 100
+    assert estimate_tokens("hello world", heuristic="adaptive:words") == 3
+    # adaptive with calibrated items (3.0 chars/tok)
+    calibrated_items = [
+        {
+            "kind": "llm_call",
+            "payload": {
+                "usage": {"total_tokens": 100},
+                "response": {"content": "x" * 300},
+            },
+        }
+    ]
+    # 300 chars / 3.0 chars/tok = 100
+    assert estimate_tokens("a" * 300, heuristic="adaptive", items=calibrated_items) == 100
+
+    # chars default and custom rate
     assert estimate_tokens("a" * 400, heuristic="chars:4") == 100
     assert estimate_tokens("a" * 400, heuristic="chars:10") == 40
     # words heuristic
@@ -408,23 +531,26 @@ def test_compute_cumulative_tokens():
     # 4. Anchor in history items via kind=llm_call
     history = [
         {"role": "user", "content": "a" * 400},
-        {"kind": "llm_call", "payload": {"usage": {"total_tokens": 2000}}},
+        {"kind": "llm_call", "payload": {"usage": {"total_tokens": 100}}},
         {"role": "tool_request", "content": "ignored"},
         {"role": "result", "content": "b" * 40},
     ]
-    # Anchor is 2000, then tool_request skipped, result has 40 chars -> 10 tokens => 2010
-    assert compute_cumulative_tokens(history) == 2010
+    # Anchor is 100; calibrated ratio is 400/100 = 4.0 chars/tok; result 40 chars -> 10 tokens => 110
+    assert compute_cumulative_tokens(history) == 110
+    assert compute_cumulative_tokens(history, heuristic="chars:4") == 110
 
     # 4b. Anchor in history items via _llm_call
     history_llm_call = [
-        {"role": "assistant", "content": "prior", "_llm_call": {"usage": {"total_tokens": 3000}}},
+        {"role": "assistant", "content": "a" * 400, "_llm_call": {"usage": {"total_tokens": 100}}},
         {"role": "user", "content": "c" * 40},
     ]
-    assert compute_cumulative_tokens(history_llm_call) == 3010
+    # 400 chars / 100 tok = 4.0 chars/tok; 40 chars user -> 10 tokens => 110
+    assert compute_cumulative_tokens(history_llm_call) == 110
 
     # 4c. Current node passed with no usage, appended to items
     node_plain = {"role": "user", "content": "d" * 40}
-    assert compute_cumulative_tokens(history_llm_call, node_plain) == 3020
+    # 110 + 10 = 120
+    assert compute_cumulative_tokens(history_llm_call, node_plain) == 120
 
     # 5. Anchor via node/metadata tokens
     hist_meta = [

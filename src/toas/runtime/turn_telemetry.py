@@ -114,11 +114,145 @@ def humanize_token_count(tokens: int | None) -> str | None:
     return formatted
 
 
-def estimate_tokens(text: str | None, heuristic: str = "chars:4") -> int:
+def calibrate_token_estimator_ratio(
+    items: list[dict],
+    mode: str = "chars",
+    *,
+    default_rate: float | None = None,
+    max_calls: int = 3,
+    min_tokens: int = 50,
+) -> float:
+    """Derive an empirical character-to-token or word-to-token ratio from recent LLM calls.
+
+    Scans backward through history items to find up to `max_calls` LLM interactions with
+    provider usage, accumulating character/word counts and token counts until `min_tokens`
+    threshold is met, and computes the ratio clamped to safe bounds.
+    """
+    clean_mode = mode.lower().strip()
+    is_words = clean_mode == "words"
+    if is_words:
+        fallback = default_rate if (default_rate is not None and default_rate > 0) else 0.75
+        min_clamp, max_clamp = 0.3, 1.5
+    else:
+        fallback = default_rate if (default_rate is not None and default_rate > 0) else 4.0
+        min_clamp, max_clamp = 1.5, 6.0
+
+    if not items:
+        return fallback
+
+    accumulated_units = 0
+    accumulated_tokens = 0
+    calls_found = 0
+
+    for idx in range(len(items) - 1, -1, -1):
+        item = items[idx]
+        if not isinstance(item, dict):
+            continue
+
+        usage: dict | None = None
+        comp_text: str = ""
+        prompt_text: str = ""
+        prompt_cutoff = idx
+
+        # 1. Node with attached _llm_call (pre-commit generation node)
+        llm_call = item.get("_llm_call")
+        if isinstance(llm_call, dict) and isinstance(llm_call.get("usage"), dict):
+            usage = llm_call["usage"]
+            comp_text = str(item.get("content", "")).strip()
+            prompt_cutoff = idx
+            req_msgs = llm_call.get("request_messages")
+            if isinstance(req_msgs, list):
+                prompt_text = " ".join(
+                    str(m.get("content", "")) for m in req_msgs if isinstance(m, dict) and m.get("content")
+                )
+
+        # 2. Durable llm_call record or event with payload usage
+        if usage is None:
+            payload = item.get("payload")
+            if isinstance(payload, dict) and isinstance(payload.get("usage"), dict):
+                usage = payload["usage"]
+                resp_payload = payload.get("response")
+                if isinstance(resp_payload, dict) and resp_payload.get("content"):
+                    comp_text = str(resp_payload["content"]).strip()
+                elif payload.get("message_id"):
+                    mid = payload["message_id"]
+                    for prev_i, prev in enumerate(items):
+                        if isinstance(prev, dict) and prev.get("id") == mid:
+                            comp_text = str(prev.get("content", "")).strip()
+                            prompt_cutoff = prev_i
+                            break
+                elif idx > 0 and isinstance(items[idx - 1], dict) and items[idx - 1].get("role") == "assistant":
+                    comp_text = str(items[idx - 1].get("content", "")).strip()
+                    prompt_cutoff = idx - 1
+
+                msgs = payload.get("messages")
+                if isinstance(msgs, list):
+                    prompt_text = " ".join(
+                        str(m.get("content", "")) for m in msgs if isinstance(m, dict) and m.get("content")
+                    )
+
+        if usage is None:
+            continue
+
+        total_toks = usage.get("total_tokens")
+        if not isinstance(total_toks, int) or total_toks <= 0:
+            prompt_toks = usage.get("prompt_tokens") or 0
+            comp_toks = usage.get("completion_tokens") or 0
+            total_toks = prompt_toks + comp_toks
+        if total_toks <= 0:
+            continue
+
+        # If prompt_text was not in payload/llm_call, gather preceding turn content
+        if not prompt_text:
+            prompt_parts: list[str] = []
+            for prev_idx in range(prompt_cutoff):
+                prev_item = items[prev_idx]
+                if isinstance(prev_item, dict) and prev_item.get("role") in {"user", "assistant", "system", "result"}:
+                    c = prev_item.get("content")
+                    if c:
+                        prompt_parts.append(str(c))
+            prompt_text = " ".join(prompt_parts)
+
+        units = 0
+        if prompt_text:
+            units += len(prompt_text.split()) if is_words else len(prompt_text)
+        if comp_text:
+            units += len(comp_text.split()) if is_words else len(comp_text)
+        if units <= 0:
+            continue
+
+        accumulated_units += units
+        accumulated_tokens += total_toks
+        calls_found += 1
+
+        if calls_found >= max_calls or accumulated_tokens >= min_tokens:
+            break
+
+    if accumulated_tokens > 0 and accumulated_units > 0:
+        raw_ratio = accumulated_units / accumulated_tokens
+        clamped = max(min_clamp, min(max_clamp, raw_ratio))
+        return round(clamped, 2)
+
+    return fallback
+
+
+def estimate_tokens(
+    text: str | None,
+    heuristic: str = "adaptive",
+    items: list[dict] | None = None,
+) -> int:
     """Estimate token count for a text string using a configurable heuristic."""
     if not text:
         return 0
     clean_h = heuristic.strip().lower()
+    if clean_h in {"adaptive:words", "auto:words"}:
+        rate = calibrate_token_estimator_ratio(items or [], mode="words")
+        words = len(text.split())
+        return max(1, int(round(words / rate))) if words else 0
+    if clean_h in {"adaptive", "adaptive:chars", "auto", "auto:chars"}:
+        rate = calibrate_token_estimator_ratio(items or [], mode="chars")
+        length = len(text)
+        return max(1, int(round(length / rate))) if length else 0
     if clean_h.startswith("words:"):
         rate_str = clean_h[len("words:"):].strip()
         try:
@@ -146,7 +280,7 @@ def compute_cumulative_tokens(
     items: list[dict],
     current_node: dict | None = None,
     *,
-    heuristic: str = "chars:4",
+    heuristic: str = "adaptive",
     current_usage: dict | None = None,
 ) -> int:
     """Calculate the cumulative token count up to the current turn.
@@ -217,7 +351,7 @@ def compute_cumulative_tokens(
                 if kind or role in {"llm_call", "tool_request", "jump", "head", "anchor", "run"}:
                     continue
                 content = str(item.get("content", ""))
-                total += estimate_tokens(content, heuristic)
+                total += estimate_tokens(content, heuristic, items=all_items)
         return total
 
     total = 0
@@ -228,7 +362,7 @@ def compute_cumulative_tokens(
             if kind or role in {"llm_call", "tool_request", "jump", "head", "anchor", "run"}:
                 continue
             content = str(item.get("content", ""))
-            total += estimate_tokens(content, heuristic)
+            total += estimate_tokens(content, heuristic, items=all_items)
     return total
 
 

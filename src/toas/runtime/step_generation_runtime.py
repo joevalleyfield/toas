@@ -322,7 +322,7 @@ class GenerationRunner:
             estimator = getattr(
                 getattr(self.operator_config, "session", None),
                 "telemetry_token_estimator",
-                "chars:4",
+                "adaptive",
             )
             tokens_count = compute_cumulative_tokens(
                 history_items,

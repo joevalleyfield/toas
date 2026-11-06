@@ -215,10 +215,10 @@ should return only with a current timing reproduction.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
+- **[T261106-adaptive-token-estimator]** Adaptive History-Calibrated Token Estimator
 - **[T261105-user-turn-and-result-telemetry-decorations]** User Turn And Result Telemetry Decorations
 - **[T261105-multi-command-step-facade]** Multi-Command Operator Execution via Step Facade
 - **[T261104-visible-turn-ids-and-compact-headers]** Visible Turn IDs And Compact Header Stamps
-- **[T261104-vim-telemetry-decorations-streaming-reconciliation]** Vim Telemetry Decorations and Streaming Reconciliation
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
