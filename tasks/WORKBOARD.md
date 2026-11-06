@@ -152,6 +152,7 @@ Neither dated vote is a literal current queue.
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
 - **[T261105-apply-patch-indent-leniency-and-diff-diagnostics]** apply_patch Indentation Leniency and Unified Diff Diagnostics
+- **[T261106-vim-step-count-prefix]** Support Count Prefix for Vim Step Mapping (`[N]\s` -> `toas step [N]`)
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
