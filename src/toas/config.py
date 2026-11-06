@@ -183,6 +183,7 @@ class SessionPolicy:
 @dataclass(frozen=True)
 class ToolWritePolicy:
     newline_style: str = "auto"
+    patch_atomic: bool = True
 
 
 @dataclass(frozen=True)

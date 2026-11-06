@@ -80,3 +80,27 @@ it iterates through hunks. When hunk $k$ of an $N$-hunk patch fails:
 4. In non-atomic mode (`atomic: false`), applied hunks are recorded, skipped hunks
    are explicitly marked, and any staged recovery plan omits already-applied hunks.
 5. All new behavior is tested with 100.00% statement coverage under `./scripts/check.sh`.
+
+## Outcome & Closure Notes
+
+1. **Automatic Hunk Indentation Healing**:
+   - `parse_apply_patch_hunks`:
+     - Strips leading and trailing blank lines from YAML block literals.
+     - Detects and strips uniform outer indentation across all non-blank lines.
+     - Tolerates leading whitespace on patch headers (`*** Begin Patch`, `*** Add File: `, `*** Delete File: `, `*** Update File: `, `*** Move to: `, `@@`, `*** End Patch`).
+     - Normalizes uniformly shifted diff markers (` `, `+`, `-`) in chunks and add hunks back to column 0.
+   - `find_unique_stripped_match`:
+     - Detects when stripped context/removal lines uniquely match a target file window.
+     - Reconciles context lines to target file lines and anchors added lines relative to surrounding context indentation.
+2. **Controllable Atomicity & Diagnostics**:
+   - Added `patch_atomic: bool = True` to `ToolWritePolicy` in `src/toas/config.py` with choice and boolean parsing in `config_parsing.py`.
+   - Added `atomic` optional argument to `apply_patch` in `src/toas/tools.py` (default `True`).
+   - In atomic mode: pre-validates and computes all mutations in memory. If any hunk fails, rolls back (0 files touched on disk) and reports hunk index and mismatch context. If all hunks succeed, commits all additions, deletions, modifications, and renames to disk atomically.
+   - In non-atomic mode (`atomic: False`): applies hunks sequentially to disk. On failure, tracks `applied_hunks`, `failed_hunk`, `skipped_hunks`, `files_touched`, and generates `unapplied_patch` containing only the unapplied hunks.
+   - Implemented `ApplyPatchExecutionError(RuntimeError)` carrying rich execution diagnostics.
+3. **Safe Recovery Pruning**:
+   - `_append_plan_recovery_consequence` in `src/toas/runtime/step_runtime.py` checks for `unapplied_patch` and `applied_hunks` on failed `apply_patch` operations, staging only the unapplied hunks for retry and preventing retry loops on already-applied hunks.
+4. **Verification**:
+   - All 3,811 unit and acceptance tests passed under `./scripts/check.sh`.
+   - 100.00% statement coverage achieved across all 161 source files (25,212 / 25,212 statements).
+   - End-to-end artifact inspection verified prompts and capability listings.

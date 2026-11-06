@@ -1115,11 +1115,28 @@ def _append_plan_recovery_consequence(
             remainder_source = (
                 "".join(staged_source.operation_sources) if staged_source is not None else remainder_source
             )
+        failed_entry = results[failed_index]
+        failed_payload = (
+            failed_entry.get("payload") if isinstance(failed_entry.get("payload"), dict) else failed_entry
+        )
+        retry_call = plan[failed_index]
+        if (
+            isinstance(failed_payload, dict)
+            and failed_payload.get("tool_name") == "apply_patch"
+            and failed_payload.get("applied_hunks")
+            and isinstance(failed_payload.get("unapplied_patch"), str)
+            and failed_payload["unapplied_patch"]
+        ):
+            retry_call = dict(plan[failed_index])
+            retry_args = dict(retry_call.get("args") or {})
+            retry_args["patch"] = failed_payload["unapplied_patch"]
+            retry_call["args"] = retry_args
+            failed_source = None
         consequences.append(
             {
                 "role": "user",
                 "content": render_plan_recovery(
-                    plan[failed_index],
+                    retry_call,
                     remainder,
                     retry_source=retry_source if retry_source is not None else failed_source,
                     retry_content=retry_content,

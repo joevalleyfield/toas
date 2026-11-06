@@ -2819,6 +2819,61 @@ def test_append_plan_recovery_consequence_splits_failed_call_from_forward_plan()
     assert real_step_mod._extract_staged_plan(recovery["content"]) == [plan[2]]
 
 
+def test_append_plan_recovery_consequence_apply_patch_prunes_applied_hunks():
+    original_patch = (
+        "*** Begin Patch\n"
+        "*** Update File: f1.txt\n"
+        "@@\n"
+        "-a\n"
+        "+b\n"
+        "*** Update File: f2.txt\n"
+        "@@\n"
+        "-c\n"
+        "+d\n"
+        "*** End Patch\n"
+    )
+    unapplied_patch = (
+        "*** Begin Patch\n"
+        "*** Update File: f2.txt\n"
+        "@@\n"
+        "-c\n"
+        "+d\n"
+        "*** End Patch\n"
+    )
+    plan = [
+        {"tool_name": "apply_patch", "args": {"patch": original_patch}},
+    ]
+    results = [
+        _result(
+            "failed",
+            payload={
+                "tool_name": "apply_patch",
+                "ok": False,
+                "unapplied_patch": unapplied_patch,
+                "applied_hunks": [{"kind": "update", "path": "f1.txt"}],
+            },
+        ),
+    ]
+    consequences = list(results)
+    frontier_content = f"```yaml\n- tool_name: apply_patch\n  args:\n    patch: |\n      {original_patch}\n```"
+
+    staged = _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=plan,
+        results=results,
+        frontier_content=frontier_content,
+    )
+
+    assert staged is True
+    recovery = consequences[-1]
+    extracted_plan, _ = real_step_mod.extract_plan_with_status(recovery["content"], yaml_position="tail")
+    assert len(extracted_plan) == 1
+    assert extracted_plan[0]["tool_name"] == "apply_patch"
+    assert "f1.txt" not in extracted_plan[0]["args"]["patch"]
+    assert "f2.txt" in extracted_plan[0]["args"]["patch"]
+
+
 def test_append_plan_recovery_consequence_can_disable_failure_recovery():
     result = _result("failed", payload={"tool_name": "echo", "ok": False})
     consequences = [result]

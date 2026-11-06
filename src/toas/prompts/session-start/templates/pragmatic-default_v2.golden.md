@@ -22,7 +22,8 @@ tools:
   defaults: append=false, force=false
 - replace_block (args: path, search_block, replacement_block, optional: expected_count, match_mode, search_indent, replacement_indent, ensure_trailing_newline)
   defaults: expected_count=1, match_mode=default, ensure_trailing_newline=true
-- apply_patch (args: patch)
+- apply_patch (args: patch, optional: atomic)
+  defaults: atomic=true
 - shell (args: argv, optional: cwd, timeout_s, env)
   defaults: cwd=., timeout_s=shell.assistant_timeout_s
 - shell_script (args: script, optional: cwd, timeout_s, env, runtime)

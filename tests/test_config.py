@@ -60,6 +60,7 @@ def test_default_config_fields():
     assert config.session.bootstrap_prompt_ref == "session-start/templates/pragmatic-default_v2"
     assert config.session.continuation_name_format == "datetime-slug"
     assert config.tool_writes.newline_style == "auto"
+    assert config.tool_writes.patch_atomic is True
     assert config.backend_startup == BackendStartupPolicy()
     assert config.backend == BackendPolicy()
 
@@ -101,6 +102,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["prompt.ingress"] == "text-callable"
     assert flat["prompt.output_profile"] == "intention-tail"
     assert flat["tool_writes.newline_style"] == "auto"
+    assert flat["tool_writes.patch_atomic"] is True
     assert flat["backend_startup.thinking_budget_tokens"] == 0
     assert flat["backend.mode"] == "external"
     assert flat["backend.managed_local"] == {
@@ -171,6 +173,7 @@ def test_valid_config_keys_complete():
     assert "prompt.ingress" in keys
     assert "prompt.output_profile" in keys
     assert "tool_writes.newline_style" in keys
+    assert "tool_writes.patch_atomic" in keys
     assert "backend_startup.thinking_budget_tokens" in keys
     assert "backend.mode" in keys
     assert "backend.managed_local" in keys
@@ -352,6 +355,13 @@ def test_parse_config_value_tool_writes_newline_style():
         parse_config_value("tool_writes.newline_style", "platform")
 
 
+def test_parse_config_value_tool_writes_patch_atomic():
+    assert parse_config_value("tool_writes.patch_atomic", "true") is True
+    assert parse_config_value("tool_writes.patch_atomic", "false") is False
+    with pytest.raises(ValueError, match="expected bool"):
+        parse_config_value("tool_writes.patch_atomic", "maybe")
+
+
 def test_parse_config_value_backend_startup_thinking_budget_tokens():
     assert parse_config_value("backend_startup.thinking_budget_tokens", "128") == 128
 
@@ -419,6 +429,7 @@ def test_config_value_choices_enum_and_bool_and_none():
     assert config_value_choices("extraction.intent_arbitration") == ("first_wins", "last_wins", "in_order", "strict")
     assert config_value_choices("extraction.user_shell") == ("true", "false")
     assert config_value_choices("tool_writes.newline_style") == ("auto", "lf", "crlf")
+    assert config_value_choices("tool_writes.patch_atomic") == ("true", "false")
     assert config_value_choices("session.continuation_name_format") == ("datetime-slug", "datetime", "date-slug", "slug")
     assert config_value_choices("session.telemetry_decorations") == ("off", "compact", "inline", "comment")
     assert config_value_choices("session.telemetry_token_estimator") is None
@@ -509,6 +520,12 @@ def test_apply_dotted_override_tool_writes_newline_style():
     config = OperatorConfig()
     updated = apply_dotted_override(config, "tool_writes.newline_style", "crlf")
     assert updated.tool_writes.newline_style == "crlf"
+
+
+def test_apply_dotted_override_tool_writes_patch_atomic():
+    config = OperatorConfig()
+    updated = apply_dotted_override(config, "tool_writes.patch_atomic", "false")
+    assert updated.tool_writes.patch_atomic is False
 
 
 def test_apply_dotted_override_unknown_key():

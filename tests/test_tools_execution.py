@@ -406,4 +406,44 @@ def test_execute_plan_calls_continue_on_error_returned_failure_and_call_override
     assert results_override[0]["ok"] is False
 
 
+def test_execute_plan_calls_forwards_patch_diagnostics_and_unapplied_patch():
+    def _execute_runtime_error(_call):
+        exc = RuntimeError("patch failed")
+        exc.unapplied_patch = "*** Begin Patch\n*** End Patch\n"
+        exc.applied_hunks = [{"path": "a.txt"}]
+        exc.failed_hunk = {"path": "b.txt"}
+        exc.skipped_hunks = [{"path": "c.txt"}]
+        exc.files_touched = ["a.txt"]
+        raise exc
+
+    res_runtime = execute_plan_calls(
+        [{"tool_name": "apply_patch", "args": {}}],
+        execute_call=_execute_runtime_error,
+    )[0]
+    assert res_runtime["ok"] is False
+    assert res_runtime["unapplied_patch"] == "*** Begin Patch\n*** End Patch\n"
+    assert res_runtime["applied_hunks"] == [{"path": "a.txt"}]
+    assert res_runtime["failed_hunk"] == {"path": "b.txt"}
+    assert res_runtime["skipped_hunks"] == [{"path": "c.txt"}]
+    assert res_runtime["files_touched"] == ["a.txt"]
+
+    def _execute_generic_error(_call):
+        exc = ValueError("generic error")
+        exc.unapplied_patch = "*** Begin Patch\n*** End Patch\n"
+        exc.applied_hunks = [{"path": "a.txt"}]
+        exc.failed_hunk = {"path": "b.txt"}
+        exc.skipped_hunks = []
+        exc.files_touched = []
+        raise exc
+
+    res_generic = execute_plan_calls(
+        [{"tool_name": "apply_patch", "args": {}}],
+        execute_call=_execute_generic_error,
+    )[0]
+    assert res_generic["ok"] is False
+    assert res_generic["unapplied_patch"] == "*** Begin Patch\n*** End Patch\n"
+    assert res_generic["applied_hunks"] == [{"path": "a.txt"}]
+
+
+
 

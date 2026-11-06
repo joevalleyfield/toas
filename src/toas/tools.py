@@ -704,7 +704,9 @@ REGISTRY = {
         name="apply_patch",
         required_args=("patch",),
         runner=_run_apply_patch,
-        arg_types={"patch": "str"},
+        optional_args=("atomic",),
+        default_args=("atomic=true",),
+        arg_types={"patch": "str", "atomic": "bool"},
     ),
     "capture_task_thread": Tool(
         name="capture_task_thread",

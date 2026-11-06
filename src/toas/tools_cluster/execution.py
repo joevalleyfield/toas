@@ -211,6 +211,13 @@ def execute_plan_calls(
                 repair_suggestion = getattr(exc, "repair_suggestion", None)
                 if isinstance(repair_suggestion, dict) and repair_suggestion:
                     error_result["repair_suggestion"] = repair_suggestion
+                unapplied_patch = getattr(exc, "unapplied_patch", None)
+                if isinstance(unapplied_patch, str) and unapplied_patch:
+                    error_result["unapplied_patch"] = unapplied_patch
+                for attr in ("applied_hunks", "failed_hunk", "skipped_hunks", "files_touched"):
+                    val = getattr(exc, attr, None)
+                    if val is not None:
+                        error_result[attr] = val
                 results.append(_apply_intention(error_result, raw_call))
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status=outcome, index=idx, total=total)
@@ -226,6 +233,13 @@ def execute_plan_calls(
                     outcome=outcome,
                     include_traceback=True,
                 )
+                unapplied_patch = getattr(exc, "unapplied_patch", None)
+                if isinstance(unapplied_patch, str) and unapplied_patch:
+                    error_result["unapplied_patch"] = unapplied_patch
+                for attr in ("applied_hunks", "failed_hunk", "skipped_hunks", "files_touched"):
+                    val = getattr(exc, attr, None)
+                    if val is not None:
+                        error_result[attr] = val
                 results.append(_apply_intention(error_result, raw_call))
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status=outcome, index=idx, total=total)
