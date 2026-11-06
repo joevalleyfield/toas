@@ -3361,6 +3361,8 @@ def test_decorate_step_telemetry_human_user_and_results():
     assert res_nodes[0]["turn_id"] == "charlie"
     assert "## TOAS:USER [charlie" in res_nodes[0]["marker"]
     assert "duration_ms" in res_nodes[0]
+    assert res_nodes[0]["tokens"] == 3
+    assert "3 tok" in res_nodes[0]["marker"]
 
     # Structural container remains bare
     assert "marker" not in res_nodes[1]
@@ -3369,10 +3371,14 @@ def test_decorate_step_telemetry_human_user_and_results():
     assert res_cons[0]["turn_id"] == "bravo.p1.o1"
     assert "## RESULT [bravo.p1.o1 OK shell" in res_cons[0]["result_marker"]
     assert "15ms" in res_cons[0]["result_marker"]
+    assert res_cons[0]["tokens"] == 15
+    assert "15 tok" in res_cons[0]["result_marker"]
 
     assert res_cons[1]["turn_id"] == "bravo.p1.o2"
     assert "## RESULT [bravo.p1.o2 ERROR read_file" in res_cons[1]["result_marker"]
     assert "2ms" in res_cons[1]["result_marker"]
+    assert res_cons[1]["tokens"] == 21
+    assert "21 tok" in res_cons[1]["result_marker"]
 
 
 def test_run_step_end_to_end_with_compact_telemetry(monkeypatch):

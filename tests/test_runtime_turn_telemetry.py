@@ -4,15 +4,18 @@ from datetime import datetime, timezone
 
 from toas.runtime.turn_telemetry import (
     allocate_turn_handle,
+    compute_cumulative_tokens,
     compute_human_dwell_ms,
     decorate_result_node,
     decorate_user_turn_node,
+    estimate_tokens,
     extract_in_prose_references,
     extract_subheading_telemetry,
     format_result_hierarchical_id,
     format_timestamp,
     format_turn_telemetry,
     humanize_duration,
+    humanize_token_count,
     is_human_user_turn,
     parse_telemetry_comment,
     parse_turn_stamp,
@@ -342,3 +345,206 @@ def test_decorate_user_turn_node():
     human_existing = {"role": "user", "content": "Existing", "marker": "## TOAS:USER [custom_id]"}
     dec_existing = decorate_user_turn_node(human_existing, style="compact", turn_id=None, timestamp=dt)
     assert dec_existing["marker"] == "## TOAS:USER [custom_id 12:00:00]"
+
+    # with tokens
+    human_tokens = {"role": "user", "content": "Turn with tokens"}
+    dec_tokens = decorate_user_turn_node(
+        human_tokens,
+        style="compact",
+        turn_id="alpha",
+        duration_ms=12000,
+        timestamp=dt,
+        tokens=420,
+    )
+    assert dec_tokens["marker"] == "## TOAS:USER [alpha 12:00:00 12.0s 420 tok]"
+    assert dec_tokens["tokens"] == 420
+    assert dec_tokens["metadata"]["tokens"] == 420
+
+
+def test_humanize_token_count():
+    assert humanize_token_count(None) is None
+    assert humanize_token_count(-10) is None
+    assert humanize_token_count(0) == "0 tok"
+    assert humanize_token_count(420) == "420 tok"
+    assert humanize_token_count(999) == "999 tok"
+    assert humanize_token_count(1000) == "1k"
+    assert humanize_token_count(1800) == "1.8k"
+    assert humanize_token_count(12400) == "12.4k"
+    assert humanize_token_count(120000) == "120k"
+    assert humanize_token_count(1000000) == "1M"
+    assert humanize_token_count(1200000) == "1.2M"
+
+
+def test_estimate_tokens():
+    assert estimate_tokens(None) == 0
+    assert estimate_tokens("") == 0
+    # chars default
+    assert estimate_tokens("test") == 1
+    assert estimate_tokens("a" * 400) == 100
+    assert estimate_tokens("a" * 400, heuristic="chars:4") == 100
+    assert estimate_tokens("a" * 400, heuristic="chars:10") == 40
+    # words heuristic
+    assert estimate_tokens("hello world", heuristic="words:0.75") == 3
+    # invalid fallbacks
+    assert estimate_tokens("a" * 400, heuristic="chars:invalid") == 100
+    assert estimate_tokens("a" * 400, heuristic="chars:0") == 100
+    assert estimate_tokens("hello world", heuristic="words:invalid") == 3
+    assert estimate_tokens("hello world", heuristic="words:-1") == 3
+    assert estimate_tokens("   ", heuristic="words:0.75") == 0
+
+
+def test_compute_cumulative_tokens():
+    # 1. current_usage exact anchor
+    assert compute_cumulative_tokens([], current_usage={"total_tokens": 1500}) == 1500
+
+    # 2. current_node with _llm_call
+    node_llm = {"_llm_call": {"usage": {"total_tokens": 1800}}}
+    assert compute_cumulative_tokens([], node_llm) == 1800
+
+    # 3. current_node with payload usage
+    node_payload = {"payload": {"usage": {"total_tokens": 1200}}}
+    assert compute_cumulative_tokens([], node_payload) == 1200
+
+    # 4. Anchor in history items via kind=llm_call
+    history = [
+        {"role": "user", "content": "a" * 400},
+        {"kind": "llm_call", "payload": {"usage": {"total_tokens": 2000}}},
+        {"role": "tool_request", "content": "ignored"},
+        {"role": "result", "content": "b" * 40},
+    ]
+    # Anchor is 2000, then tool_request skipped, result has 40 chars -> 10 tokens => 2010
+    assert compute_cumulative_tokens(history) == 2010
+
+    # 4b. Anchor in history items via _llm_call
+    history_llm_call = [
+        {"role": "assistant", "content": "prior", "_llm_call": {"usage": {"total_tokens": 3000}}},
+        {"role": "user", "content": "c" * 40},
+    ]
+    assert compute_cumulative_tokens(history_llm_call) == 3010
+
+    # 4c. Current node passed with no usage, appended to items
+    node_plain = {"role": "user", "content": "d" * 40}
+    assert compute_cumulative_tokens(history_llm_call, node_plain) == 3020
+
+    # 5. Anchor via node/metadata tokens
+    hist_meta = [
+        {"role": "user", "content": "hello", "metadata": {"tokens": 500}},
+        {"role": "result", "content": "c" * 80},
+    ]
+    assert compute_cumulative_tokens(hist_meta) == 520
+
+    hist_item_tok = [
+        {"role": "user", "content": "hello", "tokens": 800},
+        {"role": "result", "content": "d" * 40},
+    ]
+    assert compute_cumulative_tokens(hist_item_tok) == 810
+
+    # 6. No anchor -> sum across turns, skip control/non-turn records
+    hist_pure = [
+        {"role": "user", "content": "a" * 40},
+        {"kind": "run", "payload": {}},
+        {"role": "llm_call", "payload": {}},
+        "non-dict",
+        {"role": "assistant", "content": "b" * 40},
+    ]
+    # 40 chars -> 10 tokens, 40 chars -> 10 tokens => 20
+    assert compute_cumulative_tokens(hist_pure) == 20
+
+
+def test_format_turn_telemetry_with_tokens():
+    dt = datetime(2026, 11, 4, 11, 30, 45, tzinfo=timezone.utc)
+    # compact
+    c1 = format_turn_telemetry(
+        turn_id="bravo",
+        target="claude-3-7-sonnet",
+        duration_ms=1200,
+        timestamp=dt,
+        tokens=1800,
+        style="compact",
+    )
+    assert c1 == "[bravo claude-3-7-sonnet 11:30:45 1.2s 1.8k]"
+
+    # compact scalar
+    c2 = format_turn_telemetry(
+        turn_id="alpha",
+        timestamp=dt,
+        duration_ms=12000,
+        tokens=420,
+        style="compact",
+    )
+    assert c2 == "[alpha 11:30:45 12.0s 420 tok]"
+
+    # compact result
+    c3 = format_turn_telemetry(
+        turn_id="charlie.p1.o1",
+        status="OK",
+        target="shell",
+        duration_ms=45,
+        timestamp=dt,
+        tokens=2100,
+        style="compact",
+    )
+    assert c3 == "[charlie.p1.o1 OK shell 11:30:45 45ms 2.1k]"
+
+    # inline
+    inline = format_turn_telemetry(
+        turn_id="bravo",
+        tokens=1800,
+        style="inline",
+    )
+    assert inline == "[id=bravo tokens=1.8k]"
+
+    # comment
+    comment = format_turn_telemetry(
+        turn_id="bravo",
+        tokens=1800,
+        style="comment",
+    )
+    assert comment == "<!-- toas: id=bravo tokens=1.8k -->"
+
+    # string tokens passed directly
+    direct = format_turn_telemetry(turn_id="bravo", tokens="1.8k", style="compact")
+    assert direct == "[bravo 1.8k]"
+
+
+def test_parse_turn_stamp_tokens():
+    # scalar with space + tok
+    p1 = parse_turn_stamp("[alpha 11:40:00 12s 420 tok]")
+    assert p1["id"] == "alpha"
+    assert p1["timestamp"] == "11:40:00"
+    assert p1["duration"] == "12s"
+    assert p1["tokens"] == "420 tok"
+
+    # multiplier k
+    p2 = parse_turn_stamp("[bravo claude-3-7-sonnet 11:42:00 1.2s 1.8k]")
+    assert p2["id"] == "bravo"
+    assert p2["target"] == "claude-3-7-sonnet"
+    assert p2["tokens"] == "1.8k"
+
+    # multiplier M
+    p3 = parse_turn_stamp("[bravo 1.2M]")
+    assert p3["id"] == "bravo"
+    assert p3["tokens"] == "1.2M"
+
+    # scalar attached tok
+    p4 = parse_turn_stamp("[alpha 420tok]")
+    assert p4["id"] == "alpha"
+    assert p4["tokens"] == "420tok"
+
+    # explicit key-value
+    p5 = parse_turn_stamp("[id=bravo tokens=1.8k]")
+    assert p5["tokens"] == "1.8k"
+    p6 = parse_turn_stamp("[id=bravo tok=420 tok]")
+    assert p6["tokens"] == "420 tok"
+
+
+def test_decorate_result_node_tokens():
+    node = {"role": "result", "payload": {"tool_name": "shell", "ok": True, "duration_ms": 45}}
+    decorated = decorate_result_node(
+        node,
+        style="compact",
+        turn_id="charlie.p1.o1",
+        tokens=2100,
+    )
+    assert decorated["result_marker"] == "## RESULT [charlie.p1.o1 OK shell 45ms 2.1k]"
+    assert decorated["tokens"] == 2100

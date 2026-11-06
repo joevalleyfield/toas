@@ -177,6 +177,7 @@ class SessionPolicy:
     bootstrap_prompt_ref: str = "session-start/templates/pragmatic-default_v2"
     continuation_name_format: str = "datetime-slug"
     telemetry_decorations: str = "off"
+    telemetry_token_estimator: str = "chars:4"
 
 
 @dataclass(frozen=True)

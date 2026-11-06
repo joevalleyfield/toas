@@ -373,6 +373,23 @@ def test_generation_runner_build_artifacts_with_telemetry_decorations():
     assert "## TOAS:ASSISTANT [alpha" in node_compact["marker"]
     assert "1.5s" in node_compact["marker"]
     assert node_compact["turn_id"] == "alpha"
+    assert node_compact["tokens"] == 1
+    assert "1 tok" in node_compact["marker"]
+
+    # With exact usage in response
+    result_with_usage = type(
+        "R",
+        (),
+        {
+            "node": {"content": "hello", "response": {"model": "gpt-4o", "duration_ms": 1500, "usage": {"total_tokens": 1800}}},
+            "attempt": 1,
+            "max_attempts": 1,
+        },
+    )()
+    node_usage = runner_compact.build_artifacts(plan, result_with_usage)
+    assert "## TOAS:ASSISTANT [alpha" in node_usage["marker"]
+    assert "1.8k" in node_usage["marker"]
+    assert node_usage["tokens"] == 1800
 
 
 

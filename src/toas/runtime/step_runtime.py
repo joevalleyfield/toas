@@ -1655,6 +1655,7 @@ def _decorate_step_telemetry(
 
     from .turn_telemetry import (
         allocate_turn_handle,
+        compute_cumulative_tokens,
         compute_human_dwell_ms,
         decorate_result_node,
         decorate_user_turn_node,
@@ -1663,18 +1664,28 @@ def _decorate_step_telemetry(
         resolve_node_handle,
     )
 
+    estimator = getattr(
+        getattr(config, "session", None),
+        "telemetry_token_estimator",
+        "chars:4",
+    )
+    cum_items = list(events)
+
     # 1. Human user turns in new_from_transcript
     prior_messages = [e for e in events if e.get("role") in {"user", "assistant", "system", "control"}]
     dwell_ms = compute_human_dwell_ms(events)
     for offset, node in enumerate(new_from_transcript):
+        cum_items.append(node)
         if is_human_user_turn(node):
             turn_idx = len(prior_messages) + offset
             user_handle = allocate_turn_handle(turn_idx)
+            tokens_count = compute_cumulative_tokens(cum_items, heuristic=estimator)
             decorate_user_turn_node(
                 node,
                 style=telemetry_style,
                 turn_id=user_handle,
                 duration_ms=dwell_ms,
+                tokens=tokens_count,
             )
 
     # 2. Result nodes in consequences
@@ -1687,6 +1698,8 @@ def _decorate_step_telemetry(
         )
         parent_handle = resolve_node_handle(frontier, frontier_idx)
         for op_idx, node in enumerate(result_nodes, start=1):
+            cum_items.append(node)
+            tokens_count = compute_cumulative_tokens(cum_items, heuristic=estimator)
             hierarchical_id = format_result_hierarchical_id(
                 parent_handle,
                 plan_index=node.get("plan_index", 1),
@@ -1696,6 +1709,7 @@ def _decorate_step_telemetry(
                 node,
                 style=telemetry_style,
                 turn_id=hierarchical_id,
+                tokens=tokens_count,
             )
 
     return new_from_transcript, consequences

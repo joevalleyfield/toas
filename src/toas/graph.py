@@ -1745,6 +1745,8 @@ def write_message_events(
                 metadata["telemetry_comment"] = node["telemetry_comment"]
             if "duration_ms" in node and "duration_ms" not in metadata:
                 metadata["duration_ms"] = node["duration_ms"]
+            if "tokens" in node and "tokens" not in metadata:
+                metadata["tokens"] = node["tokens"]
             event = {
                 "id": node.get("id", _next_message_id(events + materialized)),
                 "parent": node.get("parent", _default_parent(events + materialized)),

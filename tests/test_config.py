@@ -420,6 +420,7 @@ def test_config_value_choices_enum_and_bool_and_none():
     assert config_value_choices("tool_writes.newline_style") == ("auto", "lf", "crlf")
     assert config_value_choices("session.continuation_name_format") == ("datetime-slug", "datetime", "date-slug", "slug")
     assert config_value_choices("session.telemetry_decorations") == ("off", "compact", "inline", "comment")
+    assert config_value_choices("session.telemetry_token_estimator") is None
     assert config_value_choices("generation.max_retries") is None
     assert config_value_choices("generation.max_tokens") is None
 

@@ -2217,6 +2217,7 @@ def test_write_message_events_preserves_marker_telemetry_and_turn_id(tmp_path):
                 "marker": "## TOAS:USER [alpha 12:00:00]",
                 "telemetry_comment": "<!-- toas: id=alpha -->",
                 "duration_ms": 1500,
+                "tokens": 420,
                 "turn_id": "alpha",
             }
         ],
@@ -2226,6 +2227,7 @@ def test_write_message_events_preserves_marker_telemetry_and_turn_id(tmp_path):
     assert events[0]["metadata"]["marker"] == "## TOAS:USER [alpha 12:00:00]"
     assert events[0]["metadata"]["telemetry_comment"] == "<!-- toas: id=alpha -->"
     assert events[0]["metadata"]["duration_ms"] == 1500
+    assert events[0]["metadata"]["tokens"] == 420
 
     proj = project_transcript(events)
     assert "## TOAS:USER [alpha 12:00:00]" in proj

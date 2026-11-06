@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 _TELEMETRY_COMMENT_RE = re.compile(r"^<!--\s*toas:\s*(.*?)\s*-->$")
 _TIMESTAMP_TOKEN_RE = re.compile(r"^\d{1,2}:\d{2}(?::\d{2})?$")
 _DURATION_TOKEN_RE = re.compile(r"^(?:\d+h(?:[0-9]+m)?|\d+m(?:[0-9]+s)?|\d+(?:\.\d+)?s|\d+ms)$")
+_TOKEN_MULTIPLIER_RE = re.compile(r"^\d+(?:\.\d+)?[kKM]$")
+_TOKEN_SCALAR_RE = re.compile(r"^\d+tok$", re.IGNORECASE)
 _STATUS_TOKENS = {"OK", "ERROR", "FAIL", "CANCELLED"}
 _PROSE_REFERENCE_RE = re.compile(r"(?<!\\)\[\[([a-zA-Z0-9_-]+)(?:\|[^\]]+)?\]\]")
 
@@ -88,6 +90,148 @@ def format_timestamp(ts: datetime | str | None, *, compact: bool = True) -> str 
     return None
 
 
+def humanize_token_count(tokens: int | None) -> str | None:
+    """Format token count to a compact readable string.
+
+    Rules:
+      - Under 1000: '420 tok' (space plus 'tok' label when scalar)
+      - 1000 and above: '1.8k', '12.4k', '120k', '1.2M' (no label needed with multiplier)
+    """
+    if tokens is None or tokens < 0:
+        return None
+    if tokens < 1000:
+        return f"{tokens} tok"
+    if tokens < 1_000_000:
+        k_val = tokens / 1000
+        formatted = f"{k_val:.1f}k"
+        if formatted.endswith(".0k"):
+            formatted = f"{int(round(k_val))}k"
+        return formatted
+    m_val = tokens / 1_000_000
+    formatted = f"{m_val:.1f}M"
+    if formatted.endswith(".0M"):
+        formatted = f"{int(round(m_val))}M"
+    return formatted
+
+
+def estimate_tokens(text: str | None, heuristic: str = "chars:4") -> int:
+    """Estimate token count for a text string using a configurable heuristic."""
+    if not text:
+        return 0
+    clean_h = heuristic.strip().lower()
+    if clean_h.startswith("words:"):
+        rate_str = clean_h[len("words:"):].strip()
+        try:
+            rate = float(rate_str)
+        except ValueError:
+            rate = 0.75
+        if rate <= 0:
+            rate = 0.75
+        words = len(text.split())
+        return max(1, int(round(words / rate))) if words else 0
+    rate = 4.0
+    if clean_h.startswith("chars:"):
+        rate_str = clean_h[len("chars:"):].strip()
+        try:
+            rate = float(rate_str)
+        except ValueError:
+            rate = 4.0
+    if rate <= 0:
+        rate = 4.0
+    length = len(text)
+    return max(1, int(round(length / rate))) if length else 0
+
+
+def compute_cumulative_tokens(
+    items: list[dict],
+    current_node: dict | None = None,
+    *,
+    heuristic: str = "chars:4",
+    current_usage: dict | None = None,
+) -> int:
+    """Calculate the cumulative token count up to the current turn.
+
+    Uses a hybrid approach:
+    - If current_usage is given and has 'total_tokens', returns that exact anchor.
+    - Otherwise, scans backward to find the most recent node/event with provider usage
+      to anchor the baseline, and adds estimated tokens for subsequent turns.
+    - If no provider usage exists, sums estimated tokens across all turns.
+    """
+    if isinstance(current_usage, dict):
+        total = current_usage.get("total_tokens")
+        if isinstance(total, int) and total >= 0:
+            return total
+
+    if isinstance(current_node, dict):
+        llm_call = current_node.get("_llm_call")
+        if isinstance(llm_call, dict):
+            usage = llm_call.get("usage")
+            if isinstance(usage, dict) and isinstance(usage.get("total_tokens"), int):
+                return usage["total_tokens"]
+        payload = current_node.get("payload")
+        if isinstance(payload, dict):
+            usage = payload.get("usage")
+            if isinstance(usage, dict) and isinstance(usage.get("total_tokens"), int):
+                return usage["total_tokens"]
+
+    all_items = list(items)
+    if current_node is not None and (not all_items or all_items[-1] is not current_node):
+        all_items.append(current_node)
+
+    anchor_idx = -1
+    anchor_tokens = 0
+    for idx in range(len(all_items) - 1, -1, -1):
+        item = all_items[idx]
+        if not isinstance(item, dict):
+            continue
+        llm_call = item.get("_llm_call")
+        if isinstance(llm_call, dict):
+            usage = llm_call.get("usage")
+            if isinstance(usage, dict) and isinstance(usage.get("total_tokens"), int):
+                anchor_idx = idx
+                anchor_tokens = usage["total_tokens"]
+                break
+        payload = item.get("payload")
+        if isinstance(payload, dict):
+            usage = payload.get("usage")
+            if isinstance(usage, dict) and isinstance(usage.get("total_tokens"), int):
+                anchor_idx = idx
+                anchor_tokens = usage["total_tokens"]
+                break
+        meta = item.get("metadata")
+        if isinstance(meta, dict) and isinstance(meta.get("tokens"), int):
+            anchor_idx = idx
+            anchor_tokens = meta["tokens"]
+            break
+        if isinstance(item.get("tokens"), int):
+            anchor_idx = idx
+            anchor_tokens = item["tokens"]
+            break
+
+    if anchor_idx >= 0:
+        total = anchor_tokens
+        for item in all_items[anchor_idx + 1:]:
+            if isinstance(item, dict):
+                role = item.get("role")
+                kind = item.get("kind")
+                if kind or role in {"llm_call", "tool_request", "jump", "head", "anchor", "run"}:
+                    continue
+                content = str(item.get("content", ""))
+                total += estimate_tokens(content, heuristic)
+        return total
+
+    total = 0
+    for item in all_items:
+        if isinstance(item, dict):
+            role = item.get("role")
+            kind = item.get("kind")
+            if kind or role in {"llm_call", "tool_request", "jump", "head", "anchor", "run"}:
+                continue
+            content = str(item.get("content", ""))
+            total += estimate_tokens(content, heuristic)
+    return total
+
+
 def parse_turn_stamp(raw: str) -> dict[str, str]:
     """Parse turn telemetry and ID from an inline bracket '[...]' or comment '<!-- toas: ... -->'.
 
@@ -134,6 +278,8 @@ def parse_turn_stamp(raw: str) -> dict[str, str]:
                 result["status"] = v
             elif k in {"target", "model", "tool"}:
                 result["target"] = v
+            elif k in {"tokens", "tok", "token_count"}:
+                result["tokens"] = v
             else:
                 result[k] = v
             continue
@@ -149,6 +295,17 @@ def parse_turn_stamp(raw: str) -> dict[str, str]:
         if _DURATION_TOKEN_RE.match(token):
             result["duration"] = token
             continue
+        if _TOKEN_MULTIPLIER_RE.match(token) or _TOKEN_SCALAR_RE.match(token):
+            result["tokens"] = token
+            continue
+        if token.lower() == "tok":
+            if "tokens" in result and result["tokens"].isdigit():
+                result["tokens"] = f"{result['tokens']} tok"
+                continue
+            if remaining_tokens and remaining_tokens[-1].isdigit():
+                val = remaining_tokens.pop()
+                result["tokens"] = f"{val} tok"
+                continue
 
         # 4. Leading position ID (if not yet set)
         if i == 0 and "id" not in result:
@@ -180,14 +337,15 @@ def format_turn_telemetry(
     duration_ms: int | float | None = None,
     status: str | None = None,
     timestamp: datetime | str | None = None,
+    tokens: int | str | None = None,
     style: str = "compact",
 ) -> str | None:
     """Format turn telemetry into an inline decorator or comment block.
 
     Supported styles:
-      - 'compact': returns keyless bracketed stamp, e.g. '[bravo claude-3-7-sonnet 11:42:00 1.2s]'
-      - 'inline': returns key-value bracketed stamp, e.g. '[id=bravo target=... t=... duration=...]'
-      - 'comment': returns HTML comment line, e.g. '<!-- toas: id=bravo target=... timestamp=... duration=... -->'
+      - 'compact': returns keyless bracketed stamp, e.g. '[bravo claude-3-7-sonnet 11:42:00 1.2s 1.8k]'
+      - 'inline': returns key-value bracketed stamp, e.g. '[id=bravo target=... t=... duration=... tokens=1.8k]'
+      - 'comment': returns HTML comment line, e.g. '<!-- toas: id=bravo target=... timestamp=... duration=... tokens=1.8k -->'
       - 'off': returns None
     """
     if style not in {"compact", "inline", "comment"}:
@@ -198,22 +356,29 @@ def format_turn_telemetry(
     formatted_ts = format_timestamp(timestamp, compact=(style in {"compact", "inline"}))
     formatted_dur = humanize_duration(duration_ms)
     clean_status = str(status).strip() if status else None
+    formatted_tokens = (
+        humanize_token_count(tokens)
+        if isinstance(tokens, int)
+        else (str(tokens).strip() if tokens else None)
+    )
 
     if style == "compact":
-        tokens: list[str] = []
+        tokens_list: list[str] = []
         if clean_id:
-            tokens.append(clean_id)
+            tokens_list.append(clean_id)
         if clean_status:
-            tokens.append(clean_status)
+            tokens_list.append(clean_status)
         if clean_target:
-            tokens.append(clean_target)
+            tokens_list.append(clean_target)
         if formatted_ts:
-            tokens.append(formatted_ts)
+            tokens_list.append(formatted_ts)
         if formatted_dur:
-            tokens.append(formatted_dur)
-        if not tokens:
+            tokens_list.append(formatted_dur)
+        if formatted_tokens:
+            tokens_list.append(formatted_tokens)
+        if not tokens_list:
             return None
-        return f"[{' '.join(tokens)}]"
+        return f"[{' '.join(tokens_list)}]"
 
     # inline or comment
     pairs: list[tuple[str, str]] = []
@@ -228,6 +393,8 @@ def format_turn_telemetry(
         pairs.append(("duration", formatted_dur))
     if clean_status:
         pairs.append(("status", clean_status))
+    if formatted_tokens:
+        pairs.append(("tokens", formatted_tokens))
 
     if not pairs:
         return None
@@ -379,8 +546,9 @@ def decorate_user_turn_node(
     turn_id: str | None = None,
     duration_ms: int | float | None = None,
     timestamp: datetime | str | None = None,
+    tokens: int | str | None = None,
 ) -> dict:
-    """Decorate a human user turn with turn handle, timestamp, and dwell duration."""
+    """Decorate a human user turn with turn handle, timestamp, dwell duration, and token count."""
     if style not in {"compact", "inline", "comment"} or not is_human_user_turn(node):
         return node
     if not turn_id and node.get("marker"):
@@ -392,11 +560,14 @@ def decorate_user_turn_node(
         turn_id=tid,
         duration_ms=duration_ms,
         timestamp=timestamp or datetime.now(timezone.utc),
+        tokens=tokens,
         style=style,
     )
     if telemetry:
         if tid:
             node["turn_id"] = tid
+        if tokens is not None:
+            node["tokens"] = tokens
         if style in {"compact", "inline"}:
             node["marker"] = f"## TOAS:USER {telemetry}"
         elif style == "comment":
@@ -409,6 +580,8 @@ def decorate_user_turn_node(
         if duration_ms is not None:
             meta["duration_ms"] = duration_ms
             node["duration_ms"] = duration_ms
+        if tokens is not None:
+            meta["tokens"] = tokens
     return node
 
 
@@ -419,6 +592,7 @@ def decorate_result_node(
     turn_id: str | None = None,
     duration_ms: int | float | None = None,
     timestamp: datetime | str | None = None,
+    tokens: int | str | None = None,
 ) -> dict:
     """Decorate a result node with telemetry markers or comment lines."""
     if style not in {"compact", "inline", "comment"}:
@@ -442,11 +616,14 @@ def decorate_result_node(
         duration_ms=dur,
         status=status,
         timestamp=timestamp,
+        tokens=tokens,
         style=style,
     )
     if telemetry:
         if tid:
             node["turn_id"] = tid
+        if tokens is not None:
+            node["tokens"] = tokens
         if style in {"compact", "inline"}:
             node["result_marker"] = f"## RESULT {telemetry}"
         elif style == "comment":

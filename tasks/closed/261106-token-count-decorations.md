@@ -58,3 +58,12 @@ available and a configurable fallback heuristic (`chars:4` / `words:0.75`).
 5. Decorate human `## TOAS:USER`, `## TOAS:ASSISTANT`, and `## RESULT` turns with
    cumulative token counts under active telemetry styles.
 6. Achieve 100.00% statement coverage across all modified files under `./scripts/check.sh`.
+
+## Status & Verification
+
+- Implemented `humanize_token_count`, `estimate_tokens`, and `compute_cumulative_tokens` in `toas.runtime.turn_telemetry`.
+- Extended `parse_turn_stamp` and `format_turn_telemetry` across compact (`420 tok`, `1.8k`), inline (`tokens=1.8k`), and comment styles.
+- Updated `decorate_user_turn_node`, `decorate_result_node`, `_decorate_step_telemetry` in `toas.runtime.step_runtime`, and `build_artifacts` in `toas.runtime.step_generation_runtime` to compute and attach cumulative token counts.
+- Added `telemetry_token_estimator: str = "chars:4"` to `SessionPolicy` in `toas.config`.
+- Verified end-to-end execution of `run_step` and format/parse cycles.
+- Executed `./scripts/check.sh` achieving 100.00% statement coverage across all 161 files (3,780 passed).

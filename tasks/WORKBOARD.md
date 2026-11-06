@@ -153,7 +153,6 @@ Neither dated vote is a literal current queue.
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
 - **[T261105-apply-patch-indent-leniency-and-diff-diagnostics]** apply_patch Indentation Leniency and Unified Diff Diagnostics
 - **[T261106-apply-patch-atomicity-and-healing]** apply_patch Atomicity, Indentation Healing, and Transparent Diagnostics
-- **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -215,11 +214,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
 - **[T261105-user-turn-and-result-telemetry-decorations]** User Turn And Result Telemetry Decorations
 - **[T261105-multi-command-step-facade]** Multi-Command Operator Execution via Step Facade
 - **[T261104-visible-turn-ids-and-compact-headers]** Visible Turn IDs And Compact Header Stamps
 - **[T261104-vim-telemetry-decorations-streaming-reconciliation]** Vim Telemetry Decorations and Streaming Reconciliation
-- **[T261104-transcript-turn-telemetry-decorations]** Transcript Turn Telemetry And Execution Status Decorations
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
