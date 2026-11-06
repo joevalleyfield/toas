@@ -153,6 +153,7 @@ Neither dated vote is a literal current queue.
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
 - **[T261105-apply-patch-indent-leniency-and-diff-diagnostics]** apply_patch Indentation Leniency and Unified Diff Diagnostics
 - **[T261106-apply-patch-atomicity-and-healing]** apply_patch Atomicity, Indentation Healing, and Transparent Diagnostics
+- **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
