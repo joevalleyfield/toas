@@ -36,6 +36,7 @@ from .graph import (
 from .operator_api import bind_surface as operator_bind_surface
 from .operator_api import graph_text as operator_graph_text
 from .operator_api import select_surface as operator_select_surface
+from .operator_api import step_bounded as run_operator_step_bounded
 from .operator_api import step_once as run_operator_step_once
 from .operator_api import surface_lines as operator_surface_lines
 from .prompts import load_prompt_ref
@@ -197,6 +198,7 @@ def _make_async_deps():
 
 def _run_step(
     *,
+    max_turns: int | None = None,
     stdin_mode: bool = False,
     preview: bool = False,
     preview_request: bool = False,
@@ -224,6 +226,8 @@ def _run_step(
         "on_llm_prompt_progress": on_llm_prompt_progress,
         "on_projection_delta": on_projection_delta,
     }
+    if max_turns is not None:
+        kwargs["max_turns"] = max_turns
     if infer_from is not None:
         kwargs["infer_from"] = infer_from
     if preview or preview_request:
@@ -232,11 +236,14 @@ def _run_step(
         kwargs["preview_request_pretty"] = True
     if preview_response:
         kwargs["preview_response"] = True
-    run_operator_step_once(**kwargs)
+    if max_turns is not None and max_turns > 1:
+        return run_operator_step_bounded(**kwargs)
+    return run_operator_step_once(**kwargs)
 
 
 def run_step(
     *,
+    max_turns: int | None = None,
     stdin_mode: bool = False,
     preview: bool = False,
     preview_request: bool = False,
@@ -247,12 +254,14 @@ def run_step(
     surface_id: str | None = None,
     infer_from: str | None = None,
 ):
-    if preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None or infer_from is not None:
+    if max_turns is not None or preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None or infer_from is not None:
         kwargs: dict[str, object] = {
             "stdin_mode": stdin_mode,
             "control": control,
             "session_path": session_path,
         }
+        if max_turns is not None:
+            kwargs["max_turns"] = max_turns
         if preview:
             kwargs["preview"] = True
         if preview_request:
@@ -265,11 +274,11 @@ def run_step(
             kwargs["surface_id"] = surface_id
         if infer_from is not None:
             kwargs["infer_from"] = infer_from
-        _run_step(**kwargs)  # type: ignore[arg-type]
+        return _run_step(**kwargs)  # type: ignore[arg-type]
+    payload = None
+    if _rpc_stdout("step", payload):
         return
-    if _rpc_stdout("step"):
-        return
-    _run_step()
+    return _run_step()
 
 
 def run_step_async(*, session_path: str | None = None, surface_id: str | None = None):

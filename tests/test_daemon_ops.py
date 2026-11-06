@@ -51,6 +51,8 @@ def test_run_op_capture_stdout_step_and_history():
 
     out = run_op_capture_stdout("step", {}, cli_module=_CliStub, capture_stdout=_capture)
     assert out == "ok\n"
+    out = run_op_capture_stdout("step", {"max_turns": 4}, cli_module=_CliStub, capture_stdout=_capture)
+    assert out == "ok\n"
     out = run_op_capture_stdout("history", {"limit": 3}, cli_module=_CliStub, capture_stdout=_capture)
     assert out == "ok\n"
     out = run_op_capture_stdout(
@@ -62,6 +64,7 @@ def test_run_op_capture_stdout_step_and_history():
     assert out == "ok\n"
     assert calls == [
         ("run_step", (), {}),
+        ("run_step", (), {"max_turns": 4}),
         ("run_history", (3,), {}),
         ("run_history", (3,), {"source_tokens": ["segments", "hot"], "anchor_id": "hot:n2"}),
     ]

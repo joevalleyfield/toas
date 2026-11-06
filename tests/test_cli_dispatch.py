@@ -156,8 +156,18 @@ def test_dispatch_step_parses_infer_from_override():
     assert calls == [("step", (), {"stdin_mode": False, "control": None, "session_path": None, "surface_id": None, "infer_from": "STATE/1"})]
 
 
+def test_dispatch_step_parses_count_arguments():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["step", "5"], deps=_deps(calls))
+    dispatch_main(["step", "-n", "3"], deps=_deps(calls))
+    assert calls == [
+        ("step", (), {"stdin_mode": False, "control": None, "session_path": None, "surface_id": None, "max_turns": 5}),
+        ("step", (), {"stdin_mode": False, "control": None, "session_path": None, "surface_id": None, "max_turns": 3}),
+    ]
+
+
 def test_dispatch_step_control_requires_value():
-    with pytest.raises(SystemExit, match="usage: toas step \\[--preview-request\\] \\[--preview-request-pretty\\] \\[--preview-response\\] \\[--stdin\\] \\[--infer-from <state-label>\\] \\[--control <slash_command>\\] \\[--session <transcript_path>\\] \\[--surface <surface_id>\\]"):
+    with pytest.raises(SystemExit, match=r"usage: toas step.*--control"):
         dispatch_main(["step", "--control"], deps=_deps([]))
 
 

@@ -214,10 +214,10 @@ should return only with a current timing reproduction.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
+- **[T261106-bounded-step-quiescence]** Bounded Multi-Turn Stepping with Quiescence Termination
 - **[T261106-assistant-turn-handle-progression]** Assistant Turn Handle Progression And History Plumbing
 - **[T261106-apply-patch-atomicity-and-healing]** apply_patch Atomicity, Indentation Healing, and Transparent Diagnostics
 - **[T261106-adaptive-token-estimator]** Adaptive History-Calibrated Token Estimator
-- **[T261105-user-turn-and-result-telemetry-decorations]** User Turn And Result Telemetry Decorations
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

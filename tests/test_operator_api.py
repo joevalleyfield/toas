@@ -17,6 +17,7 @@ from toas.operator_api import (
     prompt_text,
     select_surface,
     session_path_text,
+    step_bounded,
     step_once,
     surface_lines,
     transcript_text,
@@ -63,6 +64,18 @@ def test_step_once_calls_cli_session_runner(monkeypatch):
 
     assert called["n"] == 1
     assert out == StepOutcome(completed=True)
+
+
+def test_step_once_forwards_generate_and_preview_response():
+    seen = {}
+
+    def fake_run_step(**kwargs):
+        seen.update(kwargs)
+
+    gen = lambda _m: {}
+    step_once(generate=gen, preview_response=True, run_step_fn=fake_run_step)
+    assert seen["generate_override"] is gen
+    assert seen["preview_response"] is True
 
 
 def test_step_once_threads_semantic_callbacks_to_explicit_step_dep():
@@ -118,6 +131,131 @@ def test_step_once_threads_explicit_stream_policy_to_step_dep():
     assert seen["llm_stream_mode"] == "enabled"
     assert seen["debug_prompt_progress_enabled"] is True
     assert seen["debug_prompt_progress_file"] == ".toas/progress.log"
+
+
+def test_step_outcome_defaults():
+    outcome = StepOutcome()
+    assert outcome.completed is True
+    assert outcome.quiescent is True
+    assert outcome.has_executable_content is False
+    assert outcome.stop_reason == "quiescent"
+    assert outcome.turns_executed == 1
+    assert outcome.error is None
+
+
+def test_step_bounded_defaults_to_single_step():
+    calls = []
+
+    def fake_run_step(**kwargs):
+        calls.append(kwargs)
+        return StepOutcome(completed=True, quiescent=True, turns_executed=1)
+
+    outcome = step_bounded(run_step_fn=fake_run_step)
+    assert len(calls) == 1
+    assert outcome.completed is True
+    assert outcome.turns_executed == 1
+    assert outcome.stop_reason == "quiescent"
+
+
+def test_step_bounded_clamps_nonpositive_max_turns():
+    calls = []
+
+    def fake_run_step(**kwargs):
+        calls.append(kwargs)
+        return StepOutcome(completed=True, quiescent=True, turns_executed=1)
+
+    outcome = step_bounded(max_turns=0, run_step_fn=fake_run_step)
+    assert len(calls) == 1
+    assert outcome.completed is True
+    assert outcome.turns_executed == 1
+
+
+def test_step_bounded_stops_on_quiescence():
+    calls = []
+
+    def fake_run_step(**kwargs):
+        calls.append(kwargs)
+        return StepOutcome(completed=True, quiescent=True, turns_executed=1, stop_reason="quiescent")
+
+    outcome = step_bounded(max_turns=5, run_step_fn=fake_run_step)
+    assert len(calls) == 1
+    assert outcome.turns_executed == 1
+    assert outcome.stop_reason == "quiescent"
+
+
+def test_step_bounded_chains_until_quiescent():
+    turn = 0
+
+    def fake_run_step(**kwargs):
+        nonlocal turn
+        turn += 1
+        if turn < 3:
+            return StepOutcome(
+                completed=True,
+                quiescent=False,
+                has_executable_content=True,
+                turns_executed=1,
+                rendered_text=f"turn {turn}\n",
+                transcript=f"transcript {turn}",
+            )
+        return StepOutcome(
+            completed=True,
+            quiescent=True,
+            has_executable_content=False,
+            turns_executed=1,
+            rendered_text="final turn\n",
+            transcript="final transcript",
+        )
+
+    outcome = step_bounded(max_turns=5, run_step_fn=fake_run_step)
+    assert turn == 3
+    assert outcome.turns_executed == 3
+    assert outcome.stop_reason == "quiescent"
+    assert outcome.rendered_text == "turn 1\nturn 2\nfinal turn\n"
+    assert outcome.transcript == "final transcript"
+
+
+def test_step_bounded_halts_on_turn_limit():
+    turn = 0
+
+    def fake_run_step(**kwargs):
+        nonlocal turn
+        turn += 1
+        return StepOutcome(completed=True, quiescent=False, has_executable_content=True, turns_executed=1)
+
+    outcome = step_bounded(max_turns=2, run_step_fn=fake_run_step)
+    assert turn == 2
+    assert outcome.turns_executed == 2
+    assert outcome.stop_reason == "turn_limit"
+
+
+def test_step_bounded_halts_on_error():
+    turn = 0
+
+    def fake_run_step(**kwargs):
+        nonlocal turn
+        turn += 1
+        return StepOutcome(completed=False, quiescent=False, error="tool boom", stop_reason="error", turns_executed=1)
+
+    outcome = step_bounded(max_turns=5, run_step_fn=fake_run_step)
+    assert turn == 1
+    assert outcome.completed is False
+    assert outcome.stop_reason == "error"
+    assert outcome.error == "tool boom"
+    assert outcome.turns_executed == 1
+
+
+def test_step_bounded_halts_on_cancellation():
+    calls = []
+
+    def fake_run_step(**kwargs):
+        calls.append(kwargs)
+        return StepOutcome(completed=True, quiescent=False, turns_executed=1)
+
+    outcome = step_bounded(max_turns=5, is_cancelled=lambda: True, run_step_fn=fake_run_step)
+    assert len(calls) == 0
+    assert outcome.stop_reason == "interrupted"
+    assert outcome.turns_executed == 0
 
 
 def test_heads_lines_formats_selected_head(tmp_path):

@@ -53,7 +53,10 @@ logger = logging.getLogger(__name__)
 
 def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_stdout: Any) -> str:
     if op == "step":
-        return capture_stdout(cli_module.run_step)
+        kwargs: dict[str, Any] = {}
+        if "max_turns" in payload:
+            kwargs["max_turns"] = int(payload["max_turns"])
+        return capture_stdout(cli_module.run_step, **kwargs)
     if op == "heads":
         if "source_tokens" not in payload:
             return capture_stdout(cli_module.run_heads)

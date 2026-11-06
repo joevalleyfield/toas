@@ -4209,6 +4209,46 @@ def test_step_context_runtime_helpers_cover_recursive_merge_and_newline_and_debu
     assert normalized.endswith("hello\n## TOAS:CONTROL\n\n/help\n")
     assert newline == "\n"
 
+    _, transcript2, normalized2, _ = sct.prepare_session_transcript(
+        deps=deps,
+        events=[],
+        stdin_mode=False,
+        control=None,
+        session_path=None,
+        session_text="override session",
+    )
+    assert transcript2 == "override session"
+    assert normalized2 == "override session"
+
+
+def test_extract_frontier_step_directive_variants():
+    import toas.runtime.step_context_runtime as sct
+
+    count, text = sct.extract_frontier_step_directive("")
+    assert count is None and text == ""
+
+    count, text = sct.extract_frontier_step_directive("## TOAS:ASSISTANT\n\nHello\n")
+    assert count is None
+
+    count, text = sct.extract_frontier_step_directive("## TOAS:USER\n\n/step\nDo something\n")
+    assert count == 1
+    assert text == "## TOAS:USER\n\nDo something\n"
+
+    count, text = sct.extract_frontier_step_directive("## TOAS:USER\n\nHello\n\n## TOAS:CONTROL\n\n/step 5\n")
+    assert count == 5
+    assert "CONTROL" not in text
+
+    count, text = sct.extract_frontier_step_directive("## TOAS:USER\n\nJust text\n")
+    assert count is None
+
+    # Fallback when content isn't in transcript
+    count, text = sct.extract_frontier_step_directive(
+        "dummy",
+        parse_transcript_fn=lambda _: [{"role": "user", "content": "not_in_dummy\n/step 2\n"}],
+    )
+    assert count == 2
+    assert text == "dummy"
+
 
 def test_run_step_forwards_explicit_preview_flags(monkeypatch):
     calls = []
@@ -4227,3 +4267,17 @@ def test_internal_run_step_maps_preview_flags_to_operator(monkeypatch):
                       "on_llm_answer_delta": None, "on_llm_reasoning_delta": None,
                       "on_llm_prompt_progress": None, "on_projection_delta": None,
                       "preview": True, "preview_request_pretty": True, "preview_response": True}]
+
+
+def test_run_step_rpc_prints(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda op, payload=None: seen.append((op, payload)) or True)
+    cli.run_step()
+    assert seen == [("step", None)]
+
+
+def test_run_step_with_max_turns_calls_bounded(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "run_operator_step_bounded", lambda **kwargs: calls.append(kwargs))
+    cli._run_step(max_turns=3)
+    assert calls[0]["max_turns"] == 3

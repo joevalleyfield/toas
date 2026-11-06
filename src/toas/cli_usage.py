@@ -42,7 +42,7 @@ GRAPH_USAGE = (
 
 
 STEP_USAGE = (
-    "usage: toas step [--preview-request] [--preview-request-pretty] "
+    "usage: toas step [N] [-n <N>|--count <N>|--max-turns <N>] [--preview-request] [--preview-request-pretty] "
     "[--preview-response] [--stdin] "
     "[--infer-from <state-label>] [--control <slash_command>] "
     "[--session <transcript_path>] [--surface <surface_id>]\n"
@@ -54,10 +54,14 @@ STEP_ASYNC_USAGE = "usage: toas step --async [--session <transcript_path>] [--su
 
 
 STEP_HELP = (
-    "usage: toas step [options]\n\n"
+    "usage: toas step [N] [options]\n\n"
     "Step session history: synchronize transcript edits into durable history,\n"
     "execute pending tool requests or control directives at the frontier, and\n"
     "run model inference.\n\n"
+    "Stepping Budget:\n"
+    "  [N]                       Advance up to N turns until quiescence (default: 1).\n"
+    "  -n, --count, --max-turns <N>\n"
+    "                            Advance up to N turns until quiescence.\n\n"
     "Input & Ingress:\n"
     "  --session <path>          Path to transcript file (default: session.md).\n"
     "  --stdin                   Read appended transcript content from standard input.\n"

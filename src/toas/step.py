@@ -119,6 +119,7 @@ SLASH_COMMANDS = [
     ),
     ("queue",     "/queue [<queue_id>] [resume|approve|skip|cancel]", "continue the active replay queue (default action: approve)"),
     ("config",    "/config [show] [--sources] | values|set|unset|restore|load|save | /config endpoint ... | /config target ... | /config secret ...", "inspect or manage config lanes"),
+    ("step",      "/step [N]",                                  "advance execution by up to N turns (default: 1) until quiescence"),
     ("help",      "/help",                                      "show available CLI commands, slash commands, tools, and config keys"),
 ]
 INERT_REGION_START = "[[inert]]"

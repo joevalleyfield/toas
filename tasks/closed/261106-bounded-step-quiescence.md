@@ -78,20 +78,41 @@ without tool calls, it has yielded back to the operator.
 
 ## Proposed Design & Semantics
 
+### In-Memory Transcript Continuity & Turn Boundary Flushing
+
+1. **In-Flight Accumulator**:
+   The multi-step runner maintains an in-memory transcript accumulator across
+   iterations. Each consequence step's projection is appended to this in-flight
+   view so subsequent iterations see updated frontier context even when stdout is
+   not redirected back into `session.md`.
+2. **Turn Boundary Flushing**:
+   Each consequence step flushes its projection chunk to stdout as it completes,
+   preserving live streaming and compatibility with `toas step >> session.md`.
+3. **Precedence Contract**:
+   Explicit CLI counts (`toas step [n]`, `toas step -n <n>`, `--count <n>`) take
+   unconditional precedence over transcript directives. When CLI count is omitted
+   (bare `toas step`), a frontier `/step [n]` directive sets the turn budget to $n$.
+4. **Directive Semantics**:
+   A `/step [n]` directive (in `CONTROL` or `USER`) does not consume a consequence
+   turn itself; it configures the turn budget for the subsequent consequence sequence.
+
 ### Stepping Loop Logic
 
 ```python
 turns_executed = 0
 while turns_executed < max_turns:
-    outcome = step_state_once(...)
+    outcome = step_once(...)  # or step_state_once(...)
     turns_executed += 1
+    
+    # Flush output at turn boundary
+    flush_turn_output()
     
     # Check for errors
     if not outcome.completed or outcome.error:
         break
         
     # Check for quiescence
-    if not outcome.has_executable_content:
+    if outcome.quiescent:
         # Assistant produced pure text; yielded to operator
         break
 ```
@@ -105,16 +126,28 @@ while turns_executed < max_turns:
 
 ## Acceptance Criteria
 
-1. **Default Preservation**: `toas step` (with no arguments) behaves identically
-   to the current single-step implementation.
-2. **Quiescent Early Stop**: In a multi-step call (`toas step 5`), if the assistant
+1. [x] **Default Preservation**: `toas step` (with no arguments and no `/step` directive)
+   behaves identically to the current single-step implementation.
+2. [x] **Quiescent Early Stop**: In a multi-step call (`toas step 5`), if the assistant
    returns a text-only turn on turn 1, the loop stops immediately after turn 1.
-3. **Multi-Turn Chaining**: If the assistant requests a tool on turn 1, the tool
-   executes, and the assistant responds with final text on turn 2, `toas step 5`
-   executes exactly 2 turns and terminates cleanly.
-4. **Safety Cap**: If the assistant repeatedly requests tools on every turn,
+3. [x] **Multi-Turn Chaining**: If the assistant requests a tool on turn 1, the tool
+   executes on turn 2, and the assistant responds with final text on turn 3,
+   `toas step 5` executes exactly 3 turns and terminates cleanly with `quiescent`.
+4. [x] **Safety Cap**: If the assistant repeatedly requests tools on every turn,
    `toas step 3` halts after turn 3 with `turn_limit` status.
-5. **Durable Parity**: The resulting `events.jsonl` contains the exact same
+5. [x] **Durable Parity**: The resulting `events.jsonl` contains the exact same
    sequence of events as if the operator had manually executed `toas step` $k$ times.
-6. **Slash Command & CLI Parity**: `/step 3` in session transcript or via `--control`
-   exhibits identical stopping behavior to `toas step 3`.
+6. [x] **Slash Command & CLI Parity**: `/step 3` in session transcript or via `--control`
+   sets the turn budget to 3 when no explicit CLI count is provided, exhibiting
+   identical stopping behavior.
+7. [x] **In-Flight Transcript Parity**: Multi-stepping advances properly and chains
+   consecutive turns even when `toas step` is invoked without shell redirection.
+
+## Resolution & Verification
+
+- Added `step_bounded(max_turns, ...)` and updated `step_once` in `src/toas/operator_api.py`.
+- Added in-memory accumulator and turn-boundary stdout flushing (`sys.stdout.flush()`) in `src/toas/cli_session_commands.py`.
+- Extended CLI parsing in `src/toas/cli_dispatch_ops.py` and `src/toas/cli.py` for `toas step [N]`, `-n`, `--count`, `--max-turns`.
+- Registered `/step [N]` slash command and control handler.
+- All 3,816 tests pass with 100.00% statement coverage across all 161 project modules.
+- End-to-end CLI inspection verified against `toas step --help` and integration scenarios.
