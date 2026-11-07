@@ -6,7 +6,7 @@ from .async_lifecycle_envelope_adapter import add_lifecycle_envelope, add_status
 
 def handle_status(payload: dict) -> dict:
     _ = payload
-    return add_status_envelope({"status": "ok"})
+    return add_status_envelope({"status": "ok", "capabilities": ["step_async.session_text"]})
 
 
 def handle_step_async(payload: dict, *, start_async_step_fn) -> dict:

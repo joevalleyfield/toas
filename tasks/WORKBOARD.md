@@ -157,6 +157,7 @@ Neither dated vote is a literal current queue.
 - **[T261106-skill-specialization-and-script-distillation]** Skill Specialization and Script Distillation Pipeline
 - **[T261106-standard-agent-skills-integration]** Standard Agent Skills Support and Extensible Task Recording
 - **[T261106-target-coupled-generation-settings]** Target- and Endpoint-Coupled Generation Settings and Client-Side Throttling
+- **[T261107-host-transcript-snapshots]** Async host transcript snapshots
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -219,10 +220,10 @@ should return only with a current timing reproduction.
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261107-read-file-combine-max-lines-end-line]** Allow Combining max_lines With end_line in read_file
+- **[T261107-dense-turn-namespaces]** Configurable Turn Namespaces and Dense Turn Progression
+- **[T261107-branch-isolated-policy-state]** Branch-Isolated Policy State Resolution
 - **[T261106-vim-step-count-prefix]** Support Count Prefix for Vim Step Mapping (`[N]\s` -> `toas step [N]`)
 - **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
-- **[T261106-multi-turn-run-region-envelopes]** Multi-Turn Run Region Envelopes and Stream State Scoping
-- **[T261106-fence-aware-transcript-markers]** Fence-Aware Transcript Marker Parsing
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

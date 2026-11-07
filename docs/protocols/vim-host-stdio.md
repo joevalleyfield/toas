@@ -161,3 +161,23 @@ Policy:
 - preserve control-frame order
 - allow content-frame coalescing only when final rendered text is preserved
 - never let completion pass earlier content
+
+
+## Transcript snapshots
+
+Host `status` responses advertise `step_async.session_text` in a `capabilities`
+array. Editors must check this before submitting a snapshot. An older host can
+ignore an unknown request field, so an unchecked snapshot request can execute
+saved file content instead of the intended prefix.
+
+`step_async` and `step_async_cold` accept optional `payload.session_text` containing
+an exact transcript snapshot. It must be a JSON string, including the empty
+string when an empty snapshot is intended. The existing `session`/`session_path`
+field retains the original transcript path and runtime identity. The snapshot
+is forwarded to the bounded operator API in both worker modes. Omission retains
+normal file-based input. The transport itself never truncates the session file.
+
+For example, a client can save a complete editor buffer, capture its prefix
+through a chosen line, then submit that prefix as `session_text` while streaming
+the result before the preserved suffix. Normal runtime history, tool execution,
+and cancellation semantics apply.

@@ -43,6 +43,8 @@ def validate_step_async_payload(payload: object) -> dict:
     _validate_optional_nonempty_str(out, "session_path")
     _validate_optional_nonempty_str(out, "session")
     _validate_optional_nonempty_str(out, "host_session_path")
+    if "session_text" in out and not isinstance(out["session_text"], str):
+        raise RuntimeError("session_text must be string")
     _validate_optional_positive_int(out, "max_turns")
     return out
 

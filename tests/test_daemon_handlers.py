@@ -3,6 +3,7 @@ from toas.runtime import request_handlers as dh
 
 def test_handle_status_returns_ok():
     out = dh.handle_status({})
+    assert "step_async.session_text" in out["capabilities"]
     assert out["status"] == "ok"
     assert out["envelope"]["kind"] == "status"
 

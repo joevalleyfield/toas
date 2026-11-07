@@ -134,3 +134,14 @@ def test_validate_session_continue_payload_accepts_suggest_and_commit_shapes():
         validate_session_continue_payload({"accepted_name": ""})
     with pytest.raises(RuntimeError, match="exclude_tail must be bool"):
         validate_session_continue_payload({"exclude_tail": "yes"})
+
+
+@pytest.mark.parametrize("text", ["", "ordinary text", "## TOAS:USER\n$ echo café 😀\n"])
+def test_validate_step_async_payload_accepts_session_text(text):
+    assert validate_step_async_payload({"session_text": text}) == {"session_text": text}
+
+
+@pytest.mark.parametrize("value", [None, False, 3, [], {}])
+def test_validate_step_async_payload_rejects_non_string_session_text(value):
+    with pytest.raises(RuntimeError, match="session_text must be string"):
+        validate_step_async_payload({"session_text": value})

@@ -53,6 +53,7 @@ class AsyncStepStartOptions:
     runtime_streaming_mode: str | None
     run_mode: str
     max_turns: int | None = None
+    session_text: str | None = None
 
 
 def _raise_if_cancel_requested(run: AsyncRun) -> None:
@@ -629,6 +630,7 @@ def start_async_step(
                 options=options,
                 run=run,
                 session_path=options.requested_session_path,
+                session_text=options.session_text,
                 on_llm_answer_delta=_on_llm_answer_delta,
                 on_llm_reasoning_delta=_on_llm_reasoning_delta if options.thinking_enabled else None,
                 on_llm_prompt_progress=_on_llm_prompt_progress if options.prompt_progress_enabled else None,
@@ -679,6 +681,7 @@ def _resolve_async_step_start_options(
         run_id=run_id,
         workdir=workdir,
         requested_session_path=_requested_session_path(payload),
+        session_text=payload.get("session_text"),
         thinking_enabled=thinking_enabled,
         prompt_progress_enabled=prompt_progress_enabled,
         debug_prompt_progress_enabled=_env_flag_enabled("TOAS_DEBUG_PROMPT_PROGRESS"),
