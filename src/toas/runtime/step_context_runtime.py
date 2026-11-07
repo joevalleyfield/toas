@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import cast
 
 from ..config import (
+    ConfigDiagnostic,
     apply_overrides,
     config_from_discovered_paths,
     discover_config_paths,
-    load_file_config,
+    load_file_config_with_diagnostics,
 )
 from ..graph import (
     active_command_context,
@@ -228,8 +229,10 @@ def resolve_runtime_generation_context(
 ):
     file_nested: dict[str, object] = {}
     file_key_sources: dict[str, str] = {}
+    config_diagnostics: list[ConfigDiagnostic] = []
     for candidate in discover_config_paths(workdir=Path.cwd()):
-        loaded = load_file_config(candidate)
+        loaded, diags = load_file_config_with_diagnostics(candidate)
+        config_diagnostics.extend(diags)
         if loaded:
             file_nested = merge_nested_dicts(file_nested, loaded)
             for dotted in flatten_nested_config(loaded):
@@ -244,6 +247,7 @@ def resolve_runtime_generation_context(
         operator_config=operator_config,
         file_key_sources=file_key_sources,
         policy_sources=policy_state.get("sources"),
+        config_diagnostics=tuple(config_diagnostics),
         legacy_config_paths=tuple(
             sorted(
                 {

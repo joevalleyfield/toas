@@ -942,6 +942,51 @@ def test_load_file_config_invalid_toml_returns_empty(tmp_path):
     assert load_file_config(path) == {}
 
 
+def test_load_file_config_with_diagnostics_captures_toml_decode_error(tmp_path):
+    from toas.config import (
+        config_from_discovered_paths_with_diagnostics,
+        config_from_file_with_diagnostics,
+        load_file_config_with_diagnostics,
+    )
+
+    path = tmp_path / "toas.toml"
+    path.write_text("[session]\ntelemetry_decorations = compact\n", encoding="utf-8")
+
+    data, diags = load_file_config_with_diagnostics(path)
+    assert data == {}
+    assert len(diags) == 1
+    diag = diags[0]
+    assert diag.path == path.resolve()
+    assert diag.line == 2
+    assert diag.column == 25
+    assert "Invalid value" in diag.message
+    assert "toas.toml (line 2, col 25): Invalid value" in diag.summary()
+    assert "toas.toml:2:Invalid value" in diag.signature()
+
+    cfg, file_diags = config_from_file_with_diagnostics(path)
+    assert len(file_diags) == 1
+
+    discovered_cfg, discovered_diags = config_from_discovered_paths_with_diagnostics(workdir=tmp_path, home=tmp_path)
+    assert len(discovered_diags) == 1
+
+
+def test_load_file_config_with_diagnostics_missing_and_valid_files(tmp_path):
+    from toas.config import config_from_file_with_diagnostics, load_file_config_with_diagnostics
+
+    missing_path = tmp_path / "nonexistent.toml"
+    data, diags = load_file_config_with_diagnostics(missing_path)
+    assert data == {}
+    assert diags == ()
+    cfg, file_diags = config_from_file_with_diagnostics(missing_path)
+    assert file_diags == ()
+
+    valid_path = tmp_path / "valid.toml"
+    valid_path.write_text('[session]\ntelemetry_decorations = "compact"\n', encoding="utf-8")
+    valid_data, valid_diags = load_file_config_with_diagnostics(valid_path)
+    assert valid_data == {"session": {"telemetry_decorations": "compact"}}
+    assert valid_diags == ()
+
+
 def test_parse_config_value_generation_max_retries_rejects_negative_and_non_int():
     with pytest.raises(ValueError, match="expected >= 0"):
         parse_config_value("generation.max_retries", "-1")

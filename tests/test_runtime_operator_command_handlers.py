@@ -1302,6 +1302,32 @@ def test_bare_config_is_compact_navigation_not_state_dump():
     assert "config_update" not in out
 
 
+def test_config_overview_and_show_surfaces_diagnostic_notice():
+    import toas.step as step_mod
+
+    diag_text = "/path/to/toas.toml (line 2, col 25): Invalid value"
+    context = _ctx(config_sources={"__diagnostics__": diag_text, "session.telemetry_decorations": "default"})
+
+    overview = handle_config_help_commands("config", [], step_mod=step_mod, context=context)[0]["content"]
+    assert "warning: configuration file parse error:" in overview
+    assert diag_text in overview
+    assert "file was ignored; using lower precedence or defaults." in overview
+
+    show_flat = handle_config_help_commands("config", ["show", "--flat"], step_mod=step_mod, context=context)[0]["content"]
+    assert "warning: configuration file parse error:" in show_flat
+    assert diag_text in show_flat
+    assert "file was ignored; using lower precedence or defaults." in show_flat
+
+    show_curated = handle_config_help_commands("config", ["show"], step_mod=step_mod, context=context)[0]["content"]
+    assert "warning: configuration file parse error:" in show_curated
+    assert diag_text in show_curated
+    assert "file was ignored; using lower precedence or defaults." in show_curated
+
+    show_filtered = handle_config_help_commands("config", ["show", "session"], step_mod=step_mod, context=context)[0]["content"]
+    assert "warning: configuration file parse error:" in show_filtered
+    assert diag_text in show_filtered
+
+
 def test_config_show_filter_sources_and_no_match_are_read_only():
     import toas.step as step_mod
 

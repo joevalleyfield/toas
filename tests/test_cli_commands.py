@@ -264,6 +264,25 @@ def test_build_config_sources_default_for_unset(monkeypatch):
     assert sources["llm.base_url"] == "default"
 
 
+def test_build_config_sources_forwards_config_diagnostics(monkeypatch):
+    from pathlib import Path
+
+    from toas.config import ConfigDiagnostic, OperatorConfig
+
+    diag = ConfigDiagnostic(
+        path=Path("/tmp/toas.toml"),
+        message="Invalid value",
+    )
+    sources = clc._build_config_sources(
+        file_nested={},
+        session_overrides={},
+        operator_config=OperatorConfig(),
+        config_diagnostics=(diag,),
+    )
+    assert sources["__diagnostics__"] == "/tmp/toas.toml: Invalid value"
+
+
+
 # --- _serialize_operator_config_toml ---
 
 def test_serialize_operator_config_toml_contains_sections():

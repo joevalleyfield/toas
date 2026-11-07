@@ -88,29 +88,36 @@ def _config_show_filter(args: list[str]) -> tuple[str | None, bool, bool]:
 
 
 def _config_entrypoint_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
-    content = "\n".join(
-        [
-            "config: inspect or change configuration",
+    lines = [
+        "config: inspect or change configuration",
+        "",
+        "usage:",
+        "  /config show [FILTER] [--flat] [--sources]  inspect effective values",
+        "  /config show --flat                inspect all keys as flat key/value data",
+        "  /config show --sources             inspect all keys with winning sources",
+        "  /config show models --flat         inspect model keys as flat key/value data",
+        "  /config show <topic-or-key>       inspect a focused key/topic view",
+        "  /config values KEY                 inspect allowed choices",
+        "  /config set KEY VALUE              record a session override",
+        "  /config endpoint ...               define or inspect endpoints",
+        "  /config target ...                 define or inspect model targets",
+        "",
+        "more:",
+        "  /help config                       concepts and discovery",
+        "  /config --help                    complete config syntax",
+        "  /config show                       curated effective overview",
+        "  /config show --flat                exhaustive flat key/value listing",
+        "  /config show --sources            exhaustive key/provenance escape hatch",
+    ]
+    diagnostic_notice = (context.config_sources or {}).get("__diagnostics__")
+    if diagnostic_notice:
+        lines = [
+            "warning: configuration file parse error:",
+            f"  {diagnostic_notice}",
+            "  file was ignored; using lower precedence or defaults.",
             "",
-            "usage:",
-            "  /config show [FILTER] [--flat] [--sources]  inspect effective values",
-            "  /config show --flat                inspect all keys as flat key/value data",
-            "  /config show --sources             inspect all keys with winning sources",
-            "  /config show models --flat         inspect model keys as flat key/value data",
-            "  /config show <topic-or-key>       inspect a focused key/topic view",
-            "  /config values KEY                 inspect allowed choices",
-            "  /config set KEY VALUE              record a session override",
-            "  /config endpoint ...               define or inspect endpoints",
-            "  /config target ...                 define or inspect model targets",
-            "",
-            "more:",
-            "  /help config                       concepts and discovery",
-            "  /config --help                    complete config syntax",
-            "  /config show                       curated effective overview",
-            "  /config show --flat                exhaustive flat key/value listing",
-            "  /config show --sources            exhaustive key/provenance escape hatch",
-        ]
-    )
+        ] + lines
+    content = "\n".join(lines)
     return [_result_node(content, step_mod=step_mod, context=context)]
 
 
@@ -259,6 +266,16 @@ def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
                 f"  {migration_notice}",
                 "  loaded values were normalized into llm.endpoints.",
                 "  /config save writes canonical endpoint configuration.",
+            ]
+        )
+    diagnostic_notice = (context.config_sources or {}).get("__diagnostics__")
+    if diagnostic_notice:
+        lines.extend(
+            [
+                "",
+                "warning: configuration file parse error:",
+                f"  {diagnostic_notice}",
+                "  file was ignored; using lower precedence or defaults.",
             ]
         )
     return "\n".join(lines)
@@ -423,6 +440,16 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
     else:
         lines = [f"{k} = {flat[k]}" for k in keys]
 
+    diagnostic_notice = (context.config_sources or {}).get("__diagnostics__")
+    if diagnostic_notice:
+        header_lines = [
+            "warning: configuration file parse error:",
+            f"  {diagnostic_notice}",
+            "  file was ignored; using lower precedence or defaults.",
+            "",
+        ]
+        lines = header_lines + lines
+
     if filter_text is not None:
         lines.extend(
             [
@@ -510,6 +537,16 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
                 f"  {migration_notice}",
                 "  loaded values were normalized into llm.endpoints.",
                 "  /config save writes canonical endpoint configuration.",
+            ]
+        )
+    diagnostic_notice = (context.config_sources or {}).get("__diagnostics__")
+    if diagnostic_notice:
+        lines.extend(
+            [
+                "",
+                "warning: configuration file parse error:",
+                f"  {diagnostic_notice}",
+                "  file was ignored; using lower precedence or defaults.",
             ]
         )
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]

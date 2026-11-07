@@ -3834,3 +3834,93 @@ def test_run_step_user_turn_with_result_and_commentary_gets_handle():
     # Because user provided commentary outside the fence, it is treated as an actual human turn!
     assert res_nodes[0]["turn_id"] == "charlie"
     assert "## TOAS:USER [charlie" in res_nodes[0]["marker"]
+
+
+def test_run_step_appends_config_diagnostic_warning_node_to_consequences():
+    transcript = """\
+## TOAS:USER
+hello
+"""
+    generated = {"role": "assistant", "content": "hi"}
+    new_nodes, out = run_step(
+        transcript,
+        [],
+        generate=lambda _working: generated,
+        config_sources={"__diagnostics__": "toas.toml:2:Invalid value"},
+    )
+    assert len(out) == 2
+    assert out[0] == generated
+    diag_node = out[1]
+    assert diag_node["role"] == "result"
+    assert "source=config.diagnostic" in diag_node["content"]
+    assert "potency=inert" in diag_node["content"]
+    assert "toas.toml:2:Invalid value" in diag_node["content"]
+    assert "[!] Config Warning:" in diag_node["content"]
+    assert new_nodes[-1] == diag_node
+
+
+def test_run_step_suppresses_config_diagnostic_when_already_in_working():
+    diag_body = (
+        "```toas-output kind=warning source=config.diagnostic potency=inert\n"
+        "[!] Config Warning: toas.toml:2:Invalid value\n"
+        "File was ignored; using defaults. Run /config show for details.\n"
+        "```"
+    )
+    working_diag = _result(diag_body, origin_role="user", origin_kind="slash_command")
+    working = [
+        {"role": "user", "content": "hello", "id": "msg-1"},
+        {"role": "assistant", "content": "hi", "id": "msg-2"},
+        working_diag,
+    ]
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:ASSISTANT
+hi
+
+## RESULT
+```toas-output kind=warning source=config.diagnostic potency=inert
+[!] Config Warning: toas.toml:2:Invalid value
+File was ignored; using defaults. Run /config show for details.
+```
+
+## TOAS:USER
+second step
+"""
+    generated = {"role": "assistant", "content": "second response"}
+    new_nodes, out = run_step(
+        transcript,
+        working,
+        generate=lambda _working: generated,
+        config_sources={"__diagnostics__": "toas.toml:2:Invalid value"},
+    )
+    assert out == [generated]
+    assert len(out) == 1
+
+
+def test_build_config_diagnostic_warning_node_role_assignment():
+    from toas.runtime.step_runtime import _build_config_diagnostic_warning_node
+
+    node_control = _build_config_diagnostic_warning_node("test notice", frontier={"role": "control"})
+    assert node_control["role"] == "result"
+    assert node_control["origin_role"] == "control"
+    assert "test notice" in node_control["content"]
+
+    node_asst = _build_config_diagnostic_warning_node("test notice", frontier={"role": "assistant"})
+    assert node_asst["role"] == "result"
+    assert node_asst["origin_role"] == "user"
+    assert "test notice" in node_asst["content"]
+
+    node_user = _build_config_diagnostic_warning_node("test notice", frontier={})
+    assert node_user["role"] == "result"
+    assert node_user["origin_role"] == "user"
+
+
+def test_has_config_diagnostic_helper():
+    from toas.runtime.step_runtime import _has_config_diagnostic
+
+    consequences = [{"content": "```toas-output source=config.diagnostic\nwarning\n```"}]
+    assert _has_config_diagnostic(working=[], consequences=consequences, signature="warning") is True
+    assert _has_config_diagnostic(working=[], consequences=[], signature="warning") is False
+

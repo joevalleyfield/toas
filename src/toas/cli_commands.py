@@ -100,6 +100,7 @@ def _build_config_sources(
     file_key_sources: dict[str, str] | None = None,
     legacy_config_paths: tuple[str, ...] | None = None,
     policy_sources: dict[str, dict[str, Any]] | None = None,
+    config_diagnostics: tuple[Any, ...] | None = None,
 ) -> dict[str, str]:
     return _policy_build_config_sources(
         file_nested=file_nested,
@@ -108,6 +109,7 @@ def _build_config_sources(
         file_key_sources=file_key_sources,
         legacy_config_paths=legacy_config_paths,
         policy_sources=policy_sources,
+        config_diagnostics=config_diagnostics,
     )
 
 

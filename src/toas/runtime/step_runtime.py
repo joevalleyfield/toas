@@ -811,7 +811,50 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             generate=generate,
             baseline_config=baseline_config,
         )
+    diagnostic_notice = (config_sources or {}).get("__diagnostics__")
+    if diagnostic_notice and not _has_config_diagnostic(
+        working=working, consequences=consequences, signature=diagnostic_notice
+    ):
+        consequences.append(
+            _build_config_diagnostic_warning_node(diagnostic_notice, frontier=frontier)
+        )
     return consequences, should_return_early
+
+
+def _has_config_diagnostic(
+    *, working: list[dict], consequences: list[dict], signature: str
+) -> bool:
+    for node in consequences:
+        content = str(node.get("content", ""))
+        if "source=config.diagnostic" in content or signature in content:
+            return True
+    for node in working:
+        content = str(node.get("content", ""))
+        if "source=config.diagnostic" in content and signature in content:
+            return True
+    return False
+
+
+def _build_config_diagnostic_warning_node(diagnostic_notice: str, *, frontier: dict) -> dict:
+    from ..tools_cluster.rendering import render_fenced_output
+
+    body = (
+        f"[!] Config Warning: {diagnostic_notice}\n"
+        "File was ignored; using defaults. Run /config show for details."
+    )
+    content = render_fenced_output(
+        content=body,
+        kind="warning",
+        source="config.diagnostic",
+        potency="inert",
+    )
+    role = frontier.get("role") if isinstance(frontier, dict) else None
+    origin_role = role if role in {"user", "control"} else "user"
+    return make_result_node(
+        content,
+        origin_role=origin_role,
+        origin_kind="slash_command",
+    )
 
 
 def _working_with_transcript_tail_frontier(*, transcript_nodes: list[dict], reconstructed_working: list[dict]) -> list[dict]:

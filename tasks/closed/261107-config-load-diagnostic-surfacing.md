@@ -94,3 +94,13 @@ The system needs to:
 4. **Phase 4: Verification & QA**
    - Comprehensive unit and integration tests across all tiers.
    - Run `./scripts/check.sh` ensuring 100.00% statement coverage.
+
+## Outcome & Acceptance Evidence
+
+All acceptance criteria met:
+1. **Syntax Error Capture**: `load_file_config_with_diagnostics` captures `TOMLDecodeError` with parsed line, column, file path, and description into `ConfigDiagnostic` dataclasses.
+2. **Explicit Inspection**: `/config` and `/config show` (including `--flat`, `--sources`, and filtered queries) display the diagnostic header prominently whenever configuration parse errors are detected.
+3. **In-Buffer Frontier Warning**: `_execute_frontier_consequences` appends an inert warning block (`source=config.diagnostic`, `potency=inert`) as the final consequence node when diagnostics are present.
+4. **History Deduplication**: `_has_config_diagnostic` checks both active `consequences` and prior `working` history so the warning is emitted only once per distinct error signature on a lineage.
+5. **Coverage & Checks**: `./scripts/check.sh` passes completely with 100.00% statement coverage (26,046 statements), 3,877 unit tests, 17 acceptance tests, clean ruff lint, and clean mypy checks.
+

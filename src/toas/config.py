@@ -352,25 +352,66 @@ def apply_dotted_override(config: OperatorConfig, dotted_key: str, raw_value: st
 # File loading (toas.toml)
 # ---------------------------------------------------------------------------
 
-def load_file_config(path: Path) -> dict:
-    """Load toas.toml and return its contents as a nested dict. Returns {} on any failure."""
+@dataclass(frozen=True)
+class ConfigDiagnostic:
+    path: Path
+    message: str
+    line: int | None = None
+    column: int | None = None
+    exception: Exception | None = None
+
+    def signature(self) -> str:
+        loc = f":{self.line}" if self.line is not None else ""
+        return f"{self.path.as_posix()}{loc}:{self.message}"
+
+    def summary(self) -> str:
+        loc = f" (line {self.line}, col {self.column})" if self.line is not None else ""
+        return f"{self.path.as_posix()}{loc}: {self.message}"
+
+
+def load_file_config_with_diagnostics(path: Path) -> tuple[dict, tuple[ConfigDiagnostic, ...]]:
+    """Load config file and return its contents as a nested dict along with any diagnostics."""
     if not path.exists():
-        return {}
+        return {}, ()
     if sys.version_info < (3, 11):
-        return {}
+        return {}, ()
+    import re
+
     import tomllib  # available in 3.11+
     try:
         with open(path, "rb") as f:
-            return tomllib.load(f)
-    except Exception:
-        return {}
+            return tomllib.load(f), ()
+    except Exception as exc:
+        msg = str(exc)
+        m = re.search(r"\(at line (\d+), column (\d+)\)", msg)
+        line = int(m.group(1)) if m else None
+        col = int(m.group(2)) if m else None
+        diag = ConfigDiagnostic(
+            path=path.resolve(),
+            message=msg,
+            line=line,
+            column=col,
+            exception=exc,
+        )
+        return {}, (diag,)
+
+
+def load_file_config(path: Path) -> dict:
+    """Load toas.toml and return its contents as a nested dict. Returns {} on any failure."""
+    data, _ = load_file_config_with_diagnostics(path)
+    return data
+
+
+def config_from_file_with_diagnostics(path: Path) -> tuple[OperatorConfig, tuple[ConfigDiagnostic, ...]]:
+    nested, diags = load_file_config_with_diagnostics(path)
+    if not nested:
+        return OperatorConfig(), diags
+    return apply_overrides(OperatorConfig(), nested), diags
 
 
 def config_from_file(path: Path) -> OperatorConfig:
-    nested = load_file_config(path)
-    if not nested:
-        return OperatorConfig()
-    return apply_overrides(OperatorConfig(), nested)
+    config, _ = config_from_file_with_diagnostics(path)
+    return config
 
 
 def discover_config_paths(*, workdir: Path, home: Path | None = None) -> tuple[Path, ...]:
@@ -384,10 +425,19 @@ def discover_config_paths(*, workdir: Path, home: Path | None = None) -> tuple[P
     )
 
 
-def config_from_discovered_paths(*, workdir: Path, home: Path | None = None) -> OperatorConfig:
+def config_from_discovered_paths_with_diagnostics(
+    *, workdir: Path, home: Path | None = None
+) -> tuple[OperatorConfig, tuple[ConfigDiagnostic, ...]]:
     config = OperatorConfig()
+    diagnostics: list[ConfigDiagnostic] = []
     for path in discover_config_paths(workdir=workdir, home=home):
-        nested = load_file_config(path)
+        nested, diags = load_file_config_with_diagnostics(path)
+        diagnostics.extend(diags)
         if nested:
             config = apply_overrides(config, nested)
+    return config, tuple(diagnostics)
+
+
+def config_from_discovered_paths(*, workdir: Path, home: Path | None = None) -> OperatorConfig:
+    config, _ = config_from_discovered_paths_with_diagnostics(workdir=workdir, home=home)
     return config

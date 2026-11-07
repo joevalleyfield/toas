@@ -180,3 +180,24 @@ def test_build_config_sources_detects_env_vars(monkeypatch):
     assert sources["llm.model"] == "env"
 
 
+def test_build_config_sources_with_config_diagnostics():
+    from pathlib import Path
+
+    from toas.config import ConfigDiagnostic
+
+    diag = ConfigDiagnostic(
+        path=Path("/tmp/toas.toml"),
+        message="Invalid value at line 2, col 10",
+        line=2,
+        column=10,
+    )
+    config = OperatorConfig()
+    sources = build_config_sources(
+        file_nested={},
+        session_overrides={},
+        operator_config=config,
+        config_diagnostics=(diag,),
+    )
+    assert sources["__diagnostics__"] == "/tmp/toas.toml (line 2, col 10): Invalid value at line 2, col 10"
+
+

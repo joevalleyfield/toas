@@ -267,4 +267,3 @@ def isolate_user_config(monkeypatch: pytest.MonkeyPatch, _isolated_user_home: Pa
     yield
     _clean_isolated_user_home(_isolated_user_home)
 
-
