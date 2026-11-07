@@ -129,6 +129,13 @@ def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
         return ("rsilentwatch1", "## TOAS:USER\n", "", "")
     if scenario == "state_invalid_response_preview_replacement_wrapper":
         return ("rstateinv1", "## TOAS:USER\n", "", "")
+    if scenario == "multi_turn_tool_projection_then_llm_stream":
+        return (
+            "rmultiturn1",
+            "## TOAS:USER\n\n```yaml\n- tool_name: read_file\n```\n",
+            "",
+            "I have inspected the file.",
+        )
     raise ValueError(f"unknown scenario: {scenario}")
 
 
@@ -504,6 +511,51 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 f"call writefile([json_encode(g:result)], '{out_path}')",
                 "qa!",
             ]
+        elif scenario == "multi_turn_tool_projection_then_llm_stream":
+            script_lines = [
+                "set nocompatible",
+                "set hidden",
+                "set noswapfile",
+                "set shortmess+=I",
+                f"source {plugin_path}",
+                "redir => g:toas_function_dump",
+                "silent function /toas_apply_watch_events",
+                "silent function /toas_insert_run_region",
+                "silent function /toas_apply_run_text_chunk",
+                "silent function /toas_run_display_text",
+                "silent function /toas_replace_run_region",
+                "silent function /toas_finalize_terminal_run_region",
+                "redir END",
+                "let g:apply_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_apply_watch_events')",
+                "let g:insert_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_insert_run_region')",
+                "let g:chunk_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_apply_run_text_chunk')",
+                "let g:display_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_run_display_text')",
+                "let g:replace_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_replace_run_region')",
+                "let g:finalize_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_finalize_terminal_run_region')",
+                f"execute 'edit ' . fnameescape('{session_quoted}')",
+                f"call call(function(g:insert_fn), ['{run_id}', 'running', line('$')])",
+                "let g:events_turn1 = [{'type': 'projection_delta', 'lane': 'projection', 'phase': 'delta', 'seq': 1, 'payload': {'text': \"## TOAS:USER\\n\\n## RESULT [turn.1 OK read_file 10]\\n\\n[OK] read_file: path.txt\\n\"}}]",
+                f"call call(function(g:apply_fn), ['{run_id}', g:events_turn1])",
+                f"let g:preview1 = call(function(g:display_fn), ['{run_id}'])",
+                f"call call(function(g:replace_fn), ['{run_id}', 'running', g:preview1, 1])",
+                "let g:events_turn2 = [{'type': 'llm_start', 'lane': 'llm_answer', 'phase': 'start', 'seq': 2, 'payload': {}}, {'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 3, 'payload': {'text': 'I have inspected the file.'}}]",
+                f"let g:apply2 = call(function(g:apply_fn), ['{run_id}', g:events_turn2])",
+                f"call call(function(g:chunk_fn), ['{run_id}', get(g:apply2, 'event_chunk', '')])",
+                f"let g:preview2 = call(function(g:display_fn), ['{run_id}'])",
+                f"call call(function(g:replace_fn), ['{run_id}', 'running', g:preview2, 1])",
+                "let g:live_lines = getline(1, '$')",
+                f"call call(function(g:finalize_fn), ['{run_id}', 'succeeded', ''])",
+                "let g:final_lines = getline(1, '$')",
+                "let g:result = {",
+                f"      \\ 'run_id': '{run_id}',",
+                "      \\ 'status': 'succeeded',",
+                "      \\ 'run_kind': get(g:, 'toas_last_run_kind', ''),",
+                "      \\ 'live_text': join(g:live_lines, \"\\n\"),",
+                "      \\ 'text': join(g:final_lines, \"\\n\"),",
+                "      \\ }",
+                f"call writefile([json_encode(g:result)], '{out_path}')",
+                "qa!",
+            ]
         else:
             script_lines = [
                 "set nocompatible",
@@ -638,6 +690,16 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 result.get("run_id", "") == run_id
                 and "[ERROR] invalid state-step JSON response" in result.get("text", "")
                 and '{"state_patch": broken' not in result.get("text", "")
+            )
+        if scenario == "multi_turn_tool_projection_then_llm_stream":
+            text = result.get("text", "")
+            ok = (
+                result.get("run_id", "") == run_id
+                and result.get("run_kind") == "llm"
+                and "## RESULT [turn.1 OK read_file 10]" in text
+                and "## TOAS:ASSISTANT" in text
+                and "I have inspected the file." in text
+                and text.find("## RESULT") < text.find("## TOAS:ASSISTANT")
             )
         return {"ok": ok, "result": result}
 

@@ -28,6 +28,7 @@ _EVENT_POLICIES: dict[str, EventPolicy] = {
     "heartbeat": EventPolicy("heartbeat", durable=False, projected=False, ephemeral=True, terminal=False),
     "capability": EventPolicy("capability", durable=False, projected=False, ephemeral=True, terminal=False),
     # Shared runtime streaming event kinds.
+    "llm_start": EventPolicy("llm_start", durable=False, projected=True, ephemeral=False, terminal=False),
     "llm_delta": EventPolicy("llm_delta", durable=False, projected=True, ephemeral=False, terminal=False),
     "llm_reasoning": EventPolicy("llm_reasoning", durable=False, projected=True, ephemeral=False, terminal=False),
     "prompt_progress": EventPolicy("prompt_progress", durable=False, projected=False, ephemeral=True, terminal=False),

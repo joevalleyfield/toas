@@ -151,6 +151,19 @@ def test_state_invalid_response_preview_replacement_in_vim():
     assert '{"state_patch": broken' not in result["text"]
 
 
+def test_multi_turn_tool_projection_then_llm_stream():
+    result = _run("multi_turn_tool_projection_then_llm_stream")
+    assert result["run_id"] == "rmultiturn1"
+    assert result["run_kind"] == "llm"
+    assert "tool: read_file" not in result["text"]
+    assert "## RESULT [turn.1 OK read_file 10]" in result["text"]
+    assert "## TOAS:ASSISTANT" in result["text"]
+    assert "I have inspected the file." in result["text"]
+    res_idx = result["text"].find("## RESULT")
+    asst_idx = result["text"].find("## TOAS:ASSISTANT")
+    assert res_idx < asst_idx
+
+
 
 
 @pytest.mark.parametrize("scope", ["bare", "user", "control"])

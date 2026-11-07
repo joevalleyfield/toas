@@ -820,6 +820,26 @@ def test_reconcile_typed_completion_fails_closed_on_divergent_answer():
         dar._reconcile_typed_completion(run, _completion("second attempt"))
 
 
+def test_reconcile_typed_completion_scopes_accumulators_per_turn():
+    run = AsyncRun(run_id="r-multi-turn", workdir="/tmp", process=None)
+    with run.lock:
+        dar._emit_answer_text(run, "turn one answer")
+
+    dar._reconcile_typed_completion(run, _completion("turn one answer"))
+    assert run.meta["answer_text_parts"] == []
+
+    # Subsequent turn streams its own answer and reconciles cleanly without false divergence
+    with run.lock:
+        dar._emit_answer_text(run, "turn two answer")
+
+    dar._reconcile_typed_completion(run, _completion("turn two answer"))
+    assert run.meta["answer_text_parts"] == []
+    assert [event["payload"]["text"] for event in run.events if event["type"] == "llm_delta"] == [
+        "turn one answer",
+        "turn two answer",
+    ]
+
+
 def test_reconcile_typed_reasoning_uses_typed_user_command_to_trim_tail():
     run = AsyncRun(run_id="r-reasoning", workdir="/tmp", process=None)
     dar._reconcile_typed_completion(
@@ -2225,6 +2245,7 @@ def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
         # terminal_event_emitted delta triggers
         run_obj = created["run"]
         run_obj.terminal_event_emitted = True
+        kwargs["on_llm_stream_open"](lambda: None)
         kwargs["on_llm_answer_delta"]("ignored delta")
         kwargs["on_llm_reasoning_delta"]("ignored reasoning")
         kwargs["on_llm_prompt_progress"]({"processed": 1})

@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-06
+> **Last Sync:** 2026-11-07
 
 ## 0. Manual Triage
 
@@ -154,7 +154,6 @@ Neither dated vote is a literal current queue.
 - **[T261105-apply-patch-indent-leniency-and-diff-diagnostics]** apply_patch Indentation Leniency and Unified Diff Diagnostics
 - **[T261106-bounded-step-quiescence]** Bounded Multi-Turn Stepping with Quiescence Termination
 - **[T261106-microkernel-skill-runtime-boundary]** Microkernel Runtime Boundary and Fast-Path Code-Only Skills
-- **[T261106-multi-turn-run-region-envelopes]** Multi-Turn Run Region Envelopes and Stream State Scoping
 - **[T261106-skill-specialization-and-script-distillation]** Skill Specialization and Script Distillation Pipeline
 - **[T261106-standard-agent-skills-integration]** Standard Agent Skills Support and Extensible Task Recording
 - **[T261106-target-coupled-generation-settings]** Target- and Endpoint-Coupled Generation Settings and Client-Side Throttling
@@ -221,9 +220,9 @@ should return only with a current timing reproduction.
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261106-vim-step-count-prefix]** Support Count Prefix for Vim Step Mapping (`[N]\s` -> `toas step [N]`)
 - **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
+- **[T261106-multi-turn-run-region-envelopes]** Multi-Turn Run Region Envelopes and Stream State Scoping
 - **[T261106-fence-aware-transcript-markers]** Fence-Aware Transcript Marker Parsing
 - **[T261106-content-spillage-refinement]** Content Spillage Refinement: Dynamic Thresholds, Bookends, Error Focus, and Elision
-- **[T261106-bounded-step-quiescence]** Bounded Multi-Turn Stepping with Quiescence Termination
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

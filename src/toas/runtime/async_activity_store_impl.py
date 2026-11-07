@@ -217,13 +217,13 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict, *, lane: st
                 f"(run_id={run.run_id} seq={run.event_seq})"
             )
     run.events.append(event)
-    if event_type in {"llm_delta", "llm_reasoning", "prompt_progress"}:
+    if event_type in {"llm_delta", "llm_reasoning", "prompt_progress", "llm_start"}:
         run.meta["llm_activity_seen"] = True
     if event_type == "projection_delta":
         run.meta["projection_activity_seen"] = True
     if event_type == "projection_done":
         run.meta["projection_done_seen"] = True
-    if event_type in {"llm_delta", "llm_reasoning", "projection_delta"}:
+    if event_type in {"llm_delta", "llm_reasoning", "projection_delta", "llm_start"}:
         run.meta["last_llm_activity_at"] = event["ts"]
     if event_type == "llm_delta" and lane == "llm_answer":
         text = payload.get("text")
@@ -231,6 +231,7 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict, *, lane: st
             run.llm_answer_bytes += len(text)
     if event_type in {
         "prompt_progress",
+        "llm_start",
         "llm_delta",
         "llm_done",
         "run_done",

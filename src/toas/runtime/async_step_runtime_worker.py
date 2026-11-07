@@ -326,10 +326,12 @@ def _reconcile_typed_completion(run: AsyncRun, completion: GenerationCompletion)
             run.meta["pending_reasoning_completion"] = completion
             return
         if final_content == streamed_content:
+            run.meta["answer_text_parts"] = []
             return
         if not final_content.startswith(streamed_content):
             raise RuntimeError("stream invariant violated: typed final answer diverges from streamed answer content")
         _emit_answer_text(run, final_content[len(streamed_content) :])
+        run.meta["answer_text_parts"] = []
 
 
 def _typed_projected_command(nodes: list[dict]) -> str | None:
@@ -355,6 +357,7 @@ def _reconcile_typed_projection_nodes(run: AsyncRun, nodes: list[dict]) -> None:
         if projected_command and reasoning_text.endswith(projected_command):
             reasoning_text = reasoning_text[: -len(projected_command)].rstrip()
         visible_reasoning = bool(run.stream_thinking_enabled and run.meta.get("reasoning_text_parts"))
+        run.meta["reasoning_text_parts"] = []
         run.meta["pending_completion_note"] = _recovery_note_text(visible_reasoning=visible_reasoning)
         run.meta["suppress_next_assistant_projection"] = any(node.get("role") == "assistant" for node in nodes)
         if visible_reasoning or not reasoning_text:
@@ -601,6 +604,13 @@ def start_async_step(
             _emit_projection_delta_event(run, text)
 
         def _on_llm_stream_open(closer) -> None:
+            _raise_if_cancel_requested(run)
+            with run.lock:
+                if run.terminal_event_emitted:
+                    return
+                run.meta["answer_text_parts"] = []
+                run.meta["reasoning_text_parts"] = []
+                emit_stream_event(run, "llm_start", {}, lane="llm_answer", phase="start")
             if callable(closer):
                 register_cancel_closer(run, closer)
 

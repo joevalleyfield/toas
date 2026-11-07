@@ -1160,6 +1160,9 @@ function! s:toas_apply_watch_events(run_id, events) abort
           \ l:projection_chunk,
           \ )
     let l:projection_changed = s:toas_run_projection_text[a:run_id] !=# l:projection_before
+    if l:projection_changed
+      let s:toas_run_text[a:run_id] = ''
+    endif
   endif
   let l:tool_changed = 0
   if l:tool_chunk !=# ''
@@ -1185,17 +1188,49 @@ endfunction
 
 function! s:toas_run_display_text(run_id) abort
   let l:projection = get(s:toas_run_projection_text, a:run_id, '')
-  if l:projection !=# ''
-    return l:projection
-  endif
   let l:kind = get(s:toas_run_kind, a:run_id, '')
+  let l:active = ''
+
   if l:kind ==# 'tool'
     let l:tool_text = get(s:toas_run_tool_text, a:run_id, '')
     if l:tool_text !=# '' || get(s:toas_run_text, a:run_id, '') ==# ''
-      return l:tool_text
+      let l:active = l:tool_text
+    else
+      let l:active = get(s:toas_run_text, a:run_id, '')
     endif
+  else
+    let l:active = get(s:toas_run_text, a:run_id, '')
   endif
-  return get(s:toas_run_text, a:run_id, '')
+
+  let l:formatted_active = ''
+  if l:active !=# ''
+    if l:kind ==# 'llm'
+      if l:active !~# '^## TOAS:'
+        let l:formatted_active = "## TOAS:ASSISTANT\n\n" . l:active
+      else
+        let l:formatted_active = l:active
+      endif
+    elseif l:kind ==# 'tool'
+      if l:active !~# '^## TOAS:' && l:active !~# '^## RESULT\>'
+        let l:formatted_active = "## TOAS:USER\n\n## RESULT\n\n" . l:active
+      else
+        let l:formatted_active = l:active
+      endif
+    else
+      let l:formatted_active = l:active
+    endif
+  elseif l:kind ==# 'llm'
+    let l:formatted_active = "## TOAS:ASSISTANT\n"
+  endif
+
+  if l:projection !=# '' && l:formatted_active !=# ''
+    let l:proj_trimmed = substitute(l:projection, '\_s\+$', '', '')
+    return l:proj_trimmed . "\n\n" . l:formatted_active
+  elseif l:projection !=# ''
+    return l:projection
+  endif
+
+  return l:formatted_active
 endfunction
 
 function! s:toas_kind_for_lane(lane) abort
@@ -1224,14 +1259,18 @@ function! s:toas_note_run_kind(run_id, lane) abort
   if l:current ==# l:kind && l:source ==# 'authoritative'
     return 0
   endif
-  if l:source ==# 'authoritative' && (l:current ==# 'tool' || l:current ==# 'llm')
-    return 0
-  endif
   let s:toas_run_kind[a:run_id] = l:kind
   let s:toas_run_kind_source[a:run_id] = 'authoritative'
   let g:toas_last_run_kind = l:kind
   if l:kind ==# 'llm'
     let s:toas_run_tool_meta[a:run_id] = {}
+    if l:current !=# 'llm'
+      let s:toas_run_text[a:run_id] = ''
+    endif
+  elseif l:kind ==# 'tool'
+    if l:current !=# 'tool'
+      let s:toas_run_tool_text[a:run_id] = ''
+    endif
   endif
   return 1
 endfunction
@@ -1439,6 +1478,19 @@ function! s:toas_apply_chunk_with_carriage(existing, chunk) abort
     let l:out .= l:part
   endfor
   return l:out
+endfunction
+
+function! s:toas_apply_run_text_chunk(run_id, chunk) abort
+  if !has_key(s:toas_run_text, a:run_id)
+    let s:toas_run_text[a:run_id] = ''
+  endif
+  if a:chunk !=# ''
+    let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
+          \ s:toas_run_text[a:run_id],
+          \ a:chunk,
+          \ )
+  endif
+  return s:toas_run_text[a:run_id]
 endfunction
 
 function! s:toas_render_run_body_lines(text) abort
@@ -1818,7 +1870,9 @@ function! s:toas_finalize_terminal_run_region(run_id, status, error_summary, ...
           \ get(s:toas_run_last_content_lane, a:run_id, ''),
           \ )
     let l:projection_text = get(s:toas_run_projection_text, a:run_id, '')
-    if l:projection_text !=# ''
+    if l:projection_text !=# '' && get(s:toas_run_text, a:run_id, '') !=# ''
+      let l:canonical_final_text = s:toas_finalize_success_text(s:toas_run_display_text(a:run_id), 'projection')
+    elseif l:projection_text !=# ''
       let l:canonical_final_text = s:toas_finalize_success_text(l:projection_text, 'projection')
     else
       let l:canonical_final_text = l:raw_final_text
@@ -1840,7 +1894,7 @@ function! s:toas_finalize_terminal_run_region(run_id, status, error_summary, ...
 endfunction
 
 function! s:toas_append_run_region_chunk(run_id, status, chunk) abort
-  if a:chunk ==# '' || !has_key(s:toas_run_buffers, a:run_id)
+  if !has_key(s:toas_run_buffers, a:run_id)
     return 0
   endif
   let l:bufnr = s:toas_run_buffers[a:run_id]
@@ -1854,7 +1908,7 @@ function! s:toas_append_run_region_chunk(run_id, status, chunk) abort
   let l:start = l:region[0]
   let l:end = l:region[1]
   let l:old_text = get(s:toas_run_last_rendered_text, a:run_id, '')
-  let l:new_text = s:toas_apply_chunk_with_carriage(l:old_text, a:chunk)
+  let l:new_text = s:toas_run_display_text(a:run_id)
   if l:new_text ==# l:old_text
     return 0
   endif
