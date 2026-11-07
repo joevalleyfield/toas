@@ -12,6 +12,7 @@ from toas.graph import (
     active_compaction_projection,
     active_config_overrides,
     active_intent,
+    active_policy_state,
     active_shell_scope_grants,
     active_surface_id,
     active_target_selection,
@@ -1906,6 +1907,20 @@ def test_active_config_overrides_restore_clears_all(tmp_path):
     write_config_override_record(str(path), {"__op__": "restore"})
     result = active_config_overrides(read_log(str(path)))
     assert result == {}
+
+
+def test_active_policy_state_facade_branch_isolation():
+    events = [
+        {"id": "n1", "role": "user", "content": "hi", "parent": None},
+        {"id": "n2", "role": "user", "content": "branch 2", "parent": "n1"},
+        {"kind": "policy_override", "related_to": "n2", "payload": {"key": "k", "scope": "session", "action": "set", "value": "v2"}},
+        {"id": "n3", "role": "user", "content": "branch 3", "parent": "n1"},
+        {"kind": "policy_override", "related_to": "n3", "payload": {"key": "k", "scope": "session", "action": "set", "value": "v3"}},
+    ]
+    assert active_policy_state(events, head_id="n2")["effective"]["k"] == "v2"
+    assert active_policy_state(events, head_id="n3")["effective"]["k"] == "v3"
+    assert active_config_overrides(events, head_id="n2") == {"k": "v2"}
+    assert active_config_overrides(events, head_id="n3") == {"k": "v3"}
 
 
 def test_write_surface_bind_record_appends_non_message_record(tmp_path):

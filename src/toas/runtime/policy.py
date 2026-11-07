@@ -223,6 +223,9 @@ class PolicyResolver:
         config: OperatorConfig,
         events: list[dict],
         shell_default_allowed: tuple[str, ...] = (),
+        *,
+        head_id: str | None = None,
+        lineage_ids: set[str] | None = None,
     ) -> ResolvedShellGrants:
         from ..graph import POLICY_SCOPES, active_shell_scope_grants
 
@@ -231,7 +234,7 @@ class PolicyResolver:
         )
         allowed = set(configured)
         sources: dict[str, set[str]] = {grant: {"defaults"} for grant in configured}
-        scope_state = active_shell_scope_grants(events)
+        scope_state = active_shell_scope_grants(events, head_id=head_id, lineage_ids=lineage_ids)
         for scope in POLICY_SCOPES:
             state = scope_state.get(scope, {"added": set(), "removed": set()})
             for grant in state["removed"]:

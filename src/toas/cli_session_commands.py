@@ -273,12 +273,17 @@ def run_step(
         workdir=Path.cwd(),
     )
     runtime_ctx["events"] = events
+    step_lineage = runtime_ctx.get("lineage") or []
+    step_head_id = step_lineage[-1].get("id") if step_lineage else None
+    step_lineage_ids = {e.get("id") for e in step_lineage if e.get("id")}
 
     try:
         operator_config, config_sources, generation_runner, stream_state = _resolve_runtime_generation_context(
             deps=deps,
             events_path=events_path,
             events=events,
+            head_id=step_head_id,
+            lineage_ids=step_lineage_ids,
         )
         generation_runner.on_llm_answer_delta = on_llm_answer_delta
         generation_runner.on_llm_reasoning_delta = on_llm_reasoning_delta
@@ -457,9 +462,16 @@ def _resolve_state_input_turns(
             workdir=Path.cwd(),
         )
         runtime_ctx["events"] = events
+        state_lineage = runtime_ctx.get("lineage") or []
+        state_head_id = state_lineage[-1].get("id") if state_lineage else None
+        state_lineage_ids = {e.get("id") for e in state_lineage if e.get("id")}
         operator_config, config_sources, generation_runner, stream_state = (
             _resolve_runtime_generation_context(
-                deps=deps, events_path=events_path, events=events
+                deps=deps,
+                events_path=events_path,
+                events=events,
+                head_id=state_head_id,
+                lineage_ids=state_lineage_ids,
             )
         )
         if isinstance(stream_state, dict):
@@ -735,9 +747,10 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
         if cleaned_input_turns:
             from .runtime.step_runtime import _frontier_has_callable_intent
 
+            preview_head_id = prefix_turns[-1].get("id") if prefix_turns else None
             preview_config = apply_overrides(
                 config_from_discovered_paths(workdir=Path.cwd()),
-                active_config_overrides(events),
+                active_config_overrides(events, head_id=preview_head_id),
             )
             prefix_messages = [turn for turn in prefix_turns if turn.get("role") not in {"state", "state-diff"}]
             has_unresolved = False
@@ -804,8 +817,12 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
         events=events, normalized_transcript=normalized_transcript,
         session_path=session_path, workdir=Path.cwd(),
     )
+    state_lineage = runtime_ctx.get("lineage") or []
+    state_head_id = state_lineage[-1].get("id") if state_lineage else None
+    state_lineage_ids = {e.get("id") for e in state_lineage if e.get("id")}
     operator_config = apply_overrides(
-        config_from_discovered_paths(workdir=Path.cwd()), active_config_overrides(events)
+        config_from_discovered_paths(workdir=Path.cwd()),
+        active_config_overrides(events, head_id=state_head_id, lineage_ids=state_lineage_ids),
     )
     generation_runner = None
 
@@ -818,7 +835,11 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
                 return generate_override(packet)
         if generation_runner is None:
             _, _, generation_runner, _ = _resolve_runtime_generation_context(
-                deps=deps, events_path=events_path, events=events
+                deps=deps,
+                events_path=events_path,
+                events=events,
+                head_id=state_head_id,
+                lineage_ids=state_lineage_ids,
             )
             generation_runner.on_llm_answer_delta = on_llm_answer_delta
             generation_runner.on_llm_reasoning_delta = on_llm_reasoning_delta

@@ -174,3 +174,73 @@ def test_active_policy_state_restore_action():
     assert state["config_overrides"] == {}
     assert state["scalars"]["session"] == {}
 
+
+def test_resolve_lineage_ids_behaviors():
+    from toas.graph_control_state_edges import _resolve_lineage_ids
+
+    assert _resolve_lineage_ids([], lineage_ids={"n1", "n2"}) == {"n1", "n2"}
+    assert _resolve_lineage_ids([{"kind": "other"}]) is None
+
+    events = [
+        {"id": "n1", "role": "user", "content": "hi", "parent": None},
+        {"id": "n2", "role": "assistant", "content": "hello", "parent": "n1"},
+        {"id": "n3", "role": "user", "content": "branch a", "parent": "n2"},
+        {"id": "n4", "role": "user", "content": "branch b", "parent": "n2"},
+    ]
+    assert _resolve_lineage_ids(events, head_id="n3") == {"n1", "n2", "n3"}
+    assert _resolve_lineage_ids(events, head_id="n4") == {"n1", "n2", "n4"}
+    assert _resolve_lineage_ids(events, head_id=None) == {"n1", "n2", "n4"}
+
+
+def test_active_policy_state_isolates_by_branch_lineage():
+    from toas.graph_control_state_edges import active_command_context
+
+    events = [
+        {"id": "n1", "role": "user", "content": "root", "parent": None},
+        {"id": "n2", "role": "assistant", "content": "response", "parent": "n1"},
+        # Ancestor policy
+        {"kind": "policy_override", "related_to": "n1", "payload": {"key": "ancestor.key", "scope": "session", "action": "set", "value": "ancestor_val"}},
+        # Sibling branch A (n3)
+        {"id": "n3", "role": "user", "content": "branch A", "parent": "n2"},
+        {"kind": "policy_override", "related_to": "n3", "payload": {"key": "session.telemetry_decorations", "scope": "session", "action": "set", "value": "compact"}},
+        {"kind": "target_selection", "related_to": "n3", "payload": {"action": "set", "target_id": "target_a"}},
+        {"kind": "shell_scope_grant", "related_to": "n3", "payload": {"scope": "session", "action": "add", "grant": "branch_a_cmd"}},
+        {"kind": "command_context", "related_to": "n3", "payload": {"cwd": "/branch/a"}},
+        {"kind": "workspace_scope", "related_to": "n3", "payload": {"mode": "unbounded", "roots": ["/branch/a/root"]}},
+        # Sibling branch B (n4)
+        {"id": "n4", "role": "user", "content": "branch B", "parent": "n2"},
+        {"kind": "policy_override", "related_to": "n4", "payload": {"key": "session.telemetry_decorations", "scope": "session", "action": "set", "value": "off"}},
+        {"kind": "target_selection", "related_to": "n4", "payload": {"action": "set", "target_id": "target_b"}},
+        {"kind": "shell_scope_grant", "related_to": "n4", "payload": {"scope": "session", "action": "add", "grant": "branch_b_cmd"}},
+        {"kind": "command_context", "related_to": "n4", "payload": {"cwd": "/branch/b"}},
+        {"kind": "workspace_scope", "related_to": "n4", "payload": {"mode": "strict", "roots": ["/branch/b/root"]}},
+        # Legacy unlinked fallback
+        {"kind": "policy_override", "payload": {"key": "legacy.key", "scope": "global", "action": "set", "value": "fallback"}},
+    ]
+
+    state_a = active_policy_state(events, head_id="n3")
+    assert state_a["effective"]["ancestor.key"] == "ancestor_val"
+    assert state_a["effective"]["session.telemetry_decorations"] == "compact"
+    assert state_a["effective"]["legacy.key"] == "fallback"
+    assert state_a["sources"]["session.telemetry_decorations"] == {"scope": "session", "source_id": "n3"}
+    assert active_target_selection(events, head_id="n3") == "target_a"
+    assert active_shell_scope_grants(events, head_id="n3")["session"]["added"] == {"branch_a_cmd"}
+    cwd_a, _ = active_command_context(events, head_id="n3")
+    assert cwd_a == "/branch/a"
+    mode_a, roots_a = active_workspace_scope(events, head_id="n3")
+    assert mode_a == "unbounded"
+    assert roots_a == ["/branch/a/root"]
+
+    state_b = active_policy_state(events, head_id="n4")
+    assert state_b["effective"]["ancestor.key"] == "ancestor_val"
+    assert state_b["effective"]["session.telemetry_decorations"] == "off"
+    assert state_b["effective"]["legacy.key"] == "fallback"
+    assert state_b["sources"]["session.telemetry_decorations"] == {"scope": "session", "source_id": "n4"}
+    assert active_target_selection(events, head_id="n4") == "target_b"
+    assert active_shell_scope_grants(events, head_id="n4")["session"]["added"] == {"branch_b_cmd"}
+    cwd_b, _ = active_command_context(events, head_id="n4")
+    assert cwd_b == "/branch/b"
+    mode_b, roots_b = active_workspace_scope(events, head_id="n4")
+    assert mode_b == "strict"
+    assert roots_b == ["/branch/b/root"]
+

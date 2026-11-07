@@ -147,6 +147,8 @@ def _effective_config_values(
     step_mod,
     events: list[dict] | None = None,
     config: OperatorConfig | None = None,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
 ) -> dict[str, object]:
     values = dict(flat)
     runtime_settings = None
@@ -162,7 +164,7 @@ def _effective_config_values(
         values[key] = fallback[key]
     if events is not None and config is not None:
         from ..graph import active_policy_state
-        policy = active_policy_state(events)
+        policy = active_policy_state(events, head_id=head_id, lineage_ids=lineage_ids)
         if "shell.allowed_commands" in policy.get("effective", {}):
             values["shell.allowed_commands"] = policy["effective"]["shell.allowed_commands"]
         if "llm.target" in policy.get("effective", {}) and not values.get("llm.target"):
@@ -180,7 +182,8 @@ def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
     from .policy_edges import settings_for_runtime
 
     settings, _sources = settings_for_runtime(context.config, runtime_secrets={})
-    active_id = context.config.llm.target or active_target_selection(context.events)
+    head_id = next((m.get("id") for m in reversed(context.working) if m.get("id")), None) if context.working else None
+    active_id = context.config.llm.target or active_target_selection(context.events, head_id=head_id)
     active_target = resolve_model_target(context.config, active_id) if active_id else None
     invocation = (
         resolve_target_invocation(
@@ -266,7 +269,8 @@ def _config_models_overview(*, step_mod, context: OperatorCommandContext) -> str
     from .policy_edges import settings_for_runtime
 
     settings, _sources = settings_for_runtime(context.config, runtime_secrets={})
-    active_id = context.config.llm.target or active_target_selection(context.events)
+    head_id = next((m.get("id") for m in reversed(context.working) if m.get("id")), None) if context.working else None
+    active_id = context.config.llm.target or active_target_selection(context.events, head_id=head_id)
     active_target = None
     if active_id:
         from .model_targets import (
@@ -385,7 +389,16 @@ def _config_execution_overview(*, step_mod, context: OperatorCommandContext) -> 
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     filter_text, show_sources, show_flat = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
 
-    flat = _effective_config_values(step_mod.flatten_config(context.config), step_mod=step_mod, events=context.events, config=context.config)
+    head_id = next((m.get("id") for m in reversed(context.working) if m.get("id")), None) if context.working else None
+    lineage_ids = {str(m["id"]) for m in context.working if m.get("id")} or None
+    flat = _effective_config_values(
+        step_mod.flatten_config(context.config),
+        step_mod=step_mod,
+        events=context.events,
+        config=context.config,
+        head_id=head_id,
+        lineage_ids=lineage_ids,
+    )
     keys = _config_key_matches(list(flat), filter_text)
     if filter_text is not None and not keys:
         return [

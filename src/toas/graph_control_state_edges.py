@@ -6,11 +6,42 @@ from .config_overrides import deep_merge
 POLICY_SCOPES = ("global", "user", "workspace", "session", "transient")
 
 
-def active_command_context(events: list[dict]) -> tuple[str, str | None]:
+def _resolve_lineage_ids(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> set[str] | None:
+    if lineage_ids is not None:
+        return lineage_ids
+    if head_id is not None:
+        from .graph import message_lineage
+
+        return {str(m["id"]) for m in message_lineage(events, head_id=head_id) if m.get("id")}
+    from .graph_message_edges import message_events
+
+    msgs = message_events(events)
+    if msgs:
+        from .graph import message_lineage
+
+        return {str(m["id"]) for m in message_lineage(events, head_id=None) if m.get("id")}
+    return None
+
+
+def active_command_context(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> tuple[str, str | None]:
     cwd = str(Path.cwd().resolve())
     previous_cwd = None
+    resolved_ids = _resolve_lineage_ids(events, head_id=head_id, lineage_ids=lineage_ids)
     for event in events:
         if event.get("kind") != "command_context":
+            continue
+        source_id = event.get("related_to")
+        if resolved_ids is not None and isinstance(source_id, str) and source_id not in resolved_ids:
             continue
         payload = event.get("payload", {})
         next_cwd = payload.get("cwd")
@@ -21,11 +52,20 @@ def active_command_context(events: list[dict]) -> tuple[str, str | None]:
     return cwd, previous_cwd
 
 
-def active_workspace_scope(events: list[dict]) -> tuple[str, list[str]]:
+def active_workspace_scope(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> tuple[str, list[str]]:
     mode = "strict"
     roots = [str(Path.cwd().resolve())]
+    resolved_ids = _resolve_lineage_ids(events, head_id=head_id, lineage_ids=lineage_ids)
     for event in events:
         if event.get("kind") != "workspace_scope":
+            continue
+        source_id = event.get("related_to")
+        if resolved_ids is not None and isinstance(source_id, str) and source_id not in resolved_ids:
             continue
         payload = event.get("payload", {})
         next_mode = payload.get("mode")
@@ -55,7 +95,12 @@ def _flatten_dict(d: dict, prefix: str = "") -> dict[str, Any]:
     return items
 
 
-def active_policy_state(events: list[dict]) -> dict[str, Any]:
+def active_policy_state(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> dict[str, Any]:
     scopes: dict[str, dict[str, Any]] = {
         scope: {
             "scalars": {},
@@ -68,9 +113,12 @@ def active_policy_state(events: list[dict]) -> dict[str, Any]:
         for scope in POLICY_SCOPES
     }
 
+    resolved_ids = _resolve_lineage_ids(events, head_id=head_id, lineage_ids=lineage_ids)
     for event in events:
         kind = event.get("kind")
         source_id = event.get("related_to")
+        if resolved_ids is not None and isinstance(source_id, str) and source_id not in resolved_ids:
+            continue
         payload = event.get("payload")
         if not isinstance(payload, dict):
             continue
@@ -275,16 +323,31 @@ def active_policy_state(events: list[dict]) -> dict[str, Any]:
     }
 
 
-def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str]]]:
-    return active_policy_state(events)["shell_grants"]
+def active_shell_scope_grants(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> dict[str, dict[str, set[str]]]:
+    return active_policy_state(events, head_id=head_id, lineage_ids=lineage_ids)["shell_grants"]
 
 
-def active_config_overrides(events: list[dict]) -> dict:
-    return active_policy_state(events)["config_overrides"]
+def active_config_overrides(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> dict:
+    return active_policy_state(events, head_id=head_id, lineage_ids=lineage_ids)["config_overrides"]
 
 
-def active_target_selection(events: list[dict]) -> str | None:
-    return active_policy_state(events)["target"]
+def active_target_selection(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> str | None:
+    return active_policy_state(events, head_id=head_id, lineage_ids=lineage_ids)["target"]
 
 
 def surface_bindings(events: list[dict]) -> dict[str, str]:

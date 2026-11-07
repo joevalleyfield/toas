@@ -158,7 +158,7 @@ def build_runtime_context(
     bind_index = 0
     boundary_message_id = None
     bind_after_boundary = False
-    lineage_ids = {event.get("id") for event in lineage}
+    lineage_ids: set[str] = {str(event["id"]) for event in lineage if event.get("id")}
     if session_path is not None:
         root = Path(workdir).resolve() if workdir is not None else Path.cwd().resolve()
         requested_path = _workspace_relative_path(session_path, workdir=root)
@@ -188,12 +188,13 @@ def build_runtime_context(
             0,
         )
         bind_index = boundary_index + int(bind_after_boundary)
-    command_cwd, previous_command_cwd = active_command_context(events)
-    workspace_mode, workspace_roots = active_workspace_scope(events)
+    head_id = lineage[-1].get("id") if lineage else None
+    command_cwd, previous_command_cwd = active_command_context(events, head_id=head_id, lineage_ids=lineage_ids)
+    workspace_mode, workspace_roots = active_workspace_scope(events, head_id=head_id, lineage_ids=lineage_ids)
     append_frontier_debug(
         {
             "phase": "runtime_context",
-            "head_id": None,
+            "head_id": head_id,
             "lineage_len": len(lineage),
             "bind_index": bind_index,
             "bind_parent": None,
@@ -203,7 +204,7 @@ def build_runtime_context(
         }
     )
     return {
-        "head_id": None,
+        "head_id": head_id,
         "log": log,
         "lineage": lineage,
         "command_cwd": command_cwd,
@@ -217,7 +218,14 @@ def build_runtime_context(
     }
 
 
-def resolve_runtime_generation_context(*, deps: StepCliDeps, events_path: Path, events: list[dict]):
+def resolve_runtime_generation_context(
+    *,
+    deps: StepCliDeps,
+    events_path: Path,
+    events: list[dict],
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+):
     file_nested: dict[str, object] = {}
     file_key_sources: dict[str, str] = {}
     for candidate in discover_config_paths(workdir=Path.cwd()):
@@ -227,7 +235,7 @@ def resolve_runtime_generation_context(*, deps: StepCliDeps, events_path: Path, 
             for dotted in flatten_nested_config(loaded):
                 file_key_sources[dotted] = str(candidate)
     file_config = config_from_discovered_paths(workdir=Path.cwd())
-    policy_state = active_policy_state(events)
+    policy_state = active_policy_state(events, head_id=head_id, lineage_ids=lineage_ids)
     session_overrides = policy_state["config_overrides"]
     operator_config = apply_overrides(file_config, session_overrides)
     config_sources = deps.build_config_sources(

@@ -524,13 +524,24 @@ def resolve_effective_shell_stream_stdout_with_source(
 
 
 def _resolve_shell_grants_with_sources(
-    working: list[dict], config: OperatorConfig, events: list[dict] | None = None
+    working: list[dict],
+    config: OperatorConfig,
+    events: list[dict] | None = None,
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, set[str]], tuple[str, ...], tuple[str, ...]]:
     from .runtime.policy import PolicyResolver
+
+    resolved_head_id = head_id or (
+        next((m.get("id") for m in reversed(working) if m.get("id")), None) if working else None
+    )
     resolved = PolicyResolver().resolve_shell_grants(
         config,
         events or [],
         shell_default_allowed=tuple(SHELL_ALLOWED),
+        head_id=resolved_head_id,
+        lineage_ids=lineage_ids,
     )
     return (
         resolved.effective,

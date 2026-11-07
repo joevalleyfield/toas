@@ -1234,6 +1234,51 @@ def test_config_show_shell_and_models_with_unified_policy():
     assert "execution configuration" in no_events_overview
 
 
+def test_config_show_isolates_sibling_branch_policy_overrides():
+    import toas.step as step_mod
+    from toas.config import OperatorConfig
+    from toas.graph import active_policy_state
+    from toas.runtime.policy_edges import build_config_sources
+
+    events = [
+        {"id": "n765", "role": "user", "content": "initial", "parent": None},
+        {"id": "n766", "role": "assistant", "content": "ok", "parent": "n765"},
+        # Sibling branch that was abandoned / dead
+        {"id": "n774", "role": "user", "content": "dead branch turn", "parent": "n766"},
+        {
+            "kind": "policy_override",
+            "related_to": "n774",
+            "payload": {"key": "session.telemetry_decorations", "scope": "session", "action": "set", "value": "compact"},
+        },
+        # Active branch diverged from n766
+        {"id": "n807", "role": "user", "content": "active branch turn", "parent": "n766"},
+    ]
+    working = [
+        {"id": "n765", "role": "user", "content": "initial"},
+        {"id": "n766", "role": "assistant", "content": "ok"},
+        {"id": "n807", "role": "user", "content": "active branch turn"},
+    ]
+
+    policy_state = active_policy_state(events, head_id="n807")
+    assert "session.telemetry_decorations" not in policy_state["effective"]
+    assert "session.telemetry_decorations" not in policy_state["sources"]
+
+    sources = build_config_sources(
+        file_nested={},
+        session_overrides=policy_state["config_overrides"],
+        operator_config=OperatorConfig(),
+        policy_sources=policy_state.get("sources"),
+    )
+    context = _ctx(
+        events=events,
+        working=working,
+        config_sources=sources,
+    )
+    res = handle_config_help_commands("config", ["show", "session", "--sources"], step_mod=step_mod, context=context)[0]["content"]
+    assert "session.telemetry_decorations = off    [source=default]" in res
+    assert "n774" not in res
+
+
 
 def test_bare_config_is_compact_navigation_not_state_dump():
     import toas.step as step_mod

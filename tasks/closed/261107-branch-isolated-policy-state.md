@@ -94,3 +94,15 @@ to attribute policy to unlinked sibling events.
 3. **Phase 3: Verification & QA**
    - Recreate the exact scenario from `toas-dogfood` in a regression test.
    - Full suite `./scripts/check.sh` pass.
+
+## Outcome & Evidence
+
+- **Lineage Filtering in `active_policy_state` & Control State Resolvers**:
+  Added `head_id: str | None = None` and `lineage_ids: set[str] | None = None` to `active_policy_state`, `active_command_context`, `active_workspace_scope`, `active_shell_scope_grants`, `active_config_overrides`, and `active_target_selection` in `src/toas/graph_control_state_edges.py` and `src/toas/graph.py`.
+  When message events are present in `events`, records linked via `related_to` (`source_id`) only apply if `source_id in lineage_ids`. Unlinked legacy records continue to apply as fallback. Pure policy lists without message events continue to apply with no filtering.
+- **Runtime Generation Context & Operator Command Wiring**:
+  Wired `head_id` and `lineage_ids` through `resolve_runtime_generation_context` in `src/toas/runtime/step_context_runtime.py`, `step_cli_fn` and `state_cli_fn` in `src/toas/cli_session_commands.py`, and `_effective_config_values`, `_config_overview`, `_config_models_overview`, `_handle_model_overview`, `_handle_model_targets` in `src/toas/runtime/operator_command_config_help.py` and `src/toas/runtime/operator_command_prompt_workspace.py`.
+- **E2E & Dogfood Verification**:
+  Verified against `../toas-dogfood/.toas/session-20261106-1823-visible-transcript-turn-ids.md` and `events.jsonl`: `head_id=n807` resolves cleanly without `n774`, and `/config show session --sources` attributes `session.telemetry_decorations` to `default` instead of sibling node `n774`.
+- **Suite & Coverage**:
+  Passed `./scripts/check.sh` with 3,868 tests passing and 100.00% statement coverage.

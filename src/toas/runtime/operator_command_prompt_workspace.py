@@ -182,7 +182,8 @@ def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext)
 def _handle_model_overview(*, step_mod, context: OperatorCommandContext) -> list[dict]:
     from .model_targets import resolve_model_target
 
-    active_id = active_target_selection(context.events)
+    head_id = next((m.get("id") for m in reversed(context.working) if m.get("id")), None) if context.working else None
+    active_id = active_target_selection(context.events, head_id=head_id)
     active = resolve_model_target(context.config, active_id) if active_id else None
     if active is None:
         fallback = context.config.llm.model.strip() or "(none)"
@@ -214,7 +215,8 @@ def _handle_model_targets(args: list[str], *, step_mod, context: OperatorCommand
 
     if not context.config.llm.targets:
         return [_result_node("no configured model targets", step_mod=step_mod, context=context)]
-    active = active_target_selection(context.events)
+    head_id = next((m.get("id") for m in reversed(context.working) if m.get("id")), None) if context.working else None
+    active = active_target_selection(context.events, head_id=head_id)
     lines = ["configured model targets:"]
     for target in context.config.llm.targets:
         resolved = resolve_target_invocation(context.config, target, step_mod.Settings.from_env())

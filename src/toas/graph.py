@@ -638,12 +638,22 @@ def branch_policy_provenance(events: list[dict], *, head_id: str | None = None) 
     }
 
 
-def active_command_context(events: list[dict]) -> tuple[str, str | None]:
-    return _active_command_context_core(events)
+def active_command_context(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> tuple[str, str | None]:
+    return _active_command_context_core(events, head_id=head_id, lineage_ids=lineage_ids)
 
 
-def active_workspace_scope(events: list[dict]) -> tuple[str, list[str]]:
-    return _active_workspace_scope_core(events)
+def active_workspace_scope(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> tuple[str, list[str]]:
+    return _active_workspace_scope_core(events, head_id=head_id, lineage_ids=lineage_ids)
 
 
 def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | None = None) -> str | None:
@@ -739,21 +749,41 @@ def write_policy_override_record(
     )
 
 
-def active_policy_state(events: list[dict]) -> dict[str, Any]:
-    return _active_policy_state_core(events)
+def active_policy_state(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> dict[str, Any]:
+    return _active_policy_state_core(events, head_id=head_id, lineage_ids=lineage_ids)
 
 
-def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str]]]:
-    return _active_shell_scope_grants_core(events)
+def active_shell_scope_grants(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> dict[str, dict[str, set[str]]]:
+    return _active_shell_scope_grants_core(events, head_id=head_id, lineage_ids=lineage_ids)
 
 
-def active_config_overrides(events: list[dict]) -> dict:
+def active_config_overrides(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> dict:
     """Return accumulated nested config overrides from all config_override records."""
-    return _active_config_overrides_core(events)
+    return _active_config_overrides_core(events, head_id=head_id, lineage_ids=lineage_ids)
 
 
-def active_target_selection(events: list[dict]) -> str | None:
-    return _active_target_selection_core(events)
+def active_target_selection(
+    events: list[dict],
+    *,
+    head_id: str | None = None,
+    lineage_ids: set[str] | None = None,
+) -> str | None:
+    return _active_target_selection_core(events, head_id=head_id, lineage_ids=lineage_ids)
 
 
 def surface_bindings(events: list[dict]) -> dict[str, str]:
