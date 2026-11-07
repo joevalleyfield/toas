@@ -256,11 +256,51 @@ def test_run_read_file_errors(tmp_path):
     for value in (True, 0, -1, 1.5):
         with pytest.raises(RuntimeError, match="max_lines must be a positive int"):
             run_read_file({"path": "missing.txt", "max_lines": value}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
-    with pytest.raises(RuntimeError, match="max_lines cannot be combined with end_line"):
-        run_read_file(
-            {"path": "missing.txt", "start_line": 2, "end_line": 3, "max_lines": 2},
-            workspace_path_fn=lambda p: (tmp_path / p).resolve(),
-        )
+
+
+def test_run_read_file_combined_max_lines_and_end_line(tmp_path):
+    path = tmp_path / "specimen.txt"
+    path.write_text("line 1\nline 2\nline 3\nline 4\nline 5\n", encoding="utf-8")
+
+    # max_lines bound comes first (lines 2..3, 2 lines)
+    out1 = run_read_file(
+        {"path": "specimen.txt", "start_line": 2, "end_line": 5, "max_lines": 2},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out1["content"] == "line 2\nline 3\n"
+    assert out1["summary"] == "specimen.txt:2-3"
+
+    # end_line bound comes first (lines 2..3, 2 lines out of max 4)
+    out2 = run_read_file(
+        {"path": "specimen.txt", "start_line": 2, "end_line": 3, "max_lines": 4},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out2["content"] == "line 2\nline 3\n"
+    assert out2["summary"] == "specimen.txt:2-3"
+
+    # both bounds exceed total file lines (stops at line 5)
+    out3 = run_read_file(
+        {"path": "specimen.txt", "start_line": 3, "end_line": 50, "max_lines": 40},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out3["content"] == "line 3\nline 4\nline 5\n"
+    assert out3["summary"] == "specimen.txt:3-5"
+
+    # start_line omitted with both bounds (effective start 1)
+    out4 = run_read_file(
+        {"path": "specimen.txt", "end_line": 4, "max_lines": 2},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out4["content"] == "line 1\nline 2\n"
+    assert out4["summary"] == "specimen.txt:1-2"
+
+    # effective_start > total_lines with combined bounds
+    out5 = run_read_file(
+        {"path": "specimen.txt", "start_line": 10, "end_line": 20, "max_lines": 5},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert out5["content"] == ""
+    assert out5["summary"] == "specimen.txt:10-14 (0 lines; file has 5 lines)"
 
 
 def test_run_read_file_line_window(tmp_path):

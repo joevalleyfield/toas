@@ -199,8 +199,6 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
         raise RuntimeError("invalid arguments for tool read_file: end_line must be a positive int")
     if max_lines is not None and (isinstance(max_lines, bool) or not isinstance(max_lines, int) or max_lines <= 0):
         raise RuntimeError("invalid arguments for tool read_file: max_lines must be a positive int")
-    if max_lines is not None and end_line is not None:
-        raise RuntimeError("invalid arguments for tool read_file: max_lines cannot be combined with end_line")
     if start_line is not None and start_line < 1:
         raise RuntimeError("invalid arguments for tool read_file: start_line must be a positive int")
     if end_line is not None and end_line < 1:
@@ -223,7 +221,13 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
         summary = path_arg
     else:
         effective_start = 1 if start_line is None else start_line
-        requested_end = effective_start + max_lines - 1 if max_lines is not None else end_line
+        max_lines_end = effective_start + max_lines - 1 if max_lines is not None else None
+        if max_lines_end is not None and end_line is not None:
+            requested_end = min(end_line, max_lines_end)
+        elif max_lines_end is not None:
+            requested_end = max_lines_end
+        else:
+            requested_end = end_line
         if effective_start > total_lines:
             content = ""
             if requested_end is not None:

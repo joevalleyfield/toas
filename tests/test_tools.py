@@ -1160,15 +1160,17 @@ def test_read_file_tool_rejects_path_outside_workspace(tmp_path, monkeypatch):
         execute_call({"tool_name": "read_file", "args": {"path": "../note.txt"}})
 
 
-def test_read_file_tool_rejects_retired_number_lines_and_invalid_new_controls(tmp_path, monkeypatch):
+def test_read_file_tool_rejects_retired_number_lines_and_accepts_combined_bounds(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("line 1\nline 2\nline 3\n", encoding="utf-8")
 
     with pytest.raises(RuntimeError, match="unknown argument.*number_lines"):
         execute_call({"tool_name": "read_file", "args": {"path": "note.txt", "number_lines": True}})
-    with pytest.raises(RuntimeError, match="max_lines cannot be combined with end_line"):
-        execute_call(
-            {"tool_name": "read_file", "args": {"path": "note.txt", "end_line": 1, "max_lines": 1}}
-        )
+
+    res = execute_call(
+        {"tool_name": "read_file", "args": {"path": "note.txt", "start_line": 1, "end_line": 3, "max_lines": 2}}
+    )
+    assert res["content"] == "line 1\nline 2\n"
 
 
 def test_search_tool_uses_rg_and_returns_matches(tmp_path, monkeypatch):

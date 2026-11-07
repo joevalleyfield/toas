@@ -218,11 +218,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261107-read-file-combine-max-lines-end-line]** Allow Combining max_lines With end_line in read_file
 - **[T261106-vim-step-count-prefix]** Support Count Prefix for Vim Step Mapping (`[N]\s` -> `toas step [N]`)
 - **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
 - **[T261106-multi-turn-run-region-envelopes]** Multi-Turn Run Region Envelopes and Stream State Scoping
 - **[T261106-fence-aware-transcript-markers]** Fence-Aware Transcript Marker Parsing
-- **[T261106-content-spillage-refinement]** Content Spillage Refinement: Dynamic Thresholds, Bookends, Error Focus, and Elision
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
