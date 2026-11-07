@@ -59,6 +59,9 @@ def test_default_config_fields():
     assert config.prompt.output_profile == "intention-tail"
     assert config.session.bootstrap_prompt_ref == "session-start/templates/pragmatic-default_v2"
     assert config.session.continuation_name_format == "datetime-slug"
+    assert config.session.turn_namespace_mode == "shared_dense"
+    assert config.session.turn_user_namespace == "numeric"
+    assert config.session.turn_assistant_namespace == "nato"
     assert config.tool_writes.newline_style == "auto"
     assert config.tool_writes.patch_atomic is True
     assert config.backend_startup == BackendStartupPolicy()
@@ -432,6 +435,9 @@ def test_config_value_choices_enum_and_bool_and_none():
     assert config_value_choices("tool_writes.patch_atomic") == ("true", "false")
     assert config_value_choices("session.continuation_name_format") == ("datetime-slug", "datetime", "date-slug", "slug")
     assert config_value_choices("session.telemetry_decorations") == ("off", "compact", "inline", "comment")
+    assert config_value_choices("session.turn_namespace_mode") == ("shared_dense", "role_partitioned", "shared", "role")
+    assert config_value_choices("session.turn_user_namespace") == ("numeric", "nato")
+    assert config_value_choices("session.turn_assistant_namespace") == ("nato", "numeric")
     assert config_value_choices("session.telemetry_token_estimator") is None
     assert SessionPolicy().telemetry_token_estimator == "adaptive"
     assert config_value_choices("generation.max_retries") is None

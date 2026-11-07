@@ -309,11 +309,24 @@ class GenerationRunner:
             from .turn_telemetry import (
                 allocate_turn_handle,
                 compute_cumulative_tokens,
+                count_actual_turns,
                 format_turn_telemetry,
             )
 
             history_items = list(getattr(plan, "history", None) or [])
-            turn_id = node.get("turn_id") or allocate_turn_handle(len(history_items))
+            session_policy = getattr(self.operator_config, "session", None)
+            mode = getattr(session_policy, "turn_namespace_mode", "shared_dense")
+            assistant_ns = getattr(session_policy, "turn_assistant_namespace", "nato")
+            turn_idx = count_actual_turns(
+                history_items,
+                role="assistant" if mode in {"role_partitioned", "role"} else None,
+                mode=mode,
+            )
+            turn_id = node.get("turn_id") or allocate_turn_handle(
+                turn_idx,
+                namespace=assistant_ns,
+                role="assistant",
+            )
             model_call: dict = outcome.model_call if isinstance(outcome.model_call, dict) else {}
             target = (
                 model_call.get("response_model")

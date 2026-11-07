@@ -178,6 +178,9 @@ class SessionPolicy:
     continuation_name_format: str = "datetime-slug"
     telemetry_decorations: str = "off"
     telemetry_token_estimator: str = "adaptive"
+    turn_namespace_mode: str = "shared_dense"
+    turn_user_namespace: str = "numeric"
+    turn_assistant_namespace: str = "nato"
 
 
 @dataclass(frozen=True)

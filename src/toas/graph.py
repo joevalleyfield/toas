@@ -1276,12 +1276,16 @@ def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
                             head = ev
                             break
             if head is None:
-                from .runtime.turn_telemetry import allocate_turn_handle
+                from .runtime.turn_telemetry import allocate_turn_handle, is_actual_turn
 
-                for idx, ev in enumerate(_message_events_core(events)):
-                    if allocate_turn_handle(idx) == head_id:
+                actual_idx = 0
+                for ev in _message_events_core(events):
+                    if not is_actual_turn(ev):
+                        continue
+                    if allocate_turn_handle(actual_idx) == head_id:
                         head = ev
                         break
+                    actual_idx += 1
 
     if head is None:
         return []

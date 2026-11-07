@@ -3581,3 +3581,256 @@ def test_run_step_multi_turn_telemetry_progression_with_generation(tmp_path):
 
     # Cumulative tokens accumulate monotonically across the turns
     assert u1["tokens"] < a1["tokens"] < u2["tokens"] < a2["tokens"] < u3["tokens"] < a3["tokens"]
+
+
+def test_run_step_multi_turn_dense_shared_with_tool_results_not_sparse(tmp_path):
+    from toas.llm import Settings
+    from toas.runtime.step_generation_runtime import GenerationRunner, build_step_cli_deps
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+    config = OperatorConfig(session=SessionPolicy(telemetry_decorations="compact", turn_namespace_mode="shared_dense"))
+    deps = build_step_cli_deps()
+    runner = GenerationRunner(
+        deps=deps,
+        operator_config=config,
+        base_settings=Settings(
+            llm_base_url="http://localhost:8080/v1",
+            llm_api_key="k",
+            llm_model="test-model",
+            llm_trace=False,
+            llm_transport_mode="chat_messages",
+            llm_stream_mode=True,
+        ),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=events_path,
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+
+    call_count = 0
+
+    def mock_generate(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "role": "assistant",
+                "content": "```yaml\n- tool_name: read_file\n  args:\n    path: secret.txt\n```",
+                "response": {"model": "test-model", "duration_ms": 100},
+            }
+        elif call_count == 2:
+            return {
+                "role": "assistant",
+                "content": "The answer is 42.",
+                "response": {"model": "test-model", "duration_ms": 120},
+            }
+        else:
+            return {
+                "role": "assistant",
+                "content": "You are welcome!",
+                "response": {"model": "test-model", "duration_ms": 90},
+            }
+
+    runner.invocation_port = type("Port", (), {
+        "generate": staticmethod(mock_generate),
+        "classify_error": staticmethod(lambda exc: exc),
+        "model_name": staticmethod(lambda s: "test-model"),
+        "transient_error": Exception,
+        "permanent_error": Exception,
+        "stream_presenter": type("SP", (), {}),
+        "write_audit": staticmethod(lambda *a, **k: None),
+    })()
+
+    # Turn 1: user initiates with question, generation produces assistant turn bravo
+    t1 = "## TOAS:USER\n\nWhat is the secret?\n"
+    new_nodes_1, cons_1 = run_step(
+        transcript=t1,
+        log=[],
+        generate=runner.generate,
+        config=config,
+        events=[],
+    )
+    assert len(new_nodes_1) == 2
+    u1, a1 = new_nodes_1[0], new_nodes_1[1]
+    assert u1["turn_id"] == "alpha"
+    assert a1["turn_id"] == "bravo"
+
+    # Step 2: Assistant turn bravo is now at the frontier and executes the read_file tool,
+    # producing tool result bravo.p1.o1
+    events = [
+        {"role": "user", "content": "What is the secret?", "turn_id": "alpha", "id": "m1", "marker": u1["marker"]},
+        {"role": "assistant", "content": a1["content"], "turn_id": "bravo", "id": "m2", "marker": a1["marker"]},
+    ]
+    t2 = (
+        f"{u1['marker']}\n\nWhat is the secret?\n\n"
+        f"{a1['marker']}\n\n{a1['content']}\n"
+    )
+    exe = lambda _w, _p: [{"role": "result", "content": "42", "payload": {"tool_name": "read_file", "ok": True, "duration_ms": 10}}]
+    new_nodes_2, cons_2 = run_step(
+        transcript=t2,
+        log=list(events),
+        execute=exe,
+        config=config,
+        events=events,
+    )
+    assert len(cons_2) == 1
+    res_1 = cons_2[0]
+    assert res_1["role"] == "result"
+    assert res_1["turn_id"] == "bravo.p1.o1"
+
+    # Step 3: Tool result is in transcript. Assistant continues after tool result.
+    # Result turn is logged as user role with ## RESULT container.
+    res_content = f"{res_1['result_marker']}\n```text\n42\n```"
+    events.append({"role": "user", "content": res_content, "id": "m3"})
+    t3 = (
+        f"{t2}\n\n## TOAS:USER\n\n"
+        f"{res_content}\n"
+    )
+    new_nodes_3, cons_3 = run_step(
+        transcript=t3,
+        log=list(events),
+        generate=runner.generate,
+        config=config,
+        events=events,
+    )
+    # The assistant turn MUST be charlie (dense shared progression; result turn m3 does NOT consume a turn name)
+    assert len(new_nodes_3) == 1
+    a2 = new_nodes_3[0]
+    assert a2["role"] == "assistant"
+    assert a2["turn_id"] == "charlie"
+    assert a2["marker"].startswith("## TOAS:ASSISTANT [charlie test-model ")
+
+    # Step 4: User follows up. User turn MUST be delta; assistant turn MUST be echo!
+    events.append({"role": "assistant", "content": a2["content"], "turn_id": "charlie", "id": "m4", "marker": a2["marker"]})
+    t4 = (
+        f"{t3}\n\n{a2['marker']}\n\n{a2['content']}\n\n"
+        "## TOAS:USER\n\nThank you!\n"
+    )
+    new_nodes_4, cons_4 = run_step(
+        transcript=t4,
+        log=list(events),
+        generate=runner.generate,
+        config=config,
+        events=events,
+    )
+    assert len(new_nodes_4) == 2
+    u3, a3 = new_nodes_4[0], new_nodes_4[1]
+    assert u3["role"] == "user" and u3["turn_id"] == "delta"
+    assert u3["marker"].startswith("## TOAS:USER [delta ")
+    assert a3["role"] == "assistant" and a3["turn_id"] == "echo"
+    assert a3["marker"].startswith("## TOAS:ASSISTANT [echo test-model ")
+
+
+def test_run_step_role_partitioned_namespaces(tmp_path):
+    from toas.llm import Settings
+    from toas.runtime.step_generation_runtime import GenerationRunner, build_step_cli_deps
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+    config = OperatorConfig(
+        session=SessionPolicy(
+            telemetry_decorations="compact",
+            turn_namespace_mode="role_partitioned",
+            turn_user_namespace="numeric",
+            turn_assistant_namespace="nato",
+        )
+    )
+    deps = build_step_cli_deps()
+    runner = GenerationRunner(
+        deps=deps,
+        operator_config=config,
+        base_settings=Settings(
+            llm_base_url="http://localhost:8080/v1",
+            llm_api_key="k",
+            llm_model="test-model",
+            llm_trace=False,
+            llm_transport_mode="chat_messages",
+            llm_stream_mode=True,
+        ),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=events_path,
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+    runner.invocation_port = type("Port", (), {
+        "generate": staticmethod(lambda *args, **kwargs: {"role": "assistant", "content": "mock reply", "response": {"model": "test-model", "duration_ms": 200}}),
+        "classify_error": staticmethod(lambda exc: exc),
+        "model_name": staticmethod(lambda s: "test-model"),
+        "transient_error": Exception,
+        "permanent_error": Exception,
+        "stream_presenter": type("SP", (), {}),
+        "write_audit": staticmethod(lambda *a, **k: None),
+    })()
+
+    # Turn 1: user initiates with hello
+    t1 = "## TOAS:USER\n\nhello\n"
+    new_nodes_1, _ = run_step(
+        transcript=t1,
+        log=[],
+        generate=runner.generate,
+        config=config,
+        events=[],
+    )
+    assert len(new_nodes_1) == 2
+    u1, a1 = new_nodes_1[0], new_nodes_1[1]
+    # User gets numeric u1; Assistant gets NATO alpha
+    assert u1["role"] == "user" and u1["turn_id"] == "u1"
+    assert u1["marker"].startswith("## TOAS:USER [u1 ")
+    assert a1["role"] == "assistant" and a1["turn_id"] == "alpha"
+    assert a1["marker"].startswith("## TOAS:ASSISTANT [alpha test-model ")
+
+    # Turn 2: user responds with second turn
+    events = [
+        {"role": "user", "content": "hello", "turn_id": u1["turn_id"], "id": "m1", "marker": u1["marker"]},
+        {"role": "assistant", "content": "mock reply", "turn_id": a1["turn_id"], "id": "m2", "marker": a1["marker"]},
+    ]
+    t2 = f"{u1['marker']}\n\nhello\n\n{a1['marker']}\n\nmock reply\n\n## TOAS:USER\n\nhow are you\n"
+    new_nodes_2, _ = run_step(
+        transcript=t2,
+        log=list(events),
+        generate=runner.generate,
+        config=config,
+        events=events,
+    )
+    assert len(new_nodes_2) == 2
+    u2, a2 = new_nodes_2[0], new_nodes_2[1]
+    # User gets numeric u2; Assistant gets NATO bravo
+    assert u2["role"] == "user" and u2["turn_id"] == "u2"
+    assert u2["marker"].startswith("## TOAS:USER [u2 ")
+    assert a2["role"] == "assistant" and a2["turn_id"] == "bravo"
+    assert a2["marker"].startswith("## TOAS:ASSISTANT [bravo test-model ")
+
+
+def test_run_step_user_turn_with_result_and_commentary_gets_handle():
+    new_nodes = [
+        {
+            "role": "user",
+            "content": (
+                "## RESULT [bravo.p1.o1 OK shell 12ms]\n"
+                "```text\n"
+                "command output\n"
+                "```\n\n"
+                "Notice that the test failed above. Please fix it."
+            ),
+        },
+    ]
+    events = [
+        {"role": "user", "content": "hello", "turn_id": "alpha"},
+        {"role": "assistant", "content": "running command", "turn_id": "bravo"},
+    ]
+    config = OperatorConfig(session=SessionPolicy(telemetry_decorations="compact"))
+    from toas.runtime.step_runtime import _decorate_step_telemetry
+
+    res_nodes, _ = _decorate_step_telemetry(
+        new_from_transcript=new_nodes,
+        consequences=[],
+        frontier=None,
+        working=[],
+        events=events,
+        config=config,
+    )
+    assert len(res_nodes) == 1
+    # Because user provided commentary outside the fence, it is treated as an actual human turn!
+    assert res_nodes[0]["turn_id"] == "charlie"
+    assert "## TOAS:USER [charlie" in res_nodes[0]["marker"]

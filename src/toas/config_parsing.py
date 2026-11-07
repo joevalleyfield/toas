@@ -25,6 +25,9 @@ _CHOICE_MAP: dict[str, tuple[str, ...]] = {
     "tool_writes.newline_style": ("auto", "lf", "crlf"),
     "session.continuation_name_format": ("datetime-slug", "datetime", "date-slug", "slug"),
     "session.telemetry_decorations": ("off", "compact", "inline", "comment"),
+    "session.turn_namespace_mode": ("shared_dense", "role_partitioned", "shared", "role"),
+    "session.turn_user_namespace": ("numeric", "nato"),
+    "session.turn_assistant_namespace": ("nato", "numeric"),
     "backend.mode": ("external", "managed-local"),
     "spill.default_mode": ("head_tail", "head", "tail", "error_focus", "head_shuf_tail"),
 }

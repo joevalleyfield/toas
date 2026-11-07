@@ -3,7 +3,7 @@ FKA:
 AKA: turn namespaces; dense turn indexing; human user turn detection; role partitioned turn handles
 Legacy index:
 
-keywords: transcript, turn-id, handle, telemetry, progression, namespaces, config, active
+keywords: transcript, turn-id, handle, telemetry, progression, namespaces, config, historical
 
 Parent: `260825-visible-transcript-turn-ids`
 Related: `261106-assistant-turn-handle-progression`; `261105-user-turn-and-result-telemetry-decorations`; `docs/notes/2026-10-04-transcript-decorators.md`
@@ -120,3 +120,10 @@ Furthermore:
    - Test human commentary after result block receiving handle.
    - Test `role_partitioned` mode (`u1`, `u2` alongside `alpha`, `bravo`).
    - Verify 100.00% statement coverage via `./scripts/check.sh`.
+
+## Verification & Closure
+
+- **Dense shared turn progression verified**: Multi-turn tool session test `test_run_step_multi_turn_dense_shared_with_tool_results_not_sparse` confirms that tool result blocks do not consume handles from the progression; assistant turns progress contiguously (`alpha` user -> `bravo` assistant [tool request] -> `bravo.p1.o1` result -> `charlie` assistant -> `delta` user -> `echo` assistant).
+- **Human commentary with results preserved**: `extract_human_user_content` and `test_run_step_user_turn_with_result_and_commentary_gets_handle` verify that human prose positioned before, after, or outside of result code fences is recognized as human content and allocated turn handles.
+- **Role-partitioned namespaces verified**: `test_run_step_role_partitioned_namespaces` validates that `turn_namespace_mode="role_partitioned"` assigns independent namespaces (e.g. `u1`, `u2` for user turns; `alpha`, `bravo` for assistant turns).
+- **Full test suite pass**: `./scripts/check.sh` succeeded across 3,864 unit tests, 17 acceptance tests, mypy, and ruff, maintaining 100.00% statement coverage (25,937 / 25,937 statements).

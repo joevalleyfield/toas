@@ -1442,8 +1442,15 @@ def test_project_transcript_resolves_selectors_by_handle_and_prefix():
             "metadata": {"turn_id": "bravo"},
         },
         {
-            "id": "evt_03m9d4",
+            "id": "evt_02k8_res",
             "parent": "evt_02k8c3",
+            "role": "user",
+            "content": "## RESULT [bravo.p1.o1]\noutput",
+            "metadata": {},
+        },
+        {
+            "id": "evt_03m9d4",
+            "parent": "evt_02k8_res",
             "role": "user",
             "content": "more",
             "metadata": {},

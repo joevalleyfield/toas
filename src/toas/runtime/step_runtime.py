@@ -1674,6 +1674,7 @@ def _decorate_step_telemetry(
         allocate_turn_handle,
         compute_cumulative_tokens,
         compute_human_dwell_ms,
+        count_actual_turns,
         decorate_result_node,
         decorate_user_turn_node,
         format_result_hierarchical_id,
@@ -1681,21 +1682,41 @@ def _decorate_step_telemetry(
         resolve_node_handle,
     )
 
+    session_policy = getattr(config, "session", None)
     estimator = getattr(
-        getattr(config, "session", None),
+        session_policy,
         "telemetry_token_estimator",
         "adaptive",
     )
     cum_items = list(events)
 
     # 1. Human user turns in new_from_transcript
-    prior_messages = [e for e in events if e.get("role") in {"user", "assistant", "system", "control"}]
+    mode = getattr(session_policy, "turn_namespace_mode", "shared_dense")
+    user_ns = getattr(
+        session_policy,
+        "turn_user_namespace",
+        "numeric" if mode in {"role_partitioned", "role"} else "nato",
+    )
+    if mode not in {"role_partitioned", "role"}:
+        user_ns = getattr(session_policy, "turn_assistant_namespace", "nato")
+
+    prior_actual_turns = count_actual_turns(
+        events,
+        role="user" if mode in {"role_partitioned", "role"} else None,
+        mode=mode,
+    )
     dwell_ms = compute_human_dwell_ms(events)
-    for offset, node in enumerate(new_from_transcript):
+    human_turn_count = 0
+    for node in new_from_transcript:
         cum_items.append(node)
         if is_human_user_turn(node):
-            turn_idx = len(prior_messages) + offset
-            user_handle = allocate_turn_handle(turn_idx)
+            turn_idx = prior_actual_turns + human_turn_count
+            human_turn_count += 1
+            user_handle = allocate_turn_handle(
+                turn_idx,
+                namespace=user_ns,
+                role="user",
+            )
             tokens_count = compute_cumulative_tokens(cum_items, heuristic=estimator)
             decorate_user_turn_node(
                 node,
@@ -1709,11 +1730,11 @@ def _decorate_step_telemetry(
     result_nodes = [node for node in consequences if node.get("role") == "result"]
     if result_nodes:
         frontier_idx = (
-            working.index(frontier)
+            count_actual_turns(working[: working.index(frontier) + 1], mode=mode) - 1
             if frontier in working
-            else (len(working) - 1 if working else 0)
+            else (count_actual_turns(working, mode=mode) - 1 if working else 0)
         )
-        parent_handle = resolve_node_handle(frontier, frontier_idx)
+        parent_handle = resolve_node_handle(frontier, max(0, frontier_idx))
         for op_idx, node in enumerate(result_nodes, start=1):
             cum_items.append(node)
             tokens_count = compute_cumulative_tokens(cum_items, heuristic=estimator)

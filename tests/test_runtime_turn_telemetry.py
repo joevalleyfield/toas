@@ -7,9 +7,11 @@ from toas.runtime.turn_telemetry import (
     calibrate_token_estimator_ratio,
     compute_cumulative_tokens,
     compute_human_dwell_ms,
+    count_actual_turns,
     decorate_result_node,
     decorate_user_turn_node,
     estimate_tokens,
+    extract_human_user_content,
     extract_in_prose_references,
     extract_subheading_telemetry,
     format_result_hierarchical_id,
@@ -17,6 +19,7 @@ from toas.runtime.turn_telemetry import (
     format_turn_telemetry,
     humanize_duration,
     humanize_token_count,
+    is_actual_turn,
     is_human_user_turn,
     parse_telemetry_comment,
     parse_turn_stamp,
@@ -33,6 +36,13 @@ def test_allocate_turn_handle():
     assert allocate_turn_handle(26) == "alpha-2"
     assert allocate_turn_handle(27) == "bravo-2"
     assert allocate_turn_handle(-5) == "alpha"
+    assert allocate_turn_handle(0, namespace="nato") == "alpha"
+    assert allocate_turn_handle(0, namespace="numeric", role="user") == "u1"
+    assert allocate_turn_handle(1, namespace="numeric", role="user") == "u2"
+    assert allocate_turn_handle(0, namespace="numeric", role="assistant") == "a1"
+    assert allocate_turn_handle(1, namespace="numeric", role="assistant") == "a2"
+    assert allocate_turn_handle(0, namespace="numeric") == "t1"
+    assert allocate_turn_handle(-1, namespace="numeric", role="user") == "u1"
 
 
 def test_humanize_duration():
@@ -299,14 +309,120 @@ def test_compute_human_dwell_ms():
     assert compute_human_dwell_ms(events_bad) is None
 
 
+def test_extract_human_user_content():
+    assert extract_human_user_content("") == ""
+    assert extract_human_user_content(None) == ""  # type: ignore[arg-type]
+    assert extract_human_user_content("   ") == ""
+    assert extract_human_user_content("Hello, can you help me?") == "Hello, can you help me?"
+
+    # Pure result fenced
+    fenced_result = (
+        "## RESULT [bravo.p1.o1 OK shell 12ms]\n"
+        "```text\n"
+        "some output\n"
+        "```\n"
+    )
+    assert extract_human_user_content(fenced_result) == ""
+
+    # Result with harness status and footer
+    harness_result = (
+        "## RESULT [bravo.p1.o1 ERROR shell 12ms]\n"
+        "[ERROR] Command failed\n"
+        "Output exceeded threshold\n"
+        "stdout:\n"
+        "```text\n"
+        "stdout text\n"
+        "```\n"
+        "stderr:\n"
+        "```text\n"
+        "stderr text\n"
+        "```\n"
+        "[10 lines remaining.]\n"
+        "next valid shape:\n"
+        "<!-- toas: id=bravo.p1.o1 -->\n"
+    )
+    assert extract_human_user_content(harness_result) == ""
+
+    # Human content before result
+    before = "Please look at this:\n\n## RESULT [bravo.p1.o1]\n```text\nres\n```"
+    assert extract_human_user_content(before) == "Please look at this:"
+
+    # Human content after result fence
+    after = (
+        "## RESULT [bravo.p1.o1 OK shell 12ms]\n"
+        "```text\n"
+        "some output\n"
+        "```\n\n"
+        "That failed because the directory is missing. Can you create it?"
+    )
+    assert extract_human_user_content(after) == "That failed because the directory is missing. Can you create it?"
+
+    # Human content between results
+    between = (
+        "## RESULT [bravo.p1.o1 OK shell 12ms]\n"
+        "```text\n"
+        "output 1\n"
+        "```\n\n"
+        "Notice this first error above.\n\n"
+        "## RESULT [bravo.p1.o2 OK shell 15ms]\n"
+        "```text\n"
+        "output 2\n"
+        "```\n"
+    )
+    assert extract_human_user_content(between) == "Notice this first error above."
+
+    # Unfenced single-line output right below ## RESULT
+    unfenced = "## RESULT [bravo.p1.o1]\noutput"
+    assert extract_human_user_content(unfenced) == ""
+
+    # Multiple lines with unfenced result and subsequent human commentary
+    unfenced_with_prose = "## RESULT [bravo.p1.o1]\noutput\nWhat does this mean?"
+    assert extract_human_user_content(unfenced_with_prose) == "What does this mean?"
+
+
 def test_is_human_user_turn():
     assert not is_human_user_turn({})
     assert not is_human_user_turn({"role": "assistant", "content": "hi"})
     assert not is_human_user_turn({"role": "user", "content": ""})
     assert not is_human_user_turn({"role": "user", "content": "## RESULT [bravo.p1.o1]\noutput"})
+    assert is_human_user_turn({"role": "user"})
     assert is_human_user_turn({"role": "user", "content": "What is the weather?"})
     assert is_human_user_turn({"role": "user", "content": "$ ls -la"})
     assert is_human_user_turn({"role": "user", "content": "Human note\n\n## RESULT [bravo.p1.o1]\noutput"})
+    assert is_human_user_turn({"role": "user", "content": "## RESULT [bravo.p1.o1]\n```\nout\n```\nUser comment"})
+
+
+def test_is_actual_turn():
+    assert not is_actual_turn({})
+    assert not is_actual_turn("not-a-dict")  # type: ignore[arg-type]
+    assert is_actual_turn({"role": "assistant", "content": "I am working on it"})
+    assert is_actual_turn({"role": "state", "content": "state content"})
+    assert is_actual_turn({"role": "state-diff", "content": "diff content"})
+    assert is_actual_turn({"role": "user", "content": "Hello"})
+    assert not is_actual_turn({"role": "user", "content": "## RESULT [bravo.p1.o1]\n```\nout\n```"})
+    assert not is_actual_turn({"role": "result", "payload": {}})
+    assert not is_actual_turn({"role": "system", "content": "prompt"})
+
+
+def test_count_actual_turns():
+    history = [
+        {"role": "user", "content": "First turn"},
+        {"role": "assistant", "content": "Running a tool..."},
+        {"role": "user", "content": "## RESULT [bravo.p1.o1]\n```\nout\n```"},
+        {"role": "user", "content": "## RESULT [bravo.p1.o2]\n```\nout 2\n```"},
+        {"role": "assistant", "content": "All done!"},
+    ]
+
+    # shared_dense mode counts only actual turns (First turn [0], Running a tool [1], All done [2] -> 3)
+    assert count_actual_turns(history, mode="shared_dense") == 3
+    assert count_actual_turns(history, mode="shared") == 3
+
+    # role_partitioned mode
+    assert count_actual_turns(history, role="user", mode="role_partitioned") == 1
+    assert count_actual_turns(history, role="assistant", mode="role_partitioned") == 2
+    assert count_actual_turns(history, role=None, mode="role_partitioned") == 3
+
+    assert count_actual_turns([], mode="shared_dense") == 0
 
 
 def test_decorate_user_turn_node():

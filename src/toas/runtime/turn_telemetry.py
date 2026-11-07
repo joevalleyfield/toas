@@ -11,6 +11,14 @@ _TOKEN_MULTIPLIER_RE = re.compile(r"^\d+(?:\.\d+)?[kKM]$")
 _TOKEN_SCALAR_RE = re.compile(r"^\d+tok$", re.IGNORECASE)
 _STATUS_TOKENS = {"OK", "ERROR", "FAIL", "CANCELLED"}
 _PROSE_REFERENCE_RE = re.compile(r"(?<!\\)\[\[([a-zA-Z0-9_-]+)(?:\|[^\]]+)?\]\]")
+_RESULT_HEADER_RE = re.compile(r"^## RESULT(?:[ \t]+[^\r\n]*)?$")
+_RESULT_STATUS_RE = re.compile(r"^\[(OK|ERROR|FAIL|CANCELLED)\](?:\s+.*)?$")
+_RESULT_SPILLED_RE = re.compile(r"^Output exceeded threshold(?:\s+.*)?$")
+_RESULT_SECTION_LABEL_RE = re.compile(r"^(?:stdout|stderr|preview|partial matches):\s*$")
+_RESULT_FOOTER_RE = re.compile(r"^\[(?:\d+\s+lines\s+remaining\.|Output\s+truncated|Exit\s+code:).*\]$")
+_RESULT_HINT_RE = re.compile(r"^next valid shape:\s*$")
+_CODE_FENCE_OPEN_RE = re.compile(r"^(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
+_CODE_FENCE_CLOSE_RE = re.compile(r"^(?P<fence>`{3,}|~{3,})[ \t]*$")
 
 PHONETIC_ALPHABET = (
     "alpha",
@@ -42,10 +50,25 @@ PHONETIC_ALPHABET = (
 )
 
 
-def allocate_turn_handle(index: int) -> str:
-    """Allocate a deterministic NATO phonetic turn handle for a 0-based turn index."""
+def allocate_turn_handle(
+    index: int,
+    *,
+    namespace: str = "nato",
+    role: str | None = None,
+) -> str:
+    """Allocate a deterministic turn handle for a 0-based turn index.
+
+    Supported namespaces:
+      - 'nato' (default): NATO phonetic alphabet ('alpha', 'bravo', ..., 'alpha-2', ...)
+      - 'numeric': Compact role-prefixed numbering ('u1', 'u2', ... for user; 'a1', 'a2', ... for assistant; 't1' default)
+    """
     if index < 0:
         index = 0
+    ns = namespace.lower().strip() if isinstance(namespace, str) else "nato"
+    if ns == "numeric":
+        prefix = "u" if role == "user" else ("a" if role == "assistant" else "t")
+        return f"{prefix}{index + 1}"
+
     count = len(PHONETIC_ALPHABET)
     base = PHONETIC_ALPHABET[index % count]
     iteration = (index // count) + 1
@@ -660,17 +683,146 @@ def compute_human_dwell_ms(
     return int(delta_s * 1000)
 
 
+def extract_human_user_content(content: str) -> str:
+    """Extract human-authored text from user turn content, filtering machine result blocks."""
+    if not isinstance(content, str) or not content.strip():
+        return ""
+
+    lines = content.splitlines()
+    human_lines: list[str] = []
+    in_result_section = False
+    in_fence = False
+    fence_char: str | None = None
+    fence_len: int = 0
+    result_has_fence = False
+    seen_result_first_line = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Check for fence inside a result section
+        if in_result_section:
+            if in_fence:
+                close_match = _CODE_FENCE_CLOSE_RE.fullmatch(line)
+                if close_match:
+                    f_str = close_match.group("fence")
+                    if f_str[0] == fence_char and len(f_str) >= fence_len:
+                        in_fence = False
+                continue
+
+            # Not inside fence
+            if _RESULT_HEADER_RE.match(stripped):
+                in_result_section = True
+                in_fence = False
+                fence_char = None
+                fence_len = 0
+                result_has_fence = False
+                seen_result_first_line = False
+                continue
+
+            open_match = _CODE_FENCE_OPEN_RE.match(line)
+            if open_match:
+                f_str = open_match.group("fence")
+                in_fence = True
+                fence_char = f_str[0]
+                fence_len = len(f_str)
+                result_has_fence = True
+                continue
+
+            if not stripped or _TELEMETRY_COMMENT_RE.match(stripped):
+                continue
+
+            # Standard machine harness lines
+            if (
+                _RESULT_STATUS_RE.match(stripped)
+                or _RESULT_SPILLED_RE.match(stripped)
+                or _RESULT_SECTION_LABEL_RE.match(stripped)
+                or _RESULT_FOOTER_RE.match(stripped)
+                or _RESULT_HINT_RE.match(stripped)
+            ):
+                continue
+
+            # If this result section has not seen a fence yet and this is the first non-empty line
+            # immediately under ## RESULT, treat it as the raw single-line result output.
+            if not result_has_fence and not seen_result_first_line:
+                seen_result_first_line = True
+                continue
+
+            # Any other non-harness line outside of fences is human user content!
+            human_lines.append(line)
+        else:
+            # Outside result section (before the first ## RESULT)
+            if _RESULT_HEADER_RE.match(stripped):
+                in_result_section = True
+                in_fence = False
+                fence_char = None
+                fence_len = 0
+                result_has_fence = False
+                seen_result_first_line = False
+                continue
+
+            if not stripped or _TELEMETRY_COMMENT_RE.match(stripped):
+                continue
+
+            human_lines.append(line)
+
+    return "\n".join(human_lines).strip()
+
+
 def is_human_user_turn(node: dict) -> bool:
     """Check if a node represents a human-authored user turn with substantive content.
 
     Returns False if the turn is purely a structural container enclosing tool results.
+    Preserves human user prose positioned before, between, or outside result fences.
     """
     if not isinstance(node, dict) or node.get("role") != "user":
         return False
+    if "content" not in node:
+        return True
     content = str(node.get("content", ""))
-    blocks = re.split(r"(?m)^## RESULT(?:[ \t]+[^\r\n]*)?$", content)
-    prose = blocks[0].strip()
-    return bool(prose)
+    return bool(extract_human_user_content(content))
+
+
+def is_actual_turn(node: dict) -> bool:
+    """Check if a node represents an actual conversation turn (not a result or structural container)."""
+    if not isinstance(node, dict):
+        return False
+    role = node.get("role")
+    if role == "assistant":
+        return True
+    if role in {"state", "state-diff"}:
+        return True
+    if role == "user":
+        return is_human_user_turn(node)
+    return False
+
+
+def count_actual_turns(
+    history: list[dict],
+    *,
+    role: str | None = None,
+    mode: str = "shared_dense",
+) -> int:
+    """Count the number of substantive actual turns in history.
+
+    If mode in ('role_partitioned', 'role'):
+      Counts only actual turns matching the given role.
+    If mode in ('shared_dense', 'shared'):
+      Counts all actual turns regardless of role.
+    """
+    norm_mode = mode.lower().strip() if isinstance(mode, str) else "shared_dense"
+    if norm_mode in {"role_partitioned", "role"} and role is not None:
+        target_role = role.lower().strip()
+        count = 0
+        for node in history:
+            if not is_actual_turn(node):
+                continue
+            node_role = str(node.get("role", "")).lower().strip()
+            if node_role == target_role:
+                count += 1
+        return count
+
+    return sum(1 for node in history if is_actual_turn(node))
 
 
 def decorate_user_turn_node(
