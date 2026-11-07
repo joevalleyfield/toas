@@ -89,6 +89,86 @@ nope
         parse_transcript(transcript)
 
 
+def test_parse_transcript_allows_marker_like_content_inside_code_fences():
+    transcript = """\
+## TOAS:USER
+Here is an example:
+```markdown
+## TOAS:<ROLE> [[handle]]
+## TOAS:BOT
+```
+Done.
+"""
+    parsed = parse_transcript(transcript)
+    assert len(parsed) == 1
+    assert parsed[0]["role"] == "user"
+    assert "## TOAS:<ROLE> [[handle]]" in parsed[0]["content"]
+    assert "## TOAS:BOT" in parsed[0]["content"]
+
+
+def test_parse_transcript_preserves_role_markers_inside_code_fences_without_splitting():
+    transcript = """\
+## TOAS:USER
+Here is code:
+```python
+# A comment
+## TOAS:USER
+print("hello")
+## TOAS:ASSISTANT
+```
+Still in user turn.
+"""
+    parsed = parse_transcript(transcript)
+    assert len(parsed) == 1
+    assert parsed[0]["role"] == "user"
+    assert 'print("hello")' in parsed[0]["content"]
+    assert "Still in user turn." in parsed[0]["content"]
+
+
+def test_parse_transcript_handles_nested_code_fences():
+    transcript = """\
+## TOAS:USER
+Outer:
+`````text
+```markdown
+## TOAS:<ROLE>
+```
+`````
+After outer fence.
+## TOAS:ASSISTANT
+Response.
+"""
+    parsed = parse_transcript(transcript)
+    assert len(parsed) == 2
+    assert parsed[0]["role"] == "user"
+    assert "## TOAS:<ROLE>" in parsed[0]["content"]
+    assert "After outer fence." in parsed[0]["content"]
+    assert parsed[1]["role"] == "assistant"
+    assert parsed[1]["content"] == "Response."
+
+
+def test_parse_transcript_handles_dogfood_read_file_result_with_grammar_specimen():
+    transcript = """\
+## TOAS:USER
+## RESULT [tool OK read_file]
+`````text toas-output kind=file
+# Notes
+```markdown
+## TOAS:<ROLE> [[handle]]
+```
+`````
+## TOAS:USER
+next turn
+"""
+    parsed = parse_transcript(transcript)
+    assert len(parsed) == 2
+    assert parsed[0]["role"] == "user"
+    assert "## TOAS:<ROLE> [[handle]]" in parsed[0]["content"]
+    assert parsed[1]["role"] == "user"
+    assert parsed[1]["content"] == "next turn"
+
+
+
 def test_parse_transcript_enforces_system_once_at_top():
     transcript = """\
 ## TOAS:USER

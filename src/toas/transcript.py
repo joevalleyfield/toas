@@ -12,6 +12,8 @@ _ESCAPED_ROLE_MARKER_RE = re.compile(
 )
 _THINKING_START_MARKER = "## TOAS:THINKING"
 _THINKING_END_MARKER = "## /TOAS:THINKING"
+_CODE_FENCE_OPEN_RE = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
+_CODE_FENCE_CLOSE_RE = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})[ \t]*$")
 
 
 def escape_transcript_content(content: str) -> str:
@@ -57,6 +59,8 @@ def parse_transcript(text: str) -> list[dict]:
     current_lines: list[str] = []
     seen_system = False
     in_projection_thinking = False
+    active_fence_char: str | None = None
+    active_fence_len: int = 0
 
     def flush() -> None:
         nonlocal current_role, current_marker, current_lines
@@ -105,6 +109,17 @@ def parse_transcript(text: str) -> list[dict]:
         current_marker = None
 
     for line_number, line in enumerate(text.splitlines(), start=1):
+        if active_fence_char is not None:
+            close_match = _CODE_FENCE_CLOSE_RE.fullmatch(line)
+            if close_match:
+                fence_str = close_match.group("fence")
+                if fence_str[0] == active_fence_char and len(fence_str) >= active_fence_len:
+                    active_fence_char = None
+                    active_fence_len = 0
+            if current_role is not None:
+                current_lines.append(line)
+            continue
+
         if in_projection_thinking:
             if line == _THINKING_END_MARKER:
                 in_projection_thinking = False
@@ -128,6 +143,14 @@ def parse_transcript(text: str) -> list[dict]:
             raise ValueError(
                 f"invalid transcript marker at line {line_number}: {line!r}"
             )
+
+        fence_match = _CODE_FENCE_OPEN_RE.fullmatch(line)
+        if fence_match:
+            fence_str = fence_match.group("fence")
+            info = fence_match.group("info")
+            if fence_str[0] != "`" or "`" not in info:
+                active_fence_char = fence_str[0]
+                active_fence_len = len(fence_str)
 
         if current_role is not None:
             current_lines.append(line)
