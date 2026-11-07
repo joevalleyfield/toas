@@ -27,6 +27,38 @@ class PreviewExtractionResult:
     omitted_lines: int
 
 
+def truncate_line(line: str, max_width: int) -> str:
+    """Clamp a single line to max_width with an explicit truncation indicator.
+
+    If max_width <= 0 or len(line) <= max_width, returns line unchanged.
+    For lines exceeding max_width, appends a marker indicating how many characters
+    were truncated: '<prefix>... [N chars truncated]' such that the total length
+    does not exceed max_width (where possible).
+    """
+    if max_width <= 0 or len(line) <= max_width:
+        return line
+
+    min_marker_len = len("... [1 chars truncated]")  # 23
+    if max_width <= min_marker_len:
+        if max_width >= 3:
+            return line[: max_width - 3] + "..."
+        return line[:max_width]
+
+    omitted = len(line) - max_width + 25
+    for _ in range(5):
+        marker = f"... [{omitted} chars truncated]"
+        target_prefix_len = max(0, max_width - len(marker))
+        new_omitted = len(line) - target_prefix_len
+        if new_omitted == omitted:
+            break
+        omitted = new_omitted
+
+    marker = f"... [{omitted} chars truncated]"
+    prefix_len = max(0, max_width - len(marker))
+    return line[:prefix_len] + marker
+
+
+
 def elide_duplicate_lines(items: list[LineMeta], min_repeat: int = 3) -> list[LineMeta]:
     """Collapse consecutive duplicate or near-identical lines."""
     if not items:
@@ -276,6 +308,69 @@ def _extract_head_shuf_tail(
     )
 
 
+def _apply_preview_caps(
+    res: PreviewExtractionResult,
+    *,
+    max_line_width: int,
+    max_preview_bytes: int,
+    scratch_rel_path: str,
+) -> PreviewExtractionResult:
+    if not res.lines:
+        return res
+
+    truncated_lines: list[str] = []
+    for line in res.lines:
+        if line.startswith("--- [") and line.endswith("] ---"):
+            truncated_lines.append(line)
+        else:
+            truncated_lines.append(truncate_line(line, max_line_width))
+
+    if max_preview_bytes <= 0:
+        return PreviewExtractionResult(
+            lines=truncated_lines,
+            range_summary=res.range_summary,
+            omitted_lines=res.omitted_lines,
+        )
+
+    total_bytes = sum(len(l.encode("utf-8")) for l in truncated_lines) + len(truncated_lines)
+    if total_bytes <= max_preview_bytes:
+        return PreviewExtractionResult(
+            lines=truncated_lines,
+            range_summary=res.range_summary,
+            omitted_lines=res.omitted_lines,
+        )
+
+    divider = f"--- [preview capped at {max_preview_bytes} bytes; full output in {scratch_rel_path}] ---"
+    divider_bytes = len(divider.encode("utf-8")) + 1
+    budget = max(0, max_preview_bytes - divider_bytes)
+
+    capped_lines: list[str] = []
+    current_bytes = 0
+    omitted_from_preview = 0
+
+    for idx, line in enumerate(truncated_lines):
+        line_bytes = len(line.encode("utf-8")) + 1
+        if current_bytes + line_bytes > budget:
+            if not capped_lines:
+                first_budget = max(10, budget - 1)
+                capped_lines.append(truncate_line(line, first_budget))
+                omitted_from_preview = len(truncated_lines) - (idx + 1)
+            else:
+                omitted_from_preview = len(truncated_lines) - idx
+            break
+        capped_lines.append(line)
+        current_bytes += line_bytes
+
+    capped_lines.append(divider)
+    new_omitted_lines = res.omitted_lines + omitted_from_preview
+
+    return PreviewExtractionResult(
+        lines=capped_lines,
+        range_summary=res.range_summary,
+        omitted_lines=new_omitted_lines,
+    )
+
+
 def extract_spill_preview(
     raw_lines: list[str],
     *,
@@ -286,11 +381,18 @@ def extract_spill_preview(
     elide_duplicates: bool = True,
     min_repeat: int = 3,
     scratch_rel_path: str = ".toas/scratch/preview.txt",
+    max_line_width: int = 400,
+    max_preview_bytes: int = 4000,
 ) -> PreviewExtractionResult:
     """Extract an in-transcript preview according to the requested strategy."""
     total_lines = len(raw_lines)
     if total_lines == 0:
-        return PreviewExtractionResult(lines=[], range_summary="lines=0..0 of 0", omitted_lines=0)
+        return _apply_preview_caps(
+            PreviewExtractionResult(lines=[], range_summary="lines=0..0 of 0", omitted_lines=0),
+            max_line_width=max_line_width,
+            max_preview_bytes=max_preview_bytes,
+            scratch_rel_path=scratch_rel_path,
+        )
 
     items = [LineMeta(text=line, orig_start=i + 1, orig_end=i + 1) for i, line in enumerate(raw_lines)]
 
@@ -300,24 +402,31 @@ def extract_spill_preview(
     if len(items) <= preview_lines:
         out_lines = [item.text for item in items]
         omitted = max(0, total_lines - len(raw_lines))
-        return PreviewExtractionResult(
+        base_res = PreviewExtractionResult(
             lines=out_lines,
             range_summary=f"lines=1..{total_lines} of {total_lines}",
             omitted_lines=omitted,
         )
+    else:
+        mode_normalized = mode.lower().strip()
+        if mode_normalized == "head":
+            base_res = _extract_head(items, total_lines, preview_lines, scratch_rel_path)
+        elif mode_normalized == "tail":
+            base_res = _extract_tail(items, total_lines, preview_lines, scratch_rel_path)
+        elif mode_normalized == "error_focus":
+            base_res = _extract_error_focus(items, total_lines, preview_lines, head_lines, tail_lines, scratch_rel_path)
+        elif mode_normalized == "head_shuf_tail":
+            base_res = _extract_head_shuf_tail(items, total_lines, preview_lines, scratch_rel_path)
+        else:
+            base_res = _extract_head_tail(items, total_lines, preview_lines, head_lines, tail_lines, scratch_rel_path)
 
-    mode_normalized = mode.lower().strip()
-    if mode_normalized == "head":
-        return _extract_head(items, total_lines, preview_lines, scratch_rel_path)
-    if mode_normalized == "tail":
-        return _extract_tail(items, total_lines, preview_lines, scratch_rel_path)
-    if mode_normalized == "error_focus":
-        return _extract_error_focus(items, total_lines, preview_lines, head_lines, tail_lines, scratch_rel_path)
-    if mode_normalized == "head_shuf_tail":
-        return _extract_head_shuf_tail(items, total_lines, preview_lines, scratch_rel_path)
+    return _apply_preview_caps(
+        base_res,
+        max_line_width=max_line_width,
+        max_preview_bytes=max_preview_bytes,
+        scratch_rel_path=scratch_rel_path,
+    )
 
-    # Default to head_tail
-    return _extract_head_tail(items, total_lines, preview_lines, head_lines, tail_lines, scratch_rel_path)
 
 
 def parse_spill_spec(

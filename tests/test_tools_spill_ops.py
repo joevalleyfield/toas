@@ -330,3 +330,99 @@ def test_parse_spill_spec_invalid():
     with pytest.raises(RuntimeError, match="spill threshold must be a positive int"):
         parse_spill_spec("0")
 
+
+def test_truncate_line():
+    from toas.tools_cluster.spill_ops import truncate_line
+
+    # Unchanged if within max_width or disabled
+    assert truncate_line("hello world", 20) == "hello world"
+    assert truncate_line("hello world", 11) == "hello world"
+    assert truncate_line("hello world", 0) == "hello world"
+    assert truncate_line("hello world", -5) == "hello world"
+
+    # Truncated with exact character marker
+    long_line = "a" * 100
+    res = truncate_line(long_line, 50)
+    assert len(res) == 50
+    assert res.endswith(" chars truncated]")
+    assert "... [" in res
+    # Extract number of truncated chars from marker
+    import re
+
+    m = re.search(r"\.\.\. \[(\d+) chars truncated\]", res)
+    assert m is not None
+    omitted = int(m.group(1))
+    prefix = res[: m.start()]
+    assert len(prefix) + omitted == 100
+
+    # Very small widths
+    assert truncate_line("abcdefghijklmnop", 10) == "abcdefg..."
+    assert truncate_line("abcdefghijklmnop", 2) == "ab"
+
+
+def test_extract_spill_preview_truncates_long_lines():
+    from toas.tools_cluster.spill_ops import extract_spill_preview
+
+    raw = [f"short_{i}" for i in range(1, 10)]
+    raw.append("x" * 1000)
+    res = extract_spill_preview(raw, preview_lines=30, max_line_width=100)
+    assert len(res.lines) == 10
+    assert res.lines[0] == "short_1"
+    last_line = res.lines[-1]
+    assert len(last_line) == 100
+    assert "... [" in last_line
+    assert last_line.endswith(" chars truncated]")
+
+
+def test_extract_spill_preview_max_preview_bytes_backstop():
+    from toas.tools_cluster.spill_ops import extract_spill_preview
+
+    # 20 lines of 100 chars = 2000 chars. Cap preview at 500 bytes.
+    raw = [("line_" + str(i).zfill(2) + "_" + "y" * 90) for i in range(1, 21)]
+    res = extract_spill_preview(
+        raw,
+        mode="head",
+        preview_lines=20,
+        max_line_width=400,
+        max_preview_bytes=500,
+        scratch_rel_path=".toas/scratch/capped.txt",
+    )
+    # Total preview bytes must be <= 500
+    total_bytes = sum(len(l.encode("utf-8")) + 1 for l in res.lines)
+    assert total_bytes <= 500
+    assert any("--- [preview capped at 500 bytes; full output in .toas/scratch/capped.txt] ---" in l for l in res.lines)
+    assert res.omitted_lines > 0
+
+
+def test_extract_spill_preview_max_preview_bytes_single_line_cap():
+    from toas.tools_cluster.spill_ops import extract_spill_preview
+
+    # 1 line of 5000 chars with max_preview_bytes=200
+    raw = ["z" * 5000]
+    res = extract_spill_preview(
+        raw,
+        max_line_width=400,
+        max_preview_bytes=200,
+        scratch_rel_path=".toas/scratch/single.txt",
+    )
+    total_bytes = sum(len(l.encode("utf-8")) + 1 for l in res.lines)
+    assert total_bytes <= 200
+    assert len(res.lines) == 2
+    assert "--- [preview capped at 200 bytes" in res.lines[-1]
+
+
+def test_extract_spill_preview_empty_and_zero_byte_cap():
+    from toas.tools_cluster.spill_ops import extract_spill_preview
+
+    empty_res = extract_spill_preview([], scratch_rel_path=".toas/scratch/empty.txt")
+    assert empty_res.lines == []
+
+    zero_cap_res = extract_spill_preview(
+        ["line 1", "line 2"],
+        max_preview_bytes=0,
+        scratch_rel_path=".toas/scratch/zero.txt",
+    )
+    assert zero_cap_res.lines == ["line 1", "line 2"]
+
+
+

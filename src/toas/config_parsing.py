@@ -180,6 +180,8 @@ def parse_config_value(
         "spill.threshold_lines",
         "spill.threshold_bytes",
         "spill.preview_lines",
+        "spill.max_line_width",
+        "spill.max_preview_bytes",
     }:
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
 

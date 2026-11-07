@@ -1313,3 +1313,125 @@ def test_read_file_custom_scratch_byte_limit(tmp_path, monkeypatch, byte_count, 
     result = run_read_file({"path": str(path)}, workspace_path_fn=Path)
     rendered = render_read_file_success(result, status="OK", tool_name="read_file", scratch_dir=scratch)
     assert ("Output exceeded threshold" in rendered) is should_spill
+
+
+def test_spill_inert_block_with_max_line_width_and_max_preview_bytes(tmp_path):
+    from toas.tools_cluster.rendering import spill_inert_block
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    # 10 lines of 1,000 characters each = 10,000 characters
+    long_line = "a" * 1000
+    content = "\n".join(f"{i}_{long_line}" for i in range(1, 11))
+
+    spilled, rel_path, block_id = spill_inert_block(
+        content,
+        kind="stdout",
+        scratch_dir=scratch_dir,
+        threshold_lines=40,
+        threshold_bytes=4000,
+        max_line_width=100,
+        max_preview_bytes=800,
+    )
+
+    # 1. Full fidelity invariant: scratch file on disk is completely untouched
+    scratch_file = scratch_dir / f"{block_id}.txt"
+    assert scratch_file.is_file()
+    assert scratch_file.read_text(encoding="utf-8") == content
+
+    # 2. Preview line width: preview lines must be clamped to 100 chars
+    preview_data_lines = [
+        line
+        for line in spilled.splitlines()
+        if line.strip() and not (line.startswith("```") or line.startswith("Output exceeded") or line.startswith("[") or line.startswith("--- ["))
+    ]
+    assert len(preview_data_lines) > 0
+    for line in preview_data_lines:
+        assert len(line) <= 100
+        assert "... [" in line
+        assert line.endswith(" chars truncated]")
+
+    # 3. Preview byte safety: preview must be capped
+    assert "preview capped at 800 bytes" in spilled
+
+
+def test_spill_inert_block_named_profile_caps(tmp_path):
+    from toas.tools_cluster.rendering import spill_inert_block
+
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    long_line = "b" * 1200
+    content = "\n".join([long_line] * 10)
+
+    # Wide profile allows 800 char lines
+    spilled_wide, _, _ = spill_inert_block(
+        content,
+        kind="result",
+        scratch_dir=scratch_dir,
+        spill_mode="wide",
+    )
+    # Each line should be truncated to 800 chars
+    for line in spilled_wide.splitlines():
+        if line.startswith("```") or line.startswith("Output exceeded") or line.startswith("[") or line.startswith("--- ["):
+            continue
+        assert len(line) <= 800
+
+    # Raw profile allows 1000 char lines
+    spilled_raw, _, _ = spill_inert_block(
+        content,
+        kind="result",
+        scratch_dir=scratch_dir,
+        spill_mode="raw",
+    )
+    for line in spilled_raw.splitlines():
+        if line.startswith("```") or line.startswith("Output exceeded") or line.startswith("[") or line.startswith("--- ["):
+            continue
+        assert len(line) <= 1000
+
+
+def test_render_fenced_output_unspilled_line_width_truncation():
+    from toas.tools_cluster.rendering import render_fenced_output
+
+    short_lines = "first\n" + ("x" * 600) + "\nlast\n"
+    rendered = render_fenced_output(
+        content=short_lines,
+        kind="stdout",
+        source="tool.test",
+        allow_spill=False,
+        max_line_width=150,
+    )
+    assert "Output exceeded threshold" not in rendered
+    assert "first" in rendered
+    assert "last" in rendered
+    for line in rendered.splitlines():
+        if line.startswith("```"):
+            continue
+        assert len(line) <= 150
+    assert "... [" in rendered
+    assert " chars truncated]" in rendered
+
+
+def test_render_shell_and_read_file_forwards_width_and_byte_caps():
+    from toas.tools_cluster.rendering import render_read_file_success, render_shell_result
+
+    result_shell = {
+        "ok": True,
+        "summary": "exit=0",
+        "stdout": "a" * 800 + "\n",
+        "stderr": "b" * 800 + "\n",
+        "max_line_width": 200,
+        "max_preview_bytes": 1000,
+        "threshold_bytes": 10000,
+    }
+    rendered_shell = render_shell_result(result_shell, status="OK", tool_name="shell")
+    assert "... [" in rendered_shell
+
+    result_read = {
+        "path": "foo.txt",
+        "content": "c" * 800 + "\n",
+        "max_line_width": 200,
+        "max_preview_bytes": 1000,
+        "threshold_bytes": 500,
+        "bounded": True,
+    }
+    rendered_read = render_read_file_success(result_read, status="OK", tool_name="read_file")
+    assert "... [" in rendered_read
+

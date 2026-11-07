@@ -71,3 +71,22 @@ However, the current spillage mechanism only bounds the vertical dimension:
 - Wrapping lines with synthetic newlines (which alters line numbering and breaks
   range alignments).
 - Truncating user-authored transcript input.
+
+## Outcome & Acceptance Evidence
+
+- **Line Width Clamping (`max_line_width`)**:
+  - Implemented `truncate_line(line, max_width)` in `src/toas/tools_cluster/spill_ops.py`, truncating lines exceeding `max_line_width` to `<prefix>... [N chars truncated]`.
+  - Added `max_line_width: int = 400` default across `SpillPolicy` and `SpillProfile` (`src/toas/config.py`).
+  - Added TOML and `/config set spill.max_line_width <int>` validation support (`src/toas/config_parsing.py`).
+  - Clamps long lines in both in-transcript previews and non-spilled tool output blocks (`kind in {"result", "stdout", "stderr"}`). Import file blocks (`kind="file"`) retain full fidelity when unspilled for inspection/editing.
+- **Preview Byte Safety Backstop (`max_preview_bytes`)**:
+  - Implemented `_apply_preview_caps` in `src/toas/tools_cluster/spill_ops.py`, enforcing an aggregate byte limit (default 4000 bytes) on rendered preview lines.
+  - When the byte budget is exceeded, lines are cleanly capped and the backstop divider `--- [preview capped at N bytes; full output in <path>] ---` is appended.
+  - Added `max_preview_bytes: int = 4000` to `SpillPolicy` and `SpillProfile` with TOML and `/config set spill.max_preview_bytes <int>` validation.
+  - Updated default profiles (`test`: 400/4000, `raw`: 1000/8000, `wide`: 800/10000).
+- **Durable Full-Fidelity Invariant**:
+  - Raw unclipped bytes are written to `.toas/scratch/<block_id>.txt` before any line clamping or preview byte truncation occurs. Verified end-to-end that disk content preserves 100% of original bytes without any truncation markers.
+- **Suite & Coverage**:
+  - Passed full `./scripts/check.sh` suite: 3,887 passed, 9 skipped, 17 deselected, 0 failures.
+  - 100.00% statement coverage across all 26,132 statements; clean lint and mypy checks.
+

@@ -114,6 +114,10 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
         spill_kwargs["tail_lines"] = int(tail_lines)
     if elide_duplicates is not None:
         spill_kwargs["elide_duplicates"] = bool(elide_duplicates)
+    if result.get("max_line_width") is not None:
+        spill_kwargs["max_line_width"] = int(result["max_line_width"])
+    if result.get("max_preview_bytes") is not None:
+        spill_kwargs["max_preview_bytes"] = int(result["max_preview_bytes"])
 
     if result.get("stdout"):
         lines.append("stdout:")
@@ -176,9 +180,11 @@ def render_read_file_success(
     head_lines = result.get("head_lines", 10)
     tail_lines = result.get("tail_lines", 20)
     elide_duplicates = result.get("elide_duplicates", True)
+    max_line_width = result.get("max_line_width")
+    max_preview_bytes = result.get("max_preview_bytes")
     return (
         f"[{status}] {tool_name}: {path}\n"
-        f"{render_import_block(content=content, path=rendered_path, source='workspace', line_start=result.get('line_start'), line_end=result.get('line_end'), allow_spill=allow_spill, threshold_lines=threshold_lines, threshold_bytes=threshold_bytes, scratch_dir=scratch_dir, spill_mode=spill_mode, head_lines=head_lines, tail_lines=tail_lines, elide_duplicates=elide_duplicates)}"
+        f"{render_import_block(content=content, path=rendered_path, source='workspace', line_start=result.get('line_start'), line_end=result.get('line_end'), allow_spill=allow_spill, threshold_lines=threshold_lines, threshold_bytes=threshold_bytes, scratch_dir=scratch_dir, spill_mode=spill_mode, head_lines=head_lines, tail_lines=tail_lines, elide_duplicates=elide_duplicates, max_line_width=max_line_width, max_preview_bytes=max_preview_bytes)}"
     )
 
 
@@ -229,6 +235,8 @@ def spill_inert_block(  # noqa: PLR0913
     head_lines: int = 10,
     tail_lines: int = 20,
     elide_duplicates: bool = True,
+    max_line_width: int | None = None,
+    max_preview_bytes: int | None = None,
 ) -> tuple[str, str, str]:
     """Spill an oversized inert block to a scratch file and return (spilled_text, rel_path, block_id)."""
     if single_turn_ephemeral is None:
@@ -266,12 +274,21 @@ def spill_inert_block(  # noqa: PLR0913
         tail_lines = profile.tail_lines
         elide_duplicates = profile.elide_duplicates
         preview_lines = profile.preview_lines
-    elif not chosen_mode:
-        chosen_mode = policy.default_mode if kind in {"stdout", "stderr", "shell"} else "head"
-        head_lines = policy.head_lines
-        tail_lines = policy.tail_lines
-        elide_duplicates = policy.elide_duplicates
-        preview_lines = preview_lines or policy.preview_lines
+        default_width = profile.max_line_width
+        default_bytes = profile.max_preview_bytes
+    else:
+        if not chosen_mode:
+            chosen_mode = policy.default_mode if kind in {"stdout", "stderr", "shell"} else "head"
+            head_lines = policy.head_lines
+            tail_lines = policy.tail_lines
+            elide_duplicates = policy.elide_duplicates
+            preview_lines = preview_lines or policy.preview_lines
+        default_width = policy.max_line_width
+        default_bytes = policy.max_preview_bytes
+
+    effective_max_line_width = default_width if max_line_width is None else max_line_width
+    effective_max_preview_bytes = default_bytes if max_preview_bytes is None else max_preview_bytes
+
 
     preview_res = extract_spill_preview(
         lines,
@@ -281,8 +298,11 @@ def spill_inert_block(  # noqa: PLR0913
         tail_lines=tail_lines,
         elide_duplicates=elide_duplicates,
         scratch_rel_path=scratch_rel_path,
+        max_line_width=effective_max_line_width,
+        max_preview_bytes=effective_max_preview_bytes,
     )
     preview_body = "\n".join(preview_res.lines) + "\n" if preview_res.lines else ""
+
     remaining_lines = preview_res.omitted_lines
 
     banner = f"Output exceeded threshold ({size_str}, {total_lines} lines); spilled to `{scratch_rel_path}`."
@@ -341,6 +361,8 @@ def render_fenced_output(  # noqa: PLR0913
     head_lines: int = 10,
     tail_lines: int = 20,
     elide_duplicates: bool = True,
+    max_line_width: int | None = None,
+    max_preview_bytes: int | None = None,
 ) -> str:
     content = content.replace("\r\n", "\n").replace("\r", "\n")
     lines = content.splitlines()
@@ -349,13 +371,23 @@ def render_fenced_output(  # noqa: PLR0913
 
     policy = get_active_spill_policy()
     effective_mode = spill_mode or mode
+    effective_max_line_width = max_line_width
+    effective_max_preview_bytes = max_preview_bytes
     if effective_mode and effective_mode in policy.profiles:
         profile = policy.profiles[effective_mode]
         base_thresh_lines = profile.threshold_lines
         base_thresh_bytes = profile.threshold_bytes
+        if effective_max_line_width is None:
+            effective_max_line_width = profile.max_line_width
+        if effective_max_preview_bytes is None:
+            effective_max_preview_bytes = profile.max_preview_bytes
     else:
         base_thresh_lines = policy.threshold_lines if threshold_lines == DEFAULT_SPILL_THRESHOLD_LINES else threshold_lines
         base_thresh_bytes = policy.threshold_bytes if threshold_bytes == DEFAULT_SPILL_THRESHOLD_BYTES else threshold_bytes
+        if effective_max_line_width is None:
+            effective_max_line_width = policy.max_line_width
+        if effective_max_preview_bytes is None:
+            effective_max_preview_bytes = policy.max_preview_bytes
 
     effective_threshold_lines = min(base_thresh_lines, DEFAULT_SPILL_SAFETY_BRAKE_LINES)
     effective_threshold_bytes = min(base_thresh_bytes, DEFAULT_SPILL_SAFETY_BRAKE_BYTES)
@@ -377,6 +409,8 @@ def render_fenced_output(  # noqa: PLR0913
             head_lines=head_lines,
             tail_lines=tail_lines,
             elide_duplicates=elide_duplicates,
+            max_line_width=effective_max_line_width,
+            max_preview_bytes=effective_max_preview_bytes,
         )
         return spilled_text
 
@@ -390,7 +424,17 @@ def render_fenced_output(  # noqa: PLR0913
         except OSError:
             pass
 
+    if kind in {"result", "stdout", "stderr"} and effective_max_line_width and effective_max_line_width > 0:
+        if any(len(line) > effective_max_line_width for line in lines):
+            from .spill_ops import truncate_line
+
+            truncated_lines = [truncate_line(line, effective_max_line_width) for line in lines]
+            content = "\n".join(truncated_lines)
+            if not content.endswith("\n") and lines:
+                content += "\n"
+
     fence = _sized_backtick_fence(content)
+
     info_parts = [
         language,
         "toas-output",
@@ -434,6 +478,8 @@ def render_import_block(  # noqa: PLR0913
     head_lines: int = 10,
     tail_lines: int = 20,
     elide_duplicates: bool = True,
+    max_line_width: int | None = None,
+    max_preview_bytes: int | None = None,
 ) -> str:
     content = content.replace("\r\n", "\n").replace("\r", "\n")
     effective_source = source or "workspace"
@@ -477,7 +523,10 @@ def render_import_block(  # noqa: PLR0913
         head_lines=head_lines,
         tail_lines=tail_lines,
         elide_duplicates=elide_duplicates,
+        max_line_width=max_line_width,
+        max_preview_bytes=max_preview_bytes,
     )
+
 
 
 def render_shell_stdout_import_block(result: dict) -> str | None:

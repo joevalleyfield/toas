@@ -1055,3 +1055,25 @@ def test_powershell_runtime_config_is_a_valid_argv_tuple():
     config = apply_dotted_override(OperatorConfig(), "runtime.powershell_runtime", "pwsh -NoProfile")
 
     assert config.runtime.powershell_runtime == ("pwsh", "-NoProfile")
+
+
+def test_spill_max_line_width_and_max_preview_bytes_config():
+    config = OperatorConfig()
+    assert config.spill.max_line_width == 400
+    assert config.spill.max_preview_bytes == 4000
+    assert "spill.max_line_width" in valid_config_keys()
+    assert "spill.max_preview_bytes" in valid_config_keys()
+
+    assert parse_config_value("spill.max_line_width", "600") == 600
+    assert parse_config_value("spill.max_preview_bytes", "8000") == 8000
+
+    with pytest.raises(ValueError, match="expected >= 0"):
+        parse_config_value("spill.max_line_width", "-5")
+    with pytest.raises(ValueError, match="expected >= 0"):
+        parse_config_value("spill.max_preview_bytes", "-10")
+
+    updated = apply_dotted_override(config, "spill.max_line_width", "500")
+    assert updated.spill.max_line_width == 500
+    updated2 = apply_dotted_override(updated, "spill.max_preview_bytes", "12000")
+    assert updated2.spill.max_preview_bytes == 12000
+

@@ -224,12 +224,44 @@ class SpillProfile:
     threshold_lines: int = 40
     threshold_bytes: int = 4000
     preview_lines: int = 30
+    max_line_width: int = 400
+    max_preview_bytes: int = 4000
 
 
 DEFAULT_SPILL_PROFILES: dict[str, SpillProfile] = {
-    "test": SpillProfile(mode="error_focus", head_lines=10, tail_lines=20, elide_duplicates=True, threshold_lines=40, threshold_bytes=4000, preview_lines=30),
-    "raw": SpillProfile(mode="head", head_lines=30, tail_lines=0, elide_duplicates=False, threshold_lines=40, threshold_bytes=4000, preview_lines=30),
-    "wide": SpillProfile(mode="head_tail", head_lines=25, tail_lines=25, elide_duplicates=True, threshold_lines=100, threshold_bytes=10000, preview_lines=50),
+    "test": SpillProfile(
+        mode="error_focus",
+        head_lines=10,
+        tail_lines=20,
+        elide_duplicates=True,
+        threshold_lines=40,
+        threshold_bytes=4000,
+        preview_lines=30,
+        max_line_width=400,
+        max_preview_bytes=4000,
+    ),
+    "raw": SpillProfile(
+        mode="head",
+        head_lines=30,
+        tail_lines=0,
+        elide_duplicates=False,
+        threshold_lines=40,
+        threshold_bytes=4000,
+        preview_lines=30,
+        max_line_width=1000,
+        max_preview_bytes=8000,
+    ),
+    "wide": SpillProfile(
+        mode="head_tail",
+        head_lines=25,
+        tail_lines=25,
+        elide_duplicates=True,
+        threshold_lines=100,
+        threshold_bytes=10000,
+        preview_lines=50,
+        max_line_width=800,
+        max_preview_bytes=10000,
+    ),
 }
 
 
@@ -242,7 +274,10 @@ class SpillPolicy:
     threshold_lines: int = 40
     threshold_bytes: int = 4000
     preview_lines: int = 30
+    max_line_width: int = 400
+    max_preview_bytes: int = 4000
     profiles: dict[str, SpillProfile] = field(default_factory=lambda: dict(DEFAULT_SPILL_PROFILES))
+
 
 
 @dataclass(frozen=True)
