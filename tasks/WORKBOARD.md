@@ -152,6 +152,12 @@ Neither dated vote is a literal current queue.
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
 - **[T261104-fence-io-channels]** Fence I/O Channels And Artifact Redirection
 - **[T261105-apply-patch-indent-leniency-and-diff-diagnostics]** apply_patch Indentation Leniency and Unified Diff Diagnostics
+- **[T261106-bounded-step-quiescence]** Bounded Multi-Turn Stepping with Quiescence Termination
+- **[T261106-fence-aware-transcript-markers]** Fence-Aware Transcript Marker Parsing
+- **[T261106-microkernel-skill-runtime-boundary]** Microkernel Runtime Boundary and Fast-Path Code-Only Skills
+- **[T261106-skill-specialization-and-script-distillation]** Skill Specialization and Script Distillation Pipeline
+- **[T261106-standard-agent-skills-integration]** Standard Agent Skills Support and Extensible Task Recording
+- **[T261106-target-coupled-generation-settings]** Target- and Endpoint-Coupled Generation Settings and Client-Side Throttling
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -215,9 +221,9 @@ should return only with a current timing reproduction.
 <!-- WORKBOARD:CLOSED:START -->
 - **[T261106-vim-step-count-prefix]** Support Count Prefix for Vim Step Mapping (`[N]\s` -> `toas step [N]`)
 - **[T261106-token-count-decorations]** Cumulative Token-Count Turn Telemetry Decorations
+- **[T261106-content-spillage-refinement]** Content Spillage Refinement: Dynamic Thresholds, Bookends, Error Focus, and Elision
 - **[T261106-bounded-step-quiescence]** Bounded Multi-Turn Stepping with Quiescence Termination
 - **[T261106-assistant-turn-handle-progression]** Assistant Turn Handle Progression And History Plumbing
-- **[T261106-apply-patch-atomicity-and-healing]** apply_patch Atomicity, Indentation Healing, and Transparent Diagnostics
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
