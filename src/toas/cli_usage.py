@@ -50,7 +50,9 @@ STEP_USAGE = (
 )
 
 
-STEP_ASYNC_USAGE = "usage: toas step --async [--session <transcript_path>] [--surface <surface_id>]"
+STEP_ASYNC_USAGE = (
+    "usage: toas step --async [N] [-n <N>|--count <N>|--max-turns <N>] [--session <transcript_path>] [--surface <surface_id>]"
+)
 
 
 STEP_HELP = (

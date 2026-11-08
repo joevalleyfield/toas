@@ -76,17 +76,18 @@ def dispatch_main(
             raise SystemExit(subcommand_help)
 
     if argv[0] == "step":
-        if len(argv) > 1 and argv[1] == "--async":
-            session_path, surface_id = parse_step_async_options(argv)
+        if "--async" in argv[1:]:
+            session_path, surface_id, max_turns = parse_step_async_options(argv)
             if session_path is not None and surface_id is not None:
                 raise SystemExit("step --async accepts only one of --session or --surface")
-            if session_path is None:
-                if surface_id is None:
-                    deps.run_step_async()
-                else:
-                    deps.run_step_async(surface_id=surface_id)
-            else:
-                deps.run_step_async(session_path=session_path)
+            step_async_kwargs: dict[str, object] = {}
+            if session_path is not None:
+                step_async_kwargs["session_path"] = session_path
+            if surface_id is not None:
+                step_async_kwargs["surface_id"] = surface_id
+            if max_turns is not None:
+                step_async_kwargs["max_turns"] = max_turns
+            deps.run_step_async(**step_async_kwargs)
         else:
             stdin_mode, preview_request, preview_request_pretty, preview_response, control, session_path, surface_id, infer_from, max_turns = parse_step_options(argv)
             if session_path is not None and surface_id is not None:

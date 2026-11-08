@@ -85,8 +85,9 @@ def extract_frontier_step_directive(
 ) -> tuple[int | None, str]:
     """Inspect the transcript frontier for a /step [n] directive.
 
-    If present on a user or control turn outside inert regions, returns
-    (count, transcript_with_directive_stripped). Otherwise returns (None, transcript).
+    If present on a user or control turn outside inert regions, or at the transcript
+    tail without an explicit header, returns (count, transcript_with_directive_stripped).
+    Otherwise returns (None, transcript).
     """
     if parse_transcript_fn is None:
         from ..transcript import parse_transcript
@@ -94,29 +95,68 @@ def extract_frontier_step_directive(
 
     turns = parse_transcript_fn(transcript)
     if not turns:
+        lines = transcript.splitlines(keepends=True)
+        non_empty = [i for i, l in enumerate(lines) if l.strip()]
+        if not non_empty:
+            return None, transcript
+        last_idx = non_empty[-1]
+        last_line = lines[last_idx].strip()
+        if last_line == "/step" or last_line.startswith("/step "):
+            parts = last_line.split(None, 1)
+            count = None
+            if len(parts) == 1:
+                count = 1
+            elif len(parts) == 2 and parts[1].isdigit() and int(parts[1]) > 0:
+                count = int(parts[1])
+            if count is not None:
+                lines.pop(last_idx)
+                return count, "".join(lines)
         return None, transcript
 
     frontier = turns[-1]
     role = frontier.get("role")
-    if role not in {"user", "control"}:
-        return None, transcript
-
     content = frontier.get("content", "")
     lines = content.splitlines(keepends=True)
-    count: int | None = None
+    count = None
     kept_lines = []
 
-    for line in lines:
-        stripped = line.strip()
-        if stripped == "/step" or stripped.startswith("/step "):
-            parts = stripped.split(None, 1)
-            if len(parts) == 1:
-                count = 1
-                continue
-            if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) > 0:
-                count = int(parts[1])
-                continue
-        kept_lines.append(line)
+    if role in {"user", "control"}:
+        for line in lines:
+            stripped = line.strip()
+            if stripped == "/step" or stripped.startswith("/step "):
+                parts = stripped.split(None, 1)
+                if len(parts) == 1:
+                    count = 1
+                    continue
+                if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) > 0:
+                    count = int(parts[1])
+                    continue
+            kept_lines.append(line)
+    else:
+        non_empty = [i for i, l in enumerate(lines) if l.strip()]
+        if non_empty:
+            last_idx = non_empty[-1]
+            last_line = lines[last_idx].strip()
+            if last_line == "/step" or last_line.startswith("/step "):
+                parts = last_line.split(None, 1)
+                if len(parts) == 1:
+                    count = 1
+                elif len(parts) == 2 and parts[1].isdigit() and int(parts[1]) > 0:
+                    count = int(parts[1])
+                if count is not None:
+                    trimmed = lines[:last_idx]
+                    while trimmed and not trimmed[-1].strip():
+                        trimmed.pop()
+                    new_content = "".join(trimmed).rstrip()
+                    idx = transcript.rfind(content)
+                    if idx != -1:
+                        suffix = transcript[idx + len(content):]
+                        if new_content:
+                            updated = transcript[:idx] + new_content + suffix
+                        else:
+                            updated = transcript[:idx].rstrip() + suffix
+                        return count, updated
+                    return count, transcript
 
     if count is None:
         return None, transcript

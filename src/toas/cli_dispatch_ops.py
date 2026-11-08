@@ -97,14 +97,27 @@ def parse_step_options(argv: list[str]) -> tuple[bool, bool, bool, bool, str | N
     return stdin_mode, preview_request, preview_request_pretty, preview_response, control, session_path, surface_id, infer_from, max_turns
 
 
-def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None]:
+def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None, int | None]:
     session_path: str | None = None
     surface_id: str | None = None
-    i = 2
+    max_turns: int | None = None
+    i = 2 if len(argv) > 1 and (argv[1] == "--async" or argv[0] == "step-async") else 1
     while i < len(argv):
         arg = argv[i]
+        if arg == "--async":
+            i += 1
+            continue
         if arg in {"--help", "-h"}:
             raise SystemExit(STEP_HELP)
+        if arg in {"-n", "--count", "--max-turns"}:
+            if i + 1 >= len(argv):
+                raise SystemExit(STEP_ASYNC_USAGE)
+            val = argv[i + 1]
+            if not val.isdigit() or int(val) <= 0:
+                raise SystemExit("step count must be a positive integer")
+            max_turns = int(val)
+            i += 2
+            continue
         if arg == "--session":
             if i + 1 >= len(argv):
                 raise SystemExit(STEP_ASYNC_USAGE)
@@ -117,8 +130,16 @@ def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None]:
             surface_id = argv[i + 1]
             i += 2
             continue
+        if not arg.startswith("-"):
+            if max_turns is not None:
+                raise SystemExit(STEP_ASYNC_USAGE)
+            if not arg.isdigit() or int(arg) <= 0:
+                raise SystemExit("step count must be a positive integer")
+            max_turns = int(arg)
+            i += 1
+            continue
         raise SystemExit(f"unknown option: {arg}")
-    return session_path, surface_id
+    return session_path, surface_id, max_turns
 
 
 def parse_session_continue_options(argv: list[str]) -> tuple[str | None, str | None, bool, bool]:

@@ -4230,6 +4230,37 @@ def test_extract_frontier_step_directive_variants():
     count, text = sct.extract_frontier_step_directive("## TOAS:ASSISTANT\n\nHello\n")
     assert count is None
 
+    count, text = sct.extract_frontier_step_directive("## TOAS:ASSISTANT\n\nWhat next?\n\n/step 3\n")
+    assert count == 3
+    assert text == "## TOAS:ASSISTANT\n\nWhat next?\n"
+
+    count, text = sct.extract_frontier_step_directive("## TOAS:ASSISTANT\n\n```result\nCommand output\n```\n\n/step\n")
+    assert count == 1
+    assert text == "## TOAS:ASSISTANT\n\n```result\nCommand output\n```\n"
+
+    count, text = sct.extract_frontier_step_directive(
+        "custom transcript",
+        parse_transcript_fn=lambda _: [{"role": "result", "content": "Command output\n\n/step\n"}],
+    )
+    assert count == 1
+    assert text == "custom transcript"
+
+    count, text = sct.extract_frontier_step_directive("/step 4\n")
+    assert count == 4
+    assert text == ""
+
+    count, text = sct.extract_frontier_step_directive("/step\n")
+    assert count == 1
+    assert text == ""
+
+    count, text = sct.extract_frontier_step_directive("## TOAS:ASSISTANT\n\n/step 2\n")
+    assert count == 2
+    assert text == "## TOAS:ASSISTANT\n"
+
+    count, text = sct.extract_frontier_step_directive("just plain text\n")
+    assert count is None
+    assert text == "just plain text\n"
+
     count, text = sct.extract_frontier_step_directive("## TOAS:USER\n\n/step\nDo something\n")
     assert count == 1
     assert text == "## TOAS:USER\n\nDo something\n"
@@ -4281,3 +4312,18 @@ def test_run_step_with_max_turns_calls_bounded(monkeypatch):
     monkeypatch.setattr(cli, "run_operator_step_bounded", lambda **kwargs: calls.append(kwargs))
     cli._run_step(max_turns=3)
     assert calls[0]["max_turns"] == 3
+
+
+def test_run_step_with_max_turns_forwards_to_rpc(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda op, payload=None: seen.append((op, payload)) or True)
+    cli.run_step(max_turns=3)
+    assert seen == [("step", {"max_turns": 3})]
+
+
+def test_run_step_async_forwards_max_turns(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_make_async_deps", lambda: object())
+    monkeypatch.setattr(cli, "_run_step_async_command", lambda deps, **kwargs: calls.append(kwargs))
+    cli.run_step_async(max_turns=5)
+    assert calls == [{"session_path": None, "max_turns": 5}]

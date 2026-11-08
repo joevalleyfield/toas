@@ -132,6 +132,18 @@ def test_dispatch_step_async_parses_surface_override():
     assert calls == [("step_async", (), {"surface_id": "docs"})]
 
 
+def test_dispatch_step_async_parses_max_turns():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["step", "--async", "4"], deps=_deps(calls))
+    dispatch_main(["step", "3", "--async"], deps=_deps(calls))
+    dispatch_main(["step", "--async", "-n", "5", "--session", "s.md"], deps=_deps(calls))
+    assert calls == [
+        ("step_async", (), {"max_turns": 4}),
+        ("step_async", (), {"max_turns": 3}),
+        ("step_async", (), {"session_path": "s.md", "max_turns": 5}),
+    ]
+
+
 def test_dispatch_step_parses_stdin_and_control():
     calls: list[tuple[str, tuple, dict]] = []
     dispatch_main(["step", "--stdin", "--control", "/session show"], deps=_deps(calls))

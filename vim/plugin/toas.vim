@@ -112,6 +112,9 @@ endif
 if !exists('g:toas_watch_subscribe_timeout_s')
   let g:toas_watch_subscribe_timeout_s = 30.0
 endif
+if !exists('g:toas_step_timeout_s')
+  let g:toas_step_timeout_s = 30.0
+endif
 
 function! s:toas_wire_log(msg) abort
   if !get(g:, 'toas_local_host_wire_log', 0)
@@ -736,7 +739,9 @@ function! s:toas_step_rpc(...) abort
   if l:count > 1
     let l:payload.max_turns = l:count
   endif
-  let l:resp = s:toas_request('step', l:payload, 5.0)
+  let l:base_timeout = get(g:, 'toas_step_timeout_s', 30.0)
+  let l:timeout = l:count > 1 ? (l:base_timeout * l:count) : l:base_timeout
+  let l:resp = s:toas_request('step', l:payload, l:timeout)
   return get(get(l:resp, 'payload', {}), 'stdout', '')
 endfunction
 
@@ -3636,14 +3641,19 @@ endfunction
 command! -count=0 -nargs=? ToasStep call ToasStep(<q-args> !=# '' ? str2nr(<q-args>) : <count>)
 nnoremap <silent> <leader>s :<C-U>call ToasStep(v:count)<CR>
 
-function! ToasStepAsync() abort
+function! ToasStepAsync(...) abort
+  let l:count = a:0 > 0 ? a:1 : 0
   if &modified
     write
   endif
 
   try
     call s:toas_host_ensure_started()
-    let l:resp = s:toas_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
+    let l:payload = {'workdir': s:toas_workdir()}
+    if l:count > 1
+      let l:payload.max_turns = l:count
+    endif
+    let l:resp = s:toas_request('step_async', l:payload, 15.0)
     let l:payload = get(l:resp, 'payload', {})
     let l:run_id = get(l:payload, 'run_id', '')
     let l:status = get(l:payload, 'status', '')
@@ -4546,7 +4556,7 @@ endfunction
 
 command! -count=0 -nargs=? ToasStepHere call ToasStepHere(<q-args> !=# '' ? str2nr(<q-args>) : <count>)
 nnoremap <silent> <leader>S :<C-U>call ToasStepHere(v:count)<CR>
-command! ToasStepAsync call ToasStepAsync()
+command! -count=0 -nargs=? ToasStepAsync call ToasStepAsync(<q-args> !=# '' ? str2nr(<q-args>) : <count>)
 command! -nargs=* ToasContinue call ToasContinue(<f-args>)
 nnoremap <leader>r :ToasContinue<CR>
 command! -nargs=* ToasWatch call ToasWatch(<f-args>)

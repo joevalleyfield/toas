@@ -254,39 +254,72 @@ def run_step(
     surface_id: str | None = None,
     infer_from: str | None = None,
 ):
-    if max_turns is not None or preview or preview_request or preview_response or stdin_mode or control is not None or session_path is not None or surface_id is not None or infer_from is not None:
-        kwargs: dict[str, object] = {
-            "stdin_mode": stdin_mode,
-            "control": control,
-            "session_path": session_path,
-        }
-        if max_turns is not None:
-            kwargs["max_turns"] = max_turns
-        if preview:
-            kwargs["preview"] = True
-        if preview_request:
-            kwargs["preview_request"] = True
-        if preview_request_pretty:
-            kwargs["preview_request_pretty"] = True
-        if preview_response:
-            kwargs["preview_response"] = True
-        if surface_id is not None:
-            kwargs["surface_id"] = surface_id
-        if infer_from is not None:
-            kwargs["infer_from"] = infer_from
+    kwargs: dict[str, object] = {
+        "stdin_mode": stdin_mode,
+        "control": control,
+        "session_path": session_path,
+    }
+    if max_turns is not None:
+        kwargs["max_turns"] = max_turns
+    if preview:
+        kwargs["preview"] = True
+    if preview_request:
+        kwargs["preview_request"] = True
+    if preview_request_pretty:
+        kwargs["preview_request_pretty"] = True
+    if preview_response:
+        kwargs["preview_response"] = True
+    if surface_id is not None:
+        kwargs["surface_id"] = surface_id
+    if infer_from is not None:
+        kwargs["infer_from"] = infer_from
+
+    has_options = bool(
+        max_turns is not None
+        or preview
+        or preview_request
+        or preview_request_pretty
+        or preview_response
+        or stdin_mode
+        or control is not None
+        or session_path is not None
+        or surface_id is not None
+        or infer_from is not None
+    )
+    can_rpc = not (
+        preview
+        or preview_request
+        or preview_request_pretty
+        or preview_response
+        or stdin_mode
+        or control is not None
+        or session_path is not None
+        or surface_id is not None
+        or infer_from is not None
+    )
+    if can_rpc:
+        payload: dict[str, object] | None = {"max_turns": max_turns} if max_turns is not None else None
+        if _rpc_stdout("step", payload):
+            return
+    if has_options:
         return _run_step(**kwargs)  # type: ignore[arg-type]
-    payload = None
-    if _rpc_stdout("step", payload):
-        return
     return _run_step()
 
 
-def run_step_async(*, session_path: str | None = None, surface_id: str | None = None):
+def run_step_async(
+    *,
+    session_path: str | None = None,
+    surface_id: str | None = None,
+    max_turns: int | None = None,
+):
     if session_path is not None and surface_id is not None:
         raise SystemExit("step --async accepts only one of session_path or surface_id")
     if surface_id is not None:
         session_path = _session_path_for_surface_id(surface_id)
-    _run_step_async_command(_make_async_deps(), session_path=session_path)
+    if max_turns is not None:
+        _run_step_async_command(_make_async_deps(), session_path=session_path, max_turns=max_turns)
+    else:
+        _run_step_async_command(_make_async_deps(), session_path=session_path)
 
 
 def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):

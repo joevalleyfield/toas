@@ -56,6 +56,29 @@ def test_parse_step_async_options_missing_values():
         parse_step_async_options(["step", "--async", "-h"])
 
 
+def test_parse_step_async_options_max_turns():
+    from toas.cli_dispatch_ops import parse_step_async_options
+
+    assert parse_step_async_options(["step", "--async", "4"]) == (None, None, 4)
+    assert parse_step_async_options(["step", "--async", "-n", "3"]) == (None, None, 3)
+    assert parse_step_async_options(["step", "--async", "--count", "5"]) == (None, None, 5)
+    assert parse_step_async_options(["step", "--async", "--max-turns", "6"]) == (None, None, 6)
+    assert parse_step_async_options(["step", "4", "--async"]) == (None, None, 4)
+    assert parse_step_async_options(["step", "--async", "--session", "test.md", "2"]) == ("test.md", None, 2)
+    assert parse_step_async_options(["step", "--async", "--surface", "sf1", "7"]) == (None, "sf1", 7)
+
+    with pytest.raises(SystemExit, match="step count must be a positive integer"):
+        parse_step_async_options(["step", "--async", "0"])
+    with pytest.raises(SystemExit, match="step count must be a positive integer"):
+        parse_step_async_options(["step", "--async", "foo"])
+    with pytest.raises(SystemExit, match="step count must be a positive integer"):
+        parse_step_async_options(["step", "--async", "-n", "0"])
+    with pytest.raises(SystemExit, match="step"):
+        parse_step_async_options(["step", "--async", "-n"])
+    with pytest.raises(SystemExit, match="step"):
+        parse_step_async_options(["step", "--async", "2", "3"])
+
+
 def test_parse_surface_options_errors():
     from toas.cli_dispatch_ops import parse_surface_options
 

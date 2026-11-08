@@ -78,6 +78,18 @@ def test_run_step_async_includes_session_path_override_in_payload():
     assert seen_payload["session_path"] == ".toas/session-docs-keeper.md"
 
 
+def test_run_step_async_includes_max_turns_in_payload():
+    seen_payload = {}
+
+    def _rpc(_op, payload=None):
+        seen_payload.update(payload or {})
+        return {"run_id": "r1", "status": "running"}
+
+    deps = _deps(rpc=_rpc, out=[])
+    run_step_async(deps, max_turns=4)
+    assert seen_payload["max_turns"] == 4
+
+
 def test_run_step_async_includes_host_diagnostic_when_active_host_present():
     out = []
     host = SessionHostRecord(

@@ -31,15 +31,22 @@ class AsyncCommandDeps:
     owner_id: str
 
 
-def run_step_async(deps: AsyncCommandDeps, *, session_path: str | None = None) -> None:
+def run_step_async(
+    deps: AsyncCommandDeps,
+    *,
+    session_path: str | None = None,
+    max_turns: int | None = None,
+) -> None:
     operator_config = deps.load_operator_config_for_cwd()
     if operator_config.runtime.async_runs == "disabled":
         raise SystemExit("step --async disabled by runtime.async_runs policy")
     backend_mode = _async_backend_mode(operator_config)
     cwd = deps.cwd_resolver()
-    payload = {"workdir": str(cwd)}
+    payload: dict[str, object] = {"workdir": str(cwd)}
     if isinstance(session_path, str) and session_path.strip():
         payload["session_path"] = session_path.strip()
+    if isinstance(max_turns, int) and max_turns > 0:
+        payload["max_turns"] = max_turns
     host_record = _resolve_or_ensure_session_host_record(deps, cwd, backend_mode=backend_mode)
     if host_record is not None:
         payload["session_host_id"] = host_record.host_id

@@ -360,14 +360,8 @@ def run_step(
             has_executable = has_callable
             quiescent = not has_callable
         elif last_node.get("role") == "result":
-            origin_role = last_node.get("origin_role")
-            origin_kind = last_node.get("origin_kind")
-            if origin_role == "assistant" or origin_kind == "tool_call":
-                quiescent = False
-                has_executable = False
-            else:
-                quiescent = True
-                has_executable = False
+            quiescent = False
+            has_executable = False
 
     prefix = ""
     if normalized_transcript and not normalized_transcript.endswith(("\n", "\r")):
