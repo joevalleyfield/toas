@@ -38,6 +38,8 @@ def test_bundled_skills_catalog_presence():
     jj_skill = catalog.skills["jj-scratch-workspace"]
     assert jj_skill.scope == "bundled"
     assert "scratch" in jj_skill.aliases
+    assert len(jj_skill.scripts) >= 1
+    assert any("jj_scratch.py" in str(s) for s in jj_skill.scripts)
 
     cr = catalog.skills["code-review"]
     assert cr.scope == "bundled"

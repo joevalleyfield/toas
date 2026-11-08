@@ -3,42 +3,83 @@ name: jj-scratch-workspace
 description: Isolated working-copy lifecycle in scratch space for Jujutsu (jj) repos.
 alias: scratch
 ---
-# Jujutsu Scratch Workspace Lifecycle
 
-Use this skill when you need an isolated working-copy in scratch space to run tests, spikes, or experimental refactors without dirtying or advancing the primary working copy (`@`).
+# Jujutsu Scratch Workspace Management
 
-## Lifecycle Steps
+This skill enables agents and operators to spin up temporary, isolated Jujutsu
+workspaces inside Antigravity and TOAS scratch spaces.
 
-### 1. Create Isolated Scratch Workspace
+Because Jujutsu stores all commits, operations, and revsets in a centralized
+`.jj/repo`, a secondary workspace gives you an independent working copy (`<name>@`)
+while preserving full access to the repo's history—without touching the user's
+in-progress work in `default@`.
 
-```bash
-jj workspace add --name <scratch-name> <scratch-path>
+---
+
+## 1. When to Use This Skill
+
+* Whenever working on disruptive refactors, tests, spikes, or isolated tasks.
+* Running test suites or builds while uncommitted changes exist in `@`.
+* Delegating tasks to subagents that need their own isolated working copy.
+
+---
+
+## 2. Workspace Lifecycle
+
+### A. Location
+
+Scratch workspaces live inside the conversation or session scratch directory:
 ```
-Example:
+~/.gemini/antigravity/brain/<conversation-id>/scratch/workspaces/<workspace-name>
+```
+or `/tmp/jj-scratch/<repo>/<workspace-name>`.
+
+### B. Creation (Using Companion Script)
+
+Use the companion script `jj_scratch.py`:
+
 ```bash
-jj workspace add --name spike-workspace /tmp/jj-spike
+python3 <path-to-scripts>/jj_scratch.py create <workspace-name> [-r <parent-revision>]
 ```
 
-### 2. Operate Within Scratch Workspace
+* **Parent revision (`-r`)**: Defaults to `@-` (the parent of the current working copy). This ensures the new workspace branches from clean, committed state rather than inadvertently inheriting dirty edits from `@`.
 
-Always run commands and edits within the isolated workspace path:
+### C. Manual Creation (Direct CLI)
+
+If running `jj` directly:
+
 ```bash
-cd <scratch-path>
-jj status
-# Perform edits, run tests, verify assumptions
+jj workspace add "<scratch-path>" --name <name> -r @-
 ```
 
-### 3. Verify & Compare
+---
 
-Inspect the diff or status against the parent commit:
+## 3. Working in the Scratch Workspace
+
+1. **Change Directory (`cd`)**:
+   ```bash
+   cd /path/to/scratch/workspace
+   uv run pytest
+   jj describe -m "test: spike implementation"
+   ```
+
+2. **Repository Path Flag (`jj -R`)**:
+   ```bash
+   jj -R /path/to/scratch/workspace status
+   jj -R /path/to/scratch/workspace log -r @
+   ```
+
+---
+
+## 4. Teardown & Cleanup
+
+Always forget the workspace before concluding:
+
 ```bash
-jj diff -r @
+python3 <path-to-scripts>/jj_scratch.py forget <workspace-name> --delete
 ```
-
-### 4. Tear Down Workspace
-
-When finished, tear down the scratch workspace:
+Or manually:
 ```bash
-jj workspace forget <scratch-name>
-rm -rf <scratch-path>
+jj workspace forget <workspace-name>
+rm -rf "/path/to/scratch/workspace"
 ```

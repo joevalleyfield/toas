@@ -3,35 +3,66 @@ name: code-review
 description: Local diff review and verification guidelines.
 alias: review
 ---
-# Local Code Review Guidelines
 
-Use this skill to perform a structured, end-to-end review of local diffs before committing or closing tasks.
+# Code Review and Verification Guidelines
 
-## Review Protocol
+Use this skill to review local working copy diffs, enforce verification discipline,
+critique operator-facing artifacts, and ensure task continuity before committing.
 
-### 1. Inspect Exact Changes
+## Review Workflow
 
-Examine the working copy diff against the base commit:
+### 1. Inspect Working Copy & Diffs
+
+Always inspect the concrete changes in the working copy:
+
 ```bash
-jj diff --git -r @
-```
-or with git:
-```bash
+# In Jujutsu repositories
+jj status
+jj diff --git
+
+# In Git repositories
+git status
 git diff
 ```
 
-### 2. Verification Checklist
+Check:
+- Are there unexpected untracked files or unintentional deletions?
+- Are code comments, docstrings, and existing license/type annotations preserved?
+- Are imports organized and module boundaries respected according to `docs/runtime-ownership.md`?
 
-1. **Invariants & Contracts**:
-   - Are public API contracts preserved?
-   - Are edge cases handled gracefully without hidden assumptions?
-   - Are docstrings and comments accurate and updated?
-2. **Mechanical Prerequisites**:
-   - Run the project test suite (`uv run pytest` or `./scripts/check.sh`).
-   - Check coverage reports (e.g. 100% statement coverage where required).
-   - Run linters and type checkers (`ruff check`, `mypy`).
-3. **Operator Perspective**:
-   - Adopt the operator's shoes: does CLI output, transcript rendering, or error messaging fulfill instructions cleanly?
-   - Is output self-describing and free from hallucination traps?
-4. **Task Bookkeeping**:
-   - Ensure the associated task file in `tasks/` is updated with outcome, evidence, and completed acceptance criteria.
+### 2. Mechanical Verification
+
+Execute the mechanical test and coverage gates:
+
+```bash
+# Fast targeted coverage check on changed modules:
+uv run python scripts/targeted_coverage.py --cov <module_name> -- tests/<test_file> -q
+
+# Full test suite and lint verification:
+./scripts/check.sh
+```
+
+Ensure:
+- 100.00% statement coverage gate is achieved.
+- Ruff and Mypy pass with zero warnings or errors.
+
+### 3. Mandatory End-to-End Artifact Inspection
+
+Do not rely solely on unit tests, synthetic fixtures, or mocks:
+- Run concrete user-facing commands directly (e.g., `toas prompt ...`, `toas skills`, `toas step`, transcript projection).
+- Inspect the actual stdout/markdown rendered output.
+
+### 4. Adopt the Operator's Perspective
+
+Step into the operator's shoes and critically evaluate the concrete generated artifacts:
+- Does this output fulfill the promises made in its instructions, schemas, and docs?
+- Is it completely self-describing, or does it leave hidden assumptions or hallucination traps for models and human operators?
+- Are contracts and schemas explicit, cohesive, and ergonomically sound?
+
+### 5. Task Continuity & Commit Discipline
+
+- Ensure any repository-modifying work is stitched to an active task file in `tasks/open/`.
+- Verify Acceptance Criteria in the task file are met and checked off.
+- Format commit descriptions following conventional style:
+  `type(scope): summary`
+  (e.g., `feat(skills): add standard agent skills discovery and activation`).
