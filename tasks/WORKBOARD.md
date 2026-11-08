@@ -149,7 +149,6 @@ Neither dated vote is a literal current queue.
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
-- **[T261106-operator-presentation-asset-decoupling]** Operator Presentation Asset Decoupling and Config Presentation Edge
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

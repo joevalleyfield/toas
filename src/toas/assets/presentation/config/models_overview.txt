@@ -1,0 +1,27 @@
+model configuration
+
+active:
+  target: {active_target}
+  endpoint: {active_endpoint}
+  requested model: {active_model}
+  transport: {active_transport}
+
+global fallback:
+  llm.base_url: {fallback_base_url}
+  llm.model: {fallback_model}
+  llm.provider: {fallback_provider}
+  credentials: {fallback_credentials}
+  generation: thinking={fallback_thinking}, max_tokens={fallback_max_tokens}
+
+endpoints:
+{endpoints_block}
+
+targets:
+{targets_block}
+
+next:
+  /models live [ENDPOINT]       query live endpoint availability
+  /models known [ENDPOINT]      inspect durable catalog
+  /models refresh [ENDPOINT]    update durable catalog
+  /config show models --flat    inspect exhaustive model keys
+  /config show models --sources inspect model keys with winning sources

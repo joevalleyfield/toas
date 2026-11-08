@@ -3,7 +3,7 @@ FKA: 261106-microkernel-skill-runtime-boundary
 AKA: operator presentation decoupling; file-backed presentation assets; config presentation edge; runtime presentation extraction
 Legacy index:
 
-keywords: runtime, architecture, presentation, assets, config, active
+keywords: runtime, architecture, presentation, assets, config, closed
 
 Parent: `261106-standard-agent-skills-integration`
 Related: `261106-skill-specialization-and-script-distillation`; `260829-authority-capability-policy-matrix`
@@ -68,15 +68,28 @@ modules shrink to concise state-extraction logic.
 
 ## Acceptance Criteria
 
-1. **Declarative Presentation Assets**: Config overview and summary templates
+1. [x] **Declarative Presentation Assets**: Config overview and summary templates
    live in `src/toas/assets/presentation/config/` and are loaded via
    `load_packaged_asset`.
-2. **Cohesive Presentation Edge**: `config_presentation_edges.py` maps structured
+2. [x] **Cohesive Presentation Edge**: `config_presentation_edges.py` maps structured
    configuration state to template format strings without embedding raw ASCII
    layouts in Python code.
-3. **Runtime Bloat Reduced**: Multiline formatting literals in
-   `operator_command_config_help.py` are eliminated.
-4. **Zero Output Regressions**: All existing `/config` outputs match prior
+3. [x] **Runtime Bloat Reduced**: Multiline formatting literals in
+   `operator_command_config_help.py` are eliminated (~270 lines of hardcoded presentation strings removed).
+4. [x] **Zero Output Regressions**: All existing `/config` outputs match prior
    behavior byte-for-byte.
-5. **Full Test Suite & Coverage**: 100.00% statement coverage under
-   `./scripts/check.sh` across all modified and new files.
+5. [x] **Full Test Suite & Coverage**: 100.00% statement coverage under
+   `./scripts/check.sh` across all modified and new files (4,029 tests passing).
+
+## Outcome & Evidence
+
+- Created `src/toas/assets/presentation/config/` containing:
+  - `overview.txt`
+  - `models_overview.txt`
+  - `execution_overview.txt`
+  - `target_overview.txt`
+- Authored `src/toas/runtime/config_presentation_edges.py` with `@functools.lru_cache` template loading and structured rendering functions (`render_config_overview`, `render_config_models_overview`, `render_config_execution_overview`, `render_config_target_overview`, `render_target_list_lines`).
+- Evicted ~270 lines of ASCII layouts, format strings, and multiline prose from `src/toas/runtime/operator_command_config_help.py`.
+- Authored unit test suite in `tests/test_runtime_config_presentation_edges.py` achieving 100.00% statement coverage.
+- Verified `./scripts/check.sh`: all 4,029 unit and acceptance tests passed, 0 lint errors, 100.00% statement coverage across the entire codebase.
+- Verified concrete operator outputs end-to-end with zero behavioral or visual regressions.

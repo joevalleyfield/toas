@@ -13,7 +13,6 @@ from ..assets.help_catalog import (
     resolve_config_help_topic,
 )
 from ..config import OperatorConfig
-from ..graph import active_target_selection
 from .operator_command_context import OperatorCommandContext
 from .operator_config_endpoint_ops import config_endpoint_result
 from .result_nodes import make_result_node
@@ -179,283 +178,33 @@ def _effective_config_values(
     return values
 
 
+from .config_presentation_edges import (
+    render_config_execution_overview,
+    render_config_models_overview,
+    render_config_overview,
+    render_config_target_overview,
+    render_target_list_lines,
+)
+
+
 def _config_overview(*, step_mod, context: OperatorCommandContext) -> str:
     """Render the operator-facing effective configuration summary."""
-    from .model_targets import (
-        resolve_model_target,
-        resolve_target_generation,
-        resolve_target_invocation,
-    )
-    from .policy_edges import settings_for_runtime
-
-    settings, _sources = settings_for_runtime(context.config, runtime_secrets={})
-    head_id = next((m.get("id") for m in reversed(context.working) if m.get("id")), None) if context.working else None
-    active_id = context.config.llm.target or active_target_selection(context.events, head_id=head_id)
-    active_target = resolve_model_target(context.config, active_id) if active_id else None
-    invocation = (
-        resolve_target_invocation(
-            context.config,
-            active_target,
-            settings,
-            secret_resolver=lambda **_kwargs: "",
-        )
-        if active_target is not None
-        else None
-    )
-    effective_settings = invocation.settings if invocation is not None else settings
-    generation = (
-        resolve_target_generation(context.config, active_target)
-        if active_target is not None
-        else context.config.generation
-    )
-    known_models = {
-        model_id
-        for endpoint in context.config.llm.endpoints
-        for model_id in endpoint.models
-        if model_id
-    }
-    avoid_terms = len(generation.avoid_terms)
-    lines = [
-        "effective configuration",
-        "",
-        "models:",
-        f"  active target: {active_id or '(none)'}",
-        f"  active endpoint: {effective_settings.llm_base_url or '(unset)' }",
-        f"  active model: {effective_settings.llm_model or '(unresolved)' }",
-        f"  transport: {effective_settings.llm_transport_mode or '(default)' }",
-        f"  inventory: {len(context.config.llm.endpoints)} endpoints · "
-        f"{len(context.config.llm.targets)} targets · {len(known_models)} endpoint models",
-        "",
-        "generation:",
-        f"  backend mode: {context.config.backend.mode}",
-        f"  thinking: {generation.thinking_mode}",
-        f"  thinking budget: {generation.thinking_budget_tokens or '(unset)' }",
-        f"  max tokens: {generation.max_tokens or '(auto/unset)' }",
-        f"  retries: {generation.max_retries}",
-        f"  retry delay: {generation.retry_delay_s}s",
-        f"  avoid terms: {avoid_terms} configured",
-        "",
-        "extraction:",
-        f"  arbitration: {context.config.extraction.intent_arbitration}",
-        f"  shell staging: {context.config.extraction.shell_staging}",
-        f"  projection: {context.config.extraction.projection_shape}",
-        "",
-        "runtime:",
-        f"  streaming: {context.config.runtime.streaming_mode}",
-        f"  thinking stream: {context.config.runtime.thinking_stream_mode}",
-        f"  prompt progress: {context.config.runtime.prompt_progress_mode}",
-        f"  async runs: {context.config.runtime.async_runs}",
-        "",
-        "execution:",
-        f"  shell timeout: {context.config.shell.assistant_timeout_s}s",
-        f"  tool-write newlines: {context.config.tool_writes.newline_style}",
-        "",
-        "next:",
-        "  /config show --flat",
-        "  /config show --sources",
-        "  /config show models|generation|extraction|runtime|execution",
-        "  /config endpoint list",
-        "  /config target list",
-    ]
-    migration_notice = (context.config_sources or {}).get("__migration__")
-    if migration_notice:
-        lines.extend(
-            [
-                "",
-                "migration notice:",
-                f"  {migration_notice}",
-                "  loaded values were normalized into llm.endpoints.",
-                "  /config save writes canonical endpoint configuration.",
-            ]
-        )
-    diagnostic_notice = (context.config_sources or {}).get("__diagnostics__")
-    if diagnostic_notice:
-        lines.extend(
-            [
-                "",
-                "warning: configuration file parse error:",
-                f"  {diagnostic_notice}",
-                "  file was ignored; using lower precedence or defaults.",
-            ]
-        )
-    return "\n".join(lines)
+    return render_config_overview(step_mod=step_mod, context=context)
 
 
 def _config_models_overview(*, step_mod, context: OperatorCommandContext) -> str:
     """Render model configuration as an operator-readable topology."""
-    from .policy_edges import settings_for_runtime
-
-    settings, _sources = settings_for_runtime(context.config, runtime_secrets={})
-    head_id = next((m.get("id") for m in reversed(context.working) if m.get("id")), None) if context.working else None
-    active_id = context.config.llm.target or active_target_selection(context.events, head_id=head_id)
-    active_target = None
-    if active_id:
-        from .model_targets import (
-            resolve_model_target,
-            resolve_target_generation,
-            resolve_target_invocation,
-        )
-
-        active_target = resolve_model_target(context.config, active_id)
-        if active_target is not None:
-            invocation = resolve_target_invocation(
-                context.config,
-                active_target,
-                settings,
-                secret_resolver=lambda **_kwargs: "",
-            )
-            if invocation is not None:
-                settings = invocation.settings
-            generation = resolve_target_generation(context.config, active_target)
-        else:
-            generation = context.config.generation
-    else:
-        generation = context.config.generation
-
-    def display(value: object, *, unset: str = "(unset)") -> str:
-        if value is None or value == "" or value == () or value == []:
-            return unset
-        return str(value)
-
-    lines = [
-        "model configuration",
-        "",
-        "active:",
-        f"  target: {active_id or '(none; using global fallback)'}",
-        f"  endpoint: {display(settings.llm_base_url)}",
-        f"  requested model: {display(settings.llm_model, unset='(unresolved)')}",
-        f"  transport: {display(settings.llm_transport_mode, unset='(default)')}",
-        "",
-        "global fallback:",
-        f"  llm.base_url: {display(context.config.llm.base_url)}",
-        f"  llm.model: {display(context.config.llm.model)}",
-        f"  llm.provider: {display(context.config.llm.provider)}",
-        f"  credentials: {context.config.llm.api_key_source} (ref {context.config.llm.api_key_ref})",
-        f"  generation: thinking={generation.thinking_mode}, max_tokens={display(generation.max_tokens, unset='(auto)')}",
-        "",
-        "endpoints:",
-    ]
-    if context.config.llm.endpoints:
-        for endpoint in context.config.llm.endpoints:
-            models = ", ".join(endpoint.models) or "(none)"
-            refreshed = endpoint.models_last_refreshed_at or "(never)"
-            lines.extend(
-                [
-                    f"  {endpoint.id}:",
-                    f"    base URL: {display(endpoint.base_url)}",
-                    f"    default model: {display(endpoint.default_model)}",
-                    f"    known models: {models}",
-                    f"    last refresh: {refreshed}",
-                    f"    credentials: {endpoint.api_key_source} (ref {endpoint.api_key_ref})",
-                ]
-            )
-    else:
-        lines.append("  (none)")
-
-    lines.extend(["", "targets:"])
-    if context.config.llm.targets:
-        for target in context.config.llm.targets:
-            endpoint_id = target.endpoint or "(default)"
-            model_id = target.model or "(inferred)"
-            lines.append(f"  {target.id}: endpoint={endpoint_id}, model={model_id}")
-    else:
-        lines.append("  (none)")
-
-    lines.extend(
-        [
-            "",
-            "next:",
-            "  /models live [ENDPOINT]       query live endpoint availability",
-            "  /models known [ENDPOINT]      inspect durable catalog",
-            "  /models refresh [ENDPOINT]    update durable catalog",
-            "  /config show models --flat    inspect exhaustive model keys",
-            "  /config show models --sources inspect model keys with winning sources",
-        ]
-    )
-    return "\n".join(lines)
+    return render_config_models_overview(step_mod=step_mod, context=context)
 
 
 def _config_execution_overview(*, step_mod, context: OperatorCommandContext) -> str:
     """Render execution configuration as an operator-readable composed view."""
-    shell = context.config.shell
-    if hasattr(step_mod, "resolve_effective_shell_allowed") and context.events is not None:
-        allowed = step_mod.resolve_effective_shell_allowed(context.working, context.config, context.events)
-    else:
-        allowed = shell.allowed_commands
-    allowed_summary = f"{len(allowed)} commands ({', '.join(allowed[:5])}...)" if len(allowed) > 8 else (", ".join(allowed) or "(none)")
-    tool_writes = context.config.tool_writes
-
-    lines = [
-        "execution configuration",
-        "",
-        "shell:",
-        f"  shell.assistant_timeout_s: {shell.assistant_timeout_s}s",
-        f"  shell.allowed_commands: {allowed_summary}",
-        "",
-        "tool writes:",
-        f"  tool_writes.newline_style: {tool_writes.newline_style}",
-        "",
-        "next:",
-        "  /config show execution --flat    inspect exhaustive execution keys",
-        "  /config show execution --sources inspect execution keys with winning sources",
-        "  /help config execution           execution concepts and boundaries",
-    ]
-    return "\n".join(lines)
+    return render_config_execution_overview(step_mod=step_mod, context=context)
 
 
 def _config_target_overview(target_id: str, *, step_mod, context: OperatorCommandContext) -> str:
-    from ..config import EndpointRateLimitPolicy
-    from .model_targets import (
-        resolve_model_target,
-        resolve_target_generation,
-        resolve_target_invocation,
-    )
-    from .policy_edges import settings_for_runtime
-
-    target = resolve_model_target(context.config, target_id)
-    if target is None:
-        choices = ", ".join(item.id for item in context.config.llm.targets) or "(none)"
-        raise ValueError(f"unknown model target: {target_id}\navailable targets: {choices}")
-
-    base_settings, _ = settings_for_runtime(context.config, runtime_secrets={})
-    resolved_inv = resolve_target_invocation(context.config, target, base_settings, secret_resolver=lambda **_kw: "")
-    generation = resolve_target_generation(context.config, target)
-    endpoint = next((e for e in context.config.llm.endpoints if e.id == target.endpoint.strip()), None) if target.endpoint else None
-
-    endpoint_desc = target.endpoint or "(default)"
-    if endpoint is not None and endpoint.base_url:
-        endpoint_desc = f"{endpoint_desc} ({endpoint.base_url})"
-    model_desc = target.model or (resolved_inv.settings.llm_model if resolved_inv else "(unresolved)")
-
-    rate_limit = endpoint.rate_limit if endpoint is not None else EndpointRateLimitPolicy()
-    rpm_str = str(rate_limit.requests_per_minute) if rate_limit.requests_per_minute is not None else "(none)"
-    avoid_terms_str = ", ".join(generation.avoid_terms) if generation.avoid_terms else "(none)"
-
-    lines = [
-        f"target: {target.id}",
-        "",
-        "resolution:",
-        f"  endpoint: {endpoint_desc}",
-        f"  model: {model_desc}",
-        "",
-        "generation:",
-        f"  thinking: {generation.thinking_mode}",
-        f"  thinking budget: {generation.thinking_budget_tokens or '(unset)'}",
-        f"  max tokens: {generation.max_tokens or '(auto/unset)'}",
-        f"  transport: {generation.transport_mode}",
-        f"  retries: {generation.max_retries}",
-        f"  retry delay: {generation.retry_delay_s}s",
-        f"  avoid terms: {avoid_terms_str}",
-        "",
-        "rate limit:",
-        f"  min interval: {rate_limit.min_interval_s}s",
-        f"  requests per minute: {rpm_str}",
-    ]
-    if target.tags:
-        lines.extend(["", f"tags: {', '.join(target.tags)}"])
-    if target.notes:
-        lines.extend(["", f"notes: {target.notes}"])
-    return "\n".join(lines)
+    """Render details for a specific configured model target."""
+    return render_config_target_overview(target_id, step_mod=step_mod, context=context)
 
 
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -1029,13 +778,7 @@ def _config_target_bulk_add_result(args: list[str], *, step_mod, context: Operat
 
 
 def _render_target_list(context: OperatorCommandContext, *, step_mod) -> list[dict]:
-    if not context.config.llm.targets:
-        return [_result_node("no configured model targets", step_mod=step_mod, context=context)]
-    lines = ["configured model targets:"]
-    for target in context.config.llm.targets:
-        endpoint = target.endpoint or "(default)"
-        model = target.model or "(inferred)"
-        lines.append(f"- {target.id}: endpoint={endpoint}, model={model}")
+    lines = render_target_list_lines(context.config.llm.targets)
     return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
