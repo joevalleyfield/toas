@@ -129,3 +129,14 @@ def run_skills(
 ) -> None:
     for line in operator_skills_list_lines(filter_text=filter_text).lines:
         print_fn(line)
+
+
+def run_skill_specialize(
+    *,
+    operator_skill_specialize: Callable,
+    name: str,
+    print_fn: Callable = print,
+) -> None:
+    out = operator_skill_specialize(name=name)
+    print_fn(out.text)
+

@@ -484,6 +484,12 @@ def run_skill(name: str):
     cli_commands.run_skill(name)
 
 
+def run_skill_specialize(name: str):
+    if _rpc_stdout("skill_specialize", {"name": name}):
+        return
+    cli_commands.run_skill_specialize(name)
+
+
 def run_skills(filter_text: str | None = None):
     if _rpc_stdout("skills", drop_runtime_none_fields({"filter": filter_text})):
         return
@@ -618,6 +624,7 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_prompt=run_prompt,
         run_prompts=run_prompts,
         run_skill=run_skill,
+        run_skill_specialize=run_skill_specialize,
         run_skills=run_skills,
         run_history=run_history,
         run_session_path=run_session_path,

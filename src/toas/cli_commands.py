@@ -25,6 +25,9 @@ from .cli_surface_commands import (
     run_skill as run_surface_skill,
 )
 from .cli_surface_commands import (
+    run_skill_specialize as run_surface_skill_specialize,
+)
+from .cli_surface_commands import (
     run_skills as run_surface_skills,
 )
 from .cli_surface_commands import (
@@ -61,6 +64,9 @@ from .operator_api import (
 )
 from .operator_api import (
     session_path_text as operator_session_path_text,
+)
+from .operator_api import (
+    skill_specialize as operator_skill_specialize,
 )
 from .operator_api import (
     skill_text as operator_skill_text,
@@ -249,6 +255,13 @@ def run_prompts(prefix: str | None = None) -> None:
 def run_skill(name: str) -> None:
     run_surface_skill(
         operator_skill_text=operator_skill_text,
+        name=name,
+    )
+
+
+def run_skill_specialize(name: str) -> None:
+    run_surface_skill_specialize(
+        operator_skill_specialize=operator_skill_specialize,
         name=name,
     )
 

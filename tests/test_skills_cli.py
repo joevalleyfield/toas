@@ -167,6 +167,11 @@ def test_cli_module_run_skill_and_skills(monkeypatch, capsys):
     captured_skills = capsys.readouterr().out
     assert "jj-scratch-workspace" in captured_skills
 
+    monkeypatch.setattr(cli.cli_commands, "run_skill_specialize", lambda name: print(f"Mock specialized {name}"))
+    cli.run_skill_specialize("record-task")
+    captured_spec = capsys.readouterr().out
+    assert "Mock specialized record-task" in captured_spec
+
 
 def test_cli_module_run_skill_and_skills_rpc(monkeypatch):
     import toas.cli as cli
@@ -178,8 +183,23 @@ def test_cli_module_run_skill_and_skills_rpc(monkeypatch):
     assert called == [('skill', {'name': 'record-task'})]
 
     called.clear()
+    cli.run_skill_specialize('record-task')
+    assert called == [('skill_specialize', {'name': 'record-task'})]
+
+    called.clear()
     cli.run_skills('filter')
     assert called == [('skills', {'filter': 'filter'})]
+
+
+def test_cli_commands_run_skill_specialize(monkeypatch, capsys):
+    import toas.cli_commands as cc
+
+    mock_specialize = MagicMock(return_value=MagicMock(text="Specialized successfully"))
+    monkeypatch.setattr(cc, "operator_skill_specialize", mock_specialize)
+
+    cc.run_skill_specialize("record-task")
+    out = capsys.readouterr().out
+    assert "Specialized successfully" in out
 
 
 def test_operator_skills_list_lines_shadowed_and_collisions():

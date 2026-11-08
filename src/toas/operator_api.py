@@ -610,6 +610,38 @@ class SkillsListOutcome:
     lines: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class SkillSpecializeOutcome:
+    skill_name: str
+    target_dir: str
+    script_path: str
+    skill_md_path: str
+    verified: bool
+    text: str
+
+
+def skill_specialize(*, name: str, workspace_root: Path | None = None) -> SkillSpecializeOutcome:
+    from .skills import specialize_skill
+
+    ws = workspace_root or Path.cwd().resolve()
+    res = specialize_skill(name, workspace_root=ws)
+    text = (
+        f"Specialized skill: {res.skill_name}\n"
+        f"Target directory: {res.target_dir}\n"
+        f"SKILL.md: {res.skill_md_path}\n"
+        f"Companion script: {res.script_path}\n"
+        f"Verification status: {'PASSED' if res.verified else 'FAILED'}"
+    )
+    return SkillSpecializeOutcome(
+        skill_name=res.skill_name,
+        target_dir=str(res.target_dir),
+        script_path=str(res.script_path),
+        skill_md_path=str(res.skill_md_path),
+        verified=res.verified,
+        text=text,
+    )
+
+
 def skill_text(*, name: str, workspace_root: Path | None = None) -> SkillOutcome:
     from .skills import discover_skills
 

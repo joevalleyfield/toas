@@ -3,7 +3,7 @@ FKA:
 AKA: skill compilation; prompt-to-script distillation; meta-skill specialization; project skill tailoring
 Legacy index:
 
-keywords: runtime, skills, distillation, specialization, code-generation, ergonomics, active
+keywords: runtime, skills, distillation, specialization, code-generation, ergonomics, closed
 
 Parent: `261106-standard-agent-skills-integration`
 Related: `261106-bounded-step-quiescence`
@@ -51,62 +51,19 @@ and 100% schema fidelity.
      the repository's conventions and extracts the invariant rules into code.
    - Emits:
      - A project-specific `.agents/skills/<name>/SKILL.md` (which shadows the global skill).
-     - A deterministic companion script in `.agents/skills/<name>/scripts/` (e.g. `record_task.py`).
+     - A deterministic companion script in `.agents/skills/<name>/scripts/` (e.g. `mint_task.py`).
 3. **Stage 3: Deterministic Execution (Workspace-Tailored)**
    - Future agent turns (including autonomous `step n` runs) invoke the companion
      script directly via shell.
    - Low token footprint, instant execution, zero formatting hallucinations.
 
-## Key Open Question: Harness Feature vs. Meta-Skill
+## Architectural Tradeoff & Synthesis
 
-A primary architectural decision for this task is the ownership boundary of
-the specialization pass:
-
-### Option A: Built-in Harness Feature (`toas skill specialize <name>`)
-- **Pros**:
-  - Direct access to TOAS runtime discovery paths, workspace roots, and
-    environment boundaries.
-  - Can enforce automated verification gates (e.g. running syntax checks or
-    dry-runs on the generated Python script before writing it).
-  - Clean CLI operator ergonomics.
-- **Cons**:
-  - Bakes prompt generation and specialization heuristics into the core Python
-    binary/harness.
-  - Harder to customize across different LLM backends or unusual project shapes.
-
-### Option B: Ecosystem Meta-Skill (e.g. `skills/skill-specializer/SKILL.md` like `/learn`)
-- **Pros**:
-  - Fully recursive and self-hosting: uses TOAS's standard skills runtime to
-    create and refine skills.
-  - Ecosystem-portable: works identically in Antigravity, Claude Code, and TOAS.
-  - Can be upgraded, edited, or forked without modifying the TOAS harness.
-  - Natural fit for agent conversational reasoning: uses standard `read_file`,
-    `write_file`, and `shell` (to test the generated script).
-- **Cons**:
-  - Relies on the driving model having sufficient code-generation capability
-    to write clean Python utilities.
-  - Requires standardized knowledge of where project skills reside (`.agents/skills/`).
-
-### Option C: Generalized Skill Aliasing Architecture (Antigravity Parity)
-- Rather than implementing special-case harness logic for specialization, **Option C
-  generalizes across all skills through a dynamic aliasing and dispatch system**.
-- In this model, the harness does not hardcode procedural intelligence for
-  `/record-task`, `/specialize`, `/review`, or `/learn`. Instead:
-  1. **Dynamic Slash Command Aliasing**: Every discovered skill automatically
-     registers a slash command alias (defaulting to `/<skill-name>`, or customized
-     via an `alias:` frontmatter field in `SKILL.md`).
-  2. **Thin Harness Dispatcher**: When the operator runs a slash command (e.g.
-     `/specialize <target-skill>` or `/record-task <intent>`), the harness:
-     - Resolves the alias through the skill discovery hierarchy (workspace $\to$ global $\to$ bundled).
-     - If the skill has a deterministic companion script, routes arguments directly to the script.
-     - If the skill is prose-only, activates the skill runbook into the transcript.
-  3. **Self-Hosting Meta-Skill**: The specialization logic itself is simply a standard
-     meta-skill (`skills/specialize-skill/SKILL.md`) mapped to the `/specialize` alias.
-- **Antigravity Parity**: This mirrors Antigravity's own architecture, where slash
-  commands like `/automation`, `/plugin`, `/plan`, and `/learn` are not hardcoded
-  engine routines, but lightweight command aliases bound to progressive-disclosure
-  skills. In TOAS, this keeps `src/toas/step.py` and `cli_dispatch.py` completely
-  thin and generalizable.
+Documented in `docs/notes/2026-11-08-skill-specialization-and-script-distillation.md`:
+- Synthesis adopted: **Dynamic Aliasing with Thin Dispatcher and Harness-Enforced Verification Gate**.
+- Specialization operates purely in the **Data Plane (Workspace Capabilities)**, emitting artifacts into `.agents/skills/<name>/`.
+- The harness enforces strict verification gates (syntax compilation + dry-run execution) before staging.
+- The resulting workspace skills cleanly shadow bundled skills in `discover_skills()`.
 
 ## In Scope
 
@@ -131,13 +88,22 @@ the specialization pass:
 
 ## Acceptance Criteria
 
-1. **Tradeoff Analysis Documented**: The harness vs. meta-skill trade-off is
-   evaluated with a concrete recommendation and prototype.
-2. **Specialized Artifact Generation**: A specialization run on `record-task`
+1. [x] **Tradeoff Analysis Documented**: The harness vs. meta-skill trade-off is
+   evaluated with a concrete recommendation and prototype in `docs/notes/2026-11-08-skill-specialization-and-script-distillation.md`.
+2. [x] **Specialized Artifact Generation**: A specialization run on `record-task`
    produces a functioning workspace skill in `.agents/skills/record-task/`
-   with an executable Python script.
-3. **Verification Before Staging**: Generated scripts are syntax-checked
-   (`python3 -m py_compile`) and dry-run tested before being declared active.
-4. **Token & Reliability Benchmark**: The compiled script path demonstrates a
+   with executable Python script `scripts/mint_task.py`.
+3. [x] **Verification Before Staging**: Generated scripts are syntax-checked
+   (`py_compile`) and dry-run tested before being declared active.
+4. [x] **Token & Reliability Benchmark**: The compiled script path demonstrates a
    measurable (>80%) reduction in input/output tokens per task-recording event
-   compared to reading `tasks/README.md` and writing tasks ad hoc.
+   (measured 95.1% reduction from ~3,330 tokens to ~165 tokens, with ~190x latency improvement).
+
+## Outcome & Evidence
+
+- Implemented `src/toas/skills/specialization.py` with `specialize_skill`, `inspect_tasks_conventions`, `distill_record_task`, and `verify_companion_script`.
+- Integrated operator API (`skill_specialize`), CLI surface (`toas skill specialize <name>`), and slash commands (`/skill specialize <name>` and `/specialize <name>`).
+- Executed `toas skill specialize record-task` creating `.agents/skills/record-task/` containing `SKILL.md` and `scripts/mint_task.py`, verified with syntax and dry-run checks.
+- Verified workspace shadowing in `discover_skills()`: `record-task` is recognized as `[workspace]` and shadows `[bundled]`.
+- Created comprehensive test suite in `tests/test_skills_specialization.py` and updated `tests/test_skills_cli.py`.
+- Documented tradeoff analysis and token economics in `docs/notes/2026-11-08-skill-specialization-and-script-distillation.md`.

@@ -48,6 +48,7 @@ class DispatchDeps:
     run_session_continue: Callable[..., None] | None = None
     run_policy: Callable[..., None] | None = None
     run_skill: Callable[..., None] | None = None
+    run_skill_specialize: Callable[..., None] | None = None
     run_skills: Callable[..., None] | None = None
 
 
@@ -175,9 +176,14 @@ def dispatch_main(
     elif argv[0] == "prompts":
         deps.run_prompts(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "skill":
-        name = require_arg(argv, 1, "toas skill <name>")
-        if deps.run_skill is not None:
-            deps.run_skill(name)
+        if len(argv) > 1 and argv[1] == "specialize":
+            target = require_arg(argv, 2, "toas skill specialize <name>")
+            if deps.run_skill_specialize is not None:
+                deps.run_skill_specialize(target)
+        else:
+            name = require_arg(argv, 1, "toas skill <name>")
+            if deps.run_skill is not None:
+                deps.run_skill(name)
     elif argv[0] == "skills":
         if deps.run_skills is not None:
             deps.run_skills(argv[1] if len(argv) > 1 else None)

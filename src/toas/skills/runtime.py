@@ -120,11 +120,46 @@ def handle_skills_commands(
         if not args:
             return [
                 step_mod.make_result_node(
-                    "usage: /skill <name> [args]",
+                    "usage: /skill <name> [args] | /skill specialize <name>",
                     origin_role=context.frontier_role,
                     origin_kind="slash_command",
                 )
             ]
+        if args[0] == "specialize":
+            if len(args) < 2:
+                return [
+                    step_mod.make_result_node(
+                        "usage: /skill specialize <name>",
+                        origin_role=context.frontier_role,
+                        origin_kind="slash_command",
+                    )
+                ]
+            target_name = args[1]
+            try:
+                from .specialization import specialize_skill
+                res = specialize_skill(target_name, workspace_root=ws_root)
+                msg = (
+                    f"Specialized skill '{res.skill_name}' for workspace at {res.target_dir}.\n"
+                    f"- SKILL.md: {res.skill_md_path}\n"
+                    f"- Companion script: {res.script_path}\n"
+                    f"- Verification: {'PASSED' if res.verified else 'FAILED'}"
+                )
+                return [
+                    step_mod.make_result_node(
+                        msg,
+                        origin_role=context.frontier_role,
+                        origin_kind="slash_command",
+                    )
+                ]
+            except Exception as exc:
+                return [
+                    step_mod.make_result_node(
+                        f"[ERROR] /skill specialize: {exc}",
+                        origin_role=context.frontier_role,
+                        origin_kind="slash_command",
+                    )
+                ]
+
         skill_name = args[0]
         arguments_str = " ".join(args[1:]).strip()
         try:
@@ -146,6 +181,41 @@ def handle_skills_commands(
             return [
                 step_mod.make_result_node(
                     f"[ERROR] /skill: {exc}",
+                    origin_role=context.frontier_role,
+                    origin_kind="slash_command",
+                )
+            ]
+
+    if command == "specialize":
+        if not args:
+            return [
+                step_mod.make_result_node(
+                    "usage: /specialize <name>",
+                    origin_role=context.frontier_role,
+                    origin_kind="slash_command",
+                )
+            ]
+        target_name = args[0]
+        try:
+            from .specialization import specialize_skill
+            res = specialize_skill(target_name, workspace_root=ws_root)
+            msg = (
+                f"Specialized skill '{res.skill_name}' for workspace at {res.target_dir}.\n"
+                f"- SKILL.md: {res.skill_md_path}\n"
+                f"- Companion script: {res.script_path}\n"
+                f"- Verification: {'PASSED' if res.verified else 'FAILED'}"
+            )
+            return [
+                step_mod.make_result_node(
+                    msg,
+                    origin_role=context.frontier_role,
+                    origin_kind="slash_command",
+                )
+            ]
+        except Exception as exc:
+            return [
+                step_mod.make_result_node(
+                    f"[ERROR] /specialize: {exc}",
                     origin_role=context.frontier_role,
                     origin_kind="slash_command",
                 )

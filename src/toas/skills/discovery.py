@@ -26,6 +26,7 @@ _BUILTIN_SLASH_COMMANDS = {
     "session-path",
     "skills",
     "skill",
+    "specialize",
 }
 
 

@@ -159,7 +159,10 @@ POLICY_USAGE = (
 )
 
 
-SKILL_USAGE = "usage: toas skill <name>\n\ndisplay instructions and metadata for a discovered skill"
+SKILL_USAGE = (
+    "usage: toas skill <name> | toas skill specialize <name>\n\n"
+    "display instructions and metadata for a discovered skill, or specialize a skill for the workspace"
+)
 SKILLS_USAGE = "usage: toas skills [filter]\n\nlist discovered agent skills across workspace, global, and bundled paths"
 
 
