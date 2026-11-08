@@ -72,6 +72,10 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
         )
     if op == "prompts":
         return capture_stdout(cli_module.run_prompts, payload.get("prefix"))
+    if op == "skill":
+        return capture_stdout(cli_module.run_skill, str(payload["name"]))
+    if op == "skills":
+        return capture_stdout(cli_module.run_skills, payload.get("filter"))
     if op == "history":
         limit = int(payload.get("limit", 10))
         kwargs = {}

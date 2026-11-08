@@ -101,6 +101,8 @@ USAGE = """Usage:
   toas llm-input [anchor] [--sources ...] [--envelope]
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
   toas prompts [prefix]
+  toas skill <name>
+  toas skills [filter]
   toas history [limit] [anchor] [--sources ...]
   toas session continue [--predecessor <transcript_path>] [--name <session_name>] [--ignore-preceding-graph] [--exclude-tail]
   toas ancestry <message_id> [--depth <n>] [--full]
@@ -476,6 +478,18 @@ def run_prompts(prefix: str | None = None):
     cli_commands.run_prompts(prefix)
 
 
+def run_skill(name: str):
+    if _rpc_stdout("skill", {"name": name}):
+        return
+    cli_commands.run_skill(name)
+
+
+def run_skills(filter_text: str | None = None):
+    if _rpc_stdout("skills", drop_runtime_none_fields({"filter": filter_text})):
+        return
+    cli_commands.run_skills(filter_text)
+
+
 def run_diff(head_a: str, head_b: str, *, full: bool = False):
     if _rpc_stdout("diff", {"head_a": head_a, "head_b": head_b, "full": full}):
         return
@@ -603,6 +617,8 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_llm_input=run_llm_input,
         run_prompt=run_prompt,
         run_prompts=run_prompts,
+        run_skill=run_skill,
+        run_skills=run_skills,
         run_history=run_history,
         run_session_path=run_session_path,
         run_session_continue=run_session_continue,

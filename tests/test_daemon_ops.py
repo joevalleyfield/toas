@@ -41,6 +41,14 @@ class _CliStub:
     def run_session_continue(*, predecessor_path=None, accepted_name=None, ignore_preceding_graph=False, exclude_tail=False):
         return None
 
+    @staticmethod
+    def run_skill(name):
+        return None
+
+    @staticmethod
+    def run_skills(filter_text=None):
+        return None
+
 
 def test_run_op_capture_stdout_step_and_history():
     calls = []
@@ -136,6 +144,16 @@ def test_run_op_capture_stdout_unknown_op_raises():
                     "exclude_tail": True,
                 },
             ),
+        ),
+        (
+            "skill",
+            {"name": "record-task"},
+            ("run_skill", ("record-task",)),
+        ),
+        (
+            "skills",
+            {"filter": "record"},
+            ("run_skills", ("record",)),
         ),
     ],
 )

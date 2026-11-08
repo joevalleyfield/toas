@@ -59,6 +59,7 @@ Discover skills across standard locations (highest to lowest priority):
    - `.agents/skills/<name>/SKILL.md`
    - `.gemini/skills/<name>/SKILL.md`
    - `.toas/skills/<name>/SKILL.md`
+   - `skills/<name>/SKILL.md`
 2. **Global User Skills**:
    - `~/.gemini/antigravity/skills/<name>/SKILL.md`
    - `~/.config/toas/skills/<name>/SKILL.md`
@@ -117,13 +118,34 @@ Ship a small, vetted set of default skills in TOAS:
 ## Acceptance Criteria
 
 1. **Discovery**: TOAS successfully indexes skills across workspace, user-global,
-   and bundled directories with correct precedence overrides.
+   and bundled directories with correct precedence overrides and collision tracking.
 2. **Progressive Disclosure**: Model prompt token counts increase only by the
-   skill summary footprint until a skill is explicitly activated.
-3. **Activation**: Activating a skill via `/skill <name>` or model tool call
-   injects the full `SKILL.md` body and exposes companion script paths.
-4. **`record-task` Flexibility**: The bundled `record-task` skill can record tasks
-   conforming to the host repository's schema without hardcoded Python schema
-   constraints.
-5. **Deprecation Path**: `capture_task_thread` remains functional as a legacy
-   facade or redirects gracefully to the skill runtime.
+   compact skill summary footprint until a skill is explicitly activated on-demand.
+3. **Activation**: Activating a skill via `/skill <name>`, slash alias (`/<name>`, `/<alias>`),
+   or model tool call (`skill` / `activate_skill`) injects the full `SKILL.md` body and
+   exposes companion script paths into execution context.
+4. **`record-task` Flexibility**: The bundled `record-task` skill records tasks
+   conforming to the host repository's schema (e.g., date-based `YYMMDD-slug.md`, keywords,
+   relationships, workboard sync) without hardcoded Python schema constraints.
+5. **Deprecation Path**: `capture_task_thread` remains functional as a backwards-compatible
+   facade while model instructions steer task recording toward modern skills.
+6. **Verification & Quality Gate**: 100.00% statement test coverage under `./scripts/check.sh`,
+   zero mypy type errors, and clean ruff linting.
+
+## Outcome & Evidence
+
+- Implemented `src/toas/skills/` package (`discovery.py`, `runtime.py`, `__init__.py`) supporting
+  standard `SKILL.md` discovery across hierarchical workspace, user-global, and bundled paths.
+- Added bundled core skills in `src/toas/assets/skills/`:
+  - `record-task` (with companion script `scripts/record_task.py`)
+  - `jj-scratch-workspace`
+  - `code-review`
+- Added prompt projection of compact inert catalog block (`capability/skills-catalog_v1`) to `render_tool_definitions()`.
+- Implemented runtime activation via `/skill <name>`, `/skills`, dynamic `/<alias>`, and model-addressable `skill`/`activate_skill` tools.
+- Implemented operator CLI surfaces: `toas skills [filter]` and `toas skill <name>`.
+- Full verification passed `./scripts/check.sh`:
+  - 3,954 unit tests passing with 100.00% statement coverage across all 165 source files.
+  - 17 acceptance tests passing.
+  - `ruff check src tests` clean with 0 errors.
+  - `mypy` clean across 168 source files.
+- Completed mandatory end-to-end artifact inspection of `toas skills`, `toas skill record-task`, and `toas prompt session-start/templates/pragmatic-default_v2`.

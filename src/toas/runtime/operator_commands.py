@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 
 from ..config import OperatorConfig
+from ..skills import handle_skills_commands
 from .operator_command_config_help import handle_config_help_commands
 from .operator_command_context import OperatorCommandContext
 from .operator_command_extract_replay import handle_extract_replay_commands
@@ -51,6 +52,7 @@ def execute_operator_command(
         handle_prompt_workspace_commands,
         handle_extract_replay_commands,
         handle_config_help_commands,
+        handle_skills_commands,
     )
     for handler in handlers:
         out = handler(command, args, step_mod=step_mod, context=context)

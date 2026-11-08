@@ -22,6 +22,12 @@ from .cli_surface_commands import (
     run_prompts as run_surface_prompts,
 )
 from .cli_surface_commands import (
+    run_skill as run_surface_skill,
+)
+from .cli_surface_commands import (
+    run_skills as run_surface_skills,
+)
+from .cli_surface_commands import (
     run_transcript as run_surface_transcript,
 )
 from .config import OperatorConfig
@@ -55,6 +61,12 @@ from .operator_api import (
 )
 from .operator_api import (
     session_path_text as operator_session_path_text,
+)
+from .operator_api import (
+    skill_text as operator_skill_text,
+)
+from .operator_api import (
+    skills_list_lines as operator_skills_list_lines,
 )
 from .operator_api import (
     transcript_text as operator_transcript_text,
@@ -231,6 +243,20 @@ def run_prompts(prefix: str | None = None) -> None:
     run_surface_prompts(
         operator_prompt_list_lines=operator_prompt_list_lines,
         prefix=prefix,
+    )
+
+
+def run_skill(name: str) -> None:
+    run_surface_skill(
+        operator_skill_text=operator_skill_text,
+        name=name,
+    )
+
+
+def run_skills(filter_text: str | None = None) -> None:
+    run_surface_skills(
+        operator_skills_list_lines=operator_skills_list_lines,
+        filter_text=filter_text,
     )
 
 

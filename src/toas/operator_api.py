@@ -592,6 +592,125 @@ def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
     return PromptListOutcome(lines=lines)
 
 
+@dataclass(frozen=True)
+class SkillOutcome:
+    name: str
+    description: str
+    scope: str
+    path: str
+    aliases: tuple[str, ...]
+    scripts: tuple[str, ...]
+    content: str
+    text: str
+
+
+@dataclass(frozen=True)
+class SkillsListOutcome:
+    skills: tuple[dict[str, Any], ...]
+    lines: tuple[str, ...]
+
+
+def skill_text(*, name: str, workspace_root: Path | None = None) -> SkillOutcome:
+    from .skills import discover_skills
+
+    ws = workspace_root or Path.cwd().resolve()
+    catalog = discover_skills(workspace_root=ws)
+    skill = catalog.get(name)
+    if skill is None:
+        raise RuntimeError(f"skill not found: {name}")
+
+    header = f"Skill: {skill.name}"
+    desc = f"Description: {skill.description}" if skill.description else "Description: (none)"
+    scope = f"Scope: {skill.scope}"
+    source = f"Source: {skill.path}"
+    aliases = f"Aliases: {', '.join('/' + a for a in skill.aliases)}" if skill.aliases else "Aliases: (none)"
+    scripts_lines = ["Scripts:"] + [f"- {p}" for p in skill.scripts] if skill.scripts else ["Scripts: (none)"]
+    full_text = "\n".join([
+        header,
+        desc,
+        scope,
+        source,
+        aliases,
+        *scripts_lines,
+        "",
+        "--- Instructions ---",
+        skill.content,
+    ])
+    return SkillOutcome(
+        name=skill.name,
+        description=skill.description,
+        scope=skill.scope,
+        path=str(skill.path),
+        aliases=skill.aliases,
+        scripts=tuple(str(p) for p in skill.scripts),
+        content=skill.content,
+        text=full_text,
+    )
+
+
+def skills_list_lines(
+    *,
+    filter_text: str | None = None,
+    workspace_root: Path | None = None,
+    catalog: Any | None = None,
+) -> SkillsListOutcome:
+    from .skills import discover_skills
+
+    if catalog is None:
+        ws = workspace_root or Path.cwd().resolve()
+        catalog = discover_skills(workspace_root=ws)
+    records = catalog.records
+
+    if filter_text and filter_text.strip():
+        q = filter_text.strip().lower()
+        records = [
+            r
+            for r in records
+            if q in r.skill.name.lower()
+            or q in r.skill.description.lower()
+            or any(q in a.lower() for a in r.skill.aliases)
+        ]
+
+    lines: list[str] = []
+    items: list[dict[str, Any]] = []
+
+    if not records:
+        msg = f"No skills matched filter: '{filter_text}'" if filter_text else "No skills discovered."
+        return SkillsListOutcome(skills=(), lines=(msg,))
+
+    lines.append("Discovered Skills:")
+    for rec in records:
+        status_parts = []
+        if rec.is_active:
+            status_parts.append("active")
+            if rec.shadows:
+                status_parts.append(f"shadows: {len(rec.shadows)} lower-priority")
+        else:
+            status_parts.append(f"shadowed by {rec.shadowed_by}")
+        if rec.alias_collisions:
+            status_parts.append(f"alias collisions: {', '.join(rec.alias_collisions)}")
+        status_str = "; ".join(status_parts)
+
+        alias_str = ", ".join(f"/{a}" for a in rec.skill.aliases)
+        line1 = f"- {rec.skill.name} [{rec.skill.scope}] (aliases: {alias_str})"
+        line2 = f"  source: {rec.skill.path}"
+        line3 = f"  description: {rec.skill.description or '(none)'}"
+        line4 = f"  status: {status_str}"
+        lines.extend([line1, line2, line3, line4])
+
+        items.append({
+            "name": rec.skill.name,
+            "scope": rec.skill.scope,
+            "aliases": rec.skill.aliases,
+            "source": str(rec.skill.path),
+            "description": rec.skill.description,
+            "status": status_str,
+            "is_active": rec.is_active,
+        })
+
+    return SkillsListOutcome(skills=tuple(items), lines=tuple(lines))
+
+
 def graph_text(
     *,
     events_path: Path,

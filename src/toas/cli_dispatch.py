@@ -47,6 +47,8 @@ class DispatchDeps:
     run_debug_cancel_latency: Callable[..., None]
     run_session_continue: Callable[..., None] | None = None
     run_policy: Callable[..., None] | None = None
+    run_skill: Callable[..., None] | None = None
+    run_skills: Callable[..., None] | None = None
 
 
 def require_arg(cmd: list[str], index: int, usage_line: str) -> str:
@@ -172,6 +174,13 @@ def dispatch_main(
         deps.run_prompt(ref, mode=mode, constraints=constraints)
     elif argv[0] == "prompts":
         deps.run_prompts(argv[1] if len(argv) > 1 else None)
+    elif argv[0] == "skill":
+        name = require_arg(argv, 1, "toas skill <name>")
+        if deps.run_skill is not None:
+            deps.run_skill(name)
+    elif argv[0] == "skills":
+        if deps.run_skills is not None:
+            deps.run_skills(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "history":
         limit, source_tokens, anchor_id = parse_history_options(argv)
         history_kwargs: dict[str, object] = {}

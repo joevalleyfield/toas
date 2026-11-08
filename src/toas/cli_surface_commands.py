@@ -109,3 +109,23 @@ def run_prompts(
 ) -> None:
     for line in operator_prompt_list_lines(prefix=prefix).lines:
         print_fn(line)
+
+
+def run_skill(
+    *,
+    operator_skill_text: Callable,
+    name: str,
+    print_fn: Callable = print,
+) -> None:
+    out = operator_skill_text(name=name)
+    print_fn(out.text)
+
+
+def run_skills(
+    *,
+    operator_skills_list_lines: Callable,
+    filter_text: str | None = None,
+    print_fn: Callable = print,
+) -> None:
+    for line in operator_skills_list_lines(filter_text=filter_text).lines:
+        print_fn(line)

@@ -68,7 +68,7 @@ _DYNAMIC_PROMPTS: dict[str, DynamicPromptSpec] = {
 
 _COMPOSABLE_CATEGORIES = {"role", "session", "protocol"}
 _V2_DOCUMENTS = {"toas-user"}
-_V2_RENDERERS = {"capability/tool-definitions_v1"}
+_V2_RENDERERS = {"capability/tool-definitions_v1", "capability/skills-catalog_v1"}
 _LEGACY_PREFIX_BY_CATEGORY = {
     "role": "session-start/role-framing",
     "session": "session-start/start-here",
@@ -466,6 +466,10 @@ def _render_v2_dynamic_block(
 ) -> str:
     if renderer not in _V2_RENDERERS:
         raise RuntimeError(f"invalid template v2 renderer: {renderer}")
+    if renderer == "capability/skills-catalog_v1":
+        from .skills import render_skills_catalog
+
+        return render_skills_catalog()
     if options is None:
         options = {}
     if not isinstance(options, dict):

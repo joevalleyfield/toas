@@ -31,6 +31,8 @@ tools:
 - capability_help (args: none, optional: topic)
 - capture_task_thread (args: title, kind, optional: evidence, blocks_progress, active_task_id, scope_hint, capture_id)
   defaults: evidence="", blocks_progress=false, active_task_id=null, scope_hint="", capture_id=null
+- skill (args: name, optional: arguments)
+  defaults: arguments=""
 ```
 
 shell/shell_script are workspace-bounded; timeout_s accepts any positive integer and omitted values use shell.assistant_timeout_s; allowed commands: awk, cat, echo, find, head, ls, pwd, rg, sed, tail, wc
@@ -45,6 +47,15 @@ intent: <why_this_action_is_being_taken>
 ```
 
 Compatibility aliases are accepted: `tool_name` for `operation`, and `args`/`arguments`/`params` for `arguments`; `intention` is accepted for `intent`.
+
+Available Skills:
+```skills block_id=skills_catalog
+Available Skills:
+- code-review: Local diff review and verification guidelines.
+- jj-scratch-workspace: Isolated working-copy lifecycle in scratch space for Jujutsu (jj) repos.
+- record-task: Flexible repository task recording conforming to host repository conventions.
+Activate a skill on-demand using `/skill <name>` or `operation: skill` with argument `name`.
+```
 
 ### Text-callable action lane
 

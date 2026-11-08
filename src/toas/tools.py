@@ -108,6 +108,19 @@ def _run_capture_task_thread(args: dict) -> dict:
     )
 
 
+def _run_skill(args: dict) -> dict:
+    from .skills import activate_skill
+
+    name = args.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise RuntimeError("invalid arguments for tool skill: name must be a non-empty string")
+    arguments = args.get("arguments", "")
+    if not isinstance(arguments, str):
+        arguments = str(arguments)
+    workspace_root = (_WORKSPACE_BASE or Path.cwd()).resolve()
+    return activate_skill(name=name.strip(), workspace_root=workspace_root, arguments=arguments)
+
+
 def _run_capability_help(args: dict) -> dict:
     return run_cluster_capability_help(
         args,
@@ -738,6 +751,28 @@ REGISTRY = {
             "active_task_id": "str",
             "scope_hint": "str",
             "capture_id": "str",
+        },
+    ),
+    "skill": Tool(
+        name="skill",
+        required_args=("name",),
+        runner=_run_skill,
+        optional_args=("arguments",),
+        default_args=('arguments=""',),
+        arg_types={
+            "name": "str",
+            "arguments": "str",
+        },
+    ),
+    "activate_skill": Tool(
+        name="activate_skill",
+        required_args=("name",),
+        runner=_run_skill,
+        optional_args=("arguments",),
+        default_args=('arguments=""',),
+        arg_types={
+            "name": "str",
+            "arguments": "str",
         },
     ),
 }

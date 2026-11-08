@@ -159,6 +159,10 @@ POLICY_USAGE = (
 )
 
 
+SKILL_USAGE = "usage: toas skill <name>\n\ndisplay instructions and metadata for a discovered skill"
+SKILLS_USAGE = "usage: toas skills [filter]\n\nlist discovered agent skills across workspace, global, and bundled paths"
+
+
 _SUBCOMMAND_HELP: dict[str, str] = {
     "step": STEP_HELP,
     "heads": HEADS_USAGE,
@@ -174,6 +178,8 @@ _SUBCOMMAND_HELP: dict[str, str] = {
     "intents": INTENTS_USAGE,
     "prompt": PROMPT_USAGE,
     "prompts": PROMPTS_USAGE,
+    "skill": SKILL_USAGE,
+    "skills": SKILLS_USAGE,
     "session-path": SESSION_PATH_USAGE,
     "ancestry": ANCESTRY_USAGE,
     "diff": DIFF_USAGE,

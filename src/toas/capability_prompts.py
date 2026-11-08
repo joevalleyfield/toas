@@ -12,6 +12,7 @@ _CORE_TOOLS = (
     "shell_script",
     "capability_help",
     "capture_task_thread",
+    "skill",
 )
 _DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "code_survey", "replace_range")
 
@@ -43,6 +44,8 @@ def _tool_summary(name: str) -> str:
         return "apply structured multi-file patches with strict context matching; add/update writes obey tool_writes.newline_style"
     if name == "capture_task_thread":
         return "synchronously defer side threads, cleanup, risks, or blockers to the task tracker"
+    if name in {"skill", "activate_skill"}:
+        return "activate an agent skill on-demand to load its instructions and companion scripts"
     return name
 
 
@@ -149,6 +152,12 @@ def _tool_shape_hint(name: str) -> str:
             "    active_task_id: 677\n"
             "    scope_hint: \"micro\""
         )
+    if name in {"skill", "activate_skill"}:
+        return (
+            "- operation: skill\n"
+            "  arguments:\n"
+            "    name: record-task"
+        )
     return f"- operation: {name}\n  arguments: {{}}"
 
 
@@ -216,6 +225,11 @@ def render_tool_definitions(
             "`intention` is accepted for `intent`.",
         ]
     )
+    tools = visible_tool_names(profile=profile, hidden_tools=hidden_tools)
+    if "skill" in tools or "activate_skill" in tools:
+        from .skills import render_skills_catalog
+
+        lines.extend(["", "Available Skills:", render_skills_catalog()])
     return "\n".join(lines)
 
 

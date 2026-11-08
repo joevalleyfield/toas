@@ -119,6 +119,8 @@ SLASH_COMMANDS = [
     ),
     ("queue",     "/queue [<queue_id>] [resume|approve|skip|cancel]", "continue the active replay queue (default action: approve)"),
     ("config",    "/config [show] [--sources] | values|set|unset|restore|load|save | /config endpoint ... | /config target ... | /config secret ...", "inspect or manage config lanes"),
+    ("skill",     "/skill <name> [args]",                       "activate an agent skill into the transcript"),
+    ("skills",    "/skills",                                    "list discovered skill aliases and summaries"),
     ("step",      "/step [N]",                                  "advance execution by up to N turns (default: 1) until quiescence"),
     ("help",      "/help",                                      "show available CLI commands, slash commands, tools, and config keys"),
 ]
@@ -289,6 +291,8 @@ def render_help_cli() -> str:
     lines.append("- toas llm-input [head_id]")
     lines.append("- toas prompt <kind>/<version>")
     lines.append("- toas prompts [prefix]")
+    lines.append("- toas skill <name>")
+    lines.append("- toas skills [filter]")
     lines.append("- toas history [limit]  show the current root-to-head lineage as a bounded window")
     lines.append("- history view chooser: /help history  choose among durable-state projections by inspection question")
     return "\n".join(lines)
