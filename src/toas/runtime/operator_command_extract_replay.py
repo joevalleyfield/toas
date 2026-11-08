@@ -412,6 +412,10 @@ def _execute_call_for_queue(
             workspace_roots=context.workspace_roots,
             env_modifiers=step_mod.resolve_effective_env_modifiers(context.working),
         )
+    try:
+        shell_allowed_commands = step_mod.resolve_effective_shell_allowed(context.working, context.config, context.events)
+    except TypeError:
+        shell_allowed_commands = step_mod.resolve_effective_shell_allowed(context.working, context.config)
     return step_mod._execute_plan(
         [call],
         origin_role=context.frontier_role,
@@ -419,7 +423,7 @@ def _execute_call_for_queue(
         workspace_mode=context.workspace_mode,
         workspace_roots=context.workspace_roots,
         env_modifiers=step_mod.resolve_effective_env_modifiers(context.working),
-        shell_allowed_commands=step_mod.resolve_effective_shell_allowed(context.working, context.config),
+        shell_allowed_commands=shell_allowed_commands,
     )
 
 

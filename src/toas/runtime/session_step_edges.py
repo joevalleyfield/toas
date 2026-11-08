@@ -6,7 +6,6 @@ from pathlib import Path
 
 from ..config import OperatorConfig
 from ..graph import (
-    POLICY_SCOPES,
     extract_plan,
     extract_user_shell_plan,
     write_command_context_record,
@@ -29,6 +28,7 @@ from ..graph import (
 )
 from .intent_arbitration_edges import select_user_intent_candidates
 from .operator_command_parse import split_operator_command
+from .policy_edges import extract_node_policy_updates
 
 
 def sanitize_secret_command_content(content: str) -> str:
@@ -619,51 +619,14 @@ def _apply_policy_updates(
     source_message_id: str | None = None,
 ) -> None:
     for node in result_nodes:
-        updates: list[dict] = []
-        if "policy_updates" in node and isinstance(node["policy_updates"], (list, tuple)):
-            updates.extend(item for item in node["policy_updates"] if isinstance(item, dict))
-        if "policy_update" in node and isinstance(node["policy_update"], dict):
-            updates.append(node["policy_update"])
-
-        legacy_target = node.get("target_selection_update")
-        if isinstance(legacy_target, dict):
-            action = legacy_target.get("action")
-            target_id = legacy_target.get("target_id")
-            if action in {"set", "unset"}:
-                if action == "unset":
-                    updates.append({"key": "llm.target", "scope": "session", "action": "unset"})
-                elif isinstance(target_id, str) and target_id.strip():
-                    updates.append({"key": "llm.target", "scope": "session", "action": "set", "value": target_id.strip()})
-
-        legacy_shell = node.get("shell_scope_update")
-        if isinstance(legacy_shell, dict):
-            scope = legacy_shell.get("scope", "session")
-            action = legacy_shell.get("action")
-            grant = legacy_shell.get("grant")
-            grants = legacy_shell.get("grants")
-            if isinstance(scope, str) and isinstance(action, str):
-                if action == "reset":
-                    updates.append({"key": "shell.allowed", "scope": scope, "action": "reset"})
-                elif action in {"add", "remove", "unset"}:
-                    values = list(grants) if isinstance(grants, (list, tuple)) else ([grant] if isinstance(grant, str) and grant else [])
-                    if values:
-                        updates.append({"key": "shell.allowed", "scope": scope, "action": action, "value": values})
-
+        updates = extract_node_policy_updates(node)
         for update in updates:
-            key = update.get("key")
-            scope = update.get("scope")
-            action = update.get("action")
-            value = update.get("value")
-            if not isinstance(key, str) or not isinstance(scope, str) or not isinstance(action, str):
-                continue
-            if scope not in POLICY_SCOPES:
-                continue
             write_policy_override_record(
                 str(events_path),
-                key=key,
-                scope=scope,
-                action=action,
-                value=value,
+                key=update["key"],
+                scope=update["scope"],
+                action=update["action"],
+                value=update.get("value"),
                 source_message_id=source_message_id,
             )
 

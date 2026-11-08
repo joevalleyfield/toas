@@ -11,7 +11,7 @@ from ..config import (
     config_from_discovered_paths,
     valid_config_keys,
 )
-from ..graph import active_config_overrides, read_log
+from ..graph import POLICY_SCOPES, active_config_overrides, read_log
 from ..llm import Settings
 from .policy import PolicyResolver
 
@@ -155,3 +155,67 @@ def build_config_sources(
     if config_diagnostics:
         sources["__diagnostics__"] = "; ".join(d.summary() for d in config_diagnostics)
     return sources
+
+
+def extract_node_policy_updates(node: dict) -> list[dict]:
+    updates: list[dict] = []
+    if "policy_updates" in node and isinstance(node["policy_updates"], (list, tuple)):
+        updates.extend(item for item in node["policy_updates"] if isinstance(item, dict))
+    if "policy_update" in node and isinstance(node["policy_update"], dict):
+        updates.append(node["policy_update"])
+
+    legacy_target = node.get("target_selection_update")
+    if isinstance(legacy_target, dict):
+        action = legacy_target.get("action")
+        target_id = legacy_target.get("target_id")
+        if action in {"set", "unset"}:
+            if action == "unset":
+                updates.append({"key": "llm.target", "scope": "session", "action": "unset"})
+            elif isinstance(target_id, str) and target_id.strip():
+                updates.append({"key": "llm.target", "scope": "session", "action": "set", "value": target_id.strip()})
+
+    legacy_shell = node.get("shell_scope_update")
+    if isinstance(legacy_shell, dict):
+        scope = legacy_shell.get("scope", "session")
+        action = legacy_shell.get("action")
+        grant = legacy_shell.get("grant")
+        grants = legacy_shell.get("grants")
+        if isinstance(scope, str) and isinstance(action, str):
+            if action == "reset":
+                updates.append({"key": "shell.allowed", "scope": scope, "action": "reset"})
+            elif action in {"add", "remove", "unset"}:
+                values = list(grants) if isinstance(grants, (list, tuple)) else ([grant] if isinstance(grant, str) and grant else [])
+                if values:
+                    updates.append({"key": "shell.allowed", "scope": scope, "action": action, "value": values})
+
+    valid: list[dict] = []
+    for update in updates:
+        key = update.get("key")
+        scope = update.get("scope")
+        action = update.get("action")
+        value = update.get("value")
+        if not isinstance(key, str) or not isinstance(scope, str) or not isinstance(action, str):
+            continue
+        if scope not in POLICY_SCOPES:
+            continue
+        item: dict[str, Any] = {"key": key, "scope": scope, "action": action}
+        if value is not None:
+            item["value"] = value
+        valid.append(item)
+    return valid
+
+
+def policy_updates_to_event_records(
+    updates: list[dict],
+    *,
+    source_message_id: str | None = None,
+) -> list[dict]:
+    records: list[dict] = []
+    for update in updates:
+        payload = dict(update)
+        record: dict[str, Any] = {"kind": "policy_override", "payload": payload}
+        if source_message_id is not None:
+            record["related_to"] = source_message_id
+        records.append(record)
+    return records
+

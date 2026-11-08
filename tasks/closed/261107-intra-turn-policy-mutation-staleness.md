@@ -3,7 +3,7 @@ FKA:
 AKA: /shell allow in-flight staleness; stale effective grants; chained slash command policy race; intra-step policy propagation
 Legacy index:
 
-keywords: policy, runtime, operator, shell, slash-command, in-flight, staleness, active
+keywords: policy, runtime, operator, shell, slash-command, in-flight, staleness, closed
 
 Related: `261107-branch-isolated-policy-state`; `260920-effective-policy-provenance-inspection`
 
@@ -68,3 +68,25 @@ During step execution, two distinct bugs occur:
 
 - Changing policy persistence schemas or event kinds in `events.jsonl`.
 - Redesigning the policy hierarchy or scope model.
+
+## Acceptance Criteria
+
+1. **Immediate Feedback Accuracy**: `/shell allow`, `/shell deny`/`/shell remove`, and `/shell reset` output text displays the post-mutation effective grants rather than pre-mutation state.
+2. **Intra-Turn Chained Execution**: Chained operator policy updates (e.g. `/shell allow <cmd>`) followed by execution intents (e.g. `/run ...`) in the same user turn immediately authorize and execute against the mutated policy without requiring an intermediate turn.
+3. **Durable Persistence Invariants**: In-flight policy updates are recorded cleanly in durable `events.jsonl` upon step finalization without duplicates.
+4. **Coverage & Checks**: Passes `./scripts/check.sh` with 100.00% statement coverage.
+
+## Outcome & Evidence
+
+- **Post-Mutation Effective Grant Projection**:
+  Updated `_shell_effective_grants` in `src/toas/runtime/operator_command_prompt_workspace.py` to accept `pending_update: dict | None = None`. When present, it evaluates `resolve_effective_shell_allowed` against a simulated pending policy override event, ensuring `/shell allow`, `/shell remove`, and `/shell reset` render the accurate post-mutation effective grant list.
+- **Intra-Turn Policy Propagation**:
+  Added `extract_node_policy_updates` and `policy_updates_to_event_records` in `src/toas/runtime/policy_edges.py`.
+  Refactored `src/toas/runtime/session_step_edges.py` (`_apply_policy_updates`) to use the centralized extraction helper.
+  Updated `_handle_user_or_control_frontier` in `src/toas/runtime/step_runtime.py` to extract `policy_updates` from result nodes produced during intent candidate iteration, appending in-flight policy records to in-memory `events`, recalculating `active_config_overrides`, and updating `config` and `live_config`. Subsequent intent candidates (such as `/run p1.o1..`) now immediately observe the updated policy.
+  Updated `operator_command_extract_replay.py` to forward `context.events` to `resolve_effective_shell_allowed`.
+- **Targeted Tests**:
+  Added unit tests in `tests/test_runtime_operator_command_handlers.py` and `tests/test_runtime_policy_edges.py`, and full step integration tests in `tests/test_step.py` verifying `/shell allow` post-mutation effective grants and chained `/shell allow whoami` + `/run p1.o1..` intra-turn authorization.
+- **Suite & Coverage**:
+  Passed `./scripts/check.sh` with 3,880 passed, 9 skipped, 17 deselected, 0 warnings, and 100.00% statement coverage.
+

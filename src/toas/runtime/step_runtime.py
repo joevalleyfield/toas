@@ -23,6 +23,7 @@ from .frontier_resolution import (
 from .intent_arbitration_edges import select_user_intent_candidates
 from .operator_command_parse import split_operator_command
 from .operator_config_endpoint_ops import endpoint_declaration_update
+from .policy_edges import extract_node_policy_updates, policy_updates_to_event_records
 from .policy_loader import resolve_executable_grant_policy
 from .reconciliation_handoff import (
     ReconciliationDiagnostics,
@@ -1369,17 +1370,27 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
             generate=generate,
         )
         for node in consequences[consequence_start:]:
-            config_update = node.get("config_update") if isinstance(node, dict) else None
-            if isinstance(config_update, dict):
-                config, live_overrides = _apply_live_config_update(
-                    config=config,
-                    baseline_config=baseline_config or config,
-                    overrides=live_overrides,
-                    update=config_update,
-                )
-                live_config = getattr(execute, "__dict__", {}).get("_toas_live_config")
-                if isinstance(live_config, list):
-                    live_config[0] = config
+            if isinstance(node, dict):
+                config_update = node.get("config_update")
+                if isinstance(config_update, dict):
+                    config, live_overrides = _apply_live_config_update(
+                        config=config,
+                        baseline_config=baseline_config or config,
+                        overrides=live_overrides,
+                        update=config_update,
+                    )
+                    live_config = getattr(execute, "__dict__", {}).get("_toas_live_config")
+                    if isinstance(live_config, list):
+                        live_config[0] = config
+                policy_updates = extract_node_policy_updates(node)
+                if policy_updates:
+                    records = policy_updates_to_event_records(policy_updates)
+                    events.extend(records)
+                    live_overrides = _deep_merge_config_overrides(live_overrides, active_config_overrides(events))
+                    config = apply_overrides(baseline_config or config, live_overrides)
+                    live_config = getattr(execute, "__dict__", {}).get("_toas_live_config")
+                    if isinstance(live_config, list):
+                        live_config[0] = config
         if any(
             isinstance(node, dict) and node.get("recovery_transition") == "frontier"
             for node in consequences[consequence_start:]

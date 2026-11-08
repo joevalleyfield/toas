@@ -703,6 +703,7 @@ def test_operator_shell_add_update_confirmation_contract():
     content = out[0]["content"]
     assert content.startswith("shell grant updated: add prefix:jj")
     assert "\neffective: " in content
+    assert "prefix:jj" in content.split("\neffective: ")[1]
 
 
 def test_operator_shell_remove_update_confirmation_contract():
@@ -714,6 +715,7 @@ def test_operator_shell_remove_update_confirmation_contract():
     content = out[0]["content"]
     assert content.startswith("shell grant updated: remove echo")
     assert "\neffective: " in content
+    assert "echo" not in content.split("\neffective: ")[1]
 
 
 def test_operator_shell_unset_update_confirmation_contract():
@@ -725,6 +727,7 @@ def test_operator_shell_unset_update_confirmation_contract():
     content = out[0]["content"]
     assert content.startswith("shell grant updated: remove echo (scope=session)")
     assert "\neffective: " in content
+    assert "echo" not in content.split("\neffective: ")[1]
 
 
 def test_operator_shell_reset_update_confirmation_contract():
@@ -736,6 +739,56 @@ def test_operator_shell_reset_update_confirmation_contract():
     content = out[0]["content"]
     assert content.startswith("shell grants reset (scope=session)")
     assert "\neffective: " in content
+
+
+def test_chained_shell_allow_and_run_in_same_user_turn_authorizes_immediately():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: shell
+  args:
+    argv: [whoami]
+```
+
+## TOAS:USER
+/shell allow whoami
+
+/run p1.o1..
+"""
+    events = []
+    _, out = step(transcript, events)
+    assert len(out) >= 2
+    assert out[0]["role"] == "result"
+    assert "shell grant updated: add whoami" in out[0]["content"]
+    assert "whoami" in out[0]["content"].split("effective: ")[1]
+    assert out[1]["role"] == "result"
+    assert out[1]["payload"].get("ok") is True
+    assert "[OK] shell:" in out[1]["content"]
+
+
+def test_chained_shell_deny_and_run_in_same_user_turn_blocks_immediately():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: shell
+  args:
+    argv: [echo, blocked]
+```
+
+## TOAS:USER
+/shell deny echo
+
+/run p1.o1..
+"""
+    events = []
+    _, out = step(transcript, events)
+    assert len(out) >= 2
+    assert out[0]["role"] == "result"
+    assert "shell grant updated: remove echo" in out[0]["content"]
+    assert "echo" not in out[0]["content"].split("effective: ")[1]
+    assert out[1]["role"] == "result"
+    assert out[1]["payload"].get("ok") is False
+    assert "tool shell disallows command: echo" in out[1]["content"]
 
 
 def test_operator_shell_config_add_update_confirmation_contract():

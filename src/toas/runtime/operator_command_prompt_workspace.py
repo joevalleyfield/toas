@@ -583,8 +583,26 @@ def _parse_shell_grant_or_raise(raw_grant: str, *, step_mod) -> str:
         raise ValueError(str(exc)) from exc
 
 
-def _shell_effective_grants(*, step_mod, context: OperatorCommandContext) -> tuple[str, ...]:
-    return step_mod.resolve_effective_shell_allowed(context.working, context.config, context.events)
+def _shell_effective_grants(
+    *,
+    step_mod,
+    context: OperatorCommandContext,
+    pending_update: dict | None = None,
+) -> tuple[str, ...]:
+    events = list(context.events) if context.events is not None else []
+    if pending_update:
+        record: dict = {
+            "kind": "policy_override",
+            "payload": {
+                "key": pending_update["key"],
+                "scope": pending_update["scope"],
+                "action": pending_update["action"],
+            },
+        }
+        if "value" in pending_update:
+            record["payload"]["value"] = pending_update["value"]
+        events.append(record)
+    return step_mod.resolve_effective_shell_allowed(context.working, context.config, events)
 
 
 def _parse_grants_and_scope(args: list[str]) -> tuple[list[str], str]:
@@ -617,8 +635,14 @@ def _shell_runtime_mutation_result(args: list[str], *, step_mod, context: Operat
     action = args[0]
     raw_grants, scope = _parse_grants_and_scope(args)
     grants = [_parse_shell_grant_or_raise(g, step_mod=step_mod) for g in raw_grants]
-    effective = _shell_effective_grants(step_mod=step_mod, context=context)
     normalized_action = "add" if action in {"allow", "add"} else "remove"
+    policy_update = {
+        "key": "shell.allowed",
+        "scope": scope,
+        "action": normalized_action,
+        "value": tuple(grants),
+    }
+    effective = _shell_effective_grants(step_mod=step_mod, context=context, pending_update=policy_update)
     label = (
         f"shell grant{'s' if len(grants) > 1 else ''} updated: {normalized_action} {' '.join(grants)} (scope={scope})\n"
         f"effective: {', '.join(effective)}"
@@ -628,12 +652,7 @@ def _shell_runtime_mutation_result(args: list[str], *, step_mod, context: Operat
             label,
             step_mod=step_mod,
             context=context,
-            policy_update={
-                "key": "shell.allowed",
-                "scope": scope,
-                "action": normalized_action,
-                "value": tuple(grants),
-            },
+            policy_update=policy_update,
         )
     ]
 
@@ -644,13 +663,14 @@ def _shell_runtime_reset_result(args: list[str], *, step_mod, context: OperatorC
         scope = args[2]
     elif len(args) != 1:
         raise ValueError("usage: /shell reset [--scope <global|user|workspace|session|transient>]")
-    effective = _shell_effective_grants(step_mod=step_mod, context=context)
+    policy_update = {"key": "shell.allowed", "scope": scope, "action": "reset"}
+    effective = _shell_effective_grants(step_mod=step_mod, context=context, pending_update=policy_update)
     return [
         _result_node(
             f"shell grants reset (scope={scope})\neffective: {', '.join(effective)}",
             step_mod=step_mod,
             context=context,
-            policy_update={"key": "shell.allowed", "scope": scope, "action": "reset"},
+            policy_update=policy_update,
         )
     ]
 

@@ -1496,6 +1496,7 @@ def test_shell_runtime_mutation_multi_grant():
         "shell", ["allow", "jj", "pytest", "uv"], step_mod=step_mod, context=_ctx()
     )
     assert "shell grants updated: add jj pytest uv (scope=session)" in out[0]["content"]
+    assert "effective: awk, cat, echo, find, head, jj, ls, pwd, pytest, rg, sed, tail, uv, wc" in out[0]["content"]
     assert out[0]["policy_update"] == {
         "key": "shell.allowed",
         "scope": "session",
@@ -1507,6 +1508,8 @@ def test_shell_runtime_mutation_multi_grant():
         "shell", ["deny", "sed", "awk", "--scope", "workspace"], step_mod=step_mod, context=_ctx()
     )
     assert "shell grants updated: remove sed awk (scope=workspace)" in out_scoped[0]["content"]
+    assert "sed" not in out_scoped[0]["content"].split("effective: ")[1]
+    assert "awk" not in out_scoped[0]["content"].split("effective: ")[1]
     assert out_scoped[0]["policy_update"] == {
         "key": "shell.allowed",
         "scope": "workspace",
@@ -1530,8 +1533,12 @@ def test_shell_reset_rejects_invalid_scope_shape(monkeypatch):
 def test_shell_reset_accepts_explicit_scope():
     import toas.step as step_mod
 
-    out = handle_prompt_workspace_commands("shell", ["reset", "--scope", "workspace"], step_mod=step_mod, context=_ctx())
+    events = [
+        {"kind": "policy_override", "payload": {"key": "shell.allowed", "scope": "workspace", "action": "add", "value": "cargo"}},
+    ]
+    out = handle_prompt_workspace_commands("shell", ["reset", "--scope", "workspace"], step_mod=step_mod, context=_ctx(events=events))
     assert "shell grants reset (scope=workspace)" in out[0]["content"]
+    assert "cargo" not in out[0]["content"].split("effective: ")[1]
     assert out[0]["policy_update"] == {"key": "shell.allowed", "scope": "workspace", "action": "reset"}
 
 

@@ -201,3 +201,58 @@ def test_build_config_sources_with_config_diagnostics():
     assert sources["__diagnostics__"] == "/tmp/toas.toml (line 2, col 10): Invalid value at line 2, col 10"
 
 
+def test_extract_node_policy_updates_and_event_records():
+    from toas.runtime.policy_edges import (
+        extract_node_policy_updates,
+        policy_updates_to_event_records,
+    )
+
+    node = {
+        "policy_updates": [
+            {"key": "a.b", "scope": "session", "action": "set", "value": 1},
+        ],
+        "policy_update": {"key": "c.d", "scope": "workspace", "action": "unset"},
+        "target_selection_update": {"action": "set", "target_id": "tgt1"},
+        "shell_scope_update": {"action": "add", "scope": "session", "grants": ["cargo", "rustc"]},
+    }
+    updates = extract_node_policy_updates(node)
+    assert len(updates) == 4
+    assert updates[0] == {"key": "a.b", "scope": "session", "action": "set", "value": 1}
+    assert updates[1] == {"key": "c.d", "scope": "workspace", "action": "unset"}
+    assert updates[2] == {"key": "llm.target", "scope": "session", "action": "set", "value": "tgt1"}
+    assert updates[3] == {"key": "shell.allowed", "scope": "session", "action": "add", "value": ["cargo", "rustc"]}
+
+    # Records with source_message_id
+    records = policy_updates_to_event_records(updates, source_message_id="msg123")
+    assert len(records) == 4
+    assert records[0]["kind"] == "policy_override"
+    assert records[0]["related_to"] == "msg123"
+    assert records[0]["payload"]["key"] == "a.b"
+
+    # Records without source_message_id
+    records_unlinked = policy_updates_to_event_records(updates)
+    assert "related_to" not in records_unlinked[0]
+
+    # Legacy target unset and legacy shell reset and single grant
+    node2 = {
+        "target_selection_update": {"action": "unset"},
+        "shell_scope_update": {"action": "reset", "scope": "workspace"},
+    }
+    updates2 = extract_node_policy_updates(node2)
+    assert updates2 == [
+        {"key": "llm.target", "scope": "session", "action": "unset"},
+        {"key": "shell.allowed", "scope": "workspace", "action": "reset"},
+    ]
+
+    node3 = {
+        "shell_scope_update": {"action": "remove", "scope": "session", "grant": "echo"},
+        # invalid: bad scope, non-str
+        "policy_update": {"key": "bad", "scope": "invalid_scope", "action": "set"},
+    }
+    updates3 = extract_node_policy_updates(node3)
+    assert updates3 == [
+        {"key": "shell.allowed", "scope": "session", "action": "remove", "value": ["echo"]},
+    ]
+
+
+
