@@ -68,7 +68,12 @@ def _toml_literal(value: object) -> str:
     if isinstance(value, (list, tuple)):
         return "[" + ", ".join(_toml_literal(v) for v in value) + "]"
     if isinstance(value, dict):
-        return "{ " + ", ".join(f"{key} = {_toml_literal(val)}" for key, val in value.items()) + " }"
+        entries = [
+            f"{key} = {_toml_literal(val)}"
+            for key, val in value.items()
+            if val is not None
+        ]
+        return "{ " + ", ".join(entries) + " }"
     return _toml_literal(str(value))
 
 

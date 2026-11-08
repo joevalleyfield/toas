@@ -178,3 +178,67 @@ def test_default_model_invocation_port_wires_default_runtime_dependencies():
     assert port.generate.__name__ == "generate_assistant_message"
     assert port.classify_error.__name__ == "classify_generation_error"
     assert port.model_name.__name__ == "model_name"
+
+
+def test_resolve_model_invocation_with_request_messages_and_discovered_select(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            endpoints=(
+                EndpointCatalogEntry(id="ep1", base_url="http://ep1", models=("model-1",)),
+            ),
+            targets=(
+                TargetCatalogEntry(id="ep1-model-1", endpoint="ep1", model="model-1"),
+            ),
+        ),
+    )
+    # 1. request_messages provided directly
+    inv1 = resolve_model_invocation(
+        working=[],
+        request_messages=[{"role": "user", "content": "direct-request"}],
+        operator_config=config,
+        base_settings=Settings(llm_base_url="http://default", llm_model="base"),
+        settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
+        policy=type("Policy", (), {"extra_body": {}, "max_tokens": None, "max_retries": 0, "retry_delay_s": 1.0})(),
+        events_path=events_path,
+        project_messages=lambda _w: [],
+    )
+    assert inv1.messages == [{"role": "user", "content": "direct-request"}]
+
+    # 2. direct /model select ENDPOINT MODEL in working
+    inv2 = resolve_model_invocation(
+        working=[
+            {"role": "user", "content": "/model select ep1 model-1"},
+            {"role": "user", "content": "/model select ep1 unknown-model"},  # triggers ValueError in discovered_model_selection
+        ],
+        operator_config=config,
+        base_settings=Settings(llm_base_url="http://default", llm_model="base"),
+        settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
+        policy=type("Policy", (), {"extra_body": {}, "max_tokens": None, "max_retries": 0, "retry_delay_s": 1.0})(),
+        events_path=events_path,
+        project_messages=lambda _w: [{"role": "user", "content": "projected"}],
+    )
+    assert inv2.selected_settings.llm_model == "model-1"
+
+    # 3. endpoint-only selection without active target
+    inv3 = resolve_model_invocation(
+        working=[
+            {"role": "user", "content": "/endpoint ep1"},
+        ],
+        operator_config=OperatorConfig(
+            llm=LLMPolicy(
+                endpoints=(
+                    EndpointCatalogEntry(id="ep1", base_url="http://ep1", models=("model-1",)),
+                ),
+            ),
+        ),
+        base_settings=Settings(llm_base_url="http://default", llm_model="base"),
+        settings_sources={"model": "default", "endpoint": "default", "api_key": "default", "transport": "default"},
+        policy=type("Policy", (), {"extra_body": {}, "max_tokens": None, "max_retries": 0, "retry_delay_s": 1.0})(),
+        events_path=events_path,
+        project_messages=lambda _w: [{"role": "user", "content": "projected"}],
+    )
+    assert inv3.endpoint_id == "ep1"
+    assert inv3.selected_settings.llm_model == "model-1"
+

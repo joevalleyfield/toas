@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 from ..backend_policy import BackendGenerationPolicy, generation_policy_from_config
-from ..config import GenerationPolicy, OperatorConfig, TargetCatalogEntry
+from ..config import EndpointCatalogEntry, GenerationPolicy, OperatorConfig, TargetCatalogEntry
 from ..llm import Settings
 from ..secrets import resolve_secret
 
@@ -47,9 +47,9 @@ def resolve_model_target(config: OperatorConfig, target_id: str) -> TargetCatalo
     return next((target for target in config.llm.targets if target.id == normalized), None)
 
 
-def resolve_target_generation(config: OperatorConfig, target: TargetCatalogEntry) -> GenerationPolicy:
-    """Overlay sparse target generation settings onto global generation policy."""
-    overrides = target.generation
+def resolve_endpoint_generation(config: OperatorConfig, endpoint: EndpointCatalogEntry) -> GenerationPolicy:
+    """Overlay sparse endpoint generation defaults onto global generation policy."""
+    overrides = endpoint.generation
     values = {
         field: value
         for field, value in {
@@ -64,6 +64,28 @@ def resolve_target_generation(config: OperatorConfig, target: TargetCatalogEntry
         if value is not None
     }
     return replace(config.generation, **values)  # type: ignore[arg-type]
+
+
+def resolve_target_generation(config: OperatorConfig, target: TargetCatalogEntry) -> GenerationPolicy:
+    """Overlay sparse target generation settings onto endpoint defaults and global generation policy."""
+    endpoint_id = target.endpoint.strip() if target.endpoint else ""
+    endpoint = next((entry for entry in config.llm.endpoints if entry.id == endpoint_id), None) if endpoint_id else None
+    baseline = resolve_endpoint_generation(config, endpoint) if endpoint is not None else config.generation
+    overrides = target.generation
+    values = {
+        field: value
+        for field, value in {
+            "thinking_mode": overrides.thinking_mode,
+            "thinking_budget_tokens": overrides.thinking_budget_tokens,
+            "max_tokens": overrides.max_tokens,
+            "avoid_terms": overrides.avoid_terms,
+            "max_retries": overrides.max_retries,
+            "retry_delay_s": overrides.retry_delay_s,
+            "transport_mode": overrides.transport_mode,
+        }.items()
+        if value is not None
+    }
+    return replace(baseline, **values)  # type: ignore[arg-type]
 
 
 def resolve_target_invocation(

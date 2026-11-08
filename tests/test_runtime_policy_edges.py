@@ -248,11 +248,13 @@ def test_extract_node_policy_updates_and_event_records():
         "shell_scope_update": {"action": "remove", "scope": "session", "grant": "echo"},
         # invalid: bad scope, non-str
         "policy_update": {"key": "bad", "scope": "invalid_scope", "action": "set"},
+        "policy_updates": [{"key": 123, "scope": "session", "action": "set"}],
     }
     updates3 = extract_node_policy_updates(node3)
     assert updates3 == [
         {"key": "shell.allowed", "scope": "session", "action": "remove", "value": ["echo"]},
     ]
+
 
 
 

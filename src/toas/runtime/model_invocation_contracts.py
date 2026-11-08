@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import shlex
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from ..backend_policy import BackendGenerationPolicy
+from ..backend_policy import BackendGenerationPolicy, generation_policy_from_config
 from ..cli_streaming import StreamPresenter
-from ..config import OperatorConfig
+from ..config import EndpointRateLimitPolicy, OperatorConfig
 from ..graph import active_target_selection, read_log, write_llm_call_record
 from ..llm import (
     PermanentGenerationError,
@@ -22,6 +22,7 @@ from ..step import resolve_selected_endpoint, resolve_selected_model
 from .context_assembly import build_context_packet, shape_messages_for_packet
 from .model_targets import (
     infer_endpoint_default_model,
+    resolve_endpoint_generation,
     resolve_model_target,
     resolve_target_invocation,
 )
@@ -67,7 +68,12 @@ def _branch_visible_target_selection(*, working: list[dict], events: list[dict],
         or event.get("related_to") is None
         or event.get("related_to") in visible_message_ids
     ]
-    return active_target_selection(compatible_events)
+    active = active_target_selection(compatible_events)
+    if active:
+        return active
+    if config is not None and config.llm.target:
+        return config.llm.target
+    return None
 
 
 @dataclass(frozen=True)
@@ -82,6 +88,8 @@ class ResolvedModelInvocation:
     retry_delay_s: float
     generation: BackendGenerationPolicy
     history: tuple[dict, ...] = ()
+    endpoint_id: str | None = None
+    rate_limit: EndpointRateLimitPolicy = field(default_factory=EndpointRateLimitPolicy)
 
 
 @dataclass(frozen=True)
@@ -168,41 +176,53 @@ def resolve_model_invocation(
     selected_endpoint_source = settings_sources["endpoint"]
     selected_api_key_source = settings_sources["api_key"]
     selected_generation = policy
+    resolved_endpoint_id: str | None = None
+    rate_limit = EndpointRateLimitPolicy()
     if target_invocation is not None:
         selected_settings = target_invocation.settings
         selected_model_source = target_invocation.model_source
         selected_endpoint_source = target_invocation.endpoint_source
         selected_api_key_source = target_invocation.api_key_source
         selected_generation = target_invocation.generation
+        if active_target and active_target.endpoint.strip():
+            resolved_endpoint_id = active_target.endpoint.strip()
+            endpoint_entry = next((entry for entry in operator_config.llm.endpoints if entry.id == resolved_endpoint_id), None)
+            if endpoint_entry is not None:
+                rate_limit = endpoint_entry.rate_limit
     else:
         endpoint_id = selected_endpoint(working)
-    if target_invocation is None and endpoint_id:
-        endpoint_entry = next((entry for entry in operator_config.llm.endpoints if entry.id == endpoint_id), None)
-        if endpoint_entry is not None:
-            endpoint_api_key = secret_resolver(
-                source=endpoint_entry.api_key_source,
-                ref=endpoint_entry.api_key_ref,
-                default=base_settings.llm_api_key,
-            )
-            endpoint_model, endpoint_model_source = infer_endpoint_default_model(
-                operator_config,
-                endpoint_entry,
-                global_model=operator_config.llm.model,
-                fallback_model=base_settings.llm_model,
-            )
-            selected_settings = Settings(
-                llm_base_url=endpoint_entry.base_url or base_settings.llm_base_url,
-                llm_api_key=endpoint_api_key,
-                llm_model=endpoint_model,
-                llm_trace=base_settings.llm_trace,
-                llm_transport_mode=base_settings.llm_transport_mode,
-                llm_stream_mode=base_settings.llm_stream_mode,
-                llm_provider=endpoint_entry.provider or base_settings.llm_provider,
-                llm_ca_file=base_settings.llm_ca_file,
-            )
-            selected_endpoint_source = f"endpoint:{endpoint_id}"
-            selected_api_key_source = f"{endpoint_entry.api_key_source}:{endpoint_entry.api_key_ref}"
-            selected_model_source = f"endpoint:{endpoint_id}:{endpoint_model_source}"
+        if endpoint_id:
+            resolved_endpoint_id = endpoint_id
+            endpoint_entry = next((entry for entry in operator_config.llm.endpoints if entry.id == endpoint_id), None)
+            if endpoint_entry is not None:
+                rate_limit = endpoint_entry.rate_limit
+                endpoint_api_key = secret_resolver(
+                    source=endpoint_entry.api_key_source,
+                    ref=endpoint_entry.api_key_ref,
+                    default=base_settings.llm_api_key,
+                )
+                endpoint_model, endpoint_model_source = infer_endpoint_default_model(
+                    operator_config,
+                    endpoint_entry,
+                    global_model=operator_config.llm.model,
+                    fallback_model=base_settings.llm_model,
+                )
+                endpoint_generation = resolve_endpoint_generation(operator_config, endpoint_entry)
+                generation_config = replace(operator_config, generation=endpoint_generation)
+                selected_generation = generation_policy_from_config(generation_config)
+                selected_settings = Settings(
+                    llm_base_url=endpoint_entry.base_url or base_settings.llm_base_url,
+                    llm_api_key=endpoint_api_key,
+                    llm_model=endpoint_model,
+                    llm_trace=base_settings.llm_trace,
+                    llm_transport_mode=endpoint_generation.transport_mode,
+                    llm_stream_mode=base_settings.llm_stream_mode,
+                    llm_provider=endpoint_entry.provider or base_settings.llm_provider,
+                    llm_ca_file=base_settings.llm_ca_file,
+                )
+                selected_endpoint_source = f"endpoint:{endpoint_id}"
+                selected_api_key_source = f"{endpoint_entry.api_key_source}:{endpoint_entry.api_key_ref}"
+                selected_model_source = f"endpoint:{endpoint_id}:{endpoint_model_source}"
     transcript_model = selected_model(working) if target_invocation is None else None
     if transcript_model:
         selected_settings = Settings(
@@ -238,4 +258,6 @@ def resolve_model_invocation(
         retry_delay_s=getattr(selected_generation, "retry_delay_s", operator_config.generation.retry_delay_s),
         generation=selected_generation,
         history=tuple(working),
+        endpoint_id=resolved_endpoint_id,
+        rate_limit=rate_limit,
     )

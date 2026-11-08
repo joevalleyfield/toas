@@ -123,6 +123,33 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                                 last_seen=str(observation.get("last_seen", "")).strip(),
                             )
                         )
+            endpoint_generation_values = item.get("generation", {})
+            if not isinstance(endpoint_generation_values, dict):
+                endpoint_generation_values = {}
+            if isinstance(endpoint_generation_values.get("avoid_terms"), list):
+                endpoint_generation_values = dict(endpoint_generation_values)
+                endpoint_generation_values["avoid_terms"] = tuple(
+                    str(term).strip() for term in endpoint_generation_values["avoid_terms"] if str(term).strip()
+                )
+            endpoint_generation = classes["TargetGenerationOverrides"](**endpoint_generation_values)
+
+            rate_limit_values = item.get("rate_limit", {})
+            if not isinstance(rate_limit_values, dict):
+                rate_limit_values = {}
+            min_interval_raw = rate_limit_values.get("min_interval_s", 0.0)
+            try:
+                min_interval_s = float(min_interval_raw) if min_interval_raw is not None else 0.0
+            except (ValueError, TypeError):
+                min_interval_s = 0.0
+            rpm_raw = rate_limit_values.get("requests_per_minute")
+            rpm = None
+            if rpm_raw is not None and str(rpm_raw).strip().lower() not in {"", "none", "null", "unset"}:
+                try:
+                    rpm = int(rpm_raw)
+                except (ValueError, TypeError):
+                    rpm = None
+            rate_limit = classes["EndpointRateLimitPolicy"](min_interval_s=min_interval_s, requests_per_minute=rpm)
+
             endpoint_entries.append(
                 classes["EndpointCatalogEntry"](
                     id=endpoint_id,
@@ -132,6 +159,8 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
                     api_key_source=api_key_source,
                     api_key_ref=api_key_ref,
                     provider=provider,
+                    generation=endpoint_generation,
+                    rate_limit=rate_limit,
                     tags=tags,
                     notes=notes,
                     models_last_refreshed_at=models_last_refreshed_at,

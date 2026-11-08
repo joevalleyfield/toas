@@ -67,6 +67,12 @@ class EndpointModelObservation:
 
 
 @dataclass(frozen=True)
+class EndpointRateLimitPolicy:
+    min_interval_s: float = 0.0
+    requests_per_minute: int | None = None
+
+
+@dataclass(frozen=True)
 class EndpointCatalogEntry:
     id: str
     base_url: str
@@ -75,6 +81,8 @@ class EndpointCatalogEntry:
     api_key_source: str = "env"
     api_key_ref: str = "TOAS_LLM_API_KEY"
     provider: str = ""
+    generation: TargetGenerationOverrides = field(default_factory=TargetGenerationOverrides)
+    rate_limit: EndpointRateLimitPolicy = field(default_factory=EndpointRateLimitPolicy)
     tags: tuple[str, ...] = ()
     notes: str = ""
     models_last_refreshed_at: str = ""
@@ -352,6 +360,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "TargetGenerationOverrides": TargetGenerationOverrides,
                 "TargetCatalogEntry": TargetCatalogEntry,
                 "EndpointCatalogEntry": EndpointCatalogEntry,
+                "EndpointRateLimitPolicy": EndpointRateLimitPolicy,
                 "EndpointModelObservation": EndpointModelObservation,
                 "LLMPolicy": LLMPolicy,
                 "RuntimePolicy": RuntimePolicy,

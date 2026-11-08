@@ -131,3 +131,23 @@ class EndpointCatalogEntry:
    endpoints configured with valid RPM or interval constraints.
 5. **Configuration Parity**: `/config show target <id>` and `/config target <id> set ...`
    work across both CLI and transcript slash command surfaces.
+
+## Outcome & Evidence
+
+- **Three-Tier Generation Settings Resolution**:
+  Added `resolve_endpoint_generation` and updated `resolve_target_generation` in `src/toas/runtime/model_targets.py` to enforce Target Overrides $\rightarrow$ Endpoint Defaults $\rightarrow$ Global Config Fallback. Added `generation: TargetGenerationOverrides` to `EndpointCatalogEntry` in `src/toas/config.py` and parsed it in `src/toas/config_overrides.py`.
+- **Endpoint Client-Side Pacing & Throttling**:
+  Introduced `EndpointRateLimitPolicy(min_interval_s: float = 0.0, requests_per_minute: int | None = None)` on `EndpointCatalogEntry`.
+  Created `src/toas/runtime/endpoint_throttler.py` implementing thread-safe token-bucket client-side rate limiting and inter-request pacing per endpoint key.
+  Wired active rate limiting and endpoint identification into `resolve_model_invocation` in `src/toas/runtime/model_invocation_contracts.py` and enforced throttling in `_call_model_once` in `src/toas/runtime/step_generation_runtime.py`.
+- **Seamless Model Switching & Automatic Profile Flipping**:
+  Switching targets (`/model select <target>`) or endpoints (`/model select <endpoint> <model>`) flips active generation posture and rate limits dynamically without manual `/config` churn.
+- **Interactive `/config` Surface Inspection & Mutation**:
+  Updated `src/toas/runtime/operator_config_endpoint_ops.py` to handle `/config endpoint <id> set generation.*` and `/config endpoint <id> set rate_limit.*`.
+  Updated `src/toas/runtime/operator_command_config_help.py` to support `/config show target <target_id>`, `/config target <target_id> set ...`, `/config target show <target_id>`, and comprehensive target generation overview formatting.
+  Updated `_toml_literal` in `src/toas/runtime/policy_edges.py` to cleanly serialize nested generation and rate limit configs without serializing None keys.
+- **Comprehensive Test Suite & Verification**:
+  Added `tests/test_target_coupled_generation_settings.py` covering hierarchy precedence, profile switching, bounded step pacing (`toas step n`), endpoint throttler rate-limiting and burst pacing, `/config` mutation/inspection, and TOML serialization.
+- **Suite & Coverage**:
+  Passed full `./scripts/check.sh` with 3,919 passed, 9 skipped, 17 deselected, 100.00% statement coverage across all 163 files, 17 acceptance tests passed, ruff clean, and mypy passed (0 issues).
+

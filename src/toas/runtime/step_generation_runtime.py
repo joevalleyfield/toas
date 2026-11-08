@@ -10,7 +10,7 @@ from pathlib import Path
 
 from ..backend_policy import BackendGenerationPolicy
 from ..cli_streaming import StreamPresenter as _StreamPresenter
-from ..config import OperatorConfig
+from ..config import EndpointRateLimitPolicy, OperatorConfig
 from ..graph import project_llm_input_from_messages, write_llm_call_record
 from ..llm import (
     PermanentGenerationError,
@@ -23,6 +23,7 @@ from ..llm import (
 from ..secrets import resolve_secret
 from ..step import resolve_selected_endpoint, resolve_selected_model
 from ..step import step as step_fn
+from .endpoint_throttler import EndpointThrottler
 from .model_invocation_contracts import (
     GenerationCompletion,
     GenerationOutcome,
@@ -420,6 +421,10 @@ class GenerationRunner:
 
     def _call_model_once(self, plan) -> dict:
         generation = getattr(plan, "generation", self.policy)
+        endpoint_id = getattr(plan, "endpoint_id", None)
+        rate_limit = getattr(plan, "rate_limit", None) or EndpointRateLimitPolicy()
+        throttler_key = endpoint_id or plan.selected_settings.llm_base_url or "default"
+        EndpointThrottler.get(throttler_key).acquire(rate_limit)
 
         def _call_generate(*, messages, settings, extra_body, on_delta, on_reasoning_delta, on_prompt_progress):
             kwargs = {

@@ -29,7 +29,7 @@ _CONFIG_USAGE = (
     "| /config endpoint [list|add|set|remove|capture] ... | /config target [list|add|set|remove] ... | /config restore | /config load [path] | /config save [path] | /config secret ..."
 )
 
-_TARGET_USAGE = "usage: /config target [list|add|set|remove] ..."
+_TARGET_USAGE = "usage: /config target [list|add|set|remove|show] ...\n  set NAME FIELD VALUE\n  NAME set FIELD VALUE"
 _ENDPOINT_BOOTSTRAP_USAGE = (
     "usage: /config endpoint bootstrap NAME BASE_URL "
     "[--refresh] [--targets | --target MODEL [--select]]"
@@ -403,7 +403,68 @@ def _config_execution_overview(*, step_mod, context: OperatorCommandContext) -> 
     return "\n".join(lines)
 
 
+def _config_target_overview(target_id: str, *, step_mod, context: OperatorCommandContext) -> str:
+    from ..config import EndpointRateLimitPolicy
+    from .model_targets import (
+        resolve_model_target,
+        resolve_target_generation,
+        resolve_target_invocation,
+    )
+    from .policy_edges import settings_for_runtime
+
+    target = resolve_model_target(context.config, target_id)
+    if target is None:
+        choices = ", ".join(item.id for item in context.config.llm.targets) or "(none)"
+        raise ValueError(f"unknown model target: {target_id}\navailable targets: {choices}")
+
+    base_settings, _ = settings_for_runtime(context.config, runtime_secrets={})
+    resolved_inv = resolve_target_invocation(context.config, target, base_settings, secret_resolver=lambda **_kw: "")
+    generation = resolve_target_generation(context.config, target)
+    endpoint = next((e for e in context.config.llm.endpoints if e.id == target.endpoint.strip()), None) if target.endpoint else None
+
+    endpoint_desc = target.endpoint or "(default)"
+    if endpoint is not None and endpoint.base_url:
+        endpoint_desc = f"{endpoint_desc} ({endpoint.base_url})"
+    model_desc = target.model or (resolved_inv.settings.llm_model if resolved_inv else "(unresolved)")
+
+    rate_limit = endpoint.rate_limit if endpoint is not None else EndpointRateLimitPolicy()
+    rpm_str = str(rate_limit.requests_per_minute) if rate_limit.requests_per_minute is not None else "(none)"
+    avoid_terms_str = ", ".join(generation.avoid_terms) if generation.avoid_terms else "(none)"
+
+    lines = [
+        f"target: {target.id}",
+        "",
+        "resolution:",
+        f"  endpoint: {endpoint_desc}",
+        f"  model: {model_desc}",
+        "",
+        "generation:",
+        f"  thinking: {generation.thinking_mode}",
+        f"  thinking budget: {generation.thinking_budget_tokens or '(unset)'}",
+        f"  max tokens: {generation.max_tokens or '(auto/unset)'}",
+        f"  transport: {generation.transport_mode}",
+        f"  retries: {generation.max_retries}",
+        f"  retry delay: {generation.retry_delay_s}s",
+        f"  avoid terms: {avoid_terms_str}",
+        "",
+        "rate limit:",
+        f"  min interval: {rate_limit.min_interval_s}s",
+        f"  requests per minute: {rpm_str}",
+    ]
+    if target.tags:
+        lines.extend(["", f"tags: {', '.join(target.tags)}"])
+    if target.notes:
+        lines.extend(["", f"notes: {target.notes}"])
+    return "\n".join(lines)
+
+
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args and args[0] in {"show", "list"}:
+        if len(args) >= 3 and args[1] == "target":
+            target_id = args[2].strip()
+            return [_result_node(_config_target_overview(target_id, step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+        if len(args) == 2 and args[1] == "target":
+            return _render_target_list(context, step_mod=step_mod)
     filter_text, show_sources, show_flat = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
 
     head_id = next((m.get("id") for m in reversed(context.working) if m.get("id")), None) if context.working else None
@@ -1005,7 +1066,28 @@ def _parse_target_field(field: str, raw_value: str) -> tuple[str, object]:
 def _config_target_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) < 2:
         raise ValueError(_TARGET_USAGE)
+    if len(args) >= 3 and args[2] == "set":
+        if len(args) != 5 or not args[1].strip():
+            raise ValueError("usage: /config target <NAME> set FIELD VALUE")
+        target_id = args[1].strip()
+        if not any(target.id == target_id for target in context.config.llm.targets):
+            raise ValueError(f"unknown model target: {target_id}")
+        field, value = _parse_target_field(args[3], args[4])
+        target_values = (
+            {field: value}
+            if "." not in field
+            else {field.split(".", 1)[0]: {field.split(".", 1)[1]: value}}
+        )
+        return [_result_node(f"updated model target {target_id}.{field}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, target_values))]
+    if len(args) >= 3 and args[2] == "show":
+        return [_result_node(_config_target_overview(args[1].strip(), step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+    if len(args) == 2 and any(target.id == args[1].strip() for target in context.config.llm.targets):
+        return [_result_node(_config_target_overview(args[1].strip(), step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
     action = args[1]
+    if action == "show":
+        if len(args) != 3 or not args[2].strip():
+            raise ValueError("usage: /config target show NAME")
+        return [_result_node(_config_target_overview(args[2].strip(), step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
     if action == "list":
         if len(args) != 2:
             raise ValueError(_TARGET_USAGE)
@@ -1042,7 +1124,7 @@ def _config_target_result(args: list[str], *, step_mod, context: OperatorCommand
         if not any(target.id == target_id for target in context.config.llm.targets):
             raise ValueError(f"unknown model target: {target_id}")
         field, value = _parse_target_field(args[3], args[4])
-        target_values: dict[str, object] = (
+        target_values = (
             {field: value}
             if "." not in field
             else {field.split(".", 1)[0]: {field.split(".", 1)[1]: value}}
