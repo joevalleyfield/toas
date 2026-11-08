@@ -214,6 +214,23 @@ def _extract_tool_result_content(result: Any) -> str:
     return str(result)
 
 
+def _extract_tool_result_stderr(result: Any) -> str:
+    """Extract stderr content from a tool execution result."""
+    if isinstance(result, dict):
+        if "stderr" in result and isinstance(result["stderr"], str):
+            return result["stderr"]
+        if "payload" in result:
+            return _extract_tool_result_stderr(result["payload"])
+    if isinstance(result, list):
+        parts = []
+        for item in result:
+            text = _extract_tool_result_stderr(item)
+            if text:
+                parts.append(text)
+        return "\n".join(parts)
+    return ""
+
+
 def _write_scratch_artifact(workspace_root: Path | None, block_id: str, content: str) -> str:
     """Persist artifact content to .toas/scratch/<block_id>.txt and return the relative path."""
     scratch_dir = (workspace_root / ".toas" / "scratch") if workspace_root else (Path(".toas") / "scratch")
@@ -301,7 +318,146 @@ def _apply_captured_artifacts_from_records(records: list[dict[str, Any]], state:
                 descriptor = captured.get("descriptor")
                 if label and isinstance(descriptor, dict):
                     new_state = _ensure_artifact_in_state(new_state, label, target, descriptor)
+            captured_list = record.get("captured_artifacts")
+            if isinstance(captured_list, list):
+                for item in captured_list:
+                    if isinstance(item, dict):
+                        item_label = item.get("label")
+                        item_target = item.get("target") or "artifacts"
+                        item_descriptor = item.get("descriptor")
+                        if item_label and isinstance(item_descriptor, dict):
+                            new_state = _ensure_artifact_in_state(new_state, item_label, item_target, item_descriptor)
     return new_state
+
+
+def _capture_fence_io_artifacts(
+    *,
+    call: dict[str, Any],
+    result: Any,
+    state: dict[str, Any],
+    workspace_root: Path | None,
+) -> tuple[dict[str, Any], bool, list[dict[str, Any]]]:
+    captured: list[dict[str, Any]] = []
+    modified = False
+    current_state = state
+
+    out_dest = call.get("out") or (call.get("args", {}).get("out") if isinstance(call.get("args"), dict) else None)
+    err_dest = call.get("err") or (call.get("args", {}).get("err") if isinstance(call.get("args"), dict) else None)
+
+    if not out_dest and not err_dest:
+        return current_state, modified, captured
+
+    from ..tools_cluster.execution import apply_io_redirection
+
+    applied = False
+    if isinstance(result, dict):
+        apply_io_redirection(result, call, workspace_root=workspace_root)
+        applied = True
+    elif isinstance(result, list):
+        for item in result:
+            if isinstance(item, dict):
+                apply_io_redirection(item, call, workspace_root=workspace_root)
+                applied = True
+
+    if out_dest:
+        append_out = bool(
+            call.get("append_out")
+            or (call.get("args", {}).get("append_out") if isinstance(call.get("args"), dict) else False)
+        )
+        redirected_item = result if isinstance(result, dict) else (next((x for x in result if isinstance(x, dict) and x.get("out_block_id")), None) if isinstance(result, list) else None)
+        if redirected_item and redirected_item.get("out_block_id"):
+            block_id = redirected_item["out_block_id"]
+            target_path = redirected_item["out_target"]
+        else:
+            raw_stdout = (
+                result.get("stdout")
+                if isinstance(result, dict) and "stdout" in result
+                else _extract_tool_result_content(result)
+            )
+            stdout_content: str = raw_stdout if isinstance(raw_stdout, str) else str(raw_stdout or "")
+            block_id = f"ib_{sha256(stdout_content.encode('utf-8')).hexdigest()[:16]}"
+            if out_dest == "scratch":
+                target_path = f".toas/scratch/{block_id}.txt"
+                if not applied:
+                    _write_scratch_artifact(workspace_root, block_id, stdout_content)
+            else:
+                target_path = out_dest
+                if not applied:
+                    dest_path = (workspace_root / out_dest) if workspace_root and not Path(out_dest).is_absolute() else Path(out_dest)
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    mode = "a" if append_out else "w"
+                    with dest_path.open(mode, encoding="utf-8") as f:
+                        f.write(stdout_content)
+
+        if out_dest == "scratch":
+            label = "stdout"
+        elif out_dest.startswith("artifacts/"):
+            label = out_dest[len("artifacts/"):]
+        elif out_dest.startswith("artifacts."):
+            label = out_dest[len("artifacts."):]
+        else:
+            label = Path(out_dest).name
+        target = "artifacts"
+        descriptor = {
+            "id": block_id,
+            "label": label,
+            "path": target_path,
+            "ref": target_path,
+        }
+        current_state = inject_artifact_into_state(current_state, label, target, descriptor)
+        modified = True
+        captured.append({"label": label, "target": target, "descriptor": descriptor})
+
+    if err_dest:
+        append_err = bool(
+            call.get("append_err")
+            or (call.get("args", {}).get("append_err") if isinstance(call.get("args"), dict) else False)
+        )
+        redirected_item = result if isinstance(result, dict) else (next((x for x in result if isinstance(x, dict) and x.get("err_block_id")), None) if isinstance(result, list) else None)
+        if redirected_item and redirected_item.get("err_block_id"):
+            block_id = redirected_item["err_block_id"]
+            target_path = redirected_item["err_target"]
+        else:
+            raw_stderr = (
+                result.get("stderr")
+                if isinstance(result, dict) and "stderr" in result
+                else _extract_tool_result_stderr(result)
+            )
+            stderr_content: str = raw_stderr if isinstance(raw_stderr, str) else str(raw_stderr or "")
+            block_id = f"ib_{sha256(stderr_content.encode('utf-8')).hexdigest()[:16]}"
+            if err_dest == "scratch":
+                target_path = f".toas/scratch/{block_id}.txt"
+                if not applied:
+                    _write_scratch_artifact(workspace_root, block_id, stderr_content)
+            else:
+                target_path = err_dest
+                if not applied:
+                    dest_path = (workspace_root / err_dest) if workspace_root and not Path(err_dest).is_absolute() else Path(err_dest)
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    mode = "a" if append_err else "w"
+                    with dest_path.open(mode, encoding="utf-8") as f:
+                        f.write(stderr_content)
+
+        if err_dest == "scratch":
+            label = "stderr"
+        elif err_dest.startswith("artifacts/"):
+            label = err_dest[len("artifacts/"):]
+        elif err_dest.startswith("artifacts."):
+            label = err_dest[len("artifacts."):]
+        else:
+            label = Path(err_dest).name
+        target = "artifacts"
+        descriptor = {
+            "id": block_id,
+            "label": label,
+            "path": target_path,
+            "ref": target_path,
+        }
+        current_state = inject_artifact_into_state(current_state, label, target, descriptor)
+        modified = True
+        captured.append({"label": label, "target": target, "descriptor": descriptor})
+
+    return current_state, modified, captured
 
 
 def _parse_state_response(content: str) -> Any:
@@ -2368,7 +2524,7 @@ def step_state(  # noqa: PLR0913
         )
 
 
-def _step_state_impl(  # noqa: PLR0913
+def _step_state_impl(  # noqa: PLR0913, PLR0915
     *,
     events_path: str | Path,
     state: dict[str, Any],
@@ -2623,6 +2779,18 @@ def _step_state_impl(  # noqa: PLR0913
             try:
                 normalized_call = _normalize_tool_call_aliases([call])[0]
                 tool_name = normalized_call.get("tool_name", tool_name)
+                if (
+                    isinstance(normalized_call.get("args"), dict)
+                    and "input" not in normalized_call["args"]
+                    and (normalized_call.get("stdin") or normalized_call["args"].get("stdin"))
+                ):
+                    from .executable_fence_lanes import _resolve_fence_stdin
+
+                    spec = normalized_call.get("stdin") or normalized_call["args"].get("stdin")
+                    resolved = _resolve_fence_stdin(spec, workspace_root=workspace_root)
+                    if resolved is None:
+                        raise ValueError(f"could not resolve stdin source: {spec}")
+                    normalized_call["args"]["input"] = resolved
                 result = execute_call(normalized_call)
                 outcome = {
                     "index": index,
@@ -2650,6 +2818,18 @@ def _step_state_impl(  # noqa: PLR0913
                         "target": target,
                         "descriptor": descriptor,
                     }
+                io_state, io_mod, io_captured = _capture_fence_io_artifacts(
+                    call=normalized_call,
+                    result=result,
+                    state=current_state,
+                    workspace_root=workspace_root,
+                )
+                if io_mod:
+                    current_state = io_state
+                    state_modified = True
+                    outcome["captured_artifacts"] = io_captured
+                    if not outcome.get("captured_artifact") and io_captured:
+                        outcome["captured_artifact"] = io_captured[0]
             except ToolOutcomeError as exc:
                 tname = exc.tool_name or tool_name
                 tb = exc.traceback or traceback.format_exc().strip()
@@ -2797,6 +2977,18 @@ def _step_state_impl(  # noqa: PLR0913
             try:
                 if execute_user_call is None:
                     raise ValueError("user-intent tool execution is unavailable")
+                if (
+                    isinstance(call.get("args"), dict)
+                    and "input" not in call["args"]
+                    and (call.get("stdin") or call["args"].get("stdin"))
+                ):
+                    from .executable_fence_lanes import _resolve_fence_stdin
+
+                    spec = call.get("stdin") or call["args"].get("stdin")
+                    resolved = _resolve_fence_stdin(spec, workspace_root=workspace_root)
+                    if resolved is None:
+                        raise ValueError(f"could not resolve stdin source: {spec}")
+                    call["args"]["input"] = resolved
                 result = execute_user_call(call)
                 execution_outcome: dict[str, Any] = {
                     "index": index,
@@ -2855,6 +3047,18 @@ def _step_state_impl(  # noqa: PLR0913
                             "target": target,
                             "descriptor": descriptor,
                         }
+                    io_state, io_mod, io_captured = _capture_fence_io_artifacts(
+                        call=call,
+                        result=result,
+                        state=accepted,
+                        workspace_root=workspace_root,
+                    )
+                    if io_mod:
+                        accepted = io_state
+                        user_state_modified = True
+                        execution_outcome["captured_artifacts"] = io_captured
+                        if not execution_outcome.get("captured_artifact") and io_captured:
+                            execution_outcome["captured_artifact"] = io_captured[0]
             except ToolOutcomeError as exc:
                 tname = exc.tool_name or tool_name
                 tb = exc.traceback or traceback.format_exc().strip()

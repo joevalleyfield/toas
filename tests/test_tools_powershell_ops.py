@@ -138,3 +138,30 @@ def test_run_powershell_script_ignores_missing_ephemeral_cleanup_file(tmp_path: 
     )
 
     assert result["ok"] is True
+
+
+def test_powershell_script_stdin_input(tmp_path: Path):
+    from toas.tools_cluster.powershell_ops import validate_powershell_script_args
+
+    try:
+        validate_powershell_script_args(
+            {"script": "echo 1", "input": 123},
+            workspace_path_fn=_workspace(tmp_path),
+        )
+    except RuntimeError as exc:
+        assert "input must be a string" in str(exc)
+    else:
+        raise AssertionError("expected invalid input to fail")
+
+    # Valid string input
+    result = run_powershell_script(
+        {
+            "script": "import sys; print('PWSH_IN:' + sys.stdin.read().strip())",
+            "runtime": [sys.executable],
+            "input": "test_pwsh_input",
+        },
+        workspace_path_fn=_workspace(tmp_path),
+    )
+    assert result["ok"] is True
+    assert "PWSH_IN:test_pwsh_input" in result["stdout"]
+

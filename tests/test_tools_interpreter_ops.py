@@ -144,3 +144,24 @@ def test_interpreter_script_rejects_overwrite_without_persistence(tmp_path: Path
             {"language": "bc", "script": "x", "runtime": [sys.executable], "path": "missing/x.bc"},
             workspace_path_fn=_workspace(tmp_path),
         )
+
+
+def test_interpreter_script_stdin_input(tmp_path: Path):
+    with pytest.raises(RuntimeError, match="input must be a string"):
+        run_interpreter_script(
+            {"language": "bc", "script": "x", "runtime": [sys.executable], "input": 123},
+            workspace_path_fn=_workspace(tmp_path),
+        )
+
+    res = run_interpreter_script(
+        {
+            "language": "bc",
+            "script": "import sys; print('INTERP_IN:' + sys.stdin.read().strip())",
+            "runtime": [sys.executable],
+            "input": "test_input",
+        },
+        workspace_path_fn=_workspace(tmp_path),
+    )
+    assert res["ok"] is True
+    assert "INTERP_IN:test_input" in res["stdout"]
+

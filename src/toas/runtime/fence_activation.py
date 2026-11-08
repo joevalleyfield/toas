@@ -31,18 +31,28 @@ class FenceActivation:
     ref: str | None = None
     has_write: bool = False
     has_exec: bool = False
+    stdin: str | None = None
+    out: str | None = None
+    err: str | None = None
+    append_out: bool = False
+    append_err: bool = False
 
 
 _ALLOWED_ATTRIBUTES = {
     "append",
+    "append_err",
+    "append_out",
     "cwd",
+    "err",
     "force",
     "mode",
+    "out",
     "overwrite",
     "path",
     "persist",
     "ref",
     "runtime",
+    "stdin",
     "timeout_s",
     "toolset",
 }
@@ -105,6 +115,36 @@ def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
     if has_write and not path_val:
         return FenceActivation("unsupported", language, predicate, "write fence requires path attribute")
 
+    stdin_val = parsed_attributes.get("stdin")
+    if "stdin" in parsed_attributes and (stdin_val is None or not stdin_val.strip()):
+        return FenceActivation("unsupported", language, predicate, "stdin value is empty")
+
+    out_val = parsed_attributes.get("out")
+    if "out" in parsed_attributes and (out_val is None or not out_val.strip()):
+        return FenceActivation("unsupported", language, predicate, "out value is empty")
+
+    err_val = parsed_attributes.get("err")
+    if "err" in parsed_attributes and (err_val is None or not err_val.strip()):
+        return FenceActivation("unsupported", language, predicate, "err value is empty")
+
+    append_out_val = False
+    if "append_out" in parsed_attributes:
+        if "out" not in parsed_attributes:
+            return FenceActivation("unsupported", language, predicate, "append_out requires out attribute")
+        raw_out = parsed_attributes["append_out"].casefold()
+        if raw_out not in {"true", "false"}:
+            return FenceActivation("unsupported", language, predicate, "append_out must be true or false")
+        append_out_val = raw_out == "true"
+
+    append_err_val = False
+    if "append_err" in parsed_attributes:
+        if "err" not in parsed_attributes:
+            return FenceActivation("unsupported", language, predicate, "append_err requires err attribute")
+        raw_err = parsed_attributes["append_err"].casefold()
+        if raw_err not in {"true", "false"}:
+            return FenceActivation("unsupported", language, predicate, "append_err must be true or false")
+        append_err_val = raw_err == "true"
+
     canonical = _LANGUAGE_ALIASES.get(language)
     if has_exec:
         if canonical is None:
@@ -118,6 +158,11 @@ def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
                     ref=parsed_attributes.get("ref"),
                     has_write=has_write,
                     has_exec=True,
+                    stdin=stdin_val,
+                    out=out_val,
+                    err=err_val,
+                    append_out=append_out_val,
+                    append_err=append_err_val,
                 )
             return FenceActivation("unsupported", language, predicate, "language is not registered")
         if canonical in {"yaml", "json"} and toolset not in {None, "toas"}:
@@ -140,4 +185,9 @@ def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
         ref=parsed_attributes.get("ref"),
         has_write=has_write,
         has_exec=has_exec,
+        stdin=stdin_val,
+        out=out_val,
+        err=err_val,
+        append_out=append_out_val,
+        append_err=append_err_val,
     )

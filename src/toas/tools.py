@@ -335,6 +335,7 @@ def _run_shell_script(args: dict) -> dict:
         timeout_s=timeout_s,
         env=env,
         tool_name="shell_script",
+        input=args.get("input"),
     )
     result["tool_name"] = "shell_script"
     result["script"] = script
@@ -534,7 +535,7 @@ REGISTRY = {
         name="shell_script",
         required_args=("script",),
         runner=_run_shell_script,
-        optional_args=("cwd", "timeout_s", "env", "runtime"),
+        optional_args=("cwd", "timeout_s", "env", "runtime", "input"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
         arg_types={
             "script": "str",
@@ -542,13 +543,14 @@ REGISTRY = {
             "timeout_s": "float",
             "env": "dict[str, str]",
             "runtime": "list[str]",
+            "input": "str",
         },
     ),
     "python_script": Tool(
         name="python_script",
         required_args=("script",),
         runner=_run_python_script,
-        optional_args=("cwd", "timeout_s", "runtime", "persist", "path", "overwrite"),
+        optional_args=("cwd", "timeout_s", "runtime", "persist", "path", "overwrite", "input"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
         arg_types={
             "script": "str",
@@ -558,13 +560,14 @@ REGISTRY = {
             "persist": "bool",
             "path": "str",
             "overwrite": "bool",
+            "input": "str",
         },
     ),
     "powershell_script": Tool(
         name="powershell_script",
         required_args=("script",),
         runner=_run_powershell_script,
-        optional_args=("cwd", "timeout_s", "runtime", "persist", "path", "overwrite"),
+        optional_args=("cwd", "timeout_s", "runtime", "persist", "path", "overwrite", "input"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
         arg_types={
             "script": "str",
@@ -574,13 +577,14 @@ REGISTRY = {
             "persist": "bool",
             "path": "str",
             "overwrite": "bool",
+            "input": "str",
         },
     ),
     "interpreter_script": Tool(
         name="interpreter_script",
         required_args=("language", "script", "runtime"),
         runner=_run_interpreter_script,
-        optional_args=("cwd", "timeout_s", "persist", "path", "overwrite"),
+        optional_args=("cwd", "timeout_s", "persist", "path", "overwrite", "input"),
         default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
         arg_types={
             "language": "str",
@@ -591,6 +595,7 @@ REGISTRY = {
             "persist": "bool",
             "path": "str",
             "overwrite": "bool",
+            "input": "str",
         },
     ),
     "read_file": Tool(

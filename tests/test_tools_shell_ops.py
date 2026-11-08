@@ -25,6 +25,7 @@ from toas.tools_cluster.shell_ops import (
     build_env_with_overrides,
     execute_shell_call,
     normalize_shell_argv,
+    run_subprocess,
     run_user_shell,
     shell_launcher_argv,
     validate_shell_args,
@@ -232,6 +233,18 @@ def test_posix_process_override_can_remove_inherited_environment(monkeypatch, tm
     assert os.environ["TOAS_REMOVE_TEST"] == "inherited"
 
 
+def test_run_subprocess_with_stdin_input(tmp_path):
+    res = run_subprocess(
+        ["cat"],
+        cwd=tmp_path,
+        timeout_s=5,
+        stream_stdout_override=False,
+        input="cat this input text",
+    )
+    assert res["ok"] is True
+    assert res["stdout"] == "cat this input text"
+
+
 def test_validate_shell_args_happy_and_errors(tmp_path):
     out = validate_shell_args(
         {"argv": ["echo", "hi"], "cwd": str(tmp_path), "timeout_s": 3},
@@ -410,6 +423,13 @@ def test_validate_shell_script_args_happy_and_errors(tmp_path):
     )
     assert script == "echo hi"
     assert env is not None and env["TOAS_TEST_ENV"] == "1"
+
+    with pytest.raises(RuntimeError, match="input must be a string"):
+        validate_shell_script_args(
+            {"script": "echo hi", "cwd": str(tmp_path), "input": 123},
+            workspace_path_fn=lambda p: Path(p),
+            effective_shell_allowed={"echo"},
+        )
 
 
 def test_run_user_shell_needs_shell_hint_and_command_mode(fake_shell_subprocess):

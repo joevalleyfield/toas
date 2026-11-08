@@ -49,6 +49,9 @@ def run_interpreter_script(args: dict, *, workspace_path_fn) -> dict:
         raise RuntimeError("tool interpreter_script disallows path outside workspace") from exc
     if not target.parent.is_dir():
         raise RuntimeError("tool interpreter_script requires the parent of path to be a directory")
+    input_val = args.get("input")
+    if input_val is not None and not isinstance(input_val, str):
+        raise RuntimeError("invalid arguments for tool interpreter_script: input must be a string")
     artifact: Path | None = None
     try:
         if "###" in target.name:
@@ -69,6 +72,7 @@ def run_interpreter_script(args: dict, *, workspace_path_fn) -> dict:
                 timeout_s=timeout_s,
                 env=dict(os.environ),
                 tool_name="interpreter_script",
+                input=input_val,
             )
         except FileNotFoundError as exc:
             raise RuntimeError(f"tool interpreter_script runtime not found: {runtime[0]}") from exc

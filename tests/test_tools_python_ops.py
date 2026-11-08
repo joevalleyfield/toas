@@ -165,3 +165,28 @@ def test_validate_python_script_requires_existing_directory(tmp_path: Path):
         assert str(exc) == "tool python_script requires cwd to be a directory"
     else:
         raise AssertionError("expected missing cwd to fail")
+
+
+def test_python_script_stdin_input(tmp_path: Path):
+    # Invalid non-string input
+    try:
+        validate_python_script_args(
+            {"script": "print(1)", "input": 123},
+            workspace_path_fn=lambda path: tmp_path / path,
+        )
+    except RuntimeError as exc:
+        assert "input must be a string" in str(exc)
+    else:
+        raise AssertionError("expected invalid input to fail")
+
+    # Valid string input fed to sys.stdin
+    result = run_python_script(
+        {
+            "script": "import sys\nprint('IN:' + sys.stdin.read().strip())",
+            "input": "payload123",
+        },
+        workspace_path_fn=lambda path: tmp_path / path,
+    )
+    assert result["ok"] is True
+    assert "IN:payload123" in result["stdout"]
+

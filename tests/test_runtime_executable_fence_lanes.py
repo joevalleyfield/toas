@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from toas.runtime.executable_fence_lanes import (
     extract_bash_exec_plans,
     extract_interpreter_exec_plans,
@@ -521,3 +523,201 @@ def test_extract_write_fence_plans():
     assert plans[1][0][0]["args"]["path"] == "b.sh"
     assert plans[1][0][1]["tool_name"] == "shell_script"
     assert plans[1][1] == content.index("```bash write")
+
+
+def test_resolve_fence_stdin(tmp_path, monkeypatch):
+    from toas.runtime.executable_fence_lanes import _resolve_fence_stdin
+
+    monkeypatch.chdir(tmp_path)
+
+    # Empty string returns None
+    assert _resolve_fence_stdin("") is None
+    assert _resolve_fence_stdin("   ") is None
+
+    # Scratch block ID from disk
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    scratch_dir.mkdir(parents=True)
+    (scratch_dir / "ib_abc123.txt").write_text("scratch payload", encoding="utf-8")
+    assert _resolve_fence_stdin("ib_abc123", workspace_root=tmp_path) == "scratch payload"
+    assert _resolve_fence_stdin(".toas/scratch/ib_abc123.txt", workspace_root=tmp_path) == "scratch payload"
+
+    # Scratch block ID from transcript content
+    transcript = '```json block_id="ib_from_transcript"\n{"status": "ok"}\n```'
+    assert _resolve_fence_stdin("ib_from_transcript", content=transcript, workspace_root=tmp_path) == '{"status": "ok"}'
+
+    # Workspace file path
+    data_file = tmp_path / "data.csv"
+    data_file.write_text("a,b,c\n1,2,3", encoding="utf-8")
+    assert _resolve_fence_stdin("data.csv", workspace_root=tmp_path) == "a,b,c\n1,2,3"
+
+    # Fallback to .toas/scratch/<ref>.txt
+    (scratch_dir / "myref.txt").write_text("fallback ref", encoding="utf-8")
+    assert _resolve_fence_stdin("myref", workspace_root=tmp_path) == "fallback ref"
+
+    # Missing file returns None
+    assert _resolve_fence_stdin("nonexistent.txt", workspace_root=tmp_path) is None
+    assert _resolve_fence_stdin("ib_missing", workspace_root=tmp_path) is None
+
+
+def test_resolve_fence_stdin_oserror(tmp_path, monkeypatch):
+    from toas.runtime.executable_fence_lanes import _resolve_fence_stdin
+
+    monkeypatch.chdir(tmp_path)
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Scratch block ID with OSError
+    f1 = scratch_dir / "ib_err.txt"
+    f1.write_text("ok")
+    # 2. Workspace file with OSError
+    f2 = tmp_path / "target_err.txt"
+    f2.write_text("ok")
+    # 3. Fallback scratch file with OSError
+    f3 = scratch_dir / "ref_err.txt"
+    f3.write_text("ok")
+
+    def _mock_read_text(self, *args, **kwargs):
+        raise OSError("mock read error")
+
+    monkeypatch.setattr(Path, "read_text", _mock_read_text)
+
+    assert _resolve_fence_stdin("ib_err", workspace_root=tmp_path) is None
+    assert _resolve_fence_stdin("target_err.txt", workspace_root=tmp_path) is None
+    assert _resolve_fence_stdin("ref_err", workspace_root=tmp_path) is None
+
+
+def test_parse_bash_exec_fence_io_channels(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "input.txt").write_text("hello stdin", encoding="utf-8")
+
+    fence = scan_markdown_fences(
+        "```bash exec stdin=input.txt out=artifacts/build.log err=artifacts/build.err append_out=true append_err=false\n"
+        "cat\n"
+        "```"
+    )[0]
+    plan = parse_bash_exec_fence(fence)
+    assert plan is not None
+    assert len(plan) == 1
+    call = plan[0]
+    assert call["tool_name"] == "shell_script"
+    assert call["args"]["script"] == "cat"
+    assert call["args"]["input"] == "hello stdin"
+    assert call["stdin"] == "input.txt"
+    assert call["out"] == "artifacts/build.log"
+    assert call["err"] == "artifacts/build.err"
+    assert call["append_out"] is True
+    assert "append_err" not in call  # false not stored as flag
+
+    # Fail-closed when stdin cannot be resolved
+    bad_fence = scan_markdown_fences("```bash exec stdin=missing.txt\ncat\n```")[0]
+    assert parse_bash_exec_fence(bad_fence) is None
+
+
+def test_parse_python_exec_fence_io_channels(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data.json").write_text('{"records": 5}', encoding="utf-8")
+
+    fence = scan_markdown_fences(
+        "```python exec stdin=data.json out=scratch err=scratch append_err=true\n"
+        "import sys\nprint(sys.stdin.read())\n"
+        "```"
+    )[0]
+    plan = parse_python_exec_fence(fence)
+    assert plan is not None
+    call = plan[0]
+    assert call["tool_name"] == "python_script"
+    assert call["args"]["input"] == '{"records": 5}'
+    assert call["stdin"] == "data.json"
+    assert call["out"] == "scratch"
+    assert call["err"] == "scratch"
+    assert call["append_err"] is True
+
+    # Fail closed
+    missing_fence = scan_markdown_fences("```python exec stdin=missing.json\nprint(1)\n```")[0]
+    assert parse_python_exec_fence(missing_fence) is None
+
+
+def test_parse_powershell_exec_fence_io_channels(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "input.txt").write_text("pwsh input", encoding="utf-8")
+
+    fence = scan_markdown_fences("```powershell exec stdin=input.txt out=out.txt\nGet-Content\n```")[0]
+    plan = parse_powershell_exec_fence(fence)
+    assert plan is not None
+    call = plan[0]
+    assert call["tool_name"] == "powershell_script"
+    assert call["args"]["input"] == "pwsh input"
+    assert call["out"] == "out.txt"
+
+    # Fail closed
+    assert parse_powershell_exec_fence(scan_markdown_fences("```powershell exec stdin=missing.txt\nGet-Content\n```")[0]) is None
+
+
+def test_parse_interpreter_exec_fence_io_channels(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "calc.in").write_text("5 + 5\n", encoding="utf-8")
+
+    # ref or script is needed for interpreter script; provide ref
+    (tmp_path / "calc.bc").write_text("read()", encoding="utf-8")
+    fence_with_body = scan_markdown_fences("```bc exec runtime=bc stdin=calc.in out=calc.out\nread()\n```")[0]
+    plan = parse_interpreter_exec_fence(fence_with_body)
+    assert plan is not None
+    call = plan[0]
+    assert call["tool_name"] == "interpreter_script"
+    assert call["args"]["input"] == "5 + 5\n"
+    assert call["out"] == "calc.out"
+
+    # Fail closed
+    assert parse_interpreter_exec_fence(scan_markdown_fences("```bc exec runtime=bc stdin=missing.in\nread()\n```")[0]) is None
+
+
+def test_parse_write_fence_io_channels(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data.csv").write_text("name,val\nfoo,42", encoding="utf-8")
+
+    content = (
+        "```python write path=transform.py exec stdin=data.csv out=data.json append_out=true\n"
+        "import sys\n"
+        "print(sys.stdin.read())\n"
+        "```"
+    )
+    fence = scan_markdown_fences(content)[0]
+    plan = parse_write_fence(fence, content=content)
+    assert plan is not None
+    assert len(plan) == 2
+    assert plan[0]["tool_name"] == "write_file"
+    assert plan[0]["args"]["path"] == "transform.py"
+
+    exec_call = plan[1]
+    assert exec_call["tool_name"] == "python_script"
+    assert exec_call["args"]["input"] == "name,val\nfoo,42"
+    assert exec_call["stdin"] == "data.csv"
+    assert exec_call["out"] == "data.json"
+    assert exec_call["append_out"] is True
+
+    # Fail closed on missing stdin
+    bad_content = "```python write path=transform.py exec stdin=missing.csv\nprint(1)\n```"
+    assert parse_write_fence(scan_markdown_fences(bad_content)[0], content=bad_content) is None
+
+
+def test_extract_plans_with_transcript_inert_block_stdin():
+    transcript = (
+        "Here is the data:\n"
+        '```json block_id="ib_records123"\n'
+        '{"count": 10}\n'
+        "```\n"
+        "\n"
+        "Now process it:\n"
+        "```python exec stdin=ib_records123 out=scratch\n"
+        "import sys, json\n"
+        "data = json.load(sys.stdin)\n"
+        'print(f"Count is {data[\'count\']}")\n'
+        "```\n"
+    )
+    plans = extract_python_exec_plans(transcript)
+    assert len(plans) == 1
+    call = plans[0][0][0]
+    assert call["args"]["input"] == '{"count": 10}'
+    assert call["stdin"] == "ib_records123"
+    assert call["out"] == "scratch"
+

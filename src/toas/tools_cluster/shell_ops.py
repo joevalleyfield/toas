@@ -140,6 +140,10 @@ def validate_shell_script_args(
     if cwd == Path("/"):
         raise RuntimeError("tool shell_script disallows cwd outside workspace")
 
+    input_val = args.get("input")
+    if input_val is not None and not isinstance(input_val, str):
+        raise RuntimeError("invalid arguments for tool shell_script: input must be a string")
+
     env_raw = args.get("env")
     env: dict[str, str] | None = None
     if env_raw is not None:
@@ -159,6 +163,7 @@ def run_subprocess(
     env: dict[str, str] | None = None,
     stream_stdout_override: bool | None = None,
     tool_name: str = "shell",
+    input: str | None = None,
 ) -> dict:
     requested_argv = list(argv)
     # Callers commonly pass a small set of environment overrides (for
@@ -195,6 +200,7 @@ def run_subprocess(
                 cwd=cwd,
                 timeout_s=timeout_s,
                 env=effective_env,
+                input=input,
             )
         else:
             completed = _run_subprocess_with_timeout_diagnostics(
@@ -202,6 +208,7 @@ def run_subprocess(
                 cwd=cwd,
                 timeout_s=timeout_s,
                 env=effective_env,
+                input=input,
             )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"tool shell timed out after {timeout_s}s") from exc
@@ -242,12 +249,14 @@ def _run_subprocess_with_timeout_diagnostics(
     cwd: Path,
     timeout_s: int | None,
     env: dict[str, str],
+    input: str | None = None,
 ) -> subprocess.CompletedProcess:
     try:
         return subprocess.run(
             argv,
             cwd=str(cwd),
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL if input is None else None,
+            input=input,
             capture_output=True,
             text=True,
             env=env,

@@ -4287,3 +4287,345 @@ def test_user_authored_tool_failure_does_not_capture_artifact(tmp_path):
     assert res["phase"] == "consolidate_user"
     assert res["status"] == "failed"
     assert "artifacts" not in res["state"]
+
+
+def test_fence_io_channels_execute_batch_and_turn_recovery(tmp_path):
+    from toas.graph import read_log
+    from toas.runtime.state_step import (
+        _apply_captured_artifacts_from_records,
+        append_state_step_records,
+        step_state,
+    )
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+    t_id = "st_fence_io_1"
+
+    # Input file for stdin resolution
+    (tmp_path / "hello.txt").write_text("sample input", encoding="utf-8")
+
+    pending_tool = {
+        "tool_name": "shell_script",
+        "args": {"script": "cat"},
+        "stdin": "hello.txt",
+        "out": "artifacts/build.log",
+        "err": "artifacts.build_err",
+    }
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": t_id,
+                "status": "pending",
+                "source": "model",
+                "state_before": {"goal": "test fence io"},
+                "state_after": {"goal": "test fence io", "artifacts": []},
+                "tool_calls": [pending_tool],
+            },
+            {
+                "kind": "state_snapshot",
+                "transition_id": t_id,
+                "state": {"goal": "test fence io", "artifacts": []},
+            },
+        ],
+    )
+
+    def fake_execute(call):
+        assert call.get("args", {}).get("input") == "sample input"
+        return {
+            "stdout": "build success output",
+            "stderr": "build warning output",
+            "status": "completed",
+        }
+
+    batch_res = step_state(
+        events_path=events,
+        state={"goal": "test fence io", "artifacts": []},
+        observation=None,
+        generate=lambda _: None,
+        execute_call=fake_execute,
+    )
+
+    assert batch_res["phase"] == "execute_batch"
+    assert batch_res["status"] == "completed"
+    assert len(batch_res["outcomes"]) == 1
+    outcome = batch_res["outcomes"][0]
+    assert "captured_artifacts" in outcome
+    assert len(outcome["captured_artifacts"]) == 2
+    assert outcome["captured_artifacts"][0]["label"] == "build.log"
+    assert outcome["captured_artifacts"][1]["label"] == "build_err"
+
+    # Check files written
+    assert (tmp_path / "artifacts" / "build.log").read_text(encoding="utf-8") == "build success output"
+    assert (tmp_path / "artifacts.build_err").read_text(encoding="utf-8") == "build warning output"
+
+    # Check state artifacts
+    artifacts = batch_res["state"]["artifacts"]
+    assert len(artifacts) == 2
+    labels = {a["label"] for a in artifacts}
+    assert labels == {"build.log", "build_err"}
+
+    # Turn N+1 recovery test via _apply_captured_artifacts_from_records
+    records = read_log(str(events))
+    synced_state = _apply_captured_artifacts_from_records(records, {"goal": "test fence io"})
+    assert "artifacts" in synced_state
+    synced_labels = {a["label"] for a in synced_state["artifacts"]}
+    assert synced_labels == {"build.log", "build_err"}
+
+
+def test_fence_io_channels_scratch_and_append_user_consolidation(tmp_path):
+    from toas.runtime.state_step import step_state
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+
+    # First turn: write with out="scratch", err="scratch"
+    user_calls_1 = [
+        {
+            "tool_name": "shell_script",
+            "args": {"script": "echo scratch test"},
+            "out": "scratch",
+            "err": "scratch",
+        }
+    ]
+
+    res_1 = step_state(
+        events_path=events,
+        state={"goal": "scratch redirection"},
+        observation="run scratch",
+        user_turn_digest="digest_scratch_1",
+        user_tool_calls=user_calls_1,
+        execute_call=lambda _: None,
+        execute_user_call=lambda _: [{
+            "stdout": "scratch out content",
+            "stderr": "scratch err content",
+            "status": "completed",
+        }],
+        generate=lambda _: None,
+    )
+
+    assert res_1["phase"] == "consolidate_user"
+    assert res_1["status"] == "completed"
+    artifacts_1 = res_1["state"]["artifacts"]
+    assert len(artifacts_1) == 2
+    out_art = next(a for a in artifacts_1 if a["label"] == "stdout")
+    err_art = next(a for a in artifacts_1 if a["label"] == "stderr")
+    assert (tmp_path / out_art["path"]).read_text(encoding="utf-8") == "scratch out content"
+    assert (tmp_path / err_art["path"]).read_text(encoding="utf-8") == "scratch err content"
+
+    # Second turn: append to standard relative files
+    user_calls_2 = [
+        {
+            "tool_name": "shell_script",
+            "args": {
+                "script": "echo step2",
+                "out": "run.log",
+                "err": "run.err",
+                "append_out": True,
+                "append_err": True,
+            },
+        }
+    ]
+
+    (tmp_path / "run.log").write_text("line1\n", encoding="utf-8")
+    (tmp_path / "run.err").write_text("err1\n", encoding="utf-8")
+
+    res_2 = step_state(
+        events_path=events,
+        state=res_1["state"],
+        observation="run step2",
+        user_turn_digest="digest_step2",
+        user_tool_calls=user_calls_2,
+        execute_call=lambda _: None,
+        execute_user_call=lambda _: [{
+            "stdout": "line2\n",
+            "stderr": "err2\n",
+            "status": "completed",
+        }],
+        generate=lambda _: None,
+    )
+
+    assert res_2["phase"] == "consolidate_user"
+    assert res_2["status"] == "completed"
+    assert (tmp_path / "run.log").read_text(encoding="utf-8") == "line1\nline2\n"
+    assert (tmp_path / "run.err").read_text(encoding="utf-8") == "err1\nerr2\n"
+
+    # Also test non-dict result in _capture_fence_io_artifacts
+    user_calls_3 = [
+        {
+            "tool_name": "shell_script",
+            "args": {"script": "echo step3"},
+            "out": "raw.txt",
+        }
+    ]
+    res_3 = step_state(
+        events_path=events,
+        state=res_2["state"],
+        observation="run step3",
+        user_turn_digest="digest_step3",
+        user_tool_calls=user_calls_3,
+        execute_call=lambda _: None,
+        execute_user_call=lambda _: "plain string output",
+        generate=lambda _: None,
+    )
+    assert res_3["status"] == "completed"
+    assert (tmp_path / "raw.txt").read_text(encoding="utf-8") == "plain string output"
+
+
+def test_capture_fence_io_artifacts_coverage_branches(tmp_path):
+    from toas.runtime.state_step import (
+        _capture_fence_io_artifacts,
+        _extract_tool_result_stderr,
+    )
+
+    # Test _extract_tool_result_stderr branches
+    assert _extract_tool_result_stderr({"stderr": "err msg"}) == "err msg"
+    assert _extract_tool_result_stderr({"payload": {"stderr": "nested err"}}) == "nested err"
+    assert _extract_tool_result_stderr([{"stderr": "err1"}, {"payload": {"stderr": "err2"}}]) == "err1\nerr2"
+    assert _extract_tool_result_stderr(123) == ""
+
+    # Test non-applied scratch and dot notation for out & err
+    call = {
+        "out": "artifacts.dot_out",
+        "err": "artifacts/slash_err",
+    }
+    state = {"artifacts": []}
+    new_state, mod, captured = _capture_fence_io_artifacts(
+        call=call,
+        result="primitive non dict result",
+        state=state,
+        workspace_root=tmp_path,
+    )
+    assert mod is True
+    assert len(captured) == 2
+    assert captured[0]["label"] == "dot_out"
+    assert captured[1]["label"] == "slash_err"
+
+    # Test non-applied scratch destination for both out and err
+    call_scratch = {
+        "out": "scratch",
+        "err": "scratch",
+    }
+    new_state2, mod2, captured2 = _capture_fence_io_artifacts(
+        call=call_scratch,
+        result="primitive scratch result",
+        state=state,
+        workspace_root=tmp_path,
+    )
+    assert mod2 is True
+    assert len(captured2) == 2
+    assert captured2[0]["label"] == "stdout"
+    assert captured2[1]["label"] == "stderr"
+    assert (tmp_path / captured2[0]["descriptor"]["path"]).is_file()
+    assert (tmp_path / captured2[1]["descriptor"]["path"]).is_file()
+
+    # Test dot notation for err
+    call_err_dot = {
+        "err": "artifacts.err_dot",
+    }
+    new_state3, mod3, captured3 = _capture_fence_io_artifacts(
+        call=call_err_dot,
+        result="primitive err dot",
+        state=state,
+        workspace_root=tmp_path,
+    )
+    assert mod3 is True
+    assert captured3[0]["label"] == "err_dot"
+
+
+def test_execute_batch_unresolvable_stdin_fails_closed(tmp_path):
+    from toas.runtime.state_step import append_state_step_records, step_state
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+    t_id = "st_unresolvable_batch"
+
+    pending_tool = {
+        "tool_name": "shell_script",
+        "args": {"script": "cat"},
+        "stdin": "nonexistent_file_for_stdin.txt",
+    }
+    append_state_step_records(
+        str(events),
+        [
+            {
+                "kind": "state_transition",
+                "transition_id": t_id,
+                "status": "pending",
+                "source": "model",
+                "state_before": {"goal": "test fail closed"},
+                "state_after": {"goal": "test fail closed", "artifacts": []},
+                "tool_calls": [pending_tool],
+            },
+            {
+                "kind": "state_snapshot",
+                "transition_id": t_id,
+                "state": {"goal": "test fail closed", "artifacts": []},
+            },
+        ],
+    )
+
+    batch_res = step_state(
+        events_path=events,
+        state={"goal": "test fail closed", "artifacts": []},
+        observation=None,
+        generate=lambda _: None,
+        execute_call=lambda _: None,
+    )
+    assert batch_res["status"] == "failed"
+    assert "could not resolve stdin source" in batch_res["outcomes"][0]["error"]
+
+
+def test_consolidate_user_resolves_stdin_and_fails_closed(tmp_path):
+    from toas.runtime.state_step import step_state
+
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir(parents=True)
+
+    (tmp_path / "user_input.txt").write_text("user data input", encoding="utf-8")
+
+    seen_calls = []
+
+    def fake_user_exec(call):
+        seen_calls.append(call)
+        return [{"status": "completed", "stdout": f"echo: {call['args'].get('input')}"}]
+
+    # Valid user stdin resolution
+    res = step_state(
+        events_path=events,
+        state={"goal": "user stdin"},
+        observation="run stdin",
+        user_turn_digest="digest_user_stdin",
+        user_tool_calls=[{
+            "tool_name": "shell_script",
+            "args": {"script": "cat"},
+            "stdin": "user_input.txt",
+        }],
+        execute_call=lambda _: None,
+        execute_user_call=fake_user_exec,
+        generate=lambda _: None,
+    )
+    assert res["status"] == "completed"
+    assert seen_calls[0]["args"]["input"] == "user data input"
+
+    # Missing user stdin resolution fails closed
+    fail_res = step_state(
+        events_path=events,
+        state={"goal": "user stdin fail"},
+        observation="run stdin fail",
+        user_turn_digest="digest_user_stdin_fail",
+        user_tool_calls=[{
+            "tool_name": "shell_script",
+            "args": {"script": "cat"},
+            "stdin": "missing_user_file.txt",
+        }],
+        execute_call=lambda _: None,
+        execute_user_call=lambda _: None,
+        generate=lambda _: None,
+    )
+    assert fail_res["status"] == "failed"
+    assert "could not resolve stdin source" in fail_res["outcomes"][0]["error"]
+
+
+

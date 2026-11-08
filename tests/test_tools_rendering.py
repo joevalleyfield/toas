@@ -1435,3 +1435,21 @@ def test_render_shell_and_read_file_forwards_width_and_byte_caps():
     rendered_read = render_read_file_success(result_read, status="OK", tool_name="read_file")
     assert "... [" in rendered_read
 
+
+def test_render_shell_result_io_redirection():
+    result = {
+        "summary": "exit=0",
+        "stdout": "raw output that should be suppressed",
+        "stderr": "raw error that should be suppressed",
+        "out_redirected": True,
+        "out_target": "artifacts/build.log",
+        "err_redirected": True,
+        "err_target": "artifacts/build.err",
+    }
+    rendered = render_shell_result(result, status="OK", tool_name="shell_script")
+    assert "stdout redirected to artifacts/build.log" in rendered
+    assert "stderr redirected to artifacts/build.err" in rendered
+    assert "raw output that should be suppressed" not in rendered
+    assert "raw error that should be suppressed" not in rendered
+
+

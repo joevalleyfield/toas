@@ -48,6 +48,9 @@ def validate_powershell_script_args(
         raise RuntimeError("tool powershell_script disallows path outside workspace") from exc
     if not target.parent.is_dir():
         raise RuntimeError("tool powershell_script requires the parent of path to be a directory")
+    input_val = args.get("input")
+    if input_val is not None and not isinstance(input_val, str):
+        raise RuntimeError("invalid arguments for tool powershell_script: input must be a string")
     return script, cwd, timeout_s, runtime, persist, target, overwrite
 
 
@@ -82,6 +85,7 @@ def run_powershell_script(
                 env=dict(os.environ),
                 stream_stdout_override=stream_stdout_override,
                 tool_name="powershell_script",
+                input=args.get("input"),
             )
         except FileNotFoundError as exc:
             raise RuntimeError(

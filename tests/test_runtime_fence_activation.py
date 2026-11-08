@@ -135,3 +135,58 @@ def test_classify_fence_activation_rejects_repeated_verbs():
     result = classify_fence_activation(_fence("python write write path=foo.py"))
     assert result.status == "unsupported"
     assert result.reason == "activation form repeats a verb"
+
+
+def test_classify_fence_activation_accepts_io_channels():
+    result = classify_fence_activation(
+        _fence("python exec stdin=ib_data123 out=artifacts/build.log err=artifacts/build.err append_out=true append_err=false")
+    )
+    assert result.status == "active"
+    assert result.stdin == "ib_data123"
+    assert result.out == "artifacts/build.log"
+    assert result.err == "artifacts/build.err"
+    assert result.append_out is True
+    assert result.append_err is False
+
+
+def test_classify_fence_activation_accepts_io_channels_on_explicit_runtime():
+    result = classify_fence_activation(
+        _fence("bc exec runtime=bc stdin=input.txt out=output.txt err=error.txt append_out=false append_err=true")
+    )
+    assert result.status == "active"
+    assert result.predicate == "explicit-runtime"
+    assert result.stdin == "input.txt"
+    assert result.out == "output.txt"
+    assert result.err == "error.txt"
+    assert result.append_out is False
+    assert result.append_err is True
+
+
+def test_classify_fence_activation_rejects_empty_io_channels():
+    empty_stdin = classify_fence_activation(_fence("python exec stdin="))
+    empty_out = classify_fence_activation(_fence("python exec out="))
+    empty_err = classify_fence_activation(_fence("python exec err="))
+
+    assert empty_stdin.status == "unsupported"
+    assert empty_stdin.reason == "stdin value is empty"
+    assert empty_out.status == "unsupported"
+    assert empty_out.reason == "out value is empty"
+    assert empty_err.status == "unsupported"
+    assert empty_err.reason == "err value is empty"
+
+
+def test_classify_fence_activation_validates_append_flags():
+    no_out = classify_fence_activation(_fence("python exec append_out=true"))
+    no_err = classify_fence_activation(_fence("python exec append_err=true"))
+    bad_out = classify_fence_activation(_fence("python exec out=out.txt append_out=maybe"))
+    bad_err = classify_fence_activation(_fence("python exec err=err.txt append_err=invalid"))
+
+    assert no_out.status == "unsupported"
+    assert no_out.reason == "append_out requires out attribute"
+    assert no_err.status == "unsupported"
+    assert no_err.reason == "append_err requires err attribute"
+    assert bad_out.status == "unsupported"
+    assert bad_out.reason == "append_out must be true or false"
+    assert bad_err.status == "unsupported"
+    assert bad_err.reason == "append_err must be true or false"
+

@@ -1628,6 +1628,22 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
         if not isinstance(target, str) or not target.strip():
             return None, "target must be a non-empty string"
         normalized["target"] = target.strip()
+    for io_key in ("out", "err", "stdin"):
+        val = item.get(io_key)
+        if val is None and isinstance(item.get("args"), dict):
+            val = item["args"].get(io_key)
+        if val is not None:
+            if not isinstance(val, str) or not val.strip():
+                return None, f"{io_key} must be a non-empty string"
+            normalized[io_key] = val.strip()
+    for append_key in ("append_out", "append_err"):
+        val = item.get(append_key)
+        if val is None and isinstance(item.get("args"), dict):
+            val = item["args"].get(append_key)
+        if val is not None:
+            if not isinstance(val, bool):
+                return None, f"{append_key} must be a boolean"
+            normalized[append_key] = val
     continue_on_error = item.get("continue_on_error")
     if continue_on_error is not None:
         if not isinstance(continue_on_error, bool):

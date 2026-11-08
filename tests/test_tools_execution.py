@@ -445,5 +445,84 @@ def test_execute_plan_calls_forwards_patch_diagnostics_and_unapplied_patch():
     assert res_generic["applied_hunks"] == [{"path": "a.txt"}]
 
 
+def test_apply_io_redirection(tmp_path):
+    from toas.tools_cluster.execution import apply_io_redirection
+
+    # No redirection
+    raw = {"tool_name": "shell", "ok": True, "stdout": "hello", "content": "exit=0\nstdout:\nhello"}
+    assert apply_io_redirection(raw, {}, workspace_root=tmp_path) is raw
+
+    # out=scratch (with non-redirected stderr present)
+    out_scratch = {"tool_name": "shell", "ok": True, "stdout": "scratch content", "stderr": "warn msg", "exit_code": 0}
+    res = apply_io_redirection(out_scratch, {"out": "scratch"}, workspace_root=tmp_path)
+    assert res["out_redirected"] is True
+    assert res["out_block_id"].startswith("ib_")
+    assert res["out_target"] == f".toas/scratch/{res['out_block_id']}.txt"
+    scratch_file = tmp_path / ".toas" / "scratch" / f"{res['out_block_id']}.txt"
+    assert scratch_file.read_text(encoding="utf-8") == "scratch content"
+    assert "stdout redirected to .toas/scratch/" in res["content"]
+    assert "stderr:\nwarn msg" in res["content"]
+
+    # out=path with append_out
+    out_file = {"tool_name": "shell", "ok": True, "stdout": "line 1\n", "exit_code": 0}
+    apply_io_redirection(out_file, {"out": "logs/run.log"}, workspace_root=tmp_path)
+    log_file = tmp_path / "logs" / "run.log"
+    assert log_file.read_text(encoding="utf-8") == "line 1\n"
+
+    out_file2 = {"tool_name": "shell", "ok": True, "stdout": "line 2\n", "exit_code": 0}
+    apply_io_redirection(out_file2, {"out": "logs/run.log", "append_out": True}, workspace_root=tmp_path)
+    assert log_file.read_text(encoding="utf-8") == "line 1\nline 2\n"
+
+    # err=scratch (with non-redirected stdout present)
+    err_scratch = {"tool_name": "shell", "ok": False, "stdout": "info msg", "stderr": "error text", "exit_code": 1}
+    res_err = apply_io_redirection(err_scratch, {"err": "scratch"}, workspace_root=tmp_path)
+    assert res_err["err_redirected"] is True
+    assert res_err["err_block_id"].startswith("ib_")
+    err_scratch_file = tmp_path / ".toas" / "scratch" / f"{res_err['err_block_id']}.txt"
+    assert err_scratch_file.read_text(encoding="utf-8") == "error text"
+    assert "stderr redirected to .toas/scratch/" in res_err["content"]
+    assert "stdout:\ninfo msg" in res_err["content"]
+
+    # err=path with append_err
+    err_file = {"tool_name": "shell", "ok": False, "stderr": "err 1\n", "exit_code": 1}
+    apply_io_redirection(err_file, {"err": "logs/err.log"}, workspace_root=tmp_path)
+    err_log = tmp_path / "logs" / "err.log"
+    assert err_log.read_text(encoding="utf-8") == "err 1\n"
+
+    err_file2 = {"tool_name": "shell", "ok": False, "stderr": "err 2\n", "exit_code": 1}
+    apply_io_redirection(err_file2, {"err": "logs/err.log", "append_err": True}, workspace_root=tmp_path)
+    assert err_log.read_text(encoding="utf-8") == "err 1\nerr 2\n"
+
+
+def test_execute_plan_calls_io_redirection(tmp_path):
+    def _execute(call):
+        return {
+            "tool_name": "shell_script",
+            "ok": True,
+            "exit_code": 0,
+            "stdout": "build output",
+            "stderr": "warning detail",
+        }
+
+    plan = [
+        {
+            "tool_name": "shell_script",
+            "args": {"script": "build"},
+            "out": "artifacts/build.log",
+            "err": "artifacts/build.err",
+        }
+    ]
+    results = execute_plan_calls(plan, execute_call=_execute, default_shell_cwd=str(tmp_path))
+    assert len(results) == 1
+    res = results[0]
+    assert res["out_redirected"] is True
+    assert res["err_redirected"] is True
+    assert (tmp_path / "artifacts" / "build.log").read_text(encoding="utf-8") == "build output"
+    assert (tmp_path / "artifacts" / "build.err").read_text(encoding="utf-8") == "warning detail"
+    assert "stdout redirected to artifacts/build.log" in res["content"]
+    assert "stderr redirected to artifacts/build.err" in res["content"]
+
+
+
 
 

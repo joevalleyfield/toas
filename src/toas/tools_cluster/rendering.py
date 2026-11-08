@@ -119,7 +119,9 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
     if result.get("max_preview_bytes") is not None:
         spill_kwargs["max_preview_bytes"] = int(result["max_preview_bytes"])
 
-    if result.get("stdout"):
+    if result.get("out_redirected"):
+        lines.append(f"stdout redirected to {result['out_target']}")
+    elif result.get("stdout"):
         lines.append("stdout:")
         rendered_stdout = render_shell_stdout_import_block(result)
         if rendered_stdout is not None:
@@ -134,7 +136,9 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
                     **spill_kwargs,
                 )
             )
-    if result.get("stderr"):
+    if result.get("err_redirected"):
+        lines.append(f"stderr redirected to {result['err_target']}")
+    elif result.get("stderr"):
         lines.append("stderr:")
         lines.append(
             render_fenced_output(

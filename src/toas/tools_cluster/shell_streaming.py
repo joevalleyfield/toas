@@ -17,7 +17,9 @@ def _is_windows() -> bool:
     return os.name == "nt"
 
 
-def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str]) -> subprocess.Popen:
+def _spawn_streaming_process(
+    *, argv: list[str], cwd: Path, env: dict[str, str], input: str | None = None
+) -> subprocess.Popen:
     # ``env`` is already a complete process environment by the time it
     # reaches this function (see run_subprocess). Do not merge in
     # os.environ here: doing so would re-introduce variables that the
@@ -27,7 +29,7 @@ def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str])
         cwd=str(cwd),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
+        stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
         text=False,
         bufsize=0,
         env=env,
@@ -311,10 +313,17 @@ def run_streaming_subprocess(
     cwd: Path,
     timeout_s: int | None,
     env: dict[str, str],
+    input: str | None = None,
 ) -> subprocess.CompletedProcess:
     stream_max_bytes = 512
     stream_max_latency_s = 0.12
-    proc = _spawn_streaming_process(argv=argv, cwd=cwd, env=env)
+    proc = _spawn_streaming_process(argv=argv, cwd=cwd, env=env, input=input)
+    if input is not None and proc.stdin is not None:
+        try:
+            proc.stdin.write(input.encode("utf-8"))
+            proc.stdin.close()
+        except OSError:
+            pass
     chunks: list[bytes] = []
     chunks_lock = threading.Lock()
     emit_chunk = _make_emit_chunk(chunks=chunks, chunks_lock=chunks_lock)

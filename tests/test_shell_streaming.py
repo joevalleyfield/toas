@@ -468,3 +468,42 @@ def test_completed_process_normalizes_crlf_and_cr_stdout() -> None:
     )
     assert completed.stdout == "collected 2 items\ntest_a.py .\ntest_b.py .\n"
     assert "\r" not in completed.stdout
+
+
+def test_run_streaming_subprocess_with_input(tmp_path) -> None:
+    res = shell_streaming.run_streaming_subprocess(
+        argv=["cat"],
+        cwd=tmp_path,
+        timeout_s=5,
+        env=dict(shell_streaming.os.environ),
+        input="streamed stdin data",
+    )
+    assert res.returncode == 0
+    assert "streamed stdin data" in res.stdout
+
+
+def test_run_streaming_subprocess_write_error(tmp_path, monkeypatch) -> None:
+    # Test OSError during stdin.write
+    class _FailingStdin:
+        def write(self, _data):
+            raise OSError("broken pipe")
+
+        def close(self):
+            pass
+
+    original_spawn = shell_streaming._spawn_streaming_process
+
+    def _failing_spawn(**kwargs):
+        proc = original_spawn(**kwargs)
+        proc.stdin = _FailingStdin()
+        return proc
+
+    monkeypatch.setattr(shell_streaming, "_spawn_streaming_process", _failing_spawn)
+    res = shell_streaming.run_streaming_subprocess(
+        argv=["cat"],
+        cwd=tmp_path,
+        timeout_s=5,
+        env=dict(shell_streaming.os.environ),
+        input="data",
+    )
+    assert res.returncode is not None

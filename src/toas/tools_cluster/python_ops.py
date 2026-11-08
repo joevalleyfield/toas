@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from .shell_ops import run_subprocess
 
@@ -47,6 +48,9 @@ def validate_python_script_args(args: dict, *, workspace_path_fn) -> tuple[str, 
         raise RuntimeError("tool python_script disallows path outside workspace") from exc
     if not target.parent.is_dir():
         raise RuntimeError("tool python_script requires the parent of path to be a directory")
+    input_val = args.get("input")
+    if input_val is not None and not isinstance(input_val, str):
+        raise RuntimeError("invalid arguments for tool python_script: input must be a string")
     return script, cwd, timeout_s, runtime, persist, target, overwrite
 
 
@@ -73,6 +77,9 @@ def run_python_script(
             with target.open(mode, encoding="utf-8") as handle:
                 handle.write(script)
             path = target
+        subproc_kwargs: dict[str, Any] = {}
+        if args.get("input") is not None:
+            subproc_kwargs["input"] = args["input"]
         try:
             result = run_subprocess(
                 [*runtime, str(path)],
@@ -81,6 +88,7 @@ def run_python_script(
                 env=dict(os.environ),
                 stream_stdout_override=stream_stdout_override,
                 tool_name="python_script",
+                **subproc_kwargs,
             )
         except FileNotFoundError as exc:
             raise RuntimeError(

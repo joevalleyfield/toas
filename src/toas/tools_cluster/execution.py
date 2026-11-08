@@ -1,4 +1,5 @@
 import traceback
+from hashlib import sha256
 from pathlib import Path
 
 from ..runtime.environment_policy import active_environment_overrides, active_stream_stdout
@@ -7,6 +8,87 @@ from ..runtime.tool_stream_context import (
     emit_tool_start,
     is_tool_done_emitted,
 )
+
+
+def apply_io_redirection(
+    output: dict,
+    call: dict,
+    workspace_root: Path | None = None,
+) -> dict:
+    out_target = call.get("out") or (call.get("args", {}).get("out") if isinstance(call.get("args"), dict) else None)
+    err_target = call.get("err") or (call.get("args", {}).get("err") if isinstance(call.get("args"), dict) else None)
+    if not out_target and not err_target:
+        return output
+
+    base_dir = workspace_root or Path.cwd()
+    stdout_text = output.get("stdout") or output.get("content") or output.get("text") or ""
+    stderr_text = output.get("stderr") or ""
+
+    if out_target and not output.get("out_redirected"):
+        append_out = bool(
+            call.get("append_out")
+            or (call.get("args", {}).get("append_out") if isinstance(call.get("args"), dict) else False)
+        )
+        if out_target == "scratch":
+            block_id = f"ib_{sha256(stdout_text.encode('utf-8')).hexdigest()[:16]}"
+            target_path = base_dir / ".toas" / "scratch" / f"{block_id}.txt"
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            mode = "a" if append_out else "w"
+            with target_path.open(mode, encoding="utf-8") as f:
+                f.write(stdout_text)
+            output["out_target"] = f".toas/scratch/{block_id}.txt"
+            output["out_block_id"] = block_id
+            output["out_redirected"] = True
+        else:
+            target_path = (base_dir / out_target) if not Path(out_target).is_absolute() else Path(out_target)
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            mode = "a" if append_out else "w"
+            with target_path.open(mode, encoding="utf-8") as f:
+                f.write(stdout_text)
+            block_id = f"ib_{sha256(stdout_text.encode('utf-8')).hexdigest()[:16]}"
+            output["out_target"] = out_target
+            output["out_block_id"] = block_id
+            output["out_redirected"] = True
+
+    if err_target and not output.get("err_redirected"):
+        append_err = bool(
+            call.get("append_err")
+            or (call.get("args", {}).get("append_err") if isinstance(call.get("args"), dict) else False)
+        )
+        if err_target == "scratch":
+            block_id = f"ib_{sha256(stderr_text.encode('utf-8')).hexdigest()[:16]}"
+            target_path = base_dir / ".toas" / "scratch" / f"{block_id}.txt"
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            mode = "a" if append_err else "w"
+            with target_path.open(mode, encoding="utf-8") as f:
+                f.write(stderr_text)
+            output["err_target"] = f".toas/scratch/{block_id}.txt"
+            output["err_block_id"] = block_id
+            output["err_redirected"] = True
+        else:
+            target_path = (base_dir / err_target) if not Path(err_target).is_absolute() else Path(err_target)
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            mode = "a" if append_err else "w"
+            with target_path.open(mode, encoding="utf-8") as f:
+                f.write(stderr_text)
+            block_id = f"ib_{sha256(stderr_text.encode('utf-8')).hexdigest()[:16]}"
+            output["err_target"] = err_target
+            output["err_block_id"] = block_id
+            output["err_redirected"] = True
+
+    parts = [f"exit={output.get('exit_code', 0)}"]
+    if output.get("out_redirected"):
+        parts.append(f"stdout redirected to {output['out_target']}")
+    elif output.get("stdout"):
+        parts.append(f"stdout:\n{output['stdout']}")
+
+    if output.get("err_redirected"):
+        parts.append(f"stderr redirected to {output['err_target']}")
+    elif output.get("stderr"):
+        parts.append(f"stderr:\n{output['stderr']}")
+
+    output["content"] = "\n".join(parts)
+    return output
 
 
 def adapt_call_for_execution(
@@ -246,6 +328,12 @@ def execute_plan_calls(
                 if not call_continue_on_error:
                     break
                 continue
+            if isinstance(output, dict):
+                output = apply_io_redirection(
+                    output,
+                    call,
+                    workspace_root=Path(default_shell_cwd).expanduser().resolve() if default_shell_cwd is not None else None,
+                )
             projected = _apply_intention(_annotate_returned_failure(output), raw_call)
             results.append(projected)
             if not is_tool_done_emitted():

@@ -120,11 +120,28 @@ stdin, and captures stdout into `data.json`.
 
 ## Acceptance Criteria
 
-- `classify_fence_activation` parses and validates `stdin`, `out`, `err`,
+- [x] `classify_fence_activation` parses and validates `stdin`, `out`, `err`,
   `append_out`, and `append_err` attributes.
-- Tool runners (`shell_script`, `python_script`, `powershell_script`,
+- [x] Tool runners (`shell_script`, `python_script`, `powershell_script`,
   `interpreter_script`) accept and wire `stdin` input.
-- Execution results with `out` and `err` capture streams into targeted
+- [x] Execution results with `out` and `err` capture streams into targeted
   artifacts/scratch blocks and project compact outcome summaries.
-- State-mode integration bridges fence output capture into `state.artifacts`.
-- Test suite achieves 100.00% statement coverage across all modified and new files.
+- [x] State-mode integration bridges fence output capture into `state.artifacts`.
+- [x] Test suite achieves 100.00% statement coverage across all modified and new files.
+
+## Resolution
+
+- **Fence Activation & Extraction**:
+  - Updated `FenceActivation` dataclass and `classify_fence_activation` in `src/toas/runtime/fence_activation.py` to recognize `stdin`, `out`, `err`, `append_out`, and `append_err`.
+  - Added attribute validation ensuring non-empty string channel targets, booleans for append options, and requiring `out`/`err` when `append_out`/`append_err` are declared.
+  - In `src/toas/runtime/executable_fence_lanes.py`, wired `_resolve_fence_stdin` and `_apply_activation_io_channels` across executable fences (`bash exec`, `python exec`, `powershell exec`, `interpreter exec`) and write-materialization fences (`python write path=... exec`).
+- **Tool Execution & Stdin Ingestion**:
+  - Enhanced `shell_script`, `python_script`, `powershell_script`, and `interpreter_script` runner ops in `src/toas/tools_cluster/` to accept and feed `input` via subprocess stdin streaming.
+  - Updated `_normalize_tool_call` in `src/toas/graph.py` to preserve and validate I/O channel metadata.
+- **Output Redirection & Artifact Capture**:
+  - Implemented `apply_io_redirection` in `src/toas/tools_cluster/execution.py` capturing stdout and stderr into target files or `.toas/scratch/<block_id>.txt` with append semantics and projection summaries.
+  - In `src/toas/tools_cluster/rendering.py`, rendered compact outcome summaries displaying redirected target paths instead of context-inflating raw streams.
+  - In `src/toas/runtime/state_step.py`, integrated fence I/O artifact capture into `execute_batch` and `consolidate_user`, injecting descriptors into `state.artifacts` and persisting across turns with recovery via `_apply_captured_artifacts_from_records`.
+- **Verification**:
+  - Added targeted tests in `tests/test_runtime_fence_activation.py`, `tests/test_runtime_executable_fence_lanes.py`, `tests/test_tools_python_ops.py`, `tests/test_tools_powershell_ops.py`, `tests/test_tools_interpreter_ops.py`, `tests/test_tools_rendering.py`, `tests/test_tools_execution.py`, `tests/test_graph.py`, and `tests/test_state_step.py`.
+  - Executed `./scripts/check.sh`: all 3,929 unit tests and 17 acceptance tests passed with 100.00% statement coverage across all 162 files, with clean ruff and mypy checks.

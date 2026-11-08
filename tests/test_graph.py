@@ -2866,3 +2866,56 @@ def test_normalize_tool_call_rejects_ambiguous_alias_combinations():
     assert _normalize_tool_call({"tool_name": "one", "args": {}, "parameters": {"x": 1}})[1] == (
         "conflicting argument keys: args, arguments, params, parameters"
     )
+
+
+def test_normalize_tool_call_io_channels_validation():
+    from toas.graph import _normalize_tool_call
+
+    # Valid io channels top-level and nested in args
+    call, err = _normalize_tool_call({
+        "tool_name": "shell_script",
+        "args": {"script": "echo hi"},
+        "out": "out.txt",
+        "err": "err.txt",
+        "stdin": "input.txt",
+        "append_out": True,
+        "append_err": False,
+    })
+    assert err is None
+    assert call["out"] == "out.txt"
+    assert call["err"] == "err.txt"
+    assert call["stdin"] == "input.txt"
+    assert call["append_out"] is True
+    assert call["append_err"] is False
+
+    # Valid io channels from args fallback
+    call2, err2 = _normalize_tool_call({
+        "tool_name": "shell_script",
+        "args": {
+            "script": "echo hi",
+            "out": "out2.txt",
+            "err": "err2.txt",
+            "stdin": "in2.txt",
+            "append_out": False,
+            "append_err": True,
+        },
+    })
+    assert err2 is None
+    assert call2["out"] == "out2.txt"
+    assert call2["err"] == "err2.txt"
+    assert call2["stdin"] == "in2.txt"
+    assert call2["append_out"] is False
+    assert call2["append_err"] is True
+
+    # Invalid string channels
+    for key in ("out", "err", "stdin"):
+        _, err = _normalize_tool_call({"tool_name": "shell_script", "args": {}, key: ""})
+        assert err == f"{key} must be a non-empty string"
+        _, err = _normalize_tool_call({"tool_name": "shell_script", "args": {}, key: 123})
+        assert err == f"{key} must be a non-empty string"
+
+    # Invalid boolean append channels
+    for key in ("append_out", "append_err"):
+        _, err = _normalize_tool_call({"tool_name": "shell_script", "args": {}, key: "true"})
+        assert err == f"{key} must be a boolean"
+
