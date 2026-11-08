@@ -3,7 +3,7 @@ FKA: 261105-apply-patch-indent-leniency-and-diff-diagnostics
 AKA: apply_patch unified diff; apply_patch indentation leniency; patch diagnostics
 Legacy index: null
 
-keywords: tooling, apply_patch, diagnostics, indentation, correctness
+keywords: tooling, apply_patch, diagnostics, indentation, correctness, closed
 
 # apply_patch Indentation Leniency and Unified Diff Diagnostics
 
@@ -36,3 +36,11 @@ When patches are generated inside YAML literal scalar blocks (`|2`, `|4`) or by 
 
 - Implementation complete in `src/toas/tools_cluster/apply_patch_ops.py`.
 - Unit tests and diagnostic regressions added in `tests/test_tools.py` and `tests/test_tools_apply_patch_ops.py`.
+
+## Resolution & Verification
+
+- Landed in commit `5245b060` (`feat(tools): add apply_patch indentation leniency and unified diff diagnostics`).
+- Added indentation-shift detection and candidate searching in `src/toas/tools_cluster/apply_patch_ops.py`.
+- Added unified diff diagnostic formatting for context mismatch errors while preserving `chunk:` error marker compatibility.
+- Added comprehensive unit tests in `tests/test_tools.py` and `tests/test_tools_apply_patch_ops.py`.
+- Passes 151 patch tests with 100.00% statement coverage under `./scripts/check.sh`.

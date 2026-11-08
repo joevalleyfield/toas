@@ -3,7 +3,7 @@ FKA:
 AKA: step n; bounded multi-step; step quiescence; autonomous turn loop; step count
 Legacy index:
 
-keywords: runtime, operator, stepping, loop, subagents, orchestration, quiescence, active
+keywords: runtime, operator, stepping, loop, subagents, orchestration, quiescence, closed
 
 Related: `260509-multi-operator-orchestration`; `260626-transcript-parallelism-design-pressures`
 

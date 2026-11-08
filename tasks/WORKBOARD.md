@@ -149,8 +149,6 @@ Neither dated vote is a literal current queue.
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
-- **[T261105-apply-patch-indent-leniency-and-diff-diagnostics]** apply_patch Indentation Leniency and Unified Diff Diagnostics
-- **[T261106-bounded-step-quiescence]** Bounded Multi-Turn Stepping with Quiescence Termination
 - **[T261106-microkernel-skill-runtime-boundary]** Microkernel Runtime Boundary and Fast-Path Code-Only Skills
 - **[T261106-skill-specialization-and-script-distillation]** Skill Specialization and Script Distillation Pipeline
 <!-- WORKBOARD:NOW:END -->
