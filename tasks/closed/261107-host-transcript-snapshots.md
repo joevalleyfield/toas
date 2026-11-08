@@ -9,8 +9,9 @@ keywords: runtime, host, protocol, editor, snapshots
 
 ## Status
 
-Implemented and locally verified, 2026-11-07. Requested through Pyzo integration
-task 046. Full-suite closure remains open because of confirmed baseline failures.
+Closed on 2026-11-07. Requested through Pyzo integration task 046. Full-suite
+closure verified after resolving developer home config leakage in
+`261107-test-suite-user-config-isolation`.
 
 ## Intent
 
@@ -53,13 +54,11 @@ inspect the actual returned projection. Record evidence before closure.
   normal Save, successor continuation, and cancellation before Quit. A repaired
   prefix creates a new user event with a distinct id and the original parent,
   preserving the original history branch.
-- Full TOAS units reach 100.00% coverage over 25,981 statements, with 3,869 passed,
-  nine skipped and nine failed. All nine failures reproduce on unchanged parent
-  aac9657e in a disposable jj workspace. They concern decorated markers and
-  metadata in test_cli, test_daemon and test_step expectations.
-- Acceptance has 16 passed and one failed. The config-discovery sources/provenance
-  alias assertion differs by a decorated token count. That failure also reproduces
-  on unchanged aac9657e. Both baseline workspaces were forgotten and removed.
+- Full TOAS units reach 100.00% coverage over 25,981 statements, with 3,880 passed,
+  nine skipped and 17 deselected. The baseline failures previously observed were
+  isolated to developer home config leakage (`~/.config/toas/config.toml`), resolved
+  by `261107-test-suite-user-config-isolation`.
+- Acceptance has 17 passed.
 - Ruff passes and mypy passes across all 164 source files.
 
 ## Validation commands
@@ -68,12 +67,8 @@ Run through the local uvt runner when using the developer environment.
 
 ```sh
 uv run pytest tests/test_daemon_request_contract.py tests/test_daemon_handlers.py tests/test_runtime_host_snapshots.py tests/test_daemon_async_runner.py --no-cov -q
-uv run bash scripts/check.sh
+./scripts/check.sh
 uv run pytest tests/acceptance -m acceptance --no-cov -q
 uv run ruff check src tests
 uv run mypy
 ```
-
-The required check script stops at the existing unit failures. Later acceptance,
-lint and type stages were run independently. This task stays open for full-suite
-closure, with the snapshot implementation available for editor integration.

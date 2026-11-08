@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import builtins
+import os
 import shlex
+import shutil
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -239,7 +241,30 @@ def _guard_live_repo_session_write(
 @pytest.fixture(autouse=True)
 def isolate_toas_llm_env(monkeypatch) -> None:
     """Isolate tests from developer's local TOAS_LLM_* environment variables."""
-    import os
     for k in list(os.environ.keys()):
         if k.startswith("TOAS_LLM_"):
             monkeypatch.delenv(k, raising=False)
+
+
+def _clean_isolated_user_home(home: Path) -> None:
+    for child in home.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child, ignore_errors=True)
+        else:
+            child.unlink(missing_ok=True)
+
+
+@pytest.fixture(scope="session")
+def _isolated_user_home(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("toas_test_home")
+
+
+@pytest.fixture(autouse=True)
+def isolate_user_config(monkeypatch: pytest.MonkeyPatch, _isolated_user_home: Path):
+    """Isolate tests from developer's global user config files (~/.config/toas/config.toml, ~/.toas.toml)."""
+    monkeypatch.setenv("HOME", str(_isolated_user_home))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(_isolated_user_home / ".config"))
+    yield
+    _clean_isolated_user_home(_isolated_user_home)
+
+

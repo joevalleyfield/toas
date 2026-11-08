@@ -49,3 +49,32 @@ def test_guard_live_repo_session_write_ignores_other_paths(tmp_path, monkeypatch
 
     conftest._guard_live_repo_session_write(".toas/other.md", protected=protected, mode="w")
     conftest._guard_live_repo_session_write(Path(".toas/other.md"), protected=protected, mode="w")
+
+
+def test_isolate_user_config_fixture_isolates_home_and_cleans_up(tmp_path):
+    from toas.config import discover_config_paths
+
+    home = Path.home()
+    assert home != Path("/Users/tim")
+    paths = discover_config_paths(workdir=tmp_path)
+    assert paths[0].is_relative_to(home)
+    assert paths[1].is_relative_to(home)
+
+
+def test_isolate_user_config_cleans_isolated_dir(tmp_path):
+    test_home = tmp_path / "mock_home"
+    test_home.mkdir()
+    (test_home / "sample.txt").write_text("content", encoding="utf-8")
+    sub_dir = test_home / "subdir"
+    sub_dir.mkdir()
+    (sub_dir / "nested.txt").write_text("nested", encoding="utf-8")
+
+    assert (test_home / "sample.txt").exists()
+    assert (test_home / "subdir").exists()
+
+    conftest._clean_isolated_user_home(test_home)
+
+    assert not (test_home / "sample.txt").exists()
+    assert not (test_home / "subdir").exists()
+
+
