@@ -1,0 +1,8 @@
+workspace_overview: |-
+  /workspace
+  /workspace mode strict
+  /workspace mode unbounded
+  /workspace add <path>
+  /workspace remove <path>
+  /workspace reset
+  {tail}

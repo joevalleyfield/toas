@@ -1,0 +1,54 @@
+available_endpoints: |-
+  available endpoints:
+  {endpoints_block}
+endpoint_intent: |-
+  selected endpoint intent: {selected}
+  validation: deferred until inference frontier{unavailable_block}
+endpoints_list: |-
+  configured endpoints:
+  {endpoints_block}
+known_catalog: |-
+  known endpoint model catalog:
+    endpoint: {endpoint_id}
+    models: {models}
+    last refresh: {last_refresh}
+    not seen in latest: {unseen}{details_block}
+
+  select a model:
+  {selection_block}
+live_observation: |-
+  endpoint model observation:
+    endpoint: {endpoint}
+    protocol: {protocol}
+    status: {status}
+  {status_details}{details_block}{raw_block}
+model_fallback_overview: |-
+  active model target: (none)
+    requested model fallback: {fallback}
+
+  next:
+    /model targets
+    /model select <target>
+    /models
+model_overview: |-
+  active model target: {active_id}
+    endpoint: {endpoint}
+    requested model: {model}
+
+  next:
+    /model targets
+    /model select <target>
+    /models
+model_targets_list: |-
+  configured model targets:
+  {targets_block}
+  active target: {active_target}
+models_help: |-
+  /models live [ENDPOINT]    query a configured endpoint (network, no write)
+  /models known [ENDPOINT]   read its durable model catalog (no network)
+  /models refresh [ENDPOINT] query and merge its catalog (network + config write)
+    ENDPOINT may be omitted when exactly one endpoint is configured
+    add --details for normalized metadata (initially limited)
+    add --raw to live or refresh for the exact endpoint response
+
+  ENDPOINT is a configured endpoint name, not a URL.

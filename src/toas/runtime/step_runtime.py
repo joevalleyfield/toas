@@ -621,7 +621,7 @@ def _branch_command_context_from_direct_declarations(
     workspace_roots: list[str],
 ) -> tuple[str, str | None, bool]:
     """Reduce valid direct `/cd` declarations before the current frontier."""
-    from .operator_command_prompt_workspace import _guard_workspace_target, _resolve_cd_target
+    from .operator_command_workspace import _guard_workspace_target, _resolve_cd_target
 
     cwd = command_cwd
     previous_cwd = previous_command_cwd

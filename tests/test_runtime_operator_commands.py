@@ -74,6 +74,77 @@ def test_execute_operator_command_graph_renders_result(tmp_path):
     ]
 
 
+def test_execute_operator_command_dispatches_via_registry():
+    out = execute_operator_command(
+        "config",
+        ["paths"],
+        execute=_noop_execute,
+        events=[],
+        working=[],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+    )
+    assert len(out) == 1
+    assert "discovered config paths" in out[0]["content"]
+
+
+def test_execute_operator_command_step_variants():
+    out_default = execute_operator_command(
+        "step",
+        [],
+        execute=_noop_execute,
+        events=[],
+        working=[],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+    )
+    assert out_default == [
+        make_result_node("[STEP] budget: 1", origin_role="user", origin_kind="slash_command")
+    ]
+
+    out_explicit = execute_operator_command(
+        "step",
+        ["4"],
+        execute=_noop_execute,
+        events=[],
+        working=[],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+    )
+    assert out_explicit == [
+        make_result_node("[STEP] budget: 4", origin_role="user", origin_kind="slash_command")
+    ]
+
+    out_invalid = execute_operator_command(
+        "step",
+        ["0"],
+        execute=_noop_execute,
+        events=[],
+        working=[],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+    )
+    assert out_invalid == [
+        make_result_node("usage: /step [N]", origin_role="user", origin_kind="slash_command")
+    ]
+
+
 def test_execute_operator_command_unknown_raises():
     with pytest.raises(ValueError, match="unknown command: /nope"):
         execute_operator_command(

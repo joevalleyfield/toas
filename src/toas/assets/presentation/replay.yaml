@@ -1,0 +1,14 @@
+queue_blocked: |-
+  replay queue blocked at operation {step}/{total} ({tool_name})
+  queue id: {queue_id}
+  queue controls:
+    /queue [resume|approve*|skip|cancel]
+replay_candidate_single: |-
+  replay candidate: 1 found ({status})
+  1. {preview} [#{intent_id}]
+  confirm with: /replay --index #r1
+replay_dry_run: |-
+  replay dry-run: would execute candidate {choice_index}
+  {preview}
+  target message index: {index}
+  execution context: current command cwd/workspace (not historical)

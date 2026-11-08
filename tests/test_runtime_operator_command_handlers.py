@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shlex
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -19,7 +20,18 @@ from toas.runtime.operator_command_config_help import (
     handle_config_help_commands,
 )
 from toas.runtime.operator_command_context import OperatorCommandContext
-from toas.runtime.operator_command_extract_replay import (
+from toas.runtime.operator_command_lens import (
+    _extract_lens_fenced_distillation,
+    _frontier_user_content,
+    _lens_doctor_suggestions,
+    _parse_lens_packet_args,
+    _parse_lens_set_args,
+    _parse_lens_source_ids,
+    _render_lens_packet_summary,
+    _validate_lens_source_ids,
+)
+from toas.runtime.operator_command_registry import get_default_operator_command_registry
+from toas.runtime.operator_command_replay import (
     _apply_queue_skip,
     _cancel_queue_remaining,
     _coalescible_yaml_sources,
@@ -38,24 +50,38 @@ from toas.runtime.operator_command_extract_replay import (
     _repair_unindented_yaml_literal,
     _validate_queue_plan_state,
     _validated_plan_from_yaml,
-    handle_extract_replay_commands,
 )
-from toas.runtime.operator_command_prompt_workspace import (
-    _extract_lens_fenced_distillation,
-    _frontier_user_content,
-    _handle_shell_config,
-    _lens_doctor_suggestions,
+from toas.runtime.operator_command_transcript import (
     _parse_abridge_args,
-    _parse_lens_packet_args,
-    _parse_lens_set_args,
-    _parse_lens_source_ids,
+)
+
+
+def handle_extract_replay_commands(
+    command: str,
+    args: list[str],
+    *,
+    step_mod: Any,
+    context: OperatorCommandContext,
+) -> list[dict] | None:
+    return get_default_operator_command_registry().dispatch(command, args, context=context, step_mod=step_mod)
+
+
+def handle_prompt_workspace_commands(
+    command: str,
+    args: list[str],
+    *,
+    step_mod: Any,
+    context: OperatorCommandContext,
+) -> list[dict] | None:
+    return get_default_operator_command_registry().dispatch(command, args, context=context, step_mod=step_mod)
+from toas.runtime.operator_command_shell import (
+    _handle_shell_config,
     _parse_scope,
-    _render_lens_packet_summary,
+    _validate_env_key,
+)
+from toas.runtime.operator_command_workspace import (
     _resolve_cd_target,
     _resolve_workspace_arg,
-    _validate_env_key,
-    _validate_lens_source_ids,
-    handle_prompt_workspace_commands,
 )
 from toas.runtime.operator_config_endpoint_ops import (
     _endpoint_add_result,
@@ -752,6 +778,14 @@ def test_prompt_workspace_model_select_records_session_target():
     broken = OperatorConfig(llm=LLMPolicy(targets=(TargetCatalogEntry(id="broken", endpoint="missing", model="qwen"),)))
     with pytest.raises(ValueError, match="endpoint is not configured"):
         handle_prompt_workspace_commands("model", ["select", "broken"], step_mod=step_mod, context=_ctx(config=broken))
+
+    cfg_ep = OperatorConfig(
+        llm=LLMPolicy(
+            endpoints=(EndpointCatalogEntry(id="ep1", base_url="http://localhost:8080", models=("new_model",)),),
+        )
+    )
+    res_sel_ep = handle_prompt_workspace_commands("model", ["select", "ep1", "new_model"], step_mod=step_mod, context=_ctx(config=cfg_ep))
+    assert len(res_sel_ep) == 1
 
 
 def test_extract_replay_handler_replay_dry_run(monkeypatch):
@@ -1554,6 +1588,12 @@ def test_prompt_workspace_pwd_and_cd_usage_and_previous_dir_errors(tmp_path):
     missing = tmp_path / "missing"
     with pytest.raises(ValueError, match="not a directory"):
         handle_prompt_workspace_commands("cd", [str(missing)], step_mod=step_mod, context=_ctx(command_cwd=str(tmp_path)))
+    out_pwd = handle_prompt_workspace_commands("pwd", [], step_mod=step_mod, context=_ctx(command_cwd=str(tmp_path)))
+    assert out_pwd[0]["content"] == str(tmp_path.resolve())
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    out_cd = handle_prompt_workspace_commands("cd", [str(sub)], step_mod=step_mod, context=_ctx(command_cwd=str(tmp_path), workspace_mode="unbounded"))
+    assert out_cd[0]["content"] == str(sub.resolve())
 
 
 def test_prompt_workspace_workspace_modes_and_abridge(monkeypatch, tmp_path):
@@ -1602,8 +1642,15 @@ def test_prompt_workspace_compact_guard_and_response_shape_errors():
 
 def test_prompt_workspace_workspace_error_paths(tmp_path):
     import toas.step as step_mod
+    from toas.runtime.operator_command_workspace import render_workspace_commands
 
     cwd = tmp_path
+    rendered_ws = render_workspace_commands("strict", [str(cwd)])
+    assert "/workspace mode strict" in rendered_ws
+    with pytest.raises(ValueError, match="usage: /pwd"):
+        handle_prompt_workspace_commands("pwd", ["extra"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
+    with pytest.raises(ValueError, match="usage: /cd <path>\\|-"):
+        handle_prompt_workspace_commands("cd", ["a", "b"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
     with pytest.raises(ValueError, match="usage: /workspace add <path>"):
         handle_prompt_workspace_commands("workspace", ["add"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
     with pytest.raises(ValueError, match="not a directory"):
@@ -2948,7 +2995,7 @@ def test_prompt_workspace_helper_env_shell_and_workspace(tmp_path, monkeypatch):
     monkeypatch.setattr(step_mod, "normalize_shell_grants", lambda grants: tuple(grants))
     cfg = OperatorConfig()
     out = _handle_shell_config(["config", "list"], step_mod=step_mod, context=_ctx(config=cfg))
-    assert "config shell grants" in out[0]["content"]
+    assert "config shell grants" in (out[0]["content"] if isinstance(out, list) else out)
     with pytest.raises(ValueError, match="usage:"):
         _handle_shell_config(["config", "reset", "extra"], step_mod=step_mod, context=_ctx(config=cfg))
 
@@ -3408,7 +3455,7 @@ def test_config_values_yaml_position_with_choices(monkeypatch):
 
 def test_extract_replay_additional_coverage(monkeypatch):
     import toas.step as step_mod
-    from toas.runtime.operator_command_extract_replay import (
+    from toas.runtime.operator_command_replay import (
         _handle_replay_queue_action,
         _normalized_queue_entries,
         _parse_extract_index_token,

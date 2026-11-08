@@ -149,13 +149,6 @@ Neither dated vote is a literal current queue.
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
-- **[T261108-models-command-presentation-decoupling]** Models Command Presentation Decoupling and Descriptor Migration
-- **[T261108-operator-command-registry-and-descriptors]** Operator Command Registry and Declarative Descriptors
-- **[T261108-replay-extraction-presentation-decoupling]** Replay and Extraction Command Presentation Decoupling
-- **[T261108-shell-execution-presentation-decoupling]** Shell Execution Command Presentation Decoupling and Descriptor Migration
-- **[T261108-transcript-inspection-presentation-decoupling]** Transcript Inspection Command Presentation Decoupling and Descriptor Migration
-- **[T261108-workspace-navigation-presentation-decoupling]** Workspace Navigation Command Presentation Decoupling and Descriptor Migration
-- **[T261108-workspace-presentation-overrides]** Workspace Presentation Asset Overrides and Customization
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -217,11 +210,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T261107-test-suite-user-config-isolation]** Test Suite User Config Isolation
-- **[T261107-spill-width-cap-and-line-truncation]** Spill Width Cap and Horizontal Line Truncation Policy
-- **[T261107-read-file-combine-max-lines-end-line]** Allow Combining max_lines With end_line in read_file
-- **[T261107-intra-turn-policy-mutation-staleness]** Intra-Turn Policy Mutation Staleness and Staged Execution Failure
-- **[T261107-host-transcript-snapshots]** Async host transcript snapshots
+- **[T261108-workspace-presentation-overrides]** Workspace Presentation Asset Overrides and Customization
+- **[T261108-workspace-navigation-presentation-decoupling]** Workspace Navigation Command Presentation Decoupling and Descriptor Migration
+- **[T261108-transcript-inspection-presentation-decoupling]** Transcript Inspection Command Presentation Decoupling and Descriptor Migration
+- **[T261108-shell-execution-presentation-decoupling]** Shell Execution Command Presentation Decoupling and Descriptor Migration
+- **[T261108-replay-extraction-presentation-decoupling]** Replay and Extraction Command Presentation Decoupling
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

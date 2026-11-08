@@ -4,11 +4,8 @@ import importlib
 
 from ..config import OperatorConfig
 from ..skills import handle_skills_commands
-from .operator_command_config_help import handle_config_help_commands
 from .operator_command_context import OperatorCommandContext
-from .operator_command_extract_replay import handle_extract_replay_commands
-from .operator_command_prompt_workspace import handle_prompt_workspace_commands
-from .source_reference_operations import handle_source_reference_commands
+from .operator_command_registry import get_default_operator_command_registry
 
 
 def execute_operator_command(
@@ -47,24 +44,10 @@ def execute_operator_command(
         already_executed_indices=already_executed_indices,
     )
 
-    handlers = (
-        handle_source_reference_commands,
-        handle_prompt_workspace_commands,
-        handle_extract_replay_commands,
-        handle_config_help_commands,
-        handle_skills_commands,
+    registry = get_default_operator_command_registry()
+    out = registry.dispatch(command, args, context=context, step_mod=step_mod) or handle_skills_commands(
+        command, args, step_mod=step_mod, context=context
     )
-    for handler in handlers:
-        out = handler(command, args, step_mod=step_mod, context=context)
-        if out is not None:
-            return out
-
-    if command == "step":
-        count = 1
-        if args:
-            if not args[0].isdigit() or int(args[0]) <= 0:
-                return [step_mod.make_result_node("usage: /step [N]", origin_role=context.frontier_role, origin_kind="slash_command")]
-            count = int(args[0])
-        return [step_mod.make_result_node(f"[STEP] budget: {count}", origin_role=context.frontier_role, origin_kind="slash_command")]
-
+    if out is not None:
+        return out
     raise ValueError(f"unknown command: /{command}")

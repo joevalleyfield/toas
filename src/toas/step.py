@@ -427,18 +427,9 @@ def _render_prompt_browse_commands(prefix: str | None = None) -> str:
 
 
 def _render_workspace_commands(workspace_mode: str, workspace_roots: list[str]) -> str:
-    lines = [
-        "/workspace",
-        "/workspace mode strict",
-        "/workspace mode unbounded",
-        "/workspace add <path>",
-        "/workspace remove <path>",
-        "/workspace reset",
-    ]
-    for root in workspace_roots:
-        lines.append(f"/workspace remove {root}")
-    lines.append(f"/workspace mode {workspace_mode}")
-    return "\n".join(lines)
+    from .runtime.operator_command_workspace import render_workspace_commands
+
+    return render_workspace_commands(workspace_mode, workspace_roots)
 
 
 def _available_endpoints(config: OperatorConfig) -> list[str]:
@@ -569,33 +560,15 @@ def render_shell_policy_view(
     transcript_added: tuple[str, ...],
     transcript_removed: tuple[str, ...],
 ) -> str:
-    lines = ["effective shell grants:"]
-    if effective:
-        for grant in effective:
-            lines.append(f"- {grant} (source: {', '.join(sorted(sources.get(grant, {'unknown'})))})")
-    else:
-        lines.append("(none)")
-    lines.extend(
-        [
-            "",
-            "config baseline:",
-            ", ".join(baseline) if baseline else "(none)",
-            "",
-            "transcript lane (active):",
-            f"added: {', '.join(transcript_added) if transcript_added else '(none)'}",
-            f"removed: {', '.join(transcript_removed) if transcript_removed else '(none)'}",
-            "",
-            "transcript modifiers:",
-            *SHELL_TRANSCRIPT_MODIFIER_LINES,
-            "",
-            "grant forms:",
-            *SHELL_GRANT_FORM_LINES,
-            "",
-            "scope precedence:",
-            "transient > session > workspace > user > global > defaults",
-        ]
+    from .runtime.operator_command_shell import render_shell_policy_view as _render
+
+    return _render(
+        effective,
+        baseline,
+        sources,
+        transcript_added,
+        transcript_removed,
     )
-    return "\n".join(lines)
 
 
 def _execute_operator_command(

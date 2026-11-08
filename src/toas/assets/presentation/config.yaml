@@ -1,0 +1,101 @@
+execution_overview: |-
+  execution configuration
+
+  shell:
+    shell.assistant_timeout_s: {assistant_timeout_s}s
+    shell.allowed_commands: {allowed_summary}
+
+  tool writes:
+    tool_writes.newline_style: {newline_style}
+
+  next:
+    /config show execution --flat    inspect exhaustive execution keys
+    /config show execution --sources inspect execution keys with winning sources
+    /help config execution           execution concepts and boundaries
+models_overview: |-
+  model configuration
+
+  active:
+    target: {active_target}
+    endpoint: {active_endpoint}
+    requested model: {active_model}
+    transport: {active_transport}
+
+  global fallback:
+    llm.base_url: {fallback_base_url}
+    llm.model: {fallback_model}
+    llm.provider: {fallback_provider}
+    credentials: {fallback_credentials}
+    generation: thinking={fallback_thinking}, max_tokens={fallback_max_tokens}
+
+  endpoints:
+  {endpoints_block}
+
+  targets:
+  {targets_block}
+
+  next:
+    /models live [ENDPOINT]       query live endpoint availability
+    /models known [ENDPOINT]      inspect durable catalog
+    /models refresh [ENDPOINT]    update durable catalog
+    /config show models --flat    inspect exhaustive model keys
+    /config show models --sources inspect model keys with winning sources
+overview: |-
+  effective configuration
+
+  models:
+    active target: {active_target}
+    active endpoint: {active_endpoint}
+    active model: {active_model}
+    transport: {transport}
+    inventory: {endpoints_count} endpoints · {targets_count} targets · {models_count} endpoint models
+
+  generation:
+    backend mode: {backend_mode}
+    thinking: {thinking_mode}
+    thinking budget: {thinking_budget}
+    max tokens: {max_tokens}
+    retries: {max_retries}
+    retry delay: {retry_delay_s}s
+    avoid terms: {avoid_terms} configured
+
+  extraction:
+    arbitration: {arbitration}
+    shell staging: {shell_staging}
+    projection: {projection_shape}
+
+  runtime:
+    streaming: {streaming_mode}
+    thinking stream: {thinking_stream_mode}
+    prompt progress: {prompt_progress_mode}
+    async runs: {async_runs}
+
+  execution:
+    shell timeout: {assistant_timeout_s}s
+    tool-write newlines: {newline_style}
+
+  next:
+    /config show --flat
+    /config show --sources
+    /config show models|generation|extraction|runtime|execution
+    /config endpoint list
+    /config target list
+target_overview: |-
+  target: {target_id}
+
+  resolution:
+    endpoint: {endpoint_desc}
+    model: {model_desc}
+
+  generation:
+    thinking: {thinking_mode}
+    thinking budget: {thinking_budget}
+    max tokens: {max_tokens}
+    transport: {transport_mode}
+    retries: {max_retries}
+    retry delay: {retry_delay_s}s
+    avoid terms: {avoid_terms_str}
+
+  rate limit:
+    min interval: {min_interval_s}s
+    requests per minute: {rpm_str}

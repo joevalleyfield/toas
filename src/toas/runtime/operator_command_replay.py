@@ -1,24 +1,106 @@
+"""Operator commands for extraction, replay, queueing, and healing."""
 from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from typing import cast
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
+from ..assets.presentation_loader import render_template
 from ..graph import normalize_tool_plan
 from ..shell_intent import extract_yaml_blocks, strip_inert_regions
 from ..tools import validate_call
-from .operator_command_context import OperatorCommandContext
-from .replay_queue_edges import TERMINAL_QUEUE_STATUSES as _TERMINAL_QUEUE_STATUSES
-from .replay_queue_edges import entry_for_call as _entry_for_call
-from .replay_queue_edges import is_shell_authorization_block as _is_shell_authorization_block
-from .replay_queue_edges import iter_queue_payloads as _iter_queue_payloads  # noqa: F401
-from .replay_queue_edges import latest_queue_state as _latest_queue_state
-from .replay_queue_edges import latest_queue_states_by_id as _latest_queue_states_by_id
-from .replay_queue_edges import next_queue_id as _next_queue_id
-from .replay_queue_edges import queue_summary as _queue_summary
-from .result_nodes import make_result_node
+from .operator_command_registry import (
+    OperatorCommandDescriptor,
+    build_command_result_node,
+)
+
+
+def render_extract_candidates(
+    candidates: list[dict],
+    skipped: list[str],
+    *,
+    verbose: bool,
+) -> str:
+    """Render candidates extracted from the latest assistant message."""
+    header = "extract candidates from latest assistant message:"
+    lines = [
+        header,
+        *[
+            f"{i}. {candidate['kind']} [#{candidate['intent_id']}]\n"
+            f"{candidate.get('preview_verbose', candidate['preview']) if verbose else candidate['preview']}"
+            for i, candidate in enumerate(candidates, start=1)
+        ],
+    ]
+    if skipped:
+        lines.append("skipped callable-looking blocks:")
+        lines.extend(skipped)
+    return f"{lines[0]}\n" + "\n".join(lines[1:])
+
+
+def render_extract_salvageable_sources(sources: list[dict]) -> str:
+    """Render salvageable YAML literal blocks overview."""
+    header = "salvageable YAML source fences from latest assistant message:"
+    lines = [
+        header,
+        *[
+            f"#s{source['index']} unindented {', '.join(source['keys'])} "
+            f"literal{'s' if len(source['keys']) > 1 else ''}"
+            for source in sources
+        ],
+    ]
+    return "\n".join(lines)
+
+
+def render_extract_coalescible_sources(sources: list[dict]) -> str:
+    """Render coalescible YAML plan runs overview."""
+    header = "coalescible YAML plan runs from latest assistant message:"
+    lines = [
+        header,
+        *[f"#c{source['index']} {source['count']} adjacent single-operation plans" for source in sources],
+    ]
+    return "\n".join(lines)
+
+
+def render_replay_candidates_list(items: list[tuple[int, str, str, str]]) -> str:
+    """Render multiple replay candidates with header and usage footer."""
+    header = "replay candidates:"
+    footer = "execute with: /replay --index <n|rN>"
+    lines = [header]
+    for n, preview, intent_id, status in items:
+        lines.append(f"{n}. {preview} [#{intent_id}] [{status}]")
+    lines.append(footer)
+    return "\n".join(lines)
+
+
+from .replay_queue_edges import (
+    TERMINAL_QUEUE_STATUSES as _TERMINAL_QUEUE_STATUSES,
+)
+from .replay_queue_edges import (
+    entry_for_call as _entry_for_call,
+)
+from .replay_queue_edges import (
+    is_shell_authorization_block as _is_shell_authorization_block,
+)
+from .replay_queue_edges import (
+    iter_queue_payloads as _iter_queue_payloads,  # noqa: F401
+)
+from .replay_queue_edges import (
+    latest_queue_state as _latest_queue_state,
+)
+from .replay_queue_edges import (
+    latest_queue_states_by_id as _latest_queue_states_by_id,
+)
+from .replay_queue_edges import (
+    next_queue_id as _next_queue_id,
+)
+from .replay_queue_edges import (
+    queue_summary as _queue_summary,
+)
+
+if TYPE_CHECKING:
+    from .operator_command_context import OperatorCommandContext
 
 _EXTRACT_USAGE = "usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN] | --coalesce [#cN]"
 _EXTRACT_SALVAGE_USAGE = "usage: /extract --salvage-indent [#sN]"
@@ -35,30 +117,13 @@ _LITERAL_OWNER_RE = re.compile(
 )
 _YAML_MAPPING_OR_ITEM_RE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_-]*:|-\s)")
 _COALESCE_YAML_FENCE_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
+_HEAL_USAGE = "usage: /heal search_indent=N | /heal POSITION:search_indent=N [...]"
 
 
-def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
-    if "\n" in content:
-        lower_content = content.lower()
-        if "extract" in lower_content:
-            source = "command.extract"
-        elif "queue" in lower_content:
-            source = "command.queue"
-        else:
-            source = "command.replay"
-        from ..tools_cluster.rendering import render_fenced_output
-        content = render_fenced_output(
-            content=content,
-            kind="view",
-            source=source,
-            potency="inert",
-        )
-    return make_result_node(
-        content,
-        origin_role=context.frontier_role,
-        origin_kind="slash_command",
-        **fields,
-    )
+def _result_node(content: str, *, context: OperatorCommandContext, source: str = "command.replay", **fields: Any) -> dict:
+    fenced = "\n" in content
+    node_source = source if fenced else "command.operator"
+    return build_command_result_node(content, context=context, source=node_source, fenced=fenced, **fields)
 
 
 def _format_intent_id(index: int) -> str:
@@ -249,23 +314,7 @@ def _latest_assistant_target(working: list[dict]) -> tuple[dict, int]:
     raise ValueError("no prior assistant message available for /extract")
 
 
-def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, verbose: bool, step_mod, context: OperatorCommandContext) -> list[dict]:
-    lines = [
-        "extract candidates from latest assistant message:",
-        *[
-            f"{i}. {candidate['kind']} [#{_format_intent_id(i)}]\n"
-            f"{candidate.get('preview_verbose', candidate['preview']) if verbose else candidate['preview']}"
-            for i, candidate in enumerate(candidates, start=1)
-        ],
-    ]
-    if skipped:
-        lines.append("skipped callable-looking blocks:")
-        lines.extend(skipped)
-    content = f"{lines[0]}\n" + "\n".join(lines[1:])
-    return [_result_node(content, step_mod=step_mod, context=context)]
-
-
-def _handle_extract_salvage(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _handle_extract_salvage(args: list[str], *, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
     if len(args) > 1:
         raise ValueError(_EXTRACT_SALVAGE_USAGE)
     source_index = _parse_salvage_source_token(args[0]) if args else None
@@ -274,15 +323,8 @@ def _handle_extract_salvage(args: list[str], *, step_mod, context: OperatorComma
     if not sources:
         raise ValueError("no salvageable YAML literal blocks in latest assistant message")
     if source_index is None:
-        lines = [
-            "salvageable YAML source fences from latest assistant message:",
-            *[
-                f"#s{source['index']} unindented {', '.join(source['keys'])} "
-                f"literal{'s' if len(source['keys']) > 1 else ''}"
-                for source in sources
-            ],
-        ]
-        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+        content = render_extract_salvageable_sources(sources)
+        return [_result_node(content, context=context, source="command.extract")]
 
     source = next((item for item in sources if item["index"] == source_index), None)
     if source is None:
@@ -296,7 +338,7 @@ def _handle_extract_salvage(args: list[str], *, step_mod, context: OperatorComma
     ]
 
 
-def _handle_extract_coalesce(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _handle_extract_coalesce(args: list[str], *, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
     if len(args) > 1:
         raise ValueError(_EXTRACT_COALESCE_USAGE)
     source_index = _parse_coalesce_source_token(args[0]) if args else None
@@ -305,11 +347,8 @@ def _handle_extract_coalesce(args: list[str], *, step_mod, context: OperatorComm
     if not sources:
         raise ValueError("no coalescible YAML plan runs in latest assistant message")
     if source_index is None:
-        lines = [
-            "coalescible YAML plan runs from latest assistant message:",
-            *[f"#c{source['index']} {source['count']} adjacent single-operation plans" for source in sources],
-        ]
-        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+        content = render_extract_coalescible_sources(sources)
+        return [_result_node(content, context=context, source="command.extract")]
 
     source = next((item for item in sources if item["index"] == source_index), None)
     if source is None:
@@ -317,7 +356,28 @@ def _handle_extract_coalesce(args: list[str], *, step_mod, context: OperatorComm
     return [{"role": "user", "content": _render_coalesced_plan(source["plan"]), "provenance": {"source": "coalesced"}}]
 
 
-def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _render_extract_candidates(
+    candidates: list[dict],
+    skipped: list[str],
+    *,
+    verbose: bool,
+    context: OperatorCommandContext,
+    step_mod: Any = None,
+) -> list[dict]:
+    augmented_candidates = [
+        {**candidate, "intent_id": _format_intent_id(i)}
+        for i, candidate in enumerate(candidates, start=1)
+    ]
+    content = render_extract_candidates(augmented_candidates, skipped, verbose=verbose)
+    return [_result_node(content, context=context, source="command.extract")]
+
+
+def handle_extract_command(
+    args: list[str],
+    context: OperatorCommandContext,
+    step_mod: Any,
+) -> list[dict]:
+    """Execute /extract operator command."""
     if args and args[0] == "--salvage-indent":
         return _handle_extract_salvage(args[1:], step_mod=step_mod, context=context)
     if args and args[0] == "--coalesce":
@@ -340,7 +400,13 @@ def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContex
         raise ValueError("latest assistant message has no extractable callable intent")
 
     if extract_selection is None:
-        return _render_extract_candidates(candidates, skipped, verbose=verbose, step_mod=step_mod, context=context)
+        return _render_extract_candidates(
+            candidates,
+            skipped,
+            verbose=verbose,
+            context=context,
+            step_mod=step_mod,
+        )
 
     if extract_selection < 1 or extract_selection > len(candidates):
         raise ValueError(f"index out of range: {extract_selection}")
@@ -394,13 +460,11 @@ def _parse_replay_args(args: list[str]) -> tuple[bool, bool, int | None, tuple[s
     return dry_run, force, replay_selection, queue_action
 
 
-
-
 def _execute_call_for_queue(
     call: dict,
     *,
     as_approved_user_call: bool,
-    step_mod,
+    step_mod: Any,
     context: OperatorCommandContext,
 ) -> list[dict]:
     if as_approved_user_call:
@@ -477,19 +541,10 @@ def _queue_step_outcome(nodes: list[dict]) -> str:
     return "failed" if failed else "ran"
 
 
-def _render_queue_boundary_message(*, queue: dict, plan: list, call: dict, next_index: int) -> str:
-    return (
-        f"replay queue blocked at operation {next_index + 1}/{len(plan)} ({call.get('tool_name')})\n"
-        f"queue id: {queue.get('id')}\n"
-        "queue controls:\n"
-        "  /queue [resume|approve*|skip|cancel]"
-    )
-
-
 def _run_queue_until_boundary(
     queue: dict,
     *,
-    step_mod,
+    step_mod: Any,
     context: OperatorCommandContext,
     action: str,
 ) -> tuple[list[dict], dict]:
@@ -499,7 +554,8 @@ def _run_queue_until_boundary(
 
     if action == "cancel":
         queue = _cancel_queue_remaining(queue, plan=plan, entries=entries, next_index=next_index)
-        out_nodes.append(_result_node(f"replay queue cancelled: {_queue_summary(queue)}", step_mod=step_mod, context=context, queue_update=queue))
+        content = f"replay queue cancelled: {_queue_summary(queue)}"
+        out_nodes.append(_result_node(content, context=context, source="command.queue", queue_update=queue))
         return out_nodes, queue
 
     if action == "skip":
@@ -526,8 +582,8 @@ def _run_queue_until_boundary(
             out_nodes.append(
                 _result_node(
                     _render_queue_boundary_message(queue=queue, plan=plan, call=call, next_index=next_index),
-                    step_mod=step_mod,
                     context=context,
+                    source="command.queue",
                     queue_update=queue,
                 )
             )
@@ -537,7 +593,8 @@ def _run_queue_until_boundary(
             queue["entries"] = entries
             queue["status"] = "failed"
             queue["next_index"] = next_index + 1
-            out_nodes.append(_result_node(f"replay queue failed: {_queue_summary(queue)}", step_mod=step_mod, context=context, queue_update=queue))
+            content = f"replay queue failed: {_queue_summary(queue)}"
+            out_nodes.append(_result_node(content, context=context, source="command.queue", queue_update=queue))
             return out_nodes, queue
 
         ran_status = "approved" if approve_index is not None and next_index == approve_index else "ran"
@@ -547,11 +604,12 @@ def _run_queue_until_boundary(
         queue["next_index"] = next_index
 
     queue["status"] = "completed"
-    out_nodes.append(_result_node(f"replay queue completed: {_queue_summary(queue)}", step_mod=step_mod, context=context, queue_update=queue))
+    content = f"replay queue completed: {_queue_summary(queue)}"
+    out_nodes.append(_result_node(content, context=context, source="command.queue", queue_update=queue))
     return out_nodes, queue
 
 
-def _collect_replay_candidates(*, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _collect_replay_candidates(*, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
     replay_candidates: list[dict] = []
     for idx, message in enumerate(context.working[:-1], start=1):
         plan, ambiguous = step_mod.extract_plan_with_status(message["content"], yaml_position="any")
@@ -592,44 +650,40 @@ def _candidate_execution_status(index: int, *, context: OperatorCommandContext) 
     return "not executed"
 
 
-def _render_replay_candidates(replay_candidates: list[dict], *, dry_run: bool, step_mod=None, context: OperatorCommandContext) -> list[dict]:
+def _render_queue_boundary_message(*, queue: dict, plan: list, call: dict, next_index: int) -> str:
+    return render_template("replay", "queue_blocked", step=next_index + 1, total=len(plan), tool_name=call.get("tool_name", ""), queue_id=queue.get("id", ""))
+
+
+def _render_replay_candidates(
+    replay_candidates: list[dict],
+    *,
+    dry_run: bool,
+    step_mod: Any = None,
+    context: OperatorCommandContext,
+) -> list[dict]:
     if len(replay_candidates) == 1 and not dry_run:
         only = replay_candidates[0]
         status = _candidate_execution_status(only["index"], context=context)
-        return [
-            _result_node(
-                (
-                    f"replay candidate: 1 found ({status})\n"
-                    f"1. {only['preview']} [#{_format_replay_intent_id(1)}]\n"
-                    "confirm with: /replay --index #r1"
-                ),
-                step_mod=step_mod,
-                context=context,
-            )
-        ]
+        content = render_template("replay", "replay_candidate_single", preview=only["preview"], intent_id=_format_replay_intent_id(1), status=status)
+        return [_result_node(content, context=context)]
 
-    lines = ["replay candidates:"]
-    for n, replay_candidate in enumerate(replay_candidates, start=1):
-        status = _candidate_execution_status(replay_candidate["index"], context=context)
-        lines.append(f"{n}. {replay_candidate['preview']} [#{_format_replay_intent_id(n)}] [{status}]")
-    lines.append("execute with: /replay --index <n|rN>")
-    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+    items = [
+        (
+            n,
+            replay_candidate["preview"],
+            _format_replay_intent_id(n),
+            _candidate_execution_status(replay_candidate["index"], context=context),
+        )
+        for n, replay_candidate in enumerate(replay_candidates, start=1)
+    ]
+    content = render_replay_candidates_list(items)
+    return [_result_node(content, context=context)]
 
 
-def _execute_replay_choice(chosen: dict, *, dry_run: bool, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _execute_replay_choice(chosen: dict, *, dry_run: bool, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
     if dry_run:
-        return [
-            _result_node(
-                (
-                    f"replay dry-run: would execute candidate {chosen['choice_index']}\n"
-                    f"{chosen['preview']}\n"
-                    f"target message index: {chosen['index']}\n"
-                    "execution context: current command cwd/workspace (not historical)"
-                ),
-                step_mod=step_mod,
-                context=context,
-            )
-        ]
+        content = render_template("replay", "replay_dry_run", choice_index=chosen["choice_index"], preview=chosen["preview"], index=chosen["index"])
+        return [_result_node(content, context=context)]
 
     if len(chosen["plan"]) > 1:
         queue = {
@@ -652,13 +706,14 @@ def _execute_replay_choice(chosen: dict, *, dry_run: bool, step_mod, context: Op
     return executed_nodes
 
 
-def _handle_replay_queue_action(queue_action: tuple[str, str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _handle_replay_queue_action(queue_action: tuple[str, str], *, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
     action, queue_id = queue_action
     queue = _latest_queue_state(queue_id, context=context)
     if queue is None:
         raise ValueError(f"unknown replay queue id: {queue_id}")
     if queue.get("status") in _TERMINAL_QUEUE_STATUSES:
-        return [_result_node(f"replay queue already terminal: {_queue_summary(queue)}", step_mod=step_mod, context=context)]
+        content = f"replay queue already terminal: {_queue_summary(queue)}"
+        return [_result_node(content, context=context, source="command.queue")]
     if action not in {"resume", "approve", "skip", "cancel"}:
         raise ValueError(_REPLAY_QUEUE_USAGE)
 
@@ -712,12 +767,22 @@ def _parse_queue_args(args: list[str], *, context: OperatorCommandContext) -> tu
     return action, queue_id
 
 
-def _handle_queue(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def handle_queue_command(
+    args: list[str],
+    context: OperatorCommandContext,
+    step_mod: Any,
+) -> list[dict]:
+    """Execute /queue operator command."""
     action, queue_id = _parse_queue_args(args, context=context)
     return _handle_replay_queue_action((action, queue_id), step_mod=step_mod, context=context)
 
 
-def _handle_replay(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def handle_replay_command(
+    args: list[str],
+    context: OperatorCommandContext,
+    step_mod: Any,
+) -> list[dict]:
+    """Execute /replay operator command."""
     dry_run, force, replay_selection, queue_action = _parse_replay_args(args)
     if queue_action is not None:
         return _handle_replay_queue_action(queue_action, step_mod=step_mod, context=context)
@@ -727,7 +792,7 @@ def _handle_replay(args: list[str], *, step_mod, context: OperatorCommandContext
         raise ValueError("no replayable callable messages found in history")
 
     if replay_selection is None:
-        return _render_replay_candidates(replay_candidates, dry_run=dry_run, step_mod=step_mod, context=context)
+        return _render_replay_candidates(replay_candidates, dry_run=dry_run, context=context)
 
     if replay_selection < 1 or replay_selection > len(replay_candidates):
         raise ValueError(f"index out of range: {replay_selection}")
@@ -736,9 +801,6 @@ def _handle_replay(args: list[str], *, step_mod, context: OperatorCommandContext
     if context.already_executed_indices and chosen["index"] in context.already_executed_indices and not force:
         raise ValueError("target already has tool_request records; rerun with --force")
     return _execute_replay_choice(chosen, dry_run=dry_run, step_mod=step_mod, context=context)
-
-
-_HEAL_USAGE = "usage: /heal search_indent=N | /heal POSITION:search_indent=N [...]"
 
 
 def _parse_heal_args(args: list[str]) -> list[tuple[int | None, int]]:
@@ -773,7 +835,12 @@ def _parse_heal_args(args: list[str]) -> list[tuple[int | None, int]]:
     return parsed
 
 
-def _handle_heal(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def handle_heal_command(
+    args: list[str],
+    context: OperatorCommandContext,
+    step_mod: Any,
+) -> list[dict]:
+    """Execute /heal operator command."""
     repairs = _parse_heal_args(args)
 
     candidates = _collect_replay_candidates(step_mod=step_mod, context=context)
@@ -806,19 +873,11 @@ def _handle_heal(args: list[str], *, step_mod, context: OperatorCommandContext) 
     )
 
 
-def handle_extract_replay_commands(
-    command: str,
-    args: list[str],
-    *,
-    step_mod,
-    context: OperatorCommandContext,
-) -> list[dict] | None:
-    if command == "extract":
-        return _handle_extract(args, step_mod=step_mod, context=context)
-    if command == "replay":
-        return _handle_replay(args, step_mod=step_mod, context=context)
-    if command == "queue":
-        return _handle_queue(args, step_mod=step_mod, context=context)
-    if command == "heal":
-        return _handle_heal(args, step_mod=step_mod, context=context)
-    return None
+def get_replay_command_descriptors() -> tuple[OperatorCommandDescriptor, ...]:
+    """Return command descriptors for replay, extraction, queue, and heal commands."""
+    return (
+        OperatorCommandDescriptor("extract", "extract callable actions from assistant response", _EXTRACT_USAGE, "replay", handle_extract_command, source="command.extract"),
+        OperatorCommandDescriptor("replay", "replay or preview execution of prior callable messages", _REPLAY_USAGE, "replay", handle_replay_command, source="command.replay"),
+        OperatorCommandDescriptor("queue", "inspect or advance blocked/paused replay queues", _QUEUE_USAGE, "replay", handle_queue_command, source="command.queue"),
+        OperatorCommandDescriptor("heal", "heal and execute unindented replace_block operations from latest callable frontier", _HEAL_USAGE, "replay", handle_heal_command, source="command.replay"),
+    )

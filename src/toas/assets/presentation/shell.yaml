@@ -1,0 +1,42 @@
+env_help: |-
+  /env set <KEY> <VALUE>
+  /env unset <KEY>
+shell_config_grants: |-
+  config shell grants:
+  {baseline}
+shell_config_reset: |-
+  config shell grants reset to defaults
+  config baseline: {baseline}
+shell_config_updated: |-
+  config shell grants updated: {sub} {grant}
+  config baseline: {baseline}
+shell_grants_reset: |-
+  shell grants reset (scope={scope})
+  effective: {effective}
+shell_grants_updated: |-
+  shell grant{plural} updated: {action} {grants} (scope={scope})
+  effective: {effective}
+shell_policy_view: |-
+  effective shell grants:
+  {effective}
+
+  config baseline:
+  {baseline}
+
+  transcript lane (active):
+  added: {added}
+  removed: {removed}
+
+  transcript modifiers:
+    /shell add <grant>     (compat: /shell allow <grant>)
+    /shell remove <grant>  (compat: /shell deny <grant>)
+    /shell unset <grant>
+    /shell reset
+
+  grant forms:
+    exact command: rg
+    prefix match: prefix:jj
+    glob match: glob:python*
+
+  scope precedence:
+  transient > session > workspace > user > global > defaults
