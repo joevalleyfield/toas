@@ -220,3 +220,13 @@ This task will be complete when:
   manufacturing release tags.
 - Let `260627-release-helper-tooling` absorb any release-review mechanics that
   remain annoying after this manual cut.
+
+## Release Review — 2026-11-08
+
+The sixth review cuts `0.0.5.0` for skills integration, bounded multi-turn
+stepping, transcript telemetry and spillage, policy/grant improvements, and
+editor/platform fixes. The routine gate passed: 4041 default tests, 17 acceptance
+tests, 100.00% statement coverage, Ruff, and mypy. Notes:
+`docs/releases/0.0.5.0.md`; operational evidence:
+`tasks/recurring/runs/2026-11-08-release-review-weekly-tagged-lane.md`.
+State-shaped execution retains its technology-preview status.
