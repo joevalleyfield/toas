@@ -101,7 +101,7 @@ def test_specialize_record_task_end_to_end(tmp_path: Path):
     sync_script = tmp_path / "tasks" / "scripts" / "sync_workboard.py"
     sync_script.parent.mkdir(parents=True)
     marker = tmp_path / "synced.txt"
-    sync_script.write_text(f"from pathlib import Path\nPath('{marker}').write_text('yes')\n", encoding="utf-8")
+    sync_script.write_text(f"from pathlib import Path\nPath({str(marker)!r}).write_text('yes')\n", encoding="utf-8")
 
     # Run specialization
     res = specialize_skill("record-task", workspace_root=tmp_path)

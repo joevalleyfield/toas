@@ -12,10 +12,12 @@ import pytest
 
 
 @pytest.mark.parametrize("asyncio_mode", ["0", "1"])
-def test_host_snapshot_executes_supplied_text_without_changing_saved_session(tmp_path, asyncio_mode):
+def test_host_snapshot_executes_supplied_text_without_changing_saved_session(tmp_path, asyncio_mode, python_command):
     session = tmp_path / "session.md"
-    saved = "## TOAS:USER\n$ echo DISK_SUFFIX_MUST_NOT_RUN\n"
-    snapshot = "## TOAS:USER\n$ echo SNAPSHOT_SELECTED_café\n"
+    saved_command = python_command("print('DISK_SUFFIX_MUST_NOT_RUN')")
+    snapshot_command = python_command("import sys; sys.stdout.buffer.write('SNAPSHOT_SELECTED_café'.encode('utf-8'))")
+    saved = f"## TOAS:USER\n$ {saved_command}\n"
+    snapshot = f"## TOAS:USER\n$ {snapshot_command}\n"
     session.write_text(saved, encoding="utf-8")
     env = dict(os.environ, TOAS_DAEMON_ASYNCIO=asyncio_mode)
     process = subprocess.Popen(

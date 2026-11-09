@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -235,7 +236,7 @@ def test_posix_process_override_can_remove_inherited_environment(monkeypatch, tm
 
 def test_run_subprocess_with_stdin_input(tmp_path):
     res = run_subprocess(
-        ["cat"],
+        [sys.executable, "-c", "import sys; sys.stdout.write(sys.stdin.read())"],
         cwd=tmp_path,
         timeout_s=5,
         stream_stdout_override=False,
@@ -729,7 +730,10 @@ def test_resolve_user_cwd_paths(tmp_path):
 
 def test_run_subprocess_with_env(tmp_path):
     from toas.tools_cluster.shell_ops import run_subprocess
-    out = run_subprocess(["sh", "-c", "echo $CUSTOM_VAR"], cwd=tmp_path, timeout_s=5, env={"CUSTOM_VAR": "hello_from_env"})
+    out = run_subprocess(
+        [sys.executable, "-c", "import os; print(os.environ['CUSTOM_VAR'])"],
+        cwd=tmp_path, timeout_s=5, env={"CUSTOM_VAR": "hello_from_env"},
+    )
     assert out["ok"] is True
     assert "hello_from_env" in out["stdout"]
 

@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-08
+> **Last Sync:** 2026-11-09
 
 ## 0. Manual Triage
 
@@ -210,11 +210,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261109-recent-windows-regressions]** Status: CLOSED — 2026-11-09
 - **[T261108-workspace-presentation-overrides]** Workspace Presentation Asset Overrides and Customization
 - **[T261108-workspace-navigation-presentation-decoupling]** Workspace Navigation Command Presentation Decoupling and Descriptor Migration
 - **[T261108-transcript-inspection-presentation-decoupling]** Transcript Inspection Command Presentation Decoupling and Descriptor Migration
 - **[T261108-shell-execution-presentation-decoupling]** Shell Execution Command Presentation Decoupling and Descriptor Migration
-- **[T261108-replay-extraction-presentation-decoupling]** Replay and Extraction Command Presentation Decoupling
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

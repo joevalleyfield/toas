@@ -23,8 +23,8 @@ record_task_main = record_task_mod.main
 slugify = record_task_mod.slugify
 
 
-def test_bundled_skills_catalog_presence():
-    catalog = discover_skills()
+def test_bundled_skills_catalog_presence(tmp_path):
+    catalog = discover_skills(workspace_root=tmp_path, home_dir=tmp_path)
     assert "record-task" in catalog.skills
     assert "jj-scratch-workspace" in catalog.skills
     assert "code-review" in catalog.skills
@@ -145,7 +145,7 @@ def test_record_task_runs_sync_script_if_present(tmp_path: Path):
     scripts_dir.mkdir(parents=True)
     marker = tmp_path / "sync_ran.txt"
     sync_script = scripts_dir / "sync_workboard.py"
-    sync_script.write_text(f"from pathlib import Path\nPath('{marker}').write_text('synced', encoding='utf-8')\n", encoding="utf-8")
+    sync_script.write_text(f"from pathlib import Path\nPath({str(marker)!r}).write_text('synced', encoding='utf-8')\n", encoding="utf-8")
 
     record_task(title="Sync Test", workspace=tmp_path)
     assert marker.exists()
@@ -156,7 +156,7 @@ def test_record_task_main_cli(tmp_path: Path, monkeypatch, capsys):
     ret = record_task_main(["--title", "CLI Task", "--workspace", str(tmp_path), "--dry-run"])
     assert ret == 0
     captured = capsys.readouterr().out
-    assert "[dry-run] Recorded task: tasks/open/" in captured
+    assert f"[dry-run] Recorded task: {Path('tasks') / 'open'}" in captured
 
 
 def test_capture_task_thread_legacy_facade(tmp_path: Path, monkeypatch):

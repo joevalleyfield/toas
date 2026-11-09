@@ -299,16 +299,18 @@ def test_bounded_step_operator_command_dispatch(tmp_path):
     assert "usage: /step [N]" in nodes_err[0]["content"]
 
 
-def test_bounded_step_user_consequence_continues_to_assistant(monkeypatch, tmp_path):
+def test_bounded_step_user_consequence_continues_to_assistant(monkeypatch, tmp_path, python_command):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "off")
-    _setup_workspace(tmp_path, session_content="## TOAS:USER\n\n$ echo hello_user\n")
+    command = python_command("print('hello_user')")
+    _setup_workspace(tmp_path, session_content=f"## TOAS:USER\n\n$ {command}\n")
 
     call_count = 0
 
     def fake_generate(messages, **kwargs):
         nonlocal call_count
         call_count += 1
+        assert "hello_user" in messages[-1]["content"]
         return {
             "role": "assistant",
             "content": "I see the output hello_user.",

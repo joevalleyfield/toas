@@ -3436,11 +3436,9 @@ def test_decorate_step_telemetry_human_user_and_results():
     assert "21 tok" in res_cons[1]["result_marker"]
 
 
-def test_run_step_end_to_end_with_compact_telemetry(monkeypatch):
-    transcript = """\
-## TOAS:USER
-$ echo hello
-"""
+def test_run_step_end_to_end_with_compact_telemetry(python_command):
+    command = python_command("print('hello')")
+    transcript = f"## TOAS:USER\n$ {command}\n"
     log: list[dict] = []
     config = OperatorConfig(session=SessionPolicy(telemetry_decorations="compact"))
     appended, consequences = run_step(

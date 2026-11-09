@@ -472,7 +472,7 @@ def test_completed_process_normalizes_crlf_and_cr_stdout() -> None:
 
 def test_run_streaming_subprocess_with_input(tmp_path) -> None:
     res = shell_streaming.run_streaming_subprocess(
-        argv=["cat"],
+        argv=[sys.executable, "-c", "import sys; sys.stdout.write(sys.stdin.read())"],
         cwd=tmp_path,
         timeout_s=5,
         env=dict(shell_streaming.os.environ),
@@ -495,12 +495,13 @@ def test_run_streaming_subprocess_write_error(tmp_path, monkeypatch) -> None:
 
     def _failing_spawn(**kwargs):
         proc = original_spawn(**kwargs)
+        proc.stdin.close()
         proc.stdin = _FailingStdin()
         return proc
 
     monkeypatch.setattr(shell_streaming, "_spawn_streaming_process", _failing_spawn)
     res = shell_streaming.run_streaming_subprocess(
-        argv=["cat"],
+        argv=[sys.executable, "-c", "import sys; sys.stdout.write(sys.stdin.read())"],
         cwd=tmp_path,
         timeout_s=5,
         env=dict(shell_streaming.os.environ),
