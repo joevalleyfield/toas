@@ -150,8 +150,10 @@ Neither dated vote is a literal current queue.
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends ⚠️ Stale
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
+- **[T261109-leading-assistant-turn-normalization]** Leading Assistant Turn Marker Ingress Normalization
 - **[T261109-payload-bound-execution-safety-hooks]** Payload-Bound Execution Safety Hooks and Grant Policy Convergence
 - **[T261109-tool-result-decorations-elapsed-time]** Tool Result Decorations Should Have Elapsed Time and Timestamp
+- **[T261109-vim-terminal-projection-stream-dedup]** Vim Plugin Terminal Projection Stream Deduplication
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
