@@ -168,6 +168,13 @@ When extending the system:
 - use [docs/runtime-ownership.md](docs/runtime-ownership.md) as the routing guide
   when choosing where new code belongs
 
+When structuring code and refactors:
+- **No pass-through middlemen**: Never add a 1:1 wrapper function or intermediate module whose only job is to forward arguments to `render_template()`, a registry, or another helper.
+- **Diverge on data, converge on instantiation**: Use lookup tables (`dict` / tuple of descriptors) instead of cascading `if/elif` chains. When branches differ only in parameters, bind those variables in the branch and converge on a single validation and result/record instantiation at the end.
+- **Tabular declarations over vertical boilerplate**: Format descriptors, dispatch maps, and repeated call sites as compact 1-line table rows rather than multi-line keyword blocks.
+- **Test public seams, not private `_` helpers**: Exercise behavior through the public entrypoint so tests do not calcify internal helper signatures or block later simplification.
+- **Refactors replace; they do not accumulate**: Check `jj diff --stat` before closing a refactor or extraction. Do not leave compatibility shims or parallel duplicate test suites behind when existing tests already cover the public contract.
+
 ## Suggested Change Workflow
 
 When the seam is not yet obvious, prefer a short spike first to locate the
@@ -258,4 +265,21 @@ templates, protocol representations, or CLI output:
    - Are contracts and schemas explicit, cohesive, and ergonomically sound?
    Evaluate the artifact critically as an operator before concluding that the
    work is complete.
+
+### Reading the 100% Coverage Signal
+
+The 100.00% coverage gate is a design sensor, not a game to paint lines green.
+When a line or branch is hard to reach through the public entrypoint, treat that
+friction as a smell in the production code rather than an excuse to import a
+private `_` helper or mock an impossible state:
+
+- **Unreachable through the public seam**: An upstream parser, lookup table, or
+  caller already enforces the invariant. Delete the redundant inner guard
+  instead of bypassing the caller to test it.
+- **Requires N near-identical tests to hit N branches**: Validation or
+  instantiation is duplicated inside a diverge. Hoist or converge the shared
+  check so one test covers one invariant.
+- **Only reachable via synthetic test fixtures**: You built speculative
+  generality or an unused fallback. Delete the capability until a real caller
+  needs it.
 

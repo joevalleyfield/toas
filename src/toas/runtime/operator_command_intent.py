@@ -142,27 +142,20 @@ def _parse_intent_set_args(args: list[str], *, usage: str) -> tuple[str, str | N
     i = 0
     while i < len(args):
         token = args[i]
-        if token == "--status" and i + 1 < len(args):
-            status = args[i + 1].strip()
-            i += 2
-            continue
-        if token == "--scope" and i + 1 < len(args):
-            scope = args[i + 1].strip()
-            i += 2
-            continue
-        if token == "--tag" and i + 1 < len(args):
-            tags.append(args[i + 1].strip())
-            i += 2
-            continue
-        if token == "--source" and i + 1 < len(args):
-            source = args[i + 1].strip()
-            i += 2
-            continue
-        if token == "--notes" and i + 1 < len(args):
-            notes = args[i + 1].strip()
-            i += 2
-            continue
-        raise ValueError(usage)
+        if token not in {"--status", "--scope", "--source", "--notes", "--tag"} or i + 1 >= len(args):
+            raise ValueError(usage)
+        val = args[i + 1].strip()
+        if token == "--status":
+            status = val
+        elif token == "--scope":
+            scope = val
+        elif token == "--source":
+            source = val
+        elif token == "--notes":
+            notes = val
+        else:
+            tags.append(val)
+        i += 2
     return status, scope, source, notes, tags
 
 

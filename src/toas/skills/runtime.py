@@ -78,6 +78,23 @@ def render_skills_catalog(
     return "\n".join(lines)
 
 
+def _run_specialize(target_args: list[str], *, prefix: str, ws_root: Path) -> str:
+    if not target_args:
+        return f"usage: {prefix} <name>"
+    try:
+        from .specialization import specialize_skill
+
+        res = specialize_skill(target_args[0], workspace_root=ws_root)
+        return (
+            f"Specialized skill '{res.skill_name}' for workspace at {res.target_dir}.\n"
+            f"- SKILL.md: {res.skill_md_path}\n"
+            f"- Companion script: {res.script_path}\n"
+            f"- Verification: {'PASSED' if res.verified else 'FAILED'}"
+        )
+    except Exception as exc:
+        return f"[ERROR] {prefix}: {exc}"
+
+
 def handle_skills_commands(
     command: str,
     args: list[str],
@@ -87,157 +104,56 @@ def handle_skills_commands(
 ) -> list[dict] | None:
     ws_root = Path(context.command_cwd).resolve() if context.command_cwd else Path.cwd().resolve()
     catalog = discover_skills(workspace_root=ws_root)
+    fields: dict[str, Any] = {}
 
     if command == "skills":
-        skills = list(catalog.skills.values())
+        skills = sorted(catalog.skills.values(), key=lambda s: s.name)
         if not skills:
-            return [
-                step_mod.make_result_node(
-                    "No skills discovered.",
-                    origin_role=context.frontier_role,
-                    origin_kind="slash_command",
-                )
-            ]
-        lines = ["Available Skills:"]
-        for skill in sorted(skills, key=lambda s: s.name):
-            other_aliases = [a for a in skill.aliases if a != skill.name]
-            alias_suffix = f" (aliases: {', '.join('/' + a for a in other_aliases)})" if other_aliases else ""
-            desc = f": {skill.description}" if skill.description else ""
-            lines.append(f"- /{skill.name}{alias_suffix}{desc}")
-        lines.extend([
-            "",
-            "Use `/skill <name> [args]` or `/<skill-name> [args]` to activate a skill.",
-        ])
-        return [
-            step_mod.make_result_node(
-                "\n".join(lines),
-                origin_role=context.frontier_role,
-                origin_kind="slash_command",
-            )
-        ]
-
-    if command == "skill":
+            content = "No skills discovered."
+        else:
+            lines = ["Available Skills:"]
+            for skill in skills:
+                other_aliases = [a for a in skill.aliases if a != skill.name]
+                alias_suffix = f" (aliases: {', '.join('/' + a for a in other_aliases)})" if other_aliases else ""
+                desc = f": {skill.description}" if skill.description else ""
+                lines.append(f"- /{skill.name}{alias_suffix}{desc}")
+            lines.extend(["", "Use `/skill <name> [args]` or `/<skill-name> [args]` to activate a skill."])
+            content = "\n".join(lines)
+    elif command == "skill":
         if not args:
-            return [
-                step_mod.make_result_node(
-                    "usage: /skill <name> [args] | /skill specialize <name>",
-                    origin_role=context.frontier_role,
-                    origin_kind="slash_command",
-                )
-            ]
-        if args[0] == "specialize":
-            if len(args) < 2:
-                return [
-                    step_mod.make_result_node(
-                        "usage: /skill specialize <name>",
-                        origin_role=context.frontier_role,
-                        origin_kind="slash_command",
-                    )
-                ]
-            target_name = args[1]
+            content = "usage: /skill <name> [args] | /skill specialize <name>"
+        elif args[0] == "specialize":
+            content = _run_specialize(args[1:], prefix="/skill specialize", ws_root=ws_root)
+        else:
             try:
-                from .specialization import specialize_skill
-                res = specialize_skill(target_name, workspace_root=ws_root)
-                msg = (
-                    f"Specialized skill '{res.skill_name}' for workspace at {res.target_dir}.\n"
-                    f"- SKILL.md: {res.skill_md_path}\n"
-                    f"- Companion script: {res.script_path}\n"
-                    f"- Verification: {'PASSED' if res.verified else 'FAILED'}"
+                outcome = activate_skill(
+                    args[0],
+                    catalog=catalog,
+                    workspace_root=ws_root,
+                    arguments=" ".join(args[1:]).strip(),
                 )
-                return [
-                    step_mod.make_result_node(
-                        msg,
-                        origin_role=context.frontier_role,
-                        origin_kind="slash_command",
-                    )
-                ]
-            except Exception as exc:
-                return [
-                    step_mod.make_result_node(
-                        f"[ERROR] /skill specialize: {exc}",
-                        origin_role=context.frontier_role,
-                        origin_kind="slash_command",
-                    )
-                ]
-
-        skill_name = args[0]
-        arguments_str = " ".join(args[1:]).strip()
-        try:
-            outcome = activate_skill(
-                skill_name,
-                catalog=catalog,
-                workspace_root=ws_root,
-                arguments=arguments_str,
-            )
-            return [
-                step_mod.make_result_node(
-                    outcome["content"],
-                    origin_role=context.frontier_role,
-                    origin_kind="slash_command",
-                    payload=outcome,
-                )
-            ]
-        except RuntimeError as exc:
-            return [
-                step_mod.make_result_node(
-                    f"[ERROR] /skill: {exc}",
-                    origin_role=context.frontier_role,
-                    origin_kind="slash_command",
-                )
-            ]
-
-    if command == "specialize":
-        if not args:
-            return [
-                step_mod.make_result_node(
-                    "usage: /specialize <name>",
-                    origin_role=context.frontier_role,
-                    origin_kind="slash_command",
-                )
-            ]
-        target_name = args[0]
-        try:
-            from .specialization import specialize_skill
-            res = specialize_skill(target_name, workspace_root=ws_root)
-            msg = (
-                f"Specialized skill '{res.skill_name}' for workspace at {res.target_dir}.\n"
-                f"- SKILL.md: {res.skill_md_path}\n"
-                f"- Companion script: {res.script_path}\n"
-                f"- Verification: {'PASSED' if res.verified else 'FAILED'}"
-            )
-            return [
-                step_mod.make_result_node(
-                    msg,
-                    origin_role=context.frontier_role,
-                    origin_kind="slash_command",
-                )
-            ]
-        except Exception as exc:
-            return [
-                step_mod.make_result_node(
-                    f"[ERROR] /specialize: {exc}",
-                    origin_role=context.frontier_role,
-                    origin_kind="slash_command",
-                )
-            ]
-
-    # Check if command is a registered skill name or alias
-    target_skill = catalog.get(command)
-    if target_skill is not None:
-        arguments_str = " ".join(args).strip()
+                content, fields = outcome["content"], {"payload": outcome}
+            except RuntimeError as exc:
+                content = f"[ERROR] /skill: {exc}"
+    elif command == "specialize":
+        content = _run_specialize(args, prefix="/specialize", ws_root=ws_root)
+    else:
+        target_skill = catalog.get(command)
+        if target_skill is None:
+            return None
         outcome = activate_skill(
             target_skill.name,
             catalog=catalog,
             workspace_root=ws_root,
-            arguments=arguments_str,
+            arguments=" ".join(args).strip(),
         )
-        return [
-            step_mod.make_result_node(
-                outcome["content"],
-                origin_role=context.frontier_role,
-                origin_kind="slash_command",
-                payload=outcome,
-            )
-        ]
+        content, fields = outcome["content"], {"payload": outcome}
 
-    return None
+    return [
+        step_mod.make_result_node(
+            content,
+            origin_role=context.frontier_role,
+            origin_kind="slash_command",
+            **fields,
+        )
+    ]

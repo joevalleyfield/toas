@@ -145,31 +145,18 @@ def _parse_lens_set_args(set_args: list[str], *, frontier_content: str, usage: s
     i = 0
     while i < len(set_args):
         token = set_args[i]
-        if token == "--title":
-            if i + 1 >= len(set_args):
-                raise ValueError(usage)
-            title = set_args[i + 1].strip()
-            i += 2
-            continue
-        if token == "--distillation":
-            if i + 1 >= len(set_args):
-                raise ValueError(usage)
-            distillation_value = set_args[i + 1].strip()
-            i += 2
-            continue
+        if token not in {"--title", "--distillation", "--source", "--use-when"} or i + 1 >= len(set_args):
+            raise ValueError(usage)
+        val = set_args[i + 1]
         if token == "--source":
-            if i + 1 >= len(set_args):
-                raise ValueError(usage)
-            source_id_list.extend(_parse_lens_source_ids(set_args[i + 1]))
-            i += 2
-            continue
-        if token == "--use-when":
-            if i + 1 >= len(set_args):
-                raise ValueError(usage)
-            use_when = set_args[i + 1].strip()
-            i += 2
-            continue
-        raise ValueError(usage)
+            source_id_list.extend(_parse_lens_source_ids(val))
+        elif token == "--title":
+            title = val.strip()
+        elif token == "--distillation":
+            distillation_value = val.strip()
+        else:
+            use_when = val.strip()
+        i += 2
 
     if distillation_value is None:
         distillation_value = _extract_lens_fenced_distillation(frontier_content)

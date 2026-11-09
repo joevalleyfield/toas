@@ -74,7 +74,7 @@ def _config_show_filter(args: list[str]) -> tuple[str | None, bool, bool]:
     return (filters[0] if filters else None), show_sources, show_flat
 
 
-def _config_entrypoint_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_entrypoint_result(*, step_mod: Any = None, context: OperatorCommandContext) -> str:
     lines = [
         "config: inspect or change configuration",
         "",
@@ -105,7 +105,7 @@ def _config_entrypoint_result(*, step_mod, context: OperatorCommandContext) -> l
             "",
         ] + lines
     content = "\n".join(lines)
-    return [_result_node(content, step_mod=step_mod, context=context)]
+    return content
 
 
 def _config_key_matches(keys: list[str], filter_text: str | None) -> list[str]:
@@ -420,11 +420,11 @@ def _config_target_overview(target_id: str, *, step_mod: Any, context: OperatorC
     return "\n".join(lines)
 
 
-def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> str:
     if args and args[0] in {"show", "list"}:
         if len(args) >= 3 and args[1] == "target":
             target_id = args[2].strip()
-            return [_result_node(_config_target_overview(target_id, step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+            return _config_target_overview(target_id, step_mod=step_mod, context=context)
         if len(args) == 2 and args[1] == "target":
             return _render_target_list(context, step_mod=step_mod)
     filter_text, show_sources, show_flat = _config_show_filter(args[1:] if args and args[0] in {"show", "list"} else args)
@@ -441,22 +441,18 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
     )
     keys = _config_key_matches(list(flat), filter_text)
     if filter_text is not None and not keys:
-        return [
-            _result_node(
-                f"config show: no matching keys for {filter_text!r}\n"
-                "hint: use /help config to search configuration concepts, or "
-                "/config show for all current keys",
-                step_mod=step_mod,
-                context=context,
-            )
-        ]
+        return (
+            f"config show: no matching keys for {filter_text!r}\n"
+            "hint: use /help config to search configuration concepts, or "
+            "/config show for all current keys"
+        )
     model_topic = resolve_config_help_topic(load_config_help_catalog(), filter_text) if filter_text else None
     if filter_text and model_topic is not None and model_topic.topic_id == "models" and not show_sources and not show_flat:
-        return [_result_node(_config_models_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+        return _config_models_overview(step_mod=step_mod, context=context)
     if filter_text and (filter_text == "shell" or (model_topic is not None and model_topic.topic_id == "execution")) and not show_sources and not show_flat:
-        return [_result_node(_config_execution_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+        return _config_execution_overview(step_mod=step_mod, context=context)
     if filter_text is None and not show_sources and not show_flat:
-        return [_result_node(_config_overview(step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+        return _config_overview(step_mod=step_mod, context=context)
     if show_sources:
         sources = context.config_sources or {}
         lines = [f"{k} = {flat[k]}    [source={sources.get(k, 'default')}]" for k in keys]
@@ -482,7 +478,7 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
                 f"  /help config {filter_text}",
             ]
         )
-        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+        return "\n".join(lines)
 
     lines.extend(
         [
@@ -572,10 +568,10 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
                 "  file was ignored; using lower precedence or defaults.",
             ]
         )
-    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+    return "\n".join(lines)
 
 
-def _config_values_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_values_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> str:
     if len(args) != 2:
         raise ValueError("usage: /config values <key>")
     dotted_key = args[1]
@@ -591,7 +587,7 @@ def _config_values_result(args: list[str], *, step_mod, context: OperatorCommand
         )
         if dotted_key == "extraction.yaml_position":
             message = f"{message}\n\n{_YAML_POSITION_COMPAT_NOTE}"
-        return [_result_node(message, step_mod=step_mod, context=context)]
+        return message
     lines = [
         f"{dotted_key}: allowed values",
         *(f"  - {choice}" for choice in choices),
@@ -601,16 +597,16 @@ def _config_values_result(args: list[str], *, step_mod, context: OperatorCommand
     ]
     if dotted_key == "extraction.yaml_position":
         lines.extend(["", _YAML_POSITION_COMPAT_NOTE])
-    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+    return "\n".join(lines)
 
 
-def _config_paths_result(args: list[str] | None = None, *, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
+def _config_paths_result(args: list[str] | None = None, *, step_mod: Any, context: OperatorCommandContext) -> str:
     paths = step_mod.discover_config_paths(workdir=Path(context.command_cwd))
     lines = ["discovered config paths (low->high precedence):"]
     for path in paths:
         marker = "present" if path.exists() else "missing"
         lines.append(f"- {path} [{marker}]")
-    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+    return "\n".join(lines)
 
 
 def _config_secret_result(args: list[str], *, step_mod=None, context: OperatorCommandContext | None = None) -> list[dict]:
@@ -664,7 +660,7 @@ def _validate_known_config_key(dotted_key: str, *, step_mod) -> None:
         raise ValueError(f"unknown config key: {dotted_key}\nvalid keys: {', '.join(keys)}\ntry: /config show")
 
 
-def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> tuple[str, dict]:
     if len(args) != 3:
         raise ValueError("usage: /config set <key> <value>")
     dotted_key, raw_value = args[1], args[2]
@@ -699,17 +695,12 @@ def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandCon
     )
     if dotted_key == "extraction.yaml_position":
         lines.extend(["", _YAML_POSITION_COMPAT_NOTE])
-    return [
-        _result_node(
-            "\n".join(lines),
-            step_mod=step_mod,
-            context=context,
-            policy_update={"key": dotted_key, "scope": "session", "action": "set", "value": updated[dotted_key]},
-        )
-    ]
+    return "\n".join(lines), {
+        "policy_update": {"key": dotted_key, "scope": "session", "action": "set", "value": updated[dotted_key]}
+    }
 
 
-def _config_unset_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_unset_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> tuple[str, dict]:
     if len(args) != 2:
         raise ValueError("usage: /config unset <key>")
     dotted_key = args[1]
@@ -718,27 +709,16 @@ def _config_unset_result(args: list[str], *, step_mod, context: OperatorCommandC
         f"Unset override for {dotted_key}.",
         "Underlying value now comes from project config or environment/defaults.",
     ]
-    return [
-        _result_node(
-            "\n".join(lines),
-            step_mod=step_mod,
-            context=context,
-            policy_update={"key": dotted_key, "scope": "session", "action": "unset"},
-        )
-    ]
+    return "\n".join(lines), {"policy_update": {"key": dotted_key, "scope": "session", "action": "unset"}}
 
 
-def _config_restore_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_restore_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> tuple[str, dict]:
     if len(args) != 1:
         raise ValueError("usage: /config restore")
-    return [
-        _result_node(
-            "Cleared session config overrides; effective config now follows project file + env/defaults.",
-            step_mod=step_mod,
-            context=context,
-            policy_update={"key": "*", "scope": "session", "action": "restore"},
-        )
-    ]
+    return (
+        "Cleared session config overrides; effective config now follows project file + env/defaults.",
+        {"policy_update": {"key": "*", "scope": "session", "action": "restore"}},
+    )
 
 
 def _resolve_config_path(path: str, *, context: OperatorCommandContext) -> Path:
@@ -747,7 +727,7 @@ def _resolve_config_path(path: str, *, context: OperatorCommandContext) -> Path:
     return candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
 
 
-def _config_load_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_load_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> tuple[str, dict]:
     if len(args) > 2:
         raise ValueError("usage: /config load [path]")
     path = args[1] if len(args) == 2 else _PROJECT_CONFIG_DEFAULT_PATH
@@ -758,34 +738,28 @@ def _config_load_result(args: list[str], *, step_mod, context: OperatorCommandCo
     if not loaded:
         raise ValueError(f"failed to load config from: {path}")
     canonical_delta = json.dumps(loaded, sort_keys=True, separators=(",", ":"), default=str)
-    return [
-        _result_node(
-            f"Loaded config into session override lane from {target}",
-            step_mod=step_mod,
-            context=context,
-            config_update=loaded,
-            config_load_resolution={
+    return (
+        f"Loaded config into session override lane from {target}",
+        {
+            "config_update": loaded,
+            "config_load_resolution": {
                 "path": str(target),
                 "input_digest": hashlib.sha256(target.read_bytes()).hexdigest(),
                 "delta": json.loads(canonical_delta),
                 "reconstitution_eligible": True,
             },
-        )
-    ]
+        },
+    )
 
 
-def _config_save_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_save_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> tuple[str, dict]:
     if len(args) > 2:
         raise ValueError("usage: /config save [path]")
     path = args[1] if len(args) == 2 else _PROJECT_CONFIG_DEFAULT_PATH
-    return [
-        _result_node(
-            f"Saved effective config to {path}",
-            step_mod=step_mod,
-            context=context,
-            config_save={"path": path, "flat": step_mod.flatten_config(context.config)},
-        )
-    ]
+    return (
+        f"Saved effective config to {path}",
+        {"config_save": {"path": path, "flat": step_mod.flatten_config(context.config)}},
+    )
 
 
 def _target_config_update(target_id: str, values: dict) -> dict:
@@ -823,7 +797,7 @@ def _endpoint_config_dict(endpoint) -> dict:
     }
 
 
-def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> str | tuple[str, dict]:
     if len(args) < 4 or args[1] != "bootstrap":
         raise ValueError(_ENDPOINT_BOOTSTRAP_USAGE)
     endpoint_id = args[2].strip()
@@ -898,15 +872,11 @@ def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: Ope
         )
         observation = observe_endpoint_models(settings, fetcher=fetch_models)
         if observation["status"] != "ok":
-            return [
-                _result_node(
-                    f"endpoint bootstrap failed during model refresh: {observation['status']}\n"
-                    f"error: {observation['error']}\n"
-                    "no endpoint or target changes were written",
-                    step_mod=step_mod,
-                    context=context,
-                )
-            ]
+            return (
+                f"endpoint bootstrap failed during model refresh: {observation['status']}\n"
+                f"error: {observation['error']}\n"
+                "no endpoint or target changes were written"
+            )
         refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         endpoint = replace(
             merge_endpoint_model_ids(endpoint, observation.get("models", ()), observed_at=refreshed_at),
@@ -923,15 +893,11 @@ def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: Ope
         phase_lines.append(f"target promotion: {len(additions)} created")
     elif target_model is not None:
         if target_model not in endpoint.models:
-            return [
-                _result_node(
-                    f"endpoint bootstrap could not find requested model: {target_model}\n"
-                    f"known models: {', '.join(endpoint.models) or '(none)'}\n"
-                    "no endpoint or target changes were written",
-                    step_mod=step_mod,
-                    context=context,
-                )
-            ]
+            return (
+                f"endpoint bootstrap could not find requested model: {target_model}\n"
+                f"known models: {', '.join(endpoint.models) or '(none)'}\n"
+                "no endpoint or target changes were written"
+            )
         target_id = _target_id_for_model(endpoint_id, target_model)
         if any(target.id == target_id for target in context.config.llm.targets):
             raise ValueError(f"model target already exists: {target_id}")
@@ -951,10 +917,10 @@ def _config_endpoint_bootstrap_result(args: list[str], *, step_mod, context: Ope
         phase_lines.append(f"active selection: {target_id}")
     else:
         phase_lines.append("active selection: unchanged")
-    return [_result_node("endpoint bootstrap complete\n" + "\n".join(phase_lines), step_mod=step_mod, context=context, **fields)]
+    return "endpoint bootstrap complete\n" + "\n".join(phase_lines), fields
 
 
-def _config_target_bulk_add_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _config_target_bulk_add_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> str | tuple[str, dict]:
     if len(args) not in {4, 5} or args[2] != "--all-known" or (len(args) == 5 and args[4] != "--preview"):
         raise ValueError("usage: /config target add --all-known ENDPOINT [--preview]")
     endpoint_id = args[3].strip()
@@ -963,13 +929,7 @@ def _config_target_bulk_add_result(args: list[str], *, step_mod, context: Operat
         raise ValueError(f"unknown endpoint: {endpoint_id}\nhint: use /config endpoint add NAME BASE_URL")
     known_models = tuple(dict.fromkeys(model.strip() for model in endpoint.models if model.strip()))
     if not known_models:
-        return [
-            _result_node(
-                f"no known models for endpoint {endpoint_id}\nhint: use /models refresh {endpoint_id} first",
-                step_mod=step_mod,
-                context=context,
-            )
-        ]
+        return f"no known models for endpoint {endpoint_id}\nhint: use /models refresh {endpoint_id} first"
     existing = {target.id for target in context.config.llm.targets}
     additions: dict[str, dict[str, str]] = {}
     skipped: list[str] = []
@@ -987,12 +947,12 @@ def _config_target_bulk_add_result(args: list[str], *, step_mod, context: Operat
     if not additions:
         lines.append("(no new targets)")
     fields = {} if preview or not additions else {"config_update": {"llm": {"targets": additions}}}
-    return [_result_node("\n".join(lines), step_mod=step_mod, context=context, **fields)]
+    return "\n".join(lines), fields
 
 
-def _render_target_list(context: OperatorCommandContext, *, step_mod) -> list[dict]:
+def _render_target_list(context: OperatorCommandContext, *, step_mod: Any = None) -> str:
     lines = _render_target_list_lines(context.config.llm.targets)
-    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+    return "\n".join(lines)
 
 
 def _parse_target_field(field: str, raw_value: str) -> tuple[str, object]:
@@ -1019,31 +979,40 @@ def _parse_target_field(field: str, raw_value: str) -> tuple[str, object]:
     return field, raw_value
 
 
-def _config_target_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _apply_target_set(
+    target_id: str,
+    field_arg: str,
+    val_arg: str,
+    *,
+    context: OperatorCommandContext,
+) -> tuple[str, dict]:
+    if not any(target.id == target_id for target in context.config.llm.targets):
+        raise ValueError(f"unknown model target: {target_id}")
+    field, value = _parse_target_field(field_arg, val_arg)
+    target_values = (
+        {field: value}
+        if "." not in field
+        else {field.split(".", 1)[0]: {field.split(".", 1)[1]: value}}
+    )
+    return f"updated model target {target_id}.{field}", {"config_update": _target_config_update(target_id, target_values)}
+
+
+def _config_target_result(args: list[str], *, step_mod: Any = None, context: OperatorCommandContext) -> str | tuple[str, dict]:
     if len(args) < 2:
         raise ValueError(_TARGET_USAGE)
     if len(args) >= 3 and args[2] == "set":
         if len(args) != 5 or not args[1].strip():
             raise ValueError("usage: /config target <NAME> set FIELD VALUE")
-        target_id = args[1].strip()
-        if not any(target.id == target_id for target in context.config.llm.targets):
-            raise ValueError(f"unknown model target: {target_id}")
-        field, value = _parse_target_field(args[3], args[4])
-        target_values = (
-            {field: value}
-            if "." not in field
-            else {field.split(".", 1)[0]: {field.split(".", 1)[1]: value}}
-        )
-        return [_result_node(f"updated model target {target_id}.{field}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, target_values))]
-    if len(args) >= 3 and args[2] == "show":
-        return [_result_node(_config_target_overview(args[1].strip(), step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
-    if len(args) == 2 and any(target.id == args[1].strip() for target in context.config.llm.targets):
-        return [_result_node(_config_target_overview(args[1].strip(), step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+        return _apply_target_set(args[1].strip(), args[3], args[4], context=context)
+    if (len(args) >= 3 and args[2] == "show") or (
+        len(args) == 2 and any(target.id == args[1].strip() for target in context.config.llm.targets)
+    ):
+        return _config_target_overview(args[1].strip(), step_mod=step_mod, context=context)
     action = args[1]
     if action == "show":
         if len(args) != 3 or not args[2].strip():
             raise ValueError("usage: /config target show NAME")
-        return [_result_node(_config_target_overview(args[2].strip(), step_mod=step_mod, context=context), step_mod=step_mod, context=context)]
+        return _config_target_overview(args[2].strip(), step_mod=step_mod, context=context)
     if action == "list":
         if len(args) != 2:
             raise ValueError(_TARGET_USAGE)
@@ -1060,43 +1029,34 @@ def _config_target_result(args: list[str], *, step_mod, context: OperatorCommand
             target_id = _target_id_for_model(endpoint_id, model_id)
             if not target_id:
                 raise ValueError("usage: /config target add ENDPOINT MODEL")
-            values = {"endpoint": endpoint_id, "model": model_id}
             if any(target.id == target_id for target in context.config.llm.targets):
                 raise ValueError(f"model target already exists: {target_id}")
-            return [_result_node(f"added model target {target_id}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, values))]
-        if len(args) != 5 or not args[2].strip() or not args[3].strip() or not args[4].strip():
+            values = {"endpoint": endpoint_id, "model": model_id}
+        elif len(args) == 5 and args[2].strip() and args[3].strip() and args[4].strip():
+            target_id = args[2].strip()
+            if any(target.id == target_id for target in context.config.llm.targets):
+                raise ValueError(f"model target already exists: {target_id}")
+            if _known_endpoint(context, args[3].strip()) is None:
+                raise ValueError(f"unknown endpoint: {args[3].strip()}\nhint: use /config endpoint list")
+            values = {"endpoint": args[3].strip(), "model": args[4].strip()}
+        else:
             raise ValueError("usage: /config target add NAME ENDPOINT MODEL")
-        target_id = args[2].strip()
-        if any(target.id == target_id for target in context.config.llm.targets):
-            raise ValueError(f"model target already exists: {target_id}")
-        if _known_endpoint(context, args[3].strip()) is None:
-            raise ValueError(f"unknown endpoint: {args[3].strip()}\nhint: use /config endpoint list")
-        values = {"endpoint": args[3].strip() if len(args) >= 4 else "", "model": args[4].strip() if len(args) == 5 else ""}
-        return [_result_node(f"added model target {target_id}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, values))]
+        return f"added model target {target_id}", {"config_update": _target_config_update(target_id, values)}
     if action == "set":
         if len(args) != 5 or not args[2].strip():
             raise ValueError("usage: /config target set NAME FIELD VALUE")
-        target_id = args[2].strip()
-        if not any(target.id == target_id for target in context.config.llm.targets):
-            raise ValueError(f"unknown model target: {target_id}")
-        field, value = _parse_target_field(args[3], args[4])
-        target_values = (
-            {field: value}
-            if "." not in field
-            else {field.split(".", 1)[0]: {field.split(".", 1)[1]: value}}
-        )
-        return [_result_node(f"updated model target {target_id}.{field}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, target_values))]
+        return _apply_target_set(args[2].strip(), args[3], args[4], context=context)
     if action == "remove":
         if len(args) != 3 or not args[2].strip():
             raise ValueError("usage: /config target remove NAME")
         target_id = args[2].strip()
         if not any(target.id == target_id for target in context.config.llm.targets):
             raise ValueError(f"unknown model target: {target_id}")
-        return [_result_node(f"removed model target {target_id}", step_mod=step_mod, context=context, config_update=_target_config_update(target_id, {"__op__": "unset"}))]
+        return f"removed model target {target_id}", {"config_update": _target_config_update(target_id, {"__op__": "unset"})}
     raise ValueError(_TARGET_USAGE)
 
 
-def _handle_config_endpoint(args: list[str], *, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
+def _handle_config_endpoint(args: list[str], *, step_mod: Any, context: OperatorCommandContext) -> Any:
     if len(args) > 1 and args[1] == "bootstrap":
         return _config_endpoint_bootstrap_result(args, step_mod=step_mod, context=context)
     return config_endpoint_result(args, step_mod=step_mod, context=context)
@@ -1120,13 +1080,20 @@ _CONFIG_SUBCOMMANDS = {
 
 def _handle_config_command(args: list[str], *, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
     if not args:
-        return _config_entrypoint_result(step_mod=step_mod, context=context)
-    if args == ["--sources"]:
-        return _config_show_result(args, step_mod=step_mod, context=context)
-    subcommand = _CONFIG_SUBCOMMANDS.get(args[0])
-    if subcommand is not None:
-        return subcommand(args, step_mod=step_mod, context=context)
-    raise ValueError(_CONFIG_USAGE)
+        res = _config_entrypoint_result(step_mod=step_mod, context=context)
+    elif args == ["--sources"]:
+        res = _config_show_result(args, step_mod=step_mod, context=context)
+    else:
+        subcommand = _CONFIG_SUBCOMMANDS.get(args[0])
+        if subcommand is None:
+            raise ValueError(_CONFIG_USAGE)
+        res = subcommand(args, step_mod=step_mod, context=context)
+
+    if isinstance(res, str):
+        return [_result_node(res, context=context)]
+    if isinstance(res, tuple) and len(res) == 2 and isinstance(res[0], str) and isinstance(res[1], dict):
+        return [_result_node(res[0], context=context, **res[1])]
+    return res
 
 
 _HELP_STATIC_TOPICS = {

@@ -87,15 +87,13 @@ def handle_abridge_command(
     """Execute /abridge operator command."""
     dry_run, threshold = _parse_abridge_args(args)
     compacted, edits = step_mod._compact_result_blocks(context.transcript, threshold=threshold)
+    prefix = "abridge dry-run" if dry_run else "abridge"
+    if not edits:
+        return f"{prefix}: no RESULT blocks above threshold={threshold}"
     if dry_run:
-        if not edits:
-            return f"abridge dry-run: no RESULT blocks above threshold={threshold}"
-        lines = [f"abridge dry-run: {len(edits)} RESULT block(s) above threshold={threshold}"]
+        lines = [f"{prefix}: {len(edits)} RESULT block(s) above threshold={threshold}"]
         lines.extend(f"{edit['index']}. {edit['chars']} chars" for edit in edits)
         return "\n".join(lines)
-
-    if not edits:
-        return f"abridge: no RESULT blocks above threshold={threshold}"
     return (
         f"abridge: collapsed {len(edits)} RESULT block(s) above threshold={threshold}",
         {"session_update": {"transcript": compacted}},
@@ -110,6 +108,42 @@ def _parse_compact_options(args: list[str]) -> bool:
     raise ValueError("usage: /compact (mechanical options moved to /abridge); optional flag: --verbose")
 
 
+def _run_transcript_generation(
+    *,
+    prompt_ref: str,
+    cmd_name: str,
+    err_noun: str,
+    context: OperatorCommandContext,
+    step_mod: Any,
+) -> tuple[str, str, dict] | str:
+    if not callable(context.generate):
+        raise RuntimeError("LLM generation is unavailable")
+
+    source_working = list(context.working[:-1])
+    prompt = step_mod.load_prompt_ref(prompt_ref)
+    request_working = [*source_working, {"role": "user", "content": prompt}]
+    try:
+        generated = context.generate(request_working)
+        if not isinstance(generated, dict):
+            raise ValueError(f"invalid {err_noun} response: expected one assistant message")
+        content = generated.get("content")
+        if not isinstance(content, str):
+            raise ValueError(f"invalid {err_noun} response: content must be string")
+    except (SystemExit, Exception) as exc:
+        return f"[ERROR] {cmd_name}: {exc}"
+
+    source_ids = [node["id"] for node in source_working if isinstance(node.get("id"), str)]
+    source_head_id = source_ids[-1] if source_ids else None
+    update = {
+        "content": content,
+        "source_message_ids": source_ids,
+        "source_head_id": source_head_id,
+        "prompt_ref": prompt_ref,
+        "model_call": generated.get("_llm_call"),
+    }
+    return prompt, content, update
+
+
 def handle_compact_command(
     args: list[str],
     context: OperatorCommandContext,
@@ -117,54 +151,32 @@ def handle_compact_command(
 ) -> Any:
     """Execute /compact operator command."""
     verbose = _parse_compact_options(args)
-    if not callable(context.generate):
-        raise RuntimeError("LLM generation is unavailable")
-
-    source_working = list(context.working[:-1])
-    prompt = step_mod.load_prompt_ref(_COMPACTION_PROMPT_REF)
-    request_working = [*source_working, {"role": "user", "content": prompt}]
-    try:
-        generated = context.generate(request_working)
-        if not isinstance(generated, dict):
-            raise ValueError("invalid compaction response: expected one assistant message")
-        content = generated.get("content")
-        if not isinstance(content, str):
-            raise ValueError("invalid compaction response: content must be string")
-        handoff = content
-    except (SystemExit, Exception) as exc:
-        return f"[ERROR] compact: {exc}"
-
-    source_ids = [node["id"] for node in source_working if isinstance(node.get("id"), str)]
-    source_head_id = source_ids[-1] if source_ids else None
-    compaction_update = {
-        "content": handoff,
-        "source_message_ids": source_ids,
-        "source_head_id": source_head_id,
-        "prompt_ref": _COMPACTION_PROMPT_REF,
-        "model_call": generated.get("_llm_call"),
-    }
+    outcome = _run_transcript_generation(
+        prompt_ref=_COMPACTION_PROMPT_REF,
+        cmd_name="compact",
+        err_noun="compaction",
+        context=context,
+        step_mod=step_mod,
+    )
+    if isinstance(outcome, str):
+        return outcome
+    prompt, handoff, update = outcome
+    meta: dict[str, Any] = {"transcript_render": "assistant_message", "compaction_update": update}
     if not verbose:
-        return handoff, {
-            "transcript_render": "assistant_message",
-            "compaction_update": compaction_update,
-        }
+        return handoff, meta
     return [
         build_command_result_node(
             prompt,
             context=context,
             source="command.operator",
             transcript_render="user_message",
-            visible_prompt_update={
-                "content": prompt,
-                "prompt_ref": _COMPACTION_PROMPT_REF,
-            },
+            visible_prompt_update={"content": prompt, "prompt_ref": _COMPACTION_PROMPT_REF},
         ),
         build_command_result_node(
             handoff,
             context=context,
             source="command.operator",
-            transcript_render="assistant_message",
-            compaction_update=compaction_update,
+            **meta,
         ),
     ]
 
@@ -177,33 +189,19 @@ def handle_concept_graph_command(
     """Execute /concept-graph operator command."""
     if args:
         raise ValueError("usage: /concept-graph")
-    if not callable(context.generate):
-        raise RuntimeError("LLM generation is unavailable")
-
-    source_working = list(context.working[:-1])
-    prompt = step_mod.load_prompt_ref(_CONCEPT_GRAPH_PROMPT_REF)
-    request_working = [*source_working, {"role": "user", "content": prompt}]
-    try:
-        generated = context.generate(request_working)
-        if not isinstance(generated, dict):
-            raise ValueError("invalid concept-graph response: expected one assistant message")
-        content = generated.get("content")
-        if not isinstance(content, str):
-            raise ValueError("invalid concept-graph response: content must be string")
-    except (SystemExit, Exception) as exc:
-        return f"[ERROR] concept-graph: {exc}"
-
-    source_ids = [node["id"] for node in source_working if isinstance(node.get("id"), str)]
-    source_head_id = source_ids[-1] if source_ids else None
+    outcome = _run_transcript_generation(
+        prompt_ref=_CONCEPT_GRAPH_PROMPT_REF,
+        cmd_name="concept-graph",
+        err_noun="concept-graph",
+        context=context,
+        step_mod=step_mod,
+    )
+    if isinstance(outcome, str):
+        return outcome
+    _prompt, content, update = outcome
     return content, {
         "transcript_render": "assistant_message",
-        "concept_graph_update": {
-            "content": content,
-            "source_message_ids": source_ids,
-            "source_head_id": source_head_id,
-            "prompt_ref": _CONCEPT_GRAPH_PROMPT_REF,
-            "model_call": generated.get("_llm_call"),
-        },
+        "concept_graph_update": update,
     }
 
 

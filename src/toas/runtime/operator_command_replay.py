@@ -314,46 +314,70 @@ def _latest_assistant_target(working: list[dict]) -> tuple[dict, int]:
     raise ValueError("no prior assistant message available for /extract")
 
 
-def _handle_extract_salvage(args: list[str], *, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
+def _handle_extract_yaml_source(
+    args: list[str],
+    *,
+    usage: str,
+    prefix: str,
+    empty_error: str,
+    parse_token: Callable[[str], int],
+    collect_sources: Callable[[str], list[dict]],
+    render_sources: Callable[[list[dict]], str],
+    format_content: Callable[[dict], str],
+    provenance_source: str,
+    context: OperatorCommandContext,
+) -> list[dict]:
     if len(args) > 1:
-        raise ValueError(_EXTRACT_SALVAGE_USAGE)
-    source_index = _parse_salvage_source_token(args[0]) if args else None
+        raise ValueError(usage)
+    source_index = parse_token(args[0]) if args else None
     target_message, _target_message_index = _latest_assistant_target(context.working)
-    sources = _salvageable_yaml_sources(target_message["content"])
+    sources = collect_sources(target_message["content"])
     if not sources:
-        raise ValueError("no salvageable YAML literal blocks in latest assistant message")
+        raise ValueError(empty_error)
     if source_index is None:
-        content = render_extract_salvageable_sources(sources)
+        content = render_sources(sources)
         return [_result_node(content, context=context, source="command.extract")]
 
     source = next((item for item in sources if item["index"] == source_index), None)
     if source is None:
-        raise ValueError(f"source handle out of range: #s{source_index}")
+        raise ValueError(f"source handle out of range: #{prefix}{source_index}")
     return [
         {
             "role": "user",
-            "content": f"```yaml\n{source['projected']}\n```",
-            "provenance": {"source": "salvaged"},
+            "content": format_content(source),
+            "provenance": {"source": provenance_source},
         }
     ]
 
 
-def _handle_extract_coalesce(args: list[str], *, step_mod: Any, context: OperatorCommandContext) -> list[dict]:
-    if len(args) > 1:
-        raise ValueError(_EXTRACT_COALESCE_USAGE)
-    source_index = _parse_coalesce_source_token(args[0]) if args else None
-    target_message, _target_message_index = _latest_assistant_target(context.working)
-    sources = _coalescible_yaml_sources(target_message["content"])
-    if not sources:
-        raise ValueError("no coalescible YAML plan runs in latest assistant message")
-    if source_index is None:
-        content = render_extract_coalescible_sources(sources)
-        return [_result_node(content, context=context, source="command.extract")]
+def _handle_extract_salvage(args: list[str], *, step_mod: Any = None, context: OperatorCommandContext) -> list[dict]:
+    return _handle_extract_yaml_source(
+        args,
+        usage=_EXTRACT_SALVAGE_USAGE,
+        prefix="s",
+        empty_error="no salvageable YAML literal blocks in latest assistant message",
+        parse_token=_parse_salvage_source_token,
+        collect_sources=_salvageable_yaml_sources,
+        render_sources=render_extract_salvageable_sources,
+        format_content=lambda s: f"```yaml\n{s['projected']}\n```",
+        provenance_source="salvaged",
+        context=context,
+    )
 
-    source = next((item for item in sources if item["index"] == source_index), None)
-    if source is None:
-        raise ValueError(f"source handle out of range: #c{source_index}")
-    return [{"role": "user", "content": _render_coalesced_plan(source["plan"]), "provenance": {"source": "coalesced"}}]
+
+def _handle_extract_coalesce(args: list[str], *, step_mod: Any = None, context: OperatorCommandContext) -> list[dict]:
+    return _handle_extract_yaml_source(
+        args,
+        usage=_EXTRACT_COALESCE_USAGE,
+        prefix="c",
+        empty_error="no coalescible YAML plan runs in latest assistant message",
+        parse_token=_parse_coalesce_source_token,
+        collect_sources=_coalescible_yaml_sources,
+        render_sources=render_extract_coalescible_sources,
+        format_content=lambda s: _render_coalesced_plan(s["plan"]),
+        provenance_source="coalesced",
+        context=context,
+    )
 
 
 def _render_extract_candidates(
