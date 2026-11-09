@@ -99,6 +99,7 @@ Neither dated vote is a literal current queue.
   - 260831-transcript-source-reference-operations Transcript-Native Assistant Source Reference Operations (related `260803-language-exec-fenced-block-lane`, `260803-first-failure-plan-recovery`, `260831-verbatim-staged-plan-restaging`, `260627-history-affordances-semantic-restaging`, `260830-exec-grant-policy-matchers`)
     - 260901-retry-materialization-adapters Representation-Neutral Retry Materialization (related `260901-source-reference-recovery-integration`, `260803-language-exec-fenced-block-lane`, `260831-language-write-materialization-fences`)
 - 260803-language-exec-fenced-block-lane Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ... (related `260412-json-callable-lane-parser-and-policy`, `260803-first-failure-plan-recovery`, `260803-seed-prompt-composition-study`, `260803-tool-intent-ingress-separation`, `299`)
+  - 261109-payload-bound-execution-safety-hooks Payload-Bound Execution Safety Hooks and Grant Policy Convergence (related `260830-exec-grant-policy-matchers`, `261102-executable-policy-module-and-validators`, `260530-shell-lane-spawn-semantics`)
 - 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
@@ -149,6 +150,7 @@ Neither dated vote is a literal current queue.
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends ⚠️ Stale
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
+- **[T261109-payload-bound-execution-safety-hooks]** Payload-Bound Execution Safety Hooks and Grant Policy Convergence
 - **[T261109-tool-result-decorations-elapsed-time]** Tool Result Decorations Should Have Elapsed Time and Timestamp
 <!-- WORKBOARD:NOW:END -->
 
