@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-09
+> **Last Sync:** 2026-11-10
 
 ## 0. Manual Triage
 
@@ -156,6 +156,7 @@ Neither dated vote is a literal current queue.
 - **[T261109-runtime-spill-policy-binding]** Runtime Spill Policy Configuration Binding
 - **[T261109-tool-result-decorations-elapsed-time]** Tool Result Decorations Should Have Elapsed Time and Timestamp
 - **[T261109-vim-terminal-projection-stream-dedup]** Vim Plugin Terminal Projection Stream Deduplication
+- **[T261110-indented-code-fence-marker-desync]** Indented Code Fence CommonMark Conformance and Turn Marker Containment
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
