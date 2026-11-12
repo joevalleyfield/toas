@@ -36,6 +36,8 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_host=_rec("host"),
         run_replay_script=_rec("replay_script"),
         run_debug_cancel_latency=_rec("debug_cancel_latency"),
+        run_new=_rec("new"),
+        run_edit=_rec("edit"),
     )
 
 
@@ -48,6 +50,48 @@ def test_dispatch_defaults_to_step():
 def test_dispatch_state_seed_is_retired():
     with pytest.raises(SystemExit, match="unknown command: state-seed"):
         dispatch_main(["state-seed"], deps=_deps([]))
+
+
+def test_dispatch_new_parses_slug_and_edit_flag():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["new", "add-task"], deps=_deps(calls))
+    assert calls == [("new", ("add-task",), {"edit": False})]
+    calls.clear()
+    dispatch_main(["new"], deps=_deps(calls))
+    assert calls == [("new", (None,), {"edit": False})]
+    calls.clear()
+    dispatch_main(["new", "add-task", "--edit"], deps=_deps(calls))
+    assert calls == [("new", ("add-task",), {"edit": True})]
+    calls.clear()
+    dispatch_main(["new", "--edit"], deps=_deps(calls))
+    assert calls == [("new", (None,), {"edit": True})]
+
+
+def test_dispatch_edit_parses_optional_path():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["edit"], deps=_deps(calls))
+    assert calls == [("edit", (None,), {})]
+    calls.clear()
+    dispatch_main(["edit", ".toas/session-261111-0900-x.md"], deps=_deps(calls))
+    assert calls == [("edit", (".toas/session-261111-0900-x.md",), {})]
+
+
+def test_dispatch_edit_rejects_extra_positional_args():
+    with pytest.raises(SystemExit, match="usage: toas edit"):
+        dispatch_main(["edit", "a.md", "b.md"], deps=_deps([]))
+
+
+def test_dispatch_new_rejects_unknown_flag():
+    with pytest.raises(SystemExit, match="unknown option: --bogus"):
+        dispatch_main(["new", "x", "--bogus"], deps=_deps([]))
+
+
+def test_dispatch_new_edit_unavailable_when_not_configured():
+    deps = replace(_deps([]), run_new=None, run_edit=None)
+    with pytest.raises(SystemExit, match="new command is not configured"):
+        dispatch_main(["new", "x"], deps=deps)
+    with pytest.raises(SystemExit, match="edit command is not configured"):
+        dispatch_main(["edit", "x"], deps=deps)
 
 
 def test_dispatch_watch_parses_flags():
@@ -503,6 +547,8 @@ def test_dispatch_subcommand_help_routing():
         ("transport", "usage: toas host"),
         ("replay-script", "usage: toas replay-script"),
         ("debug", "usage: toas debug"),
+        ("new", "usage: toas new"),
+        ("edit", "usage: toas edit"),
     ]
 
     for subcmd, expected in subcommands:

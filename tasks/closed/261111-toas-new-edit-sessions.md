@@ -9,7 +9,29 @@ Related: `260926-state-step-requirements`; `260803-session-rotation-lifecycle`
 
 # toas new / toas edit: session create and open convenience
 
-Status: OPEN; triage complete, spec locked, awaiting implementation spike
+Status: CLOSED (implemented); `toas new [slug] [--edit]` and `toas edit [path]` shipped
+Follow-on: `261111-dispatch-main-complexity` (dispatch_main C901 complexity smell)
+
+## Implementation Notes (shipped)
+
+- New file-only module `src/toas/cli_session_files.py` (pure, injected-dep,
+  no runtime/graph coupling): `run_new` / `run_edit`, plus helpers for the
+  date-prefix ranking (`_SESSION_PREFIX_RE`, `_dated_sessions`,
+  `_most_recent_session`), the editor resolver (`TOAS_EDITOR` -> `$EDITOR`
+  -> `vim`), and the `shlex`+`execvp` handoff.
+- Naming/collision reuse: `session_rotation._resolve_target_path` + `_NAME_RE`
+  (the one accepted runtime coupling). Date prefix is `datetime.now().strftime("%y%m%d-%H%M")`.
+- Thin CLI layer: `cli.py` `run_new` / `run_edit` wrappers + `DispatchDeps`
+  fields + `cli_dispatch.py` branches; option parsing lives in
+  `cli_dispatch_ops.parse_new_options` / `parse_edit_options` (extracted to
+  keep `dispatch_main` under the C901 complexity cap).
+- Help: `NEW_USAGE` / `EDIT_USAGE` in `cli_usage.py` + `_SUBCOMMAND_HELP`.
+- Verified: full suite 4061 passed / 100.00% coverage; `check.sh` green
+  (ruff + mypy). Operator-perspective e2e confirmed create/edit/most-recent/
+  missing-path behavior.
+- Bug found+fixed during e2e: the date-prefix regex `(?:-|$)` skipped bare
+  no-slug files (`session-<stamp>.md`, stamp followed by `.md`), so a newer
+  bare file lost to an older slug file. Fixed to `(?:-|\.md)`.
 
 ## Objective
 

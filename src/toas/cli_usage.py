@@ -166,6 +166,18 @@ SKILL_USAGE = (
 SKILLS_USAGE = "usage: toas skills [filter]\n\nlist discovered agent skills across workspace, global, and bundled paths"
 
 
+NEW_USAGE = (
+    "usage: toas new [slug] [--edit]\n"
+    "       toas new\n\n"
+    "create a fresh dated session file (.toas/session-<yyMMdd-HHmm>[-slug].md)\n"
+    "slug is optional; --edit opens the created file in your editor"
+)
+EDIT_USAGE = (
+    "usage: toas edit [path]\n\n"
+    "open a session in your editor\n"
+    "no path opens the most recent .toas/session-*.md (falls back to .toas/session.md)"
+)
+
 _SUBCOMMAND_HELP: dict[str, str] = {
     "step": STEP_HELP,
     "heads": HEADS_USAGE,
@@ -194,6 +206,8 @@ _SUBCOMMAND_HELP: dict[str, str] = {
     "replay-script": REPLAY_SCRIPT_USAGE,
     "debug": DEBUG_USAGE,
     "policy": POLICY_USAGE,
+    "new": NEW_USAGE,
+    "edit": EDIT_USAGE,
 }
 
 

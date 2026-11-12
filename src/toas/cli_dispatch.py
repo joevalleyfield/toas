@@ -5,10 +5,12 @@ from dataclasses import dataclass
 
 from .cli_dispatch_ops import (
     parse_ancestry_options,
+    parse_edit_options,
     parse_graph_options,
     parse_heads_options,
     parse_history_options,
     parse_llm_input_options,
+    parse_new_options,
     parse_prompt_options,
     parse_session_continue_options,
     parse_step_async_options,
@@ -50,6 +52,8 @@ class DispatchDeps:
     run_skill: Callable[..., None] | None = None
     run_skill_specialize: Callable[..., None] | None = None
     run_skills: Callable[..., None] | None = None
+    run_new: Callable[..., None] | None = None
+    run_edit: Callable[..., None] | None = None
 
 
 def require_arg(cmd: list[str], index: int, usage_line: str) -> str:
@@ -210,6 +214,15 @@ def dispatch_main(
         if exclude_tail:
             continue_kwargs["exclude_tail"] = True
         deps.run_session_continue(**continue_kwargs)
+    elif argv[0] == "new":
+        slug, edit = parse_new_options(argv)
+        if deps.run_new is None:
+            raise SystemExit("new command is not configured")
+        deps.run_new(slug, edit=edit)
+    elif argv[0] == "edit":
+        if deps.run_edit is None:
+            raise SystemExit("edit command is not configured")
+        deps.run_edit(parse_edit_options(argv))
     elif argv[0] == "surface":
         sub, args, reason = parse_surface_options(argv)
         if sub in {"bind", "rebind"}:
