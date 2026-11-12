@@ -1682,6 +1682,18 @@ function! s:toas_safe_undojoin(bufnr) abort
   endif
 endfunction
 
+function! s:toas_shift_view_below_region(view, region_start, region_end, new_lines) abort
+  let l:cur = get(a:view, 'cursor', [])
+  if type(l:cur) != type([]) || len(l:cur) == 0
+    return
+  endif
+  if l:cur[0] >= a:region_end
+    let l:delta = len(a:new_lines) - (a:region_end - a:region_start + 1)
+    let a:view.cursor[0] += l:delta
+    let a:view.topline += l:delta
+  endif
+endfunction
+
 function! s:toas_replace_buffer_region(bufnr, start, end, lines, ...) abort
   let l:join_undo = a:0 >= 1 ? a:1 : 0
   if l:join_undo
@@ -1698,6 +1710,7 @@ function! s:toas_replace_buffer_region(bufnr, start, end, lines, ...) abort
     call deletebufline(a:bufnr, a:start, a:end)
     call appendbufline(a:bufnr, a:start - 1, a:lines)
     if l:restore_view
+      call s:toas_shift_view_below_region(l:view, a:start, a:end, a:lines)
       call winrestview(l:view)
     endif
     return
@@ -1715,6 +1728,7 @@ function! s:toas_replace_buffer_region(bufnr, start, end, lines, ...) abort
     execute 'silent noautocmd keepalt buffer ' . l:orig
   endif
   if l:restore_view
+    call s:toas_shift_view_below_region(l:view, a:start, a:end, a:lines)
     call winrestview(l:view)
   endif
 endfunction

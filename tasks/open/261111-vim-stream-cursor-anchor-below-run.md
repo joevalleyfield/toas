@@ -65,12 +65,25 @@ Two code paths handle streaming buffer updates:
   - `toas_find_run_region` (line 797): Available to determine the run
     region's `[start, end]` for the anchor calculation.
 
+## Fix
+
+Added `s:toas_shift_view_below_region()` in `vim/plugin/toas.vim`, called
+from both code paths in `toas_replace_buffer_region` before `winrestview`.
+When the saved cursor line is ≥ the region end, the cursor and topline
+are shifted by the delta in region size.
+
+Key finding: `winsaveview()` in ex mode / scripted contexts can return a
+view dict where direct `a:view.cursor` access throws. Must use
+`get(a:view, 'cursor', [])` and guard on type/length before indexing.
+This was discovered through test regression bisection — the unguarded
+direct access corrupted vim state silently.
+
 ## Acceptance
 
-- [ ] Cursor above `## TOAS:RUN` stays on the same text during streaming
+- [x] Cursor above `## TOAS:RUN` stays on the same text during streaming
       (regression check — already works).
-- [ ] Cursor on `## TOAS:RUN` or `## /TOAS:RUN` tracks the marker line.
-- [ ] Cursor below `## /TOAS:RUN` maintains its relative offset from the
+- [x] Cursor on `## TOAS:RUN` or `## /TOAS:RUN` tracks the marker line.
+- [x] Cursor below `## /TOAS:RUN` maintains its relative offset from the
       end marker as newlines are streamed.
 - [ ] The `append(line('$')) + normal! G` paths also respect the anchor
       (do not force cursor to EOB when the user is positioned below the run
