@@ -2,7 +2,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import cli_commands
+from . import cli_commands, cli_session_files
 from . import daemon as daemon_lifecycle
 from .cli_async_commands import (
     build_deps as _build_async_deps,
@@ -452,6 +452,14 @@ def run_session_path():
     cli_commands.run_session_path()
 
 
+def run_new(slug: str | None = None, *, edit: bool = False):
+    cli_session_files.run_new(slug, edit=edit)
+
+
+def run_edit(path: str | None = None):
+    cli_session_files.run_edit(path)
+
+
 def run_llm_input(
     head_id: str | None = None,
     source_tokens: list[str] | None = None,
@@ -628,6 +636,8 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_skills=run_skills,
         run_history=run_history,
         run_session_path=run_session_path,
+        run_new=run_new,
+        run_edit=run_edit,
         run_session_continue=run_session_continue,
         run_surface=run_surface,
         run_ancestry=run_ancestry,

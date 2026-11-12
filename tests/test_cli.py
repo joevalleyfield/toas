@@ -38,6 +38,22 @@ def _prepare_default_session_path(monkeypatch, tmp_path):
     default.write_text("", encoding="utf-8")
 
 
+def test_run_new_delegates_to_session_files(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli.cli_session_files, "run_new", lambda slug, edit=False: calls.append(("new", slug, edit)))
+    cli.run_new("add-task", edit=True)
+    cli.run_new(None)
+    assert calls == [("new", "add-task", True), ("new", None, False)]
+
+
+def test_run_edit_delegates_to_session_files(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli.cli_session_files, "run_edit", lambda path: calls.append(("edit", path)))
+    cli.run_edit(".toas/session.md")
+    cli.run_edit()
+    assert calls == [("edit", ".toas/session.md"), ("edit", None)]
+
+
 def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
 

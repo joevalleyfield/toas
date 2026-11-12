@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from .cli_usage import (
+    EDIT_USAGE,
     GRAPH_USAGE,
     HEADS_USAGE,
     HISTORY_USAGE,
@@ -243,6 +244,30 @@ def parse_watch_options(argv: list[str]) -> tuple[int, bool]:
         else:
             raise SystemExit(f"unknown option: {argv[i]}")
     return offset, follow
+
+
+def parse_new_options(argv: list[str]) -> tuple[str | None, bool]:
+    slug: str | None = None
+    edit = False
+    i = 1
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--edit":
+            edit = True
+            i += 1
+            continue
+        if not arg.startswith("-") and slug is None:
+            slug = arg
+            i += 1
+            continue
+        raise SystemExit(f"unknown option: {arg}")
+    return slug, edit
+
+
+def parse_edit_options(argv: list[str]) -> str | None:
+    if len(argv) > 2:
+        raise SystemExit(EDIT_USAGE)
+    return argv[1] if len(argv) > 1 else None
 
 
 def parse_prompt_options(argv: list[str]) -> tuple[str, list[str] | None]:
