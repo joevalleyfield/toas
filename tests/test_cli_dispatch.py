@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from toas.cli_dispatch import DispatchDeps, dispatch_main
+from toas.cli_dispatch import _COMMANDS, DispatchDeps, dispatch_main
 
 
 def _deps(calls: list[tuple[str, tuple, dict]]):
@@ -572,3 +572,20 @@ def test_dispatch_unspecialized_and_unknown_help_fallbacks():
 
     with pytest.raises(SystemExit, match="unknown command: nonesuch"):
         dispatch_main(["nonesuch", "--help"], deps=deps)
+
+
+def test_dispatch_is_a_command_table():
+    """The seam is a lookup table: a registered command dispatches, an
+    unregistered one raises the exact unknown-command error, and alias
+    keys are first-class entries that resolve to the same handler."""
+    assert isinstance(_COMMANDS, dict)
+    # Aliases are registry entries sharing handlers with their primary.
+    assert _COMMANDS["service"] is _COMMANDS["daemon"]
+    assert _COMMANDS["transport"] is _COMMANDS["host"]
+    # A registered command dispatches through the table.
+    calls: list[tuple[str, tuple, dict]] = []
+    _COMMANDS["intents"](["intents"], _deps(calls))
+    assert calls == [("intents", (), {})]
+    # An unregistered command is rejected by the dispatcher, not a branch.
+    with pytest.raises(SystemExit, match="unknown command: not-in-table"):
+        dispatch_main(["not-in-table"], deps=_deps([]))

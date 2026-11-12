@@ -9,7 +9,8 @@ Related: `261111-toas-new-edit-sessions` (the change that pushed it over the cap
 
 # dispatch_main is a complexity liability: replace the elif ladder with a dispatch table
 
-Status: OPEN; design intent, awaiting a scoped refactor spike
+Status: CLOSED (implemented); `dispatch_main` is a command -> handler dispatch table
+Follow-on: (none)
 
 ## Objective
 
@@ -62,3 +63,39 @@ converge on instantiation" bias.
   unchanged (it already pins the command->behavior contract).
 - Add a test that registering a new command is a table-row addition
   (meta-verification that the seam is table-shaped).
+
+## Implementation Notes (shipped)
+
+- `src/toas/cli_dispatch.py` is now a **command -> handler dispatch table**.
+  Every `elif` arm became a module-level `def _handle_<cmd>(argv, deps) ->
+  None`; a module-level `_COMMANDS: dict[str, Callable[[list[str],
+  DispatchDeps], None]]` maps command (and alias) names to handlers.
+  `dispatch_main` shrank to: default-to-`step` (`cmd or ["step"]`), the two
+  centralized `--help`/`-h` guards (argv[0] and argv[1] forms, via
+  `cli_usage.get_subcommand_help`), the table lookup, and the
+  `unknown command:` error.
+- **Aliases are first-class registry keys**: `service -> _handle_daemon`,
+  `transport -> _handle_host` (same handler object as the primary). `step-async`
+  stays handled inside `_handle_step` (its parser already branches on it), so it
+  is not a separate key.
+- `parse_surface_options` remains a module-level name in `cli_dispatch` so the
+  `test_dispatch_surface_with_reason_non_bind` monkeypatch of
+  `toas.cli_dispatch.parse_surface_options` keeps working. Public seam unchanged:
+  `dispatch_main` + `DispatchDeps` (imported by 4 test files).
+- **Complexity (mccabe, per-function; gate aggregates as max):**
+  `dispatch_main` **82 -> 7**; the max function in the module is
+  `_handle_step` at **14** (async/sync split + both-session guard + kwargs
+  building — the one arm that was always the most tangled). `_handle_graph` /
+  `_handle_transcript` are 6 each (conditional kwargs). All other handlers are
+  <=5. No function is near the C901 cap (80); the complexity is distributed
+  across ~29 named, individually-bounded units instead of concentrated in one
+  82-complexity function.
+- **Meta-test** `test_dispatch_is_a_command_table` pins the table shape:
+  `_COMMANDS` is a `dict`; alias keys (`service`/`transport`) are first-class
+  entries sharing handlers with their primary; a registered command dispatches
+  through the table; an unregistered command raises the exact
+  `unknown command:` error from the dispatcher (not a branch).
+- Verified: full suite **4062 passed / 100.00% coverage**; `./scripts/check.sh`
+  green (ruff + mypy). The 49 `test_cli_dispatch.py` cases pass unchanged
+  (every command routing, help form, usage error, and not-configured guard
+  preserved).
