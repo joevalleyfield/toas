@@ -147,7 +147,7 @@ def test_execute_plan_calls_success_error_and_intention_projection(tmp_path):
 
     assert results[0]["intention"] == "inspect cwd"
     assert results[1]["tool_name"] == "read_file"
-    assert results[2] == {
+    assert {key: value for key, value in results[2].items() if key not in {"duration_ms", "timestamp"}} == {
         "tool_name": "bad",
         "ok": False,
         "summary": "boom",
@@ -164,7 +164,11 @@ def test_execute_plan_calls_keeps_empty_intention_off_output():
 
     plan = [{"tool_name": "echo", "args": {}, "intention": "   "}]
     results = execute_plan_calls(plan, execute_call=_execute)
-    assert results == [{"tool_name": "echo", "ok": True}]
+    assert results[0]["tool_name"] == "echo"
+    assert results[0]["ok"] is True
+    assert isinstance(results[0]["duration_ms"], int)
+    assert results[0]["duration_ms"] >= 0
+    assert results[0]["timestamp"].endswith("Z")
 
 
 def test_execute_plan_calls_preserves_intent_alias_in_results():
@@ -173,7 +177,11 @@ def test_execute_plan_calls_preserves_intent_alias_in_results():
 
     plan = [{"tool_name": "echo", "args": {}, "intent": "inspect flow"}]
     results = execute_plan_calls(plan, execute_call=_execute)
-    assert results == [{"tool_name": "echo", "ok": True, "intention": "inspect flow"}]
+    assert results[0]["tool_name"] == "echo"
+    assert results[0]["ok"] is True
+    assert results[0]["intention"] == "inspect flow"
+    assert isinstance(results[0]["duration_ms"], int)
+    assert results[0]["timestamp"].endswith("Z")
 
 
 def test_execute_plan_calls_preserves_structured_repair_suggestion():

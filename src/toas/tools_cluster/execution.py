@@ -1,6 +1,8 @@
 import traceback
+from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
+from time import monotonic
 
 from ..runtime.environment_policy import active_environment_overrides, active_stream_stdout
 from ..runtime.tool_stream_context import (
@@ -215,6 +217,11 @@ def execute_plan_calls(
         results = []
         total = len(plan)
         for idx, raw_call in enumerate(plan, start=1):
+            started = monotonic()
+            def timed(result: dict, started_at: float = started) -> dict:
+                result["duration_ms"] = round((monotonic() - started_at) * 1000)
+                result["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                return result
             call_continue_on_error = bool(
                 raw_call.get("continue_on_error")
                 if "continue_on_error" in raw_call
@@ -233,7 +240,7 @@ def execute_plan_calls(
                 output = execute_call(call)
             except TimeoutError as exc:
                 results.append(
-                    _apply_intention(
+                    timed(_apply_intention(
                         _raised_failure_result(
                             call=call,
                             exc=exc,
@@ -241,7 +248,7 @@ def execute_plan_calls(
                             outcome="indeterminate",
                         ),
                         raw_call,
-                    )
+                    ))
                 )
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
@@ -250,7 +257,7 @@ def execute_plan_calls(
                 continue
             except ConnectionError as exc:
                 results.append(
-                    _apply_intention(
+                    timed(_apply_intention(
                         _raised_failure_result(
                             call=call,
                             exc=exc,
@@ -258,7 +265,7 @@ def execute_plan_calls(
                             outcome="indeterminate",
                         ),
                         raw_call,
-                    )
+                    ))
                 )
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
@@ -267,7 +274,7 @@ def execute_plan_calls(
                 continue
             except ChildProcessError as exc:
                 results.append(
-                    _apply_intention(
+                    timed(_apply_intention(
                         _raised_failure_result(
                             call=call,
                             exc=exc,
@@ -275,7 +282,7 @@ def execute_plan_calls(
                             outcome="indeterminate",
                         ),
                         raw_call,
-                    )
+                    ))
                 )
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status="indeterminate", index=idx, total=total)
@@ -300,7 +307,7 @@ def execute_plan_calls(
                     val = getattr(exc, attr, None)
                     if val is not None:
                         error_result[attr] = val
-                results.append(_apply_intention(error_result, raw_call))
+                results.append(timed(_apply_intention(error_result, raw_call)))
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status=outcome, index=idx, total=total)
                 if not call_continue_on_error:
@@ -322,7 +329,7 @@ def execute_plan_calls(
                     val = getattr(exc, attr, None)
                     if val is not None:
                         error_result[attr] = val
-                results.append(_apply_intention(error_result, raw_call))
+                results.append(timed(_apply_intention(error_result, raw_call)))
                 if not is_tool_done_emitted():
                     emit_tool_done(operation=tool_name, ok=False, status=outcome, index=idx, total=total)
                 if not call_continue_on_error:
@@ -334,7 +341,7 @@ def execute_plan_calls(
                     call,
                     workspace_root=Path(default_shell_cwd).expanduser().resolve() if default_shell_cwd is not None else None,
                 )
-            projected = _apply_intention(_annotate_returned_failure(output), raw_call)
+            projected = timed(_apply_intention(_annotate_returned_failure(output), raw_call))
             results.append(projected)
             if not is_tool_done_emitted():
                 ok = projected.get("ok") is not False

@@ -42,6 +42,17 @@ def _tool_result(content: str, *, origin_role: str = "user", **fields) -> dict:
     return make_result_node(content, origin_role=origin_role, origin_kind="tool_call", **fields)
 
 
+def _without_execution_timing(nodes: list[dict]) -> list[dict]:
+    normalized = []
+    for node in nodes:
+        copy = dict(node)
+        payload = copy.get("payload")
+        if isinstance(payload, dict):
+            copy["payload"] = {key: value for key, value in payload.items() if key not in {"duration_ms", "timestamp"}}
+        normalized.append(copy)
+    return normalized
+
+
 def _slash_result(content: str, *, origin_role: str = "user", **fields) -> dict:
     return make_result_node(content, origin_role=origin_role, origin_kind="slash_command", **fields)
 
@@ -439,7 +450,7 @@ run shell
 
     _, out = step(transcript, log, config=OperatorConfig(extraction=ExtractionPolicy(shell_staging="manual")))
 
-    assert out == [
+    assert _without_execution_timing(out) == [
         _tool_result(
             "[ERROR] shell: tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
             origin_role="assistant",
@@ -1378,7 +1389,7 @@ please run this
 
     new_nodes, out = step(transcript, [])
 
-    assert new_nodes == [
+    assert _without_execution_timing(new_nodes) == [
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
@@ -1386,7 +1397,7 @@ please run this
         },
         _tool_result("[OK] echo: hi", payload={"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"}),
     ]
-    assert out == [_tool_result("[OK] echo: hi", payload={"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"})]
+    assert _without_execution_timing(out) == [_tool_result("[OK] echo: hi", payload={"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"})]
 
 
 def test_callable_with_unknown_tool_shapes_error_result():
@@ -1401,7 +1412,7 @@ please run this
 
     new_nodes, out = step(transcript, [])
 
-    assert new_nodes == [
+    assert _without_execution_timing(new_nodes) == [
             {
                 "role": "user",
                 "content": "please run this\n```yaml\n- tool_name: missing\n  args: {}\n```",
@@ -1434,7 +1445,7 @@ please run this
         "    text: <value>\n"
         "```"
     )
-    assert new_nodes == [
+    assert _without_execution_timing(new_nodes) == [
             {
                 "role": "user",
                 "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
@@ -2334,7 +2345,7 @@ def test_user_tail_multi_tool_list_executes_all_operations():
 ```
 """
     _, out = step(transcript, [])
-    assert out == [
+    assert _without_execution_timing(out) == [
         _tool_result("[OK] echo: alpha", payload={"tool_name": "echo", "ok": True, "summary": "alpha", "text": "alpha"}),
         _tool_result("[OK] echo: beta", payload={"tool_name": "echo", "ok": True, "summary": "beta", "text": "beta"}),
     ]
@@ -3016,7 +3027,7 @@ not_a_plan: true
         config=OperatorConfig(extraction=ExtractionPolicy(yaml_position="first")),
     )
 
-    assert out == [
+    assert _without_execution_timing(out) == [
         _tool_result("[OK] echo: first", payload={"tool_name": "echo", "ok": True, "summary": "first", "text": "first"})
     ]
 
@@ -3040,7 +3051,7 @@ not_a_plan: true
         config=OperatorConfig(extraction=ExtractionPolicy(yaml_position="any")),
     )
 
-    assert out == [
+    assert _without_execution_timing(out) == [
         _tool_result("[OK] echo: picked", payload={"tool_name": "echo", "ok": True, "summary": "picked", "text": "picked"})
     ]
 
