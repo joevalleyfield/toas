@@ -8,6 +8,7 @@ from toas.tools_cluster.rendering import (
     _parse_search_match,
     _shell_source_text,
     active_single_turn_ephemeral,
+    collect_result_spill_telemetry,
     infer_fence_language,
     is_single_turn_ephemeral,
     render_fenced_output,
@@ -17,6 +18,7 @@ from toas.tools_cluster.rendering import (
     render_search_success,
     render_shell_result,
     render_shell_stdout_import_block,
+    result_spill_telemetry,
     shape_result_content,
     spill_inert_block,
     stable_import_block_id,
@@ -70,8 +72,13 @@ def test_shape_result_content_collects_one_bounded_spill_observation(tmp_path, m
         "threshold_bytes": 1000,
     }
 
-    shape_result_content(result, collect_spill_telemetry=True, single_turn_ephemeral=True)
-    telemetry = result["spill_telemetry"]
+    with collect_result_spill_telemetry():
+        shape_result_content(result, collect_spill_telemetry=True, single_turn_ephemeral=True)
+        [telemetry] = result_spill_telemetry(result)
+        shape_result_content(result, collect_spill_telemetry=True)
+        assert list(result_spill_telemetry(result)) == [telemetry]
+    assert list(result_spill_telemetry(result)) == []
+    assert "spill_telemetry" not in result
     assert telemetry["schema"] == "spill_observation.v0"
     assert telemetry["coverage"] == "complete"
     assert len(telemetry["outputs"]) == 1
@@ -83,9 +90,19 @@ def test_shape_result_content_collects_one_bounded_spill_observation(tmp_path, m
     assert observation["block_id"].startswith("ib_")
     assert "alpha" not in repr(telemetry) and ".toas/scratch/" not in repr(telemetry)
 
-    observation_id = observation["observation_id"]
-    shape_result_content(result, collect_spill_telemetry=True)
-    assert result["spill_telemetry"]["outputs"][0]["observation_id"] == observation_id
+
+def test_procedure_result_collects_child_observations_without_mutating_payload():
+    child = {"tool_name": "shell", "ok": True, "summary": "exit=0", "stdout": "child output"}
+    result = {"tool_name": "procedure", "ok": True, "content": "procedure output", "results": [child]}
+
+    with collect_result_spill_telemetry():
+        shape_result_content(child, collect_spill_telemetry=True)
+        shape_result_content(result, collect_spill_telemetry=True)
+        observations = list(result_spill_telemetry(result))
+
+    assert observations[1]["outputs"][0]["tool_name"] == "shell"
+    assert "spill_telemetry" not in child
+    assert "spill_telemetry" not in result
 
 
 def test_shape_result_content_collects_nonspill_and_exact_scratch_read_id(tmp_path, monkeypatch):
@@ -103,8 +120,9 @@ def test_shape_result_content_collects_nonspill_and_exact_scratch_read_id(tmp_pa
         "threshold_bytes": 1000,
     }
 
-    shape_result_content(result, collect_spill_telemetry=True)
-    telemetry = result["spill_telemetry"]
+    with collect_result_spill_telemetry():
+        shape_result_content(result, collect_spill_telemetry=True)
+        [telemetry] = result_spill_telemetry(result)
     assert telemetry["read_block_id"] == "ib_0123456789abcdef"
     assert telemetry["outputs"][0]["tool_name"] == "read_file"
     assert telemetry["outputs"][0]["spilled"] is False
@@ -122,9 +140,9 @@ def test_shape_result_content_records_each_eligible_shell_stream(tmp_path, monke
         "threshold_bytes": 1000,
     }
 
-    shape_result_content(result, collect_spill_telemetry=True)
-
-    telemetry = result["spill_telemetry"]
+    with collect_result_spill_telemetry():
+        shape_result_content(result, collect_spill_telemetry=True)
+        [telemetry] = result_spill_telemetry(result)
     assert [item["tool_name"] for item in telemetry["outputs"]] == ["shell", "shell"]
     assert [item["original_lines"] for item in telemetry["outputs"]] == [2, 2]
     assert [item["spilled"] for item in telemetry["outputs"]] == [True, True]
@@ -138,10 +156,12 @@ def test_shape_result_content_marks_spill_exempt_skill_with_zero_eligible_blocks
         "content": "\n".join(f"instruction {index}" for index in range(60)),
     }
 
-    shape_result_content(result, collect_spill_telemetry=True)
+    with collect_result_spill_telemetry():
+        shape_result_content(result, collect_spill_telemetry=True)
+        [telemetry] = result_spill_telemetry(result)
 
-    assert result["spill_telemetry"]["coverage"] == "complete"
-    assert result["spill_telemetry"]["outputs"] == []
+    assert telemetry["coverage"] == "complete"
+    assert telemetry["outputs"] == []
 
 
 @pytest.mark.parametrize("path", ["", "outside.txt"])
@@ -149,9 +169,11 @@ def test_shape_result_content_does_not_attribute_non_scratch_reads(tmp_path, mon
     monkeypatch.chdir(tmp_path)
     result = {"tool_name": "read_file", "ok": True, "path": path, "content": "small output"}
 
-    shape_result_content(result, collect_spill_telemetry=True)
+    with collect_result_spill_telemetry():
+        shape_result_content(result, collect_spill_telemetry=True)
+        [telemetry] = result_spill_telemetry(result)
 
-    assert "read_block_id" not in result["spill_telemetry"]
+    assert "read_block_id" not in telemetry
 
 
 def test_shape_result_content_does_not_confirm_failed_scratch_read(tmp_path, monkeypatch):
@@ -163,9 +185,11 @@ def test_shape_result_content_does_not_confirm_failed_scratch_read(tmp_path, mon
         "error": "read failed",
     }
 
-    shape_result_content(result, collect_spill_telemetry=True)
+    with collect_result_spill_telemetry():
+        shape_result_content(result, collect_spill_telemetry=True)
+        [telemetry] = result_spill_telemetry(result)
 
-    assert "read_block_id" not in result["spill_telemetry"]
+    assert "read_block_id" not in telemetry
 
 
 def test_shape_result_content_ignores_scratch_path_resolution_errors(tmp_path, monkeypatch):
@@ -190,10 +214,12 @@ def test_shape_result_content_ignores_scratch_path_resolution_errors(tmp_path, m
     monkeypatch.setattr(path_type, "resolve", fail_during_identity_check)
     result = {"tool_name": "read_file", "ok": True, "path": str(source), "content": "small output"}
 
-    shape_result_content(result, collect_spill_telemetry=True)
+    with collect_result_spill_telemetry():
+        shape_result_content(result, collect_spill_telemetry=True)
+        [telemetry] = result_spill_telemetry(result)
 
     assert calls == 2
-    assert "read_block_id" not in result["spill_telemetry"]
+    assert "read_block_id" not in telemetry
 
 
 def test_shape_result_content_python_error_preserves_process_output():

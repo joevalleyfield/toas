@@ -14,8 +14,8 @@ def _result(related_to, tool, telemetry, *, content="RAW_PRIVATE_OUTPUT"):
         "payload": {
             "tool_name": tool,
             "content": content,
-            "spill_telemetry": telemetry,
         },
+        "spill_telemetry": [telemetry],
     }
 
 
@@ -63,6 +63,10 @@ def test_aggregate_telemetry_is_bounded_deduplicated_and_matches_only_prior_exac
             {"tool_name": "shell", "args": {"command": "cat ib_unknown"}},
         ],
     }
+    unrelated_tool_reference = {
+        "kind": "tool_request", "related_to": "echo-message",
+        "payload": [{"tool_name": "echo", "args": {"text": "ib_known"}}],
+    }
     read_request = {
         "kind": "tool_request", "related_to": "message-five",
         "payload": [{"tool_name": "read_file", "args": {"path": ".toas/scratch/ib_known.txt"}}],
@@ -75,11 +79,12 @@ def test_aggregate_telemetry_is_bounded_deduplicated_and_matches_only_prior_exac
     }
     command_result = {
         "kind": "command_result", "related_to": "command-six",
-        "payload": {"content": "DIRECT_OUTPUT_SECRET", "spill_telemetry": _telemetry("result-direct", [_output("obs-direct", "shell", 4, 40)])},
+        "payload": {"content": "DIRECT_OUTPUT_SECRET"},
+        "spill_telemetry": [_telemetry("result-direct", [_output("obs-direct", "shell", 4, 40)])],
     }
     report = aggregate_spill_telemetry(map(_line, [
         spilled, dict(spilled), future_reference, future_spill, same_origin_reference, request,
-        read_request, read_result, legacy, command_request, command_result,
+        unrelated_tool_reference, read_request, read_result, legacy, command_request, command_result,
     ]))
 
     assert report["schema"] == "spill_telemetry.v0"
@@ -115,7 +120,7 @@ def test_aggregate_telemetry_ignores_malformed_and_duplicate_observations(tmp_pa
     observation["outputs"] = observation["outputs"] + ["not an observation"]
     result = _result("m", "shell", observation)
     bad_outputs = {"schema": "spill_observation.v0", "result_id": "r2", "outputs": None}
-    bad_record = {"kind": "tool_result", "payload": {"spill_telemetry": bad_outputs}}
+    bad_record = {"kind": "tool_result", "spill_telemetry": [None, bad_outputs]}
     events = [
         "not-json", "[]", None,
         _line({"kind": "anchor", "payload": {}}),

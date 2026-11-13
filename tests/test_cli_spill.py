@@ -1,5 +1,7 @@
 import json
+import sys
 
+from toas import cli
 from toas.cli_spill_commands import run_cli_spill
 
 
@@ -27,8 +29,8 @@ def test_spill_json_command_exports_only_fixed_aggregate_fields(tmp_path):
             "content": "OUTPUT_SECRET",
             "stdout": "OUTPUT_SECRET",
             "args": {"command": "COMMAND_SECRET"},
-            "spill_telemetry": observation,
         },
+        "spill_telemetry": [observation],
     }
     events.write_text(json.dumps(event) + "\n", encoding="utf-8")
     output = []
@@ -89,3 +91,17 @@ def test_spill_command_help_default_path_and_invalid_usage(tmp_path):
             assert "toas spill telemetry" in str(exc)
         else:
             raise AssertionError("invalid usage should fail")
+
+
+def test_cli_main_uses_current_session_log_for_spill_export(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    events = tmp_path / ".toas" / "events.jsonl"
+    events.parent.mkdir()
+    events.touch()
+    monkeypatch.setattr(sys, "argv", ["toas", "spill", "telemetry", "--json"])
+
+    cli.main()
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["schema"] == "spill_telemetry.v0"
+    assert report["coverage"]["result_records"] == 0

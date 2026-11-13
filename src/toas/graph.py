@@ -873,16 +873,16 @@ def write_command_result_record(
     content: str,
     context_update: dict | None = None,
     workspace_update: dict | None = None,
-    spill_telemetry: dict | None = None,
+    spill_telemetry: list[dict] | None = None,
 ) -> dict:
     payload: dict = {"ok": ok, "content": content}
     if context_update is not None:
         payload["context_update"] = context_update
     if workspace_update is not None:
         payload["workspace_update"] = workspace_update
-    if spill_telemetry is not None:
-        payload["spill_telemetry"] = spill_telemetry
     record = {"kind": "command_result", "payload": payload}
+    if spill_telemetry is not None:
+        record["spill_telemetry"] = spill_telemetry
     record["related_to"] = request_id
     append_nodes(path, [record])
     return record
@@ -1055,12 +1055,16 @@ def write_tool_request_record(
     return record
 
 
-def write_tool_result_record(path: str, *, message_id: str, payload: dict) -> dict:
+def write_tool_result_record(
+    path: str, *, message_id: str, payload: dict, spill_telemetry: list[dict] | None = None
+) -> dict:
     record = {
         "kind": "tool_result",
         "related_to": message_id,
         "payload": payload,
     }
+    if spill_telemetry is not None:
+        record["spill_telemetry"] = spill_telemetry
     append_nodes(path, [record])
     return record
 

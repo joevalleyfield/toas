@@ -138,7 +138,7 @@ gathering such records before selecting values.
   standard tool-result and direct user-shell execution. Each eligible rendered
   block records its canonical tool bucket, original line/byte counts, actual
   spill decision, and a block identity only if spilled. Observations live in
-  the existing durable result payload; the capture switch is used only at
+  the existing durable result record alongside its unchanged payload; capture is used only at
   execution sites, so replay/reprojection does not create extra samples.
 - `toas spill telemetry [events_path] [--json]` aggregates tool and direct
   command result observations locally. Its fixed `spill_telemetry.v0` JSON

@@ -29,16 +29,11 @@ def _tool_bucket(name: object) -> str:
     return value if value in _TOOL_BUCKETS else "other"
 
 
-def _walk_telemetry(value: object) -> Iterator[dict]:
-    if isinstance(value, dict):
-        telemetry = value.get("spill_telemetry")
-        if isinstance(telemetry, dict) and telemetry.get("schema") == _OBSERVATION_SCHEMA:
-            yield telemetry
-        for child in value.values():
-            yield from _walk_telemetry(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from _walk_telemetry(child)
+def _result_observations(value: object) -> Iterator[dict]:
+    if isinstance(value, list):
+        for telemetry in value:
+            if isinstance(telemetry, dict) and telemetry.get("schema") == _OBSERVATION_SCHEMA:
+                yield telemetry
 
 
 def _references(value: object) -> set[str]:
@@ -128,7 +123,8 @@ def aggregate_spill_telemetry(lines: Iterable[str]) -> dict:
                 if isinstance(command_id, str):
                     command_origins[command_id] = origin
             for name, args in candidates:
-                bucket = _tool_bucket(name)
+                if name not in _REFERENCE_TOOLS:
+                    continue
                 for block_id in _references(args):
                     origins = spill_origins.get(block_id, set())
                     if not any(spill_origin != origin for spill_origin in origins):
@@ -137,7 +133,7 @@ def aggregate_spill_telemetry(lines: Iterable[str]) -> dict:
                     if pair in matched_pairs:
                         continue
                     matched_pairs.add(pair)
-                    pair_tools[pair] = bucket if bucket in _REFERENCE_TOOLS else "other"
+                    pair_tools[pair] = name
                     if name == "read_file":
                         pending_read_file_pairs.add((origin, block_id, key))
             continue
@@ -148,7 +144,7 @@ def aggregate_spill_telemetry(lines: Iterable[str]) -> dict:
         payload = record.get("payload")
         if kind == "command_result":
             origin = command_origins.get(str(related_to), origin)
-        telemetries = list(_walk_telemetry(payload))
+        telemetries = list(_result_observations(record.get("spill_telemetry")))
         record_id = "|".join(sorted(
             str(telemetry.get("result_id")) for telemetry in telemetries if telemetry.get("result_id")
         ))
@@ -199,9 +195,9 @@ def aggregate_spill_telemetry(lines: Iterable[str]) -> dict:
                     tool["spill_count"] += 1
                     tool["spill_line_distribution"][_bucket(line_count, _LINE_BUCKETS)] += 1
                     tool["spill_byte_distribution"][_bucket(byte_count, _BYTE_BUCKETS)] += 1
-                    block_id = obs.get("block_id")
-                    if isinstance(block_id, str):
-                        spill_origins.setdefault(block_id, set()).add(origin)
+                    spilled_block_id = obs.get("block_id")
+                    if isinstance(spilled_block_id, str):
+                        spill_origins.setdefault(spilled_block_id, set()).add(origin)
 
     report["rereads"]["reference_pairs"] = len(matched_pairs)
     report["rereads"]["read_file_confirmed_pairs"] = len(confirmed_pairs)

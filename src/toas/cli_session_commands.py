@@ -31,7 +31,7 @@ from .runtime.step_context_runtime import (
 )
 from .runtime.step_generation_runtime import StepCliDeps, build_step_cli_deps
 from .runtime.step_result_runtime import persist_step_outputs_runtime
-from .tools_cluster.rendering import active_spill_policy
+from .tools_cluster.rendering import active_spill_policy, collect_result_spill_telemetry
 from .transcript import _lcp, parse_transcript, render_transcript
 
 write_text_with_newline_style = _write_text_with_newline_style
@@ -318,7 +318,8 @@ def run_step(
         build_kwargs["stream_stdout_enabled"] = stream_stdout_enabled
     step_kwargs = _build_step_kwargs(**build_kwargs)
 
-    append_set, stdout_set = deps.step_fn(normalized_transcript, runtime_ctx["log"], **step_kwargs)
+    with collect_result_spill_telemetry():
+        append_set, stdout_set = deps.step_fn(normalized_transcript, runtime_ctx["log"], **step_kwargs)
     rendered = _persist_step_outputs(
         deps=deps,
         events_path=events_path,
@@ -489,9 +490,10 @@ def _resolve_state_input_turns(
         if not was_callable:
             index += 1
             continue
-        append_set, stdout_set = deps.step_fn(
-            ordinary_transcript, runtime_ctx["log"], **step_kwargs
-        )
+        with collect_result_spill_telemetry():
+            append_set, stdout_set = deps.step_fn(
+                ordinary_transcript, runtime_ctx["log"], **step_kwargs
+            )
         result_nodes = [node for node in append_set if node.get("role") == "result"]
         intent_resolved = intent_resolved or was_callable or bool(result_nodes) or bool(stdout_set)
 

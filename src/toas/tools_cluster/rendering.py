@@ -14,6 +14,28 @@ _SINGLE_TURN_EPHEMERAL: ContextVar[bool] = ContextVar("toas_single_turn_ephemera
 _ACTIVE_SPILL_POLICY: ContextVar[object | None] = ContextVar("toas_active_spill_policy", default=None)
 _SPILL_OBSERVATIONS: ContextVar[list[dict] | None] = ContextVar("toas_spill_observations", default=None)
 _SPILL_TOOL_NAME: ContextVar[str | None] = ContextVar("toas_spill_tool_name", default=None)
+_SPILL_RESULTS: ContextVar[dict[int, tuple[dict, dict]] | None] = ContextVar("toas_spill_results", default=None)
+
+
+@contextmanager
+def collect_result_spill_telemetry() -> Iterator[None]:
+    token = _SPILL_RESULTS.set({})
+    try:
+        yield
+    finally:
+        _SPILL_RESULTS.reset(token)
+
+
+def result_spill_telemetry(result: dict) -> Iterator[dict]:
+    captured = _SPILL_RESULTS.get()
+    if captured is None:
+        return
+    entry = captured.get(id(result))
+    if entry is not None:
+        yield entry[1]
+    if result.get("tool_name") == "procedure":
+        for child in result.get("results", []):
+            yield from result_spill_telemetry(child)
 
 
 def get_active_spill_policy():
@@ -953,7 +975,8 @@ def shape_result_content(
     if single_turn_ephemeral is None and isinstance(result, dict):
         single_turn_ephemeral = result.get("single_turn_ephemeral", result.get("ephemeral"))
 
-    if not collect_spill_telemetry or "spill_telemetry" in result:
+    captured = _SPILL_RESULTS.get()
+    if not collect_spill_telemetry or captured is None or id(result) in captured:
         if single_turn_ephemeral is not None:
             with active_single_turn_ephemeral(bool(single_turn_ephemeral)):
                 return _shape_result_content_body(result)
@@ -978,7 +1001,7 @@ def shape_result_content(
         read_block_id = _scratch_block_id(result.get("path"))
         if read_block_id is not None:
             telemetry["read_block_id"] = read_block_id
-    result["spill_telemetry"] = telemetry
+    captured[id(result)] = (result, telemetry)
     return rendered
 
 

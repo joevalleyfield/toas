@@ -57,6 +57,7 @@ from .tools import (
     execute_shell_call,
     shape_result_content,
 )
+from .tools_cluster.rendering import result_spill_telemetry
 from .tools_guidance import render_tools_help_full
 from .assets.help_catalog import render_config_help as _render_config_help_asset
 from .assets.help_catalog import render_plain_help as _render_plain_help_asset
@@ -610,6 +611,15 @@ def _as_nodes(result) -> list[dict]:
     return [result]
 
 
+def _render_executed_result(result: dict, *, origin_role: str, origin_kind: str = "tool_call") -> dict:
+    content = shape_result_content(result, collect_spill_telemetry=True)
+    node = make_result_node(content, origin_role=origin_role, origin_kind=origin_kind, payload=result)
+    observations = list(result_spill_telemetry(result))
+    if observations:
+        node["_spill_telemetry"] = observations
+    return node
+
+
 def _execute_plan(
     plan: list[dict],
     *,
@@ -627,12 +637,7 @@ def _execute_plan(
 ) -> list[dict]:
     effective_env = dict(env_modifiers or {})
     return [
-        make_result_node(
-            shape_result_content(result, collect_spill_telemetry=True),
-            origin_role=origin_role,
-            origin_kind="tool_call",
-            payload=result,
-        )
+        _render_executed_result(result, origin_role=origin_role)
         for result in execute_plan(
             plan,
             default_shell_cwd=command_cwd,
@@ -671,14 +676,7 @@ def _execute_plan_user_context(
                     "summary": "invalid arguments",
                     "error": "invalid arguments",
                 }
-                nodes.append(
-                    make_result_node(
-                        shape_result_content(result, collect_spill_telemetry=True),
-                        origin_role=origin_role,
-                        origin_kind="tool_call",
-                        payload=result,
-                    )
-                )
+                nodes.append(_render_executed_result(result, origin_role=origin_role))
                 break
             shell_args = dict(args)
             if call.get("tool_name") == "shell_script":
@@ -690,14 +688,7 @@ def _execute_plan_user_context(
                         "summary": "invalid arguments for tool shell_script: script must be a non-empty string",
                         "error": "invalid arguments for tool shell_script: script must be a non-empty string",
                     }
-                    nodes.append(
-                        make_result_node(
-                        shape_result_content(result, collect_spill_telemetry=True),
-                            origin_role=origin_role,
-                            origin_kind="tool_call",
-                            payload=result,
-                        )
-                    )
+                    nodes.append(_render_executed_result(result, origin_role=origin_role))
                     break
                 from .tools_cluster.shell_ops import shell_launcher_argv
 
@@ -824,12 +815,7 @@ def _execute_user_shell(
     result["duration_ms"] = round((monotonic() - started) * 1000)
     result["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return [
-        make_result_node(
-            shape_result_content(result, collect_spill_telemetry=True),
-            origin_role=origin_role,
-            origin_kind="user_shell",
-            payload=result,
-        )
+        _render_executed_result(result, origin_role=origin_role, origin_kind="user_shell")
     ]
 
 

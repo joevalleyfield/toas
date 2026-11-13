@@ -187,6 +187,7 @@ def stitch_frontier_records(
                 str(events_path),
                 message_id=frontier["id"],
                 payload=node.get("payload", {"content": node["content"]}),
+                spill_telemetry=node.get("_spill_telemetry"),
             )
         return synthetic_stdout_prefix
     if frontier["role"] != "user" or operator is None or not result_nodes:
@@ -208,7 +209,7 @@ def stitch_frontier_records(
             content=node["content"],
             context_update=node.get("context_update"),
             workspace_update=node.get("workspace_update"),
-            spill_telemetry=(node.get("payload") or {}).get("spill_telemetry") if isinstance(node.get("payload"), dict) else None,
+            spill_telemetry=node.get("_spill_telemetry"),
         )
     replay_like_nodes = [
         node
@@ -235,6 +236,7 @@ def stitch_frontier_records(
                 str(events_path),
                 message_id=target_id,
                 payload=node.get("payload", {"content": node["content"]}),
+                spill_telemetry=node.get("_spill_telemetry"),
             )
     return synthetic_stdout_prefix
 
