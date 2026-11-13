@@ -28,6 +28,10 @@ _client_lock = threading.Lock()
 
 _RESULT_MARKER_RE = re.compile(r"(?m)^## RESULT(?:[ \t]+[^\r\n]*)?(?:\r?\n|$)")
 _ASSISTANT_USER_TURN_RE = re.compile(r"(?m)^## USER$")
+_ASSISTANT_HEADER_PREFIXES = ("## TOAS:ASSISTANT", "## ASSISTANT")
+_LEADING_ASSISTANT_HEADER_RE = re.compile(
+    r"\A\s*(?:## TOAS:ASSISTANT(?:/[^\s]+)?(?:[ \t]+[^\r\n]*)?|## ASSISTANT[ \t]*)(?:\r?\n|\Z)"
+)
 _YAML_FENCE_RE = re.compile(r"(?ms)^```ya?ml[^\n]*\n(.*?)^```[ \t]*$")
 _CALLABLE_YAML_KEY_RE = re.compile(r"(?m)^\s*(?:-\s*)?(?:tool_name|operation)\s*:")
 _USER_SHELL_LINE_RE = re.compile(r"(?m)^[ \t]*\$[ \t]+.+$")
@@ -718,6 +722,50 @@ def _has_callable_yaml(content: str) -> bool:
     return any(_CALLABLE_YAML_KEY_RE.search(match.group(1)) for match in _YAML_FENCE_RE.finditer(content))
 
 
+def _strip_leading_assistant_header(content: str) -> str:
+    match = _LEADING_ASSISTANT_HEADER_RE.match(content)
+    return content[match.end():].lstrip() if match else content
+
+
+class _LeadingAssistantStream:
+    """Hold the opening line until it can be distinguished from an echoed header."""
+
+    def __init__(self, emit: Callable[[str], None]) -> None:
+        self._emit = emit
+        self._prefix: str | None = ""
+        self._strip_whitespace = False
+
+    def feed(self, delta: str) -> None:
+        if self._prefix is None:
+            self._emit(delta)
+            return
+        self._prefix += delta
+        if not self._strip_whitespace:
+            candidate = self._prefix.lstrip()
+            first_line, newline, _ = candidate.partition("\n")
+            if not newline and any(
+                marker.startswith(first_line)
+                or first_line.startswith((marker + " ", marker + "\t", marker + "/", marker + "\r"))
+                for marker in _ASSISTANT_HEADER_PREFIXES
+            ):
+                return
+            body = _strip_leading_assistant_header(self._prefix)
+            self._strip_whitespace = body != self._prefix
+        else:
+            body = self._prefix.lstrip()
+        if self._strip_whitespace and not body:
+            self._prefix = ""
+            return
+        self._prefix = None
+        self._emit(body)
+
+    def finish(self) -> None:
+        if self._prefix:
+            body = _strip_leading_assistant_header(self._prefix)
+            if body:
+                self._emit(body)
+
+
 def _truncate_assistant_turn_overrun(content: str) -> tuple[str, bool]:
     match = _ASSISTANT_USER_TURN_RE.search(content)
     if match is None:
@@ -850,22 +898,33 @@ def complete_chat_response(
     on_stream_open: Callable[[Callable[[], None]], None] | None = None,
 ) -> dict:
     settings = settings or Settings.from_env()
+    stream = _LeadingAssistantStream(on_delta) if on_delta is not None else None
     backend = call_backend(
         messages,
         settings=settings,
         extra_body=extra_body,
         max_tokens=max_tokens,
         client=client,
-        on_delta=on_delta,
+        on_delta=stream.feed if stream is not None else None,
         on_reasoning_delta=on_reasoning_delta,
         on_prompt_progress=on_prompt_progress,
         on_stream_open=on_stream_open,
     )
-    normalized_content, overrun_detected = _truncate_assistant_turn_overrun(backend.content)
+    bounded_content, overrun_detected = _truncate_assistant_turn_overrun(backend.content)
+    normalized_content = _strip_leading_assistant_header(bounded_content)
+    if not normalized_content and bounded_content:
+        raise PermanentGenerationError("empty chat completion content after leading assistant header")
+    if stream is not None:
+        stream.finish()
     if normalized_content != backend.content or (overrun_detected and backend.content_origin == "answer"):
         backend = replace(
             backend,
             content=normalized_content,
+            reasoning_content=(
+                normalized_content
+                if backend.content_origin == "reasoning_fallback" and not overrun_detected
+                else backend.reasoning_content
+            ),
             content_origin=("assistant_turn_overrun" if overrun_detected else backend.content_origin),
         )
     result = {"content": backend.content, "duration_ms": backend.duration_ms, "usage": backend.usage}

@@ -3,11 +3,13 @@ FKA:
 AKA: leading assistant turn marker normalization; strip leading TOAS:ASSISTANT; echoed turn marker ingress stripping; assistant marker escape fix
 Legacy index:
 
-keywords: active, bugfix, runtime, llm, normalization, streaming, projection, transcript
+keywords: historical, bugfix, runtime, llm, normalization, streaming, projection, transcript
 
 Related: `373`; `260828-generation-boundaries-and-bounds`
 
 # Leading Assistant Turn Marker Ingress Normalization
+
+Status: CLOSED (implemented)
 
 ## Intent
 
@@ -32,10 +34,10 @@ Symmetrically to `_truncate_assistant_turn_overrun` (which normalizes trailing h
 
 ## In Scope
 
-- [ ] Define leading assistant turn marker matching (e.g. `^\s*## TOAS:ASSISTANT(?:/[^\s\r\n]+)?(?:\s+[^\r\n]*)?(?:\r?\n)+` and `^\s*## ASSISTANT(?:\r?\n)+`) in `src/toas/llm.py`.
-- [ ] Strip leading turn marker headers in `complete_chat_response` before building the completion payload.
-- [ ] Ensure streaming escaper (`ClosedSetMarkerStreamEscaper` in `src/toas/cli_streaming.py`) or presenter suppresses/swallows an initial leading `## TOAS:ASSISTANT` turn header line rather than streaming an escaped `\## TOAS:ASSISTANT`.
-- [ ] Add unit and regression tests in `tests/test_llm.py` and `tests/test_cli_streaming.py` while maintaining 100.00% statement coverage.
+- [x] Define leading assistant turn marker matching (e.g. `^\s*## TOAS:ASSISTANT(?:/[^\s\r\n]+)?(?:\s+[^\r\n]*)?(?:\r?\n)+` and `^\s*## ASSISTANT(?:\r?\n)+`) in `src/toas/llm.py`.
+- [x] Strip leading turn marker headers in `complete_chat_response` before building the completion payload.
+- [x] Suppress the leading header in answer deltas before the CLI presenter or daemon receives them.
+- [x] Add unit and regression tests in `tests/test_llm.py` and `tests/test_cli.py` while maintaining 100.00% statement coverage.
 
 ## Out of Scope
 
@@ -48,3 +50,22 @@ Symmetrically to `_truncate_assistant_turn_overrun` (which normalizes trailing h
 2. The projected transcript contains only the canonical `## TOAS:ASSISTANT` turn header with no `\## TOAS:ASSISTANT` artifact.
 3. Both streaming and non-streaming modes handle the leading marker consistently without emitting escape prefixes for the turn header.
 4. All existing and new tests pass with 100.00% statement coverage on modified modules.
+
+## Implementation and verification
+
+`complete_chat_response` normalizes both completed content and streamed answer
+deltas before consumers receive them. It removes the opening header and following
+whitespace, including when a delta splits the marker or CRLF. A marker-only
+response fails as an empty completion. Marker-like text within the body and the
+closed-set escaping behavior are unchanged.
+
+The regression tests cover split and decorated headers, the plain assistant
+header, partial prefixes at end of stream, body markers, fenced examples, and
+reasoning fallback. The CLI test verifies live output, canonical projection, and
+assistant content in durable history. All 366 targeted tests passed with
+100.00% statement coverage on the LLM and CLI streaming modules.
+
+A local model stand-in returned the same decorated header through JSON and
+chunked SSE. Actual `toas step` and `toas transcript` output showed one canonical
+assistant marker per response, and the durable assistant message contained only
+the answer in each mode.
