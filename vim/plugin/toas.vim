@@ -1682,55 +1682,50 @@ function! s:toas_safe_undojoin(bufnr) abort
   endif
 endfunction
 
-function! s:toas_shift_view_below_region(view, region_start, region_end, new_lines) abort
-  let l:cur = get(a:view, 'cursor', [])
-  if type(l:cur) != type([]) || len(l:cur) == 0
-    return
-  endif
-  if l:cur[0] >= a:region_end
-    let l:delta = len(a:new_lines) - (a:region_end - a:region_start + 1)
-    let a:view.cursor[0] += l:delta
-    let a:view.topline += l:delta
-  endif
-endfunction
-
 function! s:toas_replace_buffer_region(bufnr, start, end, lines, ...) abort
   let l:join_undo = a:0 >= 1 ? a:1 : 0
+  let l:end_anchor = a:0 >= 2 ? a:2 : ''
   if l:join_undo
     call s:toas_safe_undojoin(a:bufnr)
   endif
 
-  let l:restore_view = 0
-  if bufnr('%') == a:bufnr
-    let l:view = winsaveview()
-    let l:restore_view = 1
-  endif
-
+  let l:orig = bufnr('%')
+  let l:view = winsaveview()
   if exists('*deletebufline') && exists('*appendbufline')
     call deletebufline(a:bufnr, a:start, a:end)
     call appendbufline(a:bufnr, a:start - 1, a:lines)
-    if l:restore_view
-      call s:toas_shift_view_below_region(l:view, a:start, a:end, a:lines)
-      call winrestview(l:view)
+  else
+    " Fallback for older Vim builds lacking appendbufline/deletebufline.
+    if l:orig != a:bufnr
+      execute 'silent noautocmd keepalt buffer ' . a:bufnr
     endif
-    return
+    execute a:start . ',' . a:end . 'delete _'
+    call append(a:start - 1, a:lines)
+    if l:orig != a:bufnr
+      execute 'silent noautocmd keepalt buffer ' . l:orig
+    endif
   endif
 
-  " Fallback path for older Vim builds lacking appendbufline/deletebufline.
-  let l:orig = bufnr('%')
-  let l:view = winsaveview()
-  if l:orig != a:bufnr
-    execute 'silent noautocmd keepalt buffer ' . a:bufnr
+  if l:orig == a:bufnr
+    let l:delta = len(a:lines) - (a:end - a:start + 1)
+    let l:new_last = max([a:start, a:end + l:delta])
+    let l:anchor_line = l:new_last
+    if l:end_anchor ==# 'last_content' && (l:view.lnum == a:end || l:view.topline == a:end)
+      while l:anchor_line > a:start && a:lines[l:anchor_line - a:start] =~# '^\s*$'
+        let l:anchor_line -= 1
+      endwhile
+    endif
+    for l:key in ['lnum', 'topline']
+      if l:view[l:key] > a:end
+        let l:view[l:key] += l:delta
+      elseif l:end_anchor !=# '' && l:view[l:key] == a:end
+        let l:view[l:key] = l:anchor_line
+      elseif l:view[l:key] >= a:start
+        let l:view[l:key] = min([l:view[l:key], l:new_last])
+      endif
+    endfor
   endif
-  execute a:start . ',' . a:end . 'delete _'
-  call append(a:start - 1, a:lines)
-  if l:orig != a:bufnr
-    execute 'silent noautocmd keepalt buffer ' . l:orig
-  endif
-  if l:restore_view
-    call s:toas_shift_view_below_region(l:view, a:start, a:end, a:lines)
-    call winrestview(l:view)
-  endif
+  call winrestview(l:view)
 endfunction
 
 function! s:toas_replace_run_region(run_id, status, text, keep_markers, ...) abort
@@ -1758,7 +1753,7 @@ function! s:toas_replace_run_region(run_id, status, text, keep_markers, ...) abo
     return 0
   endif
   let l:join_undo = a:0 >= 1 ? a:1 : 1
-  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:new_lines, l:join_undo)
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:new_lines, l:join_undo, a:keep_markers ? 'last_line' : 'last_content')
   let s:toas_run_last_rendered_text[a:run_id] = a:text
   return 1
 endfunction
@@ -1780,13 +1775,13 @@ function! s:toas_replace_run_region_with_canonical(run_id, status, raw_text, can
 
   " Phase 1: finalize raw streamed body, joining into the streaming undo block.
   let l:raw_lines = s:toas_render_run_body_lines(a:raw_text)
-  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:raw_lines, 1)
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:raw_lines, 1, 'last_line')
 
   " Phase 2: break undo group and replace with canonical text without undojoin.
   let l:new_end = l:start + len(l:raw_lines) - 1
   let l:canonical_lines = s:toas_render_run_body_lines(a:canonical_text)
   let &undolevels = &undolevels
-  call s:toas_replace_buffer_region(l:bufnr, l:start, l:new_end, l:canonical_lines, 0)
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:new_end, l:canonical_lines, 0, 'last_content')
 
   let s:toas_run_last_rendered_text[a:run_id] = a:canonical_text
   return 1
@@ -3800,6 +3795,14 @@ function! ToasContinue(...) abort
   endtry
 endfunction
 
+function! s:toas_append_watch_lines(lines) abort
+  let l:at_end = line('.') == line('$')
+  call append(line('$'), a:lines)
+  if l:at_end
+    normal! G
+  endif
+endfunction
+
 function! ToasWatch(...) abort
   let l:run_id = get(g:, 'toas_active_run_id', '')
   if a:0 >= 1 && a:1 !=# '' && a:1 !~# '^--'
@@ -3895,8 +3898,7 @@ function! ToasWatch(...) abort
               endif
             endif
             if l:render_text !=# ''
-              call append(line('$'), split(substitute(l:render_text, '\r', '', 'g'), "\n"))
-              normal! G
+              call s:toas_append_watch_lines(split(substitute(l:render_text, '\r', '', 'g'), "\n"))
             endif
             if get(l:event, 'lane', '') ==# 'llm_answer' && get(l:event, 'phase', '') ==# 'end'
               let l:status = s:toas_normalize_run_status(get(get(l:event, 'payload', {}), 'status', ''))
@@ -3933,8 +3935,7 @@ function! ToasWatch(...) abort
         if g:toas_last_run_status ==# 'failed' || g:toas_last_run_status ==# 'cancelled'
           let l:summary = get(s:toas_run_error_summary, l:run_id, '')
           if l:summary !=# ''
-            call append(line('$'), split(substitute(s:toas_append_terminal_error_summary('', g:toas_last_run_status, l:summary), '\r', '', 'g'), "\n"))
-            normal! G
+            call s:toas_append_watch_lines(split(substitute(s:toas_append_terminal_error_summary('', g:toas_last_run_status, l:summary), '\r', '', 'g'), "\n"))
           endif
         endif
         call s:toas_notice(printf('toas run %s: %s', l:run_id, g:toas_last_run_status ==# '' ? 'running' : g:toas_last_run_status))
@@ -3989,8 +3990,7 @@ function! ToasWatch(...) abort
       endif
       if l:text !=# ''
         silent! undojoin
-        call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
-        normal! G
+        call s:toas_append_watch_lines(split(substitute(l:text, '\r', '', 'g'), "\n"))
       endif
       if l:use_local_cursor
         let l:local_offset = get(l:data, 'next_offset', l:local_offset)
