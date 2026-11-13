@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -734,6 +734,30 @@ def test_render_search_excerpt_blocks_handles_empty_and_all_invalid_inputs(monke
             return iter(())
 
     assert render_search_excerpt_blocks({"matches": TruthyEmptyList()}) == []
+
+
+@pytest.mark.parametrize("windows_path", [False, True])
+def test_spill_scratch_path_is_portable(tmp_path, monkeypatch, windows_path):
+    monkeypatch.chdir(tmp_path)
+    scratch_dir = tmp_path / ".toas" / "scratch"
+    if windows_path:
+        native_relative_to = type(scratch_dir).relative_to
+
+        def windows_relative_to(path, *args, **kwargs):
+            relative = native_relative_to(path, *args, **kwargs)
+            return PureWindowsPath(*relative.parts)
+
+        monkeypatch.setattr(type(scratch_dir), "relative_to", windows_relative_to)
+
+    content = "\n".join(f"symbol_{i}" for i in range(60))
+    rendered = render_fenced_output(content=content, kind="result", scratch_dir=scratch_dir)
+    (scratch_file,) = scratch_dir.iterdir()
+    portable_path = f".toas/scratch/{scratch_file.name}"
+
+    assert scratch_file.read_text(encoding="utf-8") == content
+    assert f"spilled to `{portable_path}`" in rendered
+    assert f'path="{portable_path}"' in rendered.splitlines()[2]
+    assert f'path="{portable_path}"' in rendered.splitlines()[-1]
 
 
 def test_spill_inert_block_lines_threshold(tmp_path):

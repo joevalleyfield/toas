@@ -254,7 +254,7 @@ def spill_inert_block(  # noqa: PLR0913
     effective_block_id = block_id or f"ib_{sha256(content.encode('utf-8')).hexdigest()[:16]}"
     target_dir = scratch_dir or default_scratch_dir()
     try:
-        scratch_rel_path = str(target_dir.resolve().relative_to(Path.cwd().resolve()) / f"{effective_block_id}.txt")
+        scratch_rel_path = (target_dir.resolve().relative_to(Path.cwd().resolve()) / f"{effective_block_id}.txt").as_posix()
     except Exception:
         scratch_rel_path = f".toas/scratch/{effective_block_id}.txt"
 
@@ -758,11 +758,14 @@ def render_default_success(result: dict, *, status: str, tool_name: str) -> str:
         content = content.strip()
     if isinstance(content, str) and content and content != summary:
         if "\n" in content:
+            is_skill = tool_name in {"skill", "activate_skill"}
             fenced_content = render_fenced_output(
                 content=content,
                 kind="result",
                 source=f"tool.{tool_name}",
                 potency="inert",
+                allow_spill=False if is_skill else None,
+                max_line_width=0 if is_skill else None,
             )
             detail = f"{summary}\n{fenced_content}" if summary else fenced_content
         else:

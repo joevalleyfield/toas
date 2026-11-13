@@ -3,13 +3,13 @@ FKA:
 AKA: skill spill nag; skill output inline
 Legacy index:
 
-keywords: tool-output, spill, projection, skill, rendering, operator-ergonomics
+keywords: historical, tool-output, spill, projection, skill, rendering, operator-ergonomics
 Depends on:
 Related: `261111-spill-threshold-tuning` (named follow-on, data-driven)
 
 # Skill activation output should not spill
 
-Status: OPEN; defect confirmed, seam located, awaiting implementation
+Status: CLOSED; skill activation instructions project in full
 
 ## Objective
 
@@ -79,3 +79,23 @@ threshold number eventually is.
     `search`) STILL spills under the existing policy (exemption did not leak).
 - Test the public rendering seam (the skill result render entrypoint), not
   private `_` helpers.
+
+
+## Completion evidence
+
+Successful skill activations keep their existing inert output fence and bypass
+both spilling and line-width truncation. The public tool-result regression
+exercises both activation spellings with 420 instruction lines and a
+600-character line. The focused skill and rendering suite passed all 72 tests
+with 100% statement coverage for the rendering module.
+
+Local `toas step` projected all 70 lines of a workspace skill in one inline
+result, without a scratch reference. A subsequent unbounded `read_file` of
+a 70-line discovery file produced a bounded preview and a scratch reference.
+
+The project suite passed 4,067 tests with nine skips and 100% total statement
+coverage. All 17 acceptance tests passed using the existing project
+environment with its Python on PATH. Ruff and mypy passed. The check-script
+run used `UV_NO_SYNC=1` for the preinstalled dependencies, which caused two
+nested acceptance invocations to select an empty environment. Running the
+acceptance gate directly with the existing project environment passed.

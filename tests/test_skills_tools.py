@@ -9,6 +9,7 @@ from toas.tools import (
     REGISTRY,
     execute_call,
     get_tool,
+    shape_result_content,
     validate_call,
 )
 
@@ -49,6 +50,28 @@ def test_execute_activate_skill_tool_success():
     result = execute_call(call)
     assert result["ok"] is True
     assert "jj-scratch-workspace" in result["summary"]
+
+
+@pytest.mark.parametrize("tool_name", ["skill", "activate_skill"])
+def test_large_skill_instructions_project_inline(tool_name, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    skill_path = tmp_path / ".agents" / "skills" / "long-example" / "SKILL.md"
+    skill_path.parent.mkdir(parents=True)
+    instructions = "\n".join(
+        [f"Instruction {index}." for index in range(1, 421)] + ["Full-width instruction: " + "x" * 600]
+    )
+    skill_path.write_text(
+        f"---\nname: long-example\ndescription: Projection example.\n---\n\n{instructions}\n",
+        encoding="utf-8",
+    )
+
+    result = execute_call({"tool_name": tool_name, "args": {"name": "long-example"}})
+    rendered = shape_result_content(result)
+
+    assert rendered.startswith("[OK] skill: Activated skill: long-example\n")
+    assert instructions in rendered
+    assert "spilled to" not in rendered
+    assert not list(tmp_path.glob(".toas/scratch/*.txt"))
 
 
 def test_execute_skill_tool_invalid_args():
