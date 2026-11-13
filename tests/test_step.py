@@ -316,6 +316,7 @@ please run this
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
+            "provenance": {"source": "user_authored"},
         }
     ]
 
@@ -1289,7 +1290,7 @@ continue
     ]
     assert out == [{"role": "assistant", "content": "new reply"}]
     assert seen["working"] == [
-        {"role": "user", "content": "continue"},
+        {"role": "user", "content": "continue", "provenance": {"source": "user_authored"}},
     ]
 
 

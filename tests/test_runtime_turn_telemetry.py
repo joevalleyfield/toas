@@ -391,6 +391,13 @@ def test_extract_human_user_content():
     unfenced_with_prose = "## RESULT [bravo.p1.o1]\noutput\nWhat does this mean?"
     assert extract_human_user_content(unfenced_with_prose) == "What does this mean?"
 
+    status_then_user_command = (
+        "## RESULT [romeo-2.p1.o1 OK write_file 38.5k]\n"
+        "[OK] write_file (x): wrote 3660 bytes\n\n"
+        "$ pwd"
+    )
+    assert extract_human_user_content(status_then_user_command) == "$ pwd"
+
 
 def test_is_human_user_turn():
     assert not is_human_user_turn({})

@@ -740,6 +740,8 @@ def extract_human_user_content(content: str) -> str:
                 or _RESULT_FOOTER_RE.match(stripped)
                 or _RESULT_HINT_RE.match(stripped)
             ):
+                if _RESULT_STATUS_RE.match(stripped) and not result_has_fence:
+                    seen_result_first_line = True
                 continue
 
             # If this result section has not seen a fence yet and this is the first non-empty line

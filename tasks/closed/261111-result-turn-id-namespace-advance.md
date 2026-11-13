@@ -3,13 +3,13 @@ FKA:
 AKA: user-content turn not branched on edit; appended result reuses original turn handle
 Legacy index:
 
-keywords: turn-namespace, reconciliation, tool-result, user-shell, nato, turn-id, branching, defect
+keywords: historical, turn-namespace, reconciliation, tool-result, user-shell, nato, turn-id, branching, defect
 Depends on:
 Related: `261109-tool-result-decorations-elapsed-time` (result decoration/projection family)
 
 # Edited user-content turn is not materialized as a branched new node
 
-Status: OPEN; mechanism clarified by operator, seam located, awaiting reconciliation verification
+Status: CLOSED 2026-11-13; edited user turns branch from their prior parent and result attribution uses the fresh handle
 
 ## Objective
 
@@ -67,12 +67,12 @@ The appended command's result inherited the original node's handle
 (`romeo-2`) because the reconciliation treated the edited turn as the *same*
 node rather than branching a new node with a fresh allocation.
 
-## Root Cause / Seam (located, to confirm in spike)
+## Root Cause / Seam (confirmed)
 
 The reconciliation that decides "same node vs. branched new node" is
 `src/toas/runtime/step_runtime.py` -> `_build_new_transcript_nodes` and
 `_working_with_transcript_tail_frontier` (invoked from
-`_build_run_step_frontier_context`, ~L1500). The suspected slip:
+`_build_run_step_frontier_context`, ~L1500). The reproduced slips:
 
 - On a user-turn content change, the LCP/divergence reconciliation matches
   the user turn by position/identity (or by a prefix that still matches the
@@ -86,20 +86,18 @@ downstream and correct given its input; the stale `parent_handle` it
 receives is a symptom of the reconciliation, not a defect in the decorator.
 Fix the reconciliation, not the decorator.
 
-## Open verification question (drives the exact fix)
+Additionally, `extract_human_user_content` filtered a recognized `[OK]` result
+line without marking the result's first line as consumed. The following actual
+user command was then mistaken for the result's single-line payload and omitted
+from human-turn detection.
 
-In the spike, drive the two-state transcript (user turn with a result, then
-the same turn re-saved with added content) through `toas step` / the operator
-API and inspect `events.jsonl`:
+## Verification questions (resolved)
 
-(a) Does the re-saved turn produce a NEW message event (branch) or is it
-    reconciled as the SAME event (identity match)? Confirm the slip is the
-    latter.
-(b) If a new node IS produced, does it receive a FRESH turn allocation, or
-    does it inherit the original node's handle? Confirm the allocation is
-    not re-run on the branched node.
-(c) Confirm the original node's handle and content are UNCHANGED (no
-    in-place mutation) in all cases.
+(a) The re-saved turn produces a new message event, branched from its
+    predecessor's parent.
+(b) The new node receives a fresh turn allocation, and its result uses that
+    handle.
+(c) The original node's handle and content remain unchanged.
 
 ## Scope
 
@@ -135,3 +133,21 @@ API and inspect `events.jsonl`:
     still concatenated only at model-input projection time.
 - Test the public step/transcript seam (a real two-state transcript through
   `toas step` / the operator API), not private `_` helpers.
+
+## Resolution and Evidence
+
+- `extract_human_user_content` now treats a recognized result status line as
+  the result payload line, so later user-authored content remains visible to
+  turn detection.
+- Frontier selection keeps the reconciled, newly materialized user node when
+  it matches the transcript tail. Matched or unchanged tails still use the
+  transcript-parsed tail object.
+- A public `run_step` regression test confirms the edited user turn branches
+  from the previous node's parent, receives a fresh handle, keeps the old
+  history unchanged, and gives the `$ pwd` result the new hierarchical handle.
+- A real CLI run confirmed `events.jsonl` retained original node `n2`, wrote
+  edited node `n3` parented to `n1`, and related the `tool_result` to `n3`.
+  `toas step` displayed `bravo.p1.o1`; `toas transcript` displayed the new
+  user-turn handle; `toas llm-input` included the edited `$ pwd` content.
+- Full suite: 4,095 passed, 9 skipped, 17 deselected with 100.00% statement
+  coverage; acceptance suite: 17 passed. Ruff and mypy passed.

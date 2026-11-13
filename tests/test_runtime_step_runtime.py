@@ -122,7 +122,11 @@ hello
 
     assert context.bind_index == 0
     assert context.lcp_index == 0
-    assert context.frontier == {"role": "user", "content": "hello"}
+    assert context.frontier == {
+        "role": "user",
+        "content": "hello",
+        "provenance": {"source": "user_authored"},
+    }
     assert context.new_from_transcript == [{"role": "user", "content": "hello", "provenance": {"source": "user_authored"}}]
     assert any('"phase": "run_step_frontier"' in record.message for record in caplog.records)
 
@@ -3832,6 +3836,40 @@ def test_run_step_user_turn_with_result_and_commentary_gets_handle():
     # Because user provided commentary outside the fence, it is treated as an actual human turn!
     assert res_nodes[0]["turn_id"] == "charlie"
     assert "## TOAS:USER [charlie" in res_nodes[0]["marker"]
+
+
+def test_run_step_edits_result_turn_as_fresh_branch_and_attributes_result_to_it(tmp_path):
+    result_content = (
+        "## RESULT [romeo-2.p1.o1 OK write_file 38.5k]\n"
+        "[OK] write_file (x): wrote 3660 bytes"
+    )
+    log = [
+        {"id": "p0", "parent": None, "role": "user", "content": "earlier request", "turn_id": "alpha"},
+        {
+            "id": "n0",
+            "parent": "p0",
+            "role": "user",
+            "content": result_content,
+            "turn_id": "romeo-2",
+            "marker": "## TOAS:USER [romeo-2]",
+        },
+    ]
+    original_log = [dict(node) for node in log]
+    transcript = f"## TOAS:USER\nearlier request\n\n## TOAS:USER\n{result_content}\n\n$ pwd"
+    (tmp_path / ".toas").mkdir()
+    (tmp_path / ".toas" / "config.toml").write_text("[session]\ntelemetry_decorations = 'compact'\n", encoding="utf-8")
+    config = OperatorConfig(session=SessionPolicy(telemetry_decorations="compact"))
+
+    new_nodes, consequences = run_step(transcript, log, config=config, events=log, command_cwd=str(tmp_path))
+
+    edited_user, shell_result = new_nodes[0], consequences[0]
+    assert edited_user["content"].endswith("$ pwd")
+    assert edited_user["parent"] == "p0"
+    assert edited_user["turn_id"] != "romeo-2"
+    assert "## RESULT [romeo-2.p1.o1 OK write_file" in edited_user["content"]
+    assert shell_result["turn_id"] == f"{edited_user['turn_id']}.p1.o1"
+    assert shell_result["result_marker"].startswith(f"## RESULT [{edited_user['turn_id']}.p1.o1 OK shell ")
+    assert log == original_log
 
 
 def test_run_step_appends_config_diagnostic_warning_node_to_consequences():

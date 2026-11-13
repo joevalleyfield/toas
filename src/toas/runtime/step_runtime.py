@@ -859,13 +859,22 @@ def _build_config_diagnostic_warning_node(diagnostic_notice: str, *, frontier: d
     )
 
 
-def _working_with_transcript_tail_frontier(*, transcript_nodes: list[dict], reconstructed_working: list[dict]) -> list[dict]:
+def _working_with_transcript_tail_frontier(
+    *,
+    transcript_nodes: list[dict],
+    reconstructed_working: list[dict],
+    newly_materialized_nodes: list[dict] | None = None,
+) -> list[dict]:
     """Use transcript tail as the only frontier candidate."""
     transcript_tail = transcript_nodes[-1] if transcript_nodes else None
     if transcript_tail is None:
         return reconstructed_working
     if not reconstructed_working:
         return [transcript_tail]
+    if newly_materialized_nodes and reconstructed_working[-1] is newly_materialized_nodes[-1]:
+        materialized_tail = newly_materialized_nodes[-1]
+        if transcript_tail.get("role") == materialized_tail.get("role") and transcript_tail.get("content") == materialized_tail.get("content"):
+            return reconstructed_working
     return reconstructed_working[:-1] + [transcript_tail]
 
 
@@ -1514,6 +1523,7 @@ def _build_run_step_frontier_context(*, step_mod, transcript: str, log: list[dic
     working_for_frontier = _working_with_transcript_tail_frontier(
         transcript_nodes=transcript_nodes,
         reconstructed_working=reconstructed_working,
+        newly_materialized_nodes=new_from_transcript,
     )
     frontier = working_for_frontier[-1] if working_for_frontier else None
     handoff = ReconciliationHandoff(
