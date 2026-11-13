@@ -12,8 +12,8 @@ _ESCAPED_ROLE_MARKER_RE = re.compile(
 )
 _THINKING_START_MARKER = "## TOAS:THINKING"
 _THINKING_END_MARKER = "## /TOAS:THINKING"
-_CODE_FENCE_OPEN_RE = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
-_CODE_FENCE_CLOSE_RE = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})[ \t]*$")
+_CODE_FENCE_OPEN_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
+_CODE_FENCE_CLOSE_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})[ \t]*$")
 
 
 def escape_transcript_content(content: str) -> str:

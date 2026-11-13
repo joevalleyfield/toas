@@ -147,6 +147,55 @@ Response.
     assert parsed[1]["content"] == "Response."
 
 
+def test_parse_transcript_preserves_frontier_after_indented_fences_in_yaml_plan():
+    plan = (
+        "```yaml\n"
+        "- tool_name: write_file\n"
+        "  args:\n"
+        "    path: example.md\n"
+        "    content: |\n"
+        "      ```text\n"
+        "      Example.\n"
+        "      ```\n"
+        "```"
+    )
+    transcript = f"## TOAS:ASSISTANT\n{plan}\n## TOAS:USER\n## RESULT\nDone.\n## TOAS:USER\n$ jj st\n"
+
+    assert parse_transcript(transcript) == [
+        {"role": "assistant", "content": plan},
+        {"role": "user", "content": "## RESULT\nDone."},
+        {"role": "user", "content": "$ jj st"},
+    ]
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t", " \t"])
+def test_parse_transcript_does_not_open_fence_at_four_columns(indent):
+    transcript = f"## TOAS:ASSISTANT\nAn example:\n{indent}~~~text\n## TOAS:USER\nnext\n"
+
+    assert parse_transcript(transcript) == [
+        {"role": "assistant", "content": f"An example:\n{indent}~~~text"},
+        {"role": "user", "content": "next"},
+    ]
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_parse_transcript_honors_three_space_fences(fence):
+    body = f"   {fence}text\n## TOAS:USER\nExample.\n   {fence}\t"
+    transcript = f"## TOAS:ASSISTANT\n{body}\n## TOAS:USER\nnext\n"
+
+    assert parse_transcript(transcript) == [
+        {"role": "assistant", "content": body.strip()},
+        {"role": "user", "content": "next"},
+    ]
+
+
+def test_parse_transcript_keeps_unclosed_fence_literal_at_eof():
+    body = "Example:\n```text\n## TOAS:USER\n$ jj st"
+    transcript = f"## TOAS:ASSISTANT\n{body}\n"
+
+    assert parse_transcript(transcript) == [{"role": "assistant", "content": body}]
+
+
 def test_parse_transcript_handles_dogfood_read_file_result_with_grammar_specimen():
     transcript = """\
 ## TOAS:USER
