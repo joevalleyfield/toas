@@ -166,6 +166,31 @@ def test_multi_turn_tool_projection_then_llm_stream():
 
 
 
+def test_stream_cursor_anchor_below_run_tracks_offset():
+    result = _run("stream_cursor_anchor_below_run")
+    assert result["errors"] == []
+    assert result["status"] == "succeeded"
+    before, during, after = result["positions"]
+    assert before[1:] == during[1:] == after[1:] == [4, "tail text"]
+    assert during[0] > before[0]
+    assert result["end_marker"] == "## /TOAS:RUN rcursoranchor1"
+    assert all("TOAS:RUN" not in line for line in result["text"])
+    assert result["text"][-3:] == ["tail heading", "tail text", "last line"]
+    assert result["manual_preserved"] == [4, "tail text", "manual chunk"]
+    assert result["manual_followed"] == [1, "next manual chunk"]
+
+
+
+@pytest.mark.parametrize("projection", ["", "_with_projection"])
+def test_stream_cursor_on_end_marker_lands_on_final_answer_line(projection):
+    result = _run(f"stream_cursor_anchor_on_end_marker{projection}")
+    assert result["errors"] == []
+    assert result["status"] == "succeeded"
+    assert result["positions"][-1][1:] == [1, "fifth"]
+    assert ("Prior turn" in result["text"]) == bool(projection)
+    assert result["text"][-3:] == ["tail heading", "tail text", "last line"]
+
+
 @pytest.mark.parametrize("scope", ["bare", "user", "control"])
 def test_successful_result_projection_preserves_scope(scope):
     result = _run(f"result_scope_{scope}")

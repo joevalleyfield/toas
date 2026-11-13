@@ -7,6 +7,12 @@ from pathlib import Path
 
 from vim_terminal import EOF, spawn
 
+CURSOR_ANCHOR_SCENARIOS = {
+    "stream_cursor_anchor_below_run",
+    "stream_cursor_anchor_on_end_marker",
+    "stream_cursor_anchor_on_end_marker_with_projection",
+}
+
 
 def _vim_quote(path: Path) -> str:
     return path.as_posix().replace("'", "''")
@@ -135,6 +141,13 @@ def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
             "## TOAS:USER\n\n```yaml\n- tool_name: read_file\n```\n",
             "",
             "I have inspected the file.",
+        )
+    if scenario in CURSOR_ANCHOR_SCENARIOS:
+        return (
+            "rcursoranchor1",
+            "## TOAS:USER\n\n/shell allow grep\n",
+            "",
+            "## /TOAS:RUN rcursoranchor1",
         )
     raise ValueError(f"unknown scenario: {scenario}")
 
@@ -556,6 +569,83 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 f"call writefile([json_encode(g:result)], '{out_path}')",
                 "qa!",
             ]
+        elif scenario in CURSOR_ANCHOR_SCENARIOS:
+            script_lines = [
+                f"source {plugin_path}",
+                "let g:toas_step_nonblocking = 1",
+                "let g:toas_notice_enabled = 0",
+                "let g:toas_transport_mode = 'rpc_local_backend'",
+                "let g:toas_step_lane_order = ['default']",
+                "let g:phase = 0",
+                "function! g:CursorAnchorRequest(op, payload, timeout_s) abort",
+                "  if a:op ==# 'step_async'",
+                f"    return {{'ok': v:true, 'payload': {{'run_id': '{run_id}', 'status': 'running'}}}}",
+                "  endif",
+                "  if a:op ==# 'watch'",
+                '    let l:chunk = get(["", "first\\nsecond\\nthird\\n", "fourth\\nfifth\\n"], g:phase, "")',
+                "    if a:payload.run_id ==# 'manual-watch'",
+                "      let l:event = {'lane': 'llm_answer', 'phase': 'delta', 'payload': {'text': g:manual_text}}",
+                "      return {'ok': v:true, 'payload': {'status': 'running', 'events': [l:event]}}",
+                "    endif",
+                "    let l:seq = get(a:payload, 'since_seq', 0)",
+                "    let l:events = l:chunk !=# '' && l:seq < g:phase ? [{'lane': 'llm_answer', 'phase': 'delta', 'seq': g:phase, 'payload': {'text': l:chunk}}] : []",
+                *(
+                    [
+                        "    if g:phase == 3 && l:seq < g:phase",
+                        '      call add(l:events, {\'lane\': \'projection\', \'phase\': \'delta\', \'seq\': 3, \'payload\': {\'text\': "## TOAS:USER\\n\\nPrior turn\\n\\n## TOAS:ASSISTANT\\n\\nfirst\\nsecond\\nthird\\nfourth\\nfifth\\n"}})',
+                        "    endif",
+                    ]
+                    if scenario.endswith("_with_projection")
+                    else []
+                ),
+                "    let l:status = g:phase == 3 ? 'succeeded' : 'running'",
+                "    return {'ok': v:true, 'payload': {'status': l:status, 'next_seq': g:phase, 'events': l:events}}",
+                "  endif",
+                "  throw 'unexpected op=' . a:op",
+                "endfunction",
+                "function! g:WaitForAnchorText(pattern) abort",
+                "  let l:start = reltime()",
+                "  while search(a:pattern, 'nw') == 0 && reltimefloat(reltime(l:start)) < 2.0",
+                "    sleep 10m",
+                "  endwhile",
+                "  call assert_true(search(a:pattern, 'nw') > 0, a:pattern)",
+                "endfunction",
+                "let g:ToasTestRpcRequestFn = function('g:CursorAnchorRequest')",
+                f"execute 'edit ' . fnameescape('{session_quoted}')",
+                "call ToasStep()",
+                "call append(line('$'), ['tail heading', 'tail text', 'last line'])",
+                "call cursor(line('$') - 1, 4)",
+                "let g:positions = [[line('.'), col('.'), getline('.')]]",
+                "let g:phase = 1",
+                "call g:WaitForAnchorText('^third$')",
+                "call add(g:positions, [line('.'), col('.'), getline('.')])",
+                "call cursor(search('^## /TOAS:RUN ', 'nw'), 4)",
+                "let g:phase = 2",
+                "call g:WaitForAnchorText('^fifth$')",
+                "let g:end_marker = getline('.')",
+                "call cursor(line('$') - 1, 4)",
+                *(
+                    ["call cursor(search('^## /TOAS:RUN ', 'nw'), 1)"]
+                    if scenario != "stream_cursor_anchor_below_run"
+                    else []
+                ),
+                "let g:phase = 3",
+                "let g:deadline = reltime()",
+                "while search('^## /TOAS:RUN ', 'nw') > 0 && reltimefloat(reltime(g:deadline)) < 2.0",
+                "  sleep 10m",
+                "endwhile",
+                "call add(g:positions, [line('.'), col('.'), getline('.')])",
+                "let g:result = {'positions': g:positions, 'end_marker': g:end_marker, 'text': getline(1, '$'), 'errors': v:errors, 'status': get(g:, 'toas_last_run_status', '')}",
+                "let g:manual_text = 'manual chunk'",
+                "call ToasWatch('manual-watch')",
+                "let g:result.manual_preserved = [col('.'), getline('.'), getline('$')]",
+                "normal! G",
+                "let g:manual_text = 'next manual chunk'",
+                "call ToasWatch('manual-watch')",
+                "let g:result.manual_followed = [line('.') == line('$'), getline('.')]",
+                f"call writefile([json_encode(g:result)], '{out_path}')",
+                "qa!",
+            ]
         else:
             script_lines = [
                 "set nocompatible",
@@ -701,6 +791,8 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 and "I have inspected the file." in text
                 and text.find("## RESULT") < text.find("## TOAS:ASSISTANT")
             )
+        if scenario in CURSOR_ANCHOR_SCENARIOS:
+            ok = True  # The pytest caller reports the individual cursor assertions.
         return {"ok": ok, "result": result}
 
 

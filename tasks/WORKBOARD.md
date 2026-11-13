@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-11-10
+> **Last Sync:** 2026-11-12
 
 ## 0. Manual Triage
 
@@ -157,6 +157,11 @@ Neither dated vote is a literal current queue.
 - **[T261109-tool-result-decorations-elapsed-time]** Tool Result Decorations Should Have Elapsed Time and Timestamp
 - **[T261109-vim-terminal-projection-stream-dedup]** Vim Plugin Terminal Projection Stream Deduplication
 - **[T261110-indented-code-fence-marker-desync]** Indented Code Fence CommonMark Conformance and Turn Marker Containment
+- **[T261111-result-turn-id-namespace-advance]** When a user turn that already carries `## RESULT` content is re-saved with *added* user content, the reconciliation path must materialize the change a...
+- **[T261111-skill-output-spill-exemption]** Stop skill-activation output from being routed through the spill threshold. A skill's instruction block is the operator's explicitly-requested, bounde...
+- **[T261111-spill-threshold-tuning]** Replace the arbitrary fixed spill thresholds (`threshold_lines=40` / `threshold_bytes=4000` defaults in `src/toas/config.py` `SpillProfile`) with per-...
+- **[T261111-state-transition-fluidity]** Capture the operator's want to move between the conversation flow and the STATE flow fluidly -- entering a state transcript and returning to conversat...
+- **[T261111-yaml-action-block-misfire-auto-heal]** Make structured action block extraction robust to the YAML shapes the system itself prompts the model toward, and add an auto-heal / repair path for t...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -218,11 +223,11 @@ should return only with a current timing reproduction.
 *Generated recent-task sample, not a complete completion ledger.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T261111-vim-stream-cursor-anchor-below-run]** 
+- **[T261111-toas-new-edit-sessions]** Add two thin, file-only CLI commands that remove the friction of starting a session, without introducing any runtime semantics, seed selection, or sta...
+- **[T261111-dispatch-main-complexity]** `src/toas/cli_dispatch.py::dispatch_main` is a single top-to-bottom `if/elif` chain that now sits at the C901 mccabe cap (80; it was pushed over by th...
 - **[T261109-recent-windows-regressions]** Status: CLOSED — 2026-11-09
 - **[T261108-workspace-presentation-overrides]** Workspace Presentation Asset Overrides and Customization
-- **[T261108-workspace-navigation-presentation-decoupling]** Workspace Navigation Command Presentation Decoupling and Descriptor Migration
-- **[T261108-transcript-inspection-presentation-decoupling]** Transcript Inspection Command Presentation Decoupling and Descriptor Migration
-- **[T261108-shell-execution-presentation-decoupling]** Shell Execution Command Presentation Decoupling and Descriptor Migration
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
