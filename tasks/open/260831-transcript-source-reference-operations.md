@@ -40,8 +40,8 @@ later chooses compact operator spelling.
 - Reference operations address assistant intent only. Ordinary user YAML is
   already current executable material and is not a source-reference target.
 - A source-reference operation participates with YAML, shell, configuration,
-  grants, and other operator commands in the existing textual `in_order`
-  arbitration stream. A line later in the transcript is a later operation;
+  grants, and other operator commands in one source-ordered
+  execution stream. A line later in the transcript is a later operation;
   normal success sequencing needs no separate `then` connective.
 - Referenced execution may remain in its bounded assistant/policy-mediated
   lane. The user can interleave explicit grants, timeouts, or other policy
@@ -54,6 +54,27 @@ later chooses compact operator spelling.
   reference-ready frontier rather than copying its source. `--verbose` is the
   explicit loud/materializing form, aligned with existing verbose projection
   affordances such as `/compact --verbose` and `/concept-graph`.
+
+## Ordered execution and recovery
+
+Bring this slice forward independently of the reference syntax. Source order
+is the sole execution model. Remove `extraction.intent_arbitration` and the
+`first_wins`, `last_wins`, and `strict` modes from runtime, configuration,
+and help. No migration behavior or legacy execution path is required.
+
+A policy or config action affects subsequent actions in the same turn.
+Stop on the first failed policy mutation or tool action. Keep the successful
+prefix recorded, preserve the failed action in its authored form, and leave
+the unattempted suffix visibly staged in source order with its authority
+intact. A failed policy mutation leaves the prior effective policy in force.
+Resuming the suffix must preserve earlier results without rerunning the
+successful prefix.
+
+Exercise the public step path with a config change before and after a YAML
+plan, a failed grant before a tool, a failed tool before a revoke, and a
+failed revoke before another tool. Verify the pending suffix and effective
+policy in each case. One-turn grants and compact pending-action forms retain
+their separate scope.
 
 ## Design sketch
 
@@ -252,7 +273,7 @@ the original source/projection/authority distinctions above.
 ## Follow-on disposition
 
 - `260901-source-reference-recovery-integration` is the one ready next slice:
-  real transcript fixtures, mixed `in_order` integration, and identical
+  real transcript fixtures, mixed source-order integration, and identical
   recovery for reached references.
 - Loud `stage --verbose` materialization remains intentionally deferred until
   its projection shape is useful enough to decide. It does not yet merit a
