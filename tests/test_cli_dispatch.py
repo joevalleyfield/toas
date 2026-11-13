@@ -36,6 +36,7 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_host=_rec("host"),
         run_replay_script=_rec("replay_script"),
         run_debug_cancel_latency=_rec("debug_cancel_latency"),
+        run_spill=_rec("spill"),
         run_new=_rec("new"),
         run_edit=_rec("edit"),
     )
@@ -45,6 +46,14 @@ def test_dispatch_defaults_to_step():
     calls: list[tuple[str, tuple, dict]] = []
     dispatch_main([], deps=_deps(calls))
     assert calls == [("step", (), {})]
+
+
+def test_dispatch_spill_telemetry_command():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["spill", "telemetry", "--json"], deps=_deps(calls))
+    assert calls == [("spill", (["telemetry", "--json"],), {})]
+    with pytest.raises(SystemExit, match="spill telemetry command is not configured"):
+        dispatch_main(["spill", "telemetry"], deps=replace(_deps([]), run_spill=None))
 
 
 def test_dispatch_state_seed_is_retired():

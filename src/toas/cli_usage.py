@@ -158,6 +158,11 @@ POLICY_USAGE = (
     "harvest observed commands from event logs and scaffold executable grant policies"
 )
 
+SPILL_TELEMETRY_USAGE = (
+    "usage: toas spill telemetry [events_path] [--json]\n\n"
+    "show aggregate-only spill counts, size distributions, and inferred reread references"
+)
+
 
 SKILL_USAGE = (
     "usage: toas skill <name> | toas skill specialize <name>\n\n"
@@ -206,6 +211,7 @@ _SUBCOMMAND_HELP: dict[str, str] = {
     "replay-script": REPLAY_SCRIPT_USAGE,
     "debug": DEBUG_USAGE,
     "policy": POLICY_USAGE,
+    "spill": SPILL_TELEMETRY_USAGE,
     "new": NEW_USAGE,
     "edit": EDIT_USAGE,
 }

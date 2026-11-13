@@ -208,6 +208,7 @@ def stitch_frontier_records(
             content=node["content"],
             context_update=node.get("context_update"),
             workspace_update=node.get("workspace_update"),
+            spill_telemetry=(node.get("payload") or {}).get("spill_telemetry") if isinstance(node.get("payload"), dict) else None,
         )
     replay_like_nodes = [
         node

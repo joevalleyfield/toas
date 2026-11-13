@@ -12,6 +12,7 @@ The system is built around three things:
 - `.toas/events.jsonl` (default): append-only durable state
   - compatibility fallback: root `events.jsonl` is still honored when present
 - `toas step`: a one-step operator that accepts transcript state and resolves one layer of consequence
+- `toas spill telemetry [events_path] [--json]`: inspect local aggregate spill and reread-reference telemetry ([details](docs/spill-telemetry.md))
 
 It is not a hidden conversation loop. It is a small operator runtime over a message graph plus related operator records.
 

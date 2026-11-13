@@ -49,6 +49,7 @@ class DispatchDeps:
     run_debug_cancel_latency: Callable[..., None]
     run_session_continue: Callable[..., None] | None = None
     run_policy: Callable[..., None] | None = None
+    run_spill: Callable[..., None] | None = None
     run_skill: Callable[..., None] | None = None
     run_skill_specialize: Callable[..., None] | None = None
     run_skills: Callable[..., None] | None = None
@@ -313,6 +314,12 @@ def _handle_policy(argv: list[str], deps: DispatchDeps) -> None:
     deps.run_policy(argv[1:])
 
 
+def _handle_spill(argv: list[str], deps: DispatchDeps) -> None:
+    if deps.run_spill is None:
+        raise SystemExit("spill telemetry command is not configured")
+    deps.run_spill(argv[1:])
+
+
 _COMMANDS: dict[str, Callable[[list[str], DispatchDeps], None]] = {
     "step": _handle_step,
     "watch": _handle_watch,
@@ -343,6 +350,7 @@ _COMMANDS: dict[str, Callable[[list[str], DispatchDeps], None]] = {
     "replay-script": _handle_replay_script,
     "debug": _handle_debug,
     "policy": _handle_policy,
+    "spill": _handle_spill,
 }
 
 

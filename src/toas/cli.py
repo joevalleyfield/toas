@@ -614,6 +614,12 @@ def run_policy(args: list[str]) -> None:
     run_cli_policy(args, default_events_path=resolve_events_path(), print_fn=print)
 
 
+def run_spill(args: list[str]) -> None:
+    from .cli_spill_commands import run_cli_spill
+
+    run_cli_spill(args, default_events_path=resolve_events_path(), print_fn=print)
+
+
 # --- entry point ---
 
 def _build_dispatch_deps() -> DispatchDeps:
@@ -648,6 +654,7 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_replay_script=run_replay_script,
         run_debug_cancel_latency=run_debug_cancel_latency,
         run_policy=run_policy,
+        run_spill=run_spill,
     )
 
 

@@ -1263,6 +1263,7 @@ def test_write_command_request_record_appends_non_message_record(tmp_path):
 
 def test_write_command_result_record_appends_non_message_record(tmp_path):
     path = tmp_path / "events.jsonl"
+    spill_telemetry = {"schema": "spill_observation.v0", "coverage": "complete", "outputs": []}
 
     write_command_result_record(
         str(path),
@@ -1270,13 +1271,14 @@ def test_write_command_result_record_appends_non_message_record(tmp_path):
         ok=True,
         content="/tmp",
         context_update={"cwd": "/tmp"},
+        spill_telemetry=spill_telemetry,
     )
 
     assert read_log(str(path)) == [
         {
             "kind": "command_result",
             "related_to": "c4",
-            "payload": {"ok": True, "content": "/tmp", "context_update": {"cwd": "/tmp"}},
+            "payload": {"ok": True, "content": "/tmp", "context_update": {"cwd": "/tmp"}, "spill_telemetry": spill_telemetry},
         }
     ]
 

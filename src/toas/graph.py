@@ -873,12 +873,15 @@ def write_command_result_record(
     content: str,
     context_update: dict | None = None,
     workspace_update: dict | None = None,
+    spill_telemetry: dict | None = None,
 ) -> dict:
     payload: dict = {"ok": ok, "content": content}
     if context_update is not None:
         payload["context_update"] = context_update
     if workspace_update is not None:
         payload["workspace_update"] = workspace_update
+    if spill_telemetry is not None:
+        payload["spill_telemetry"] = spill_telemetry
     record = {"kind": "command_result", "payload": payload}
     record["related_to"] = request_id
     append_nodes(path, [record])

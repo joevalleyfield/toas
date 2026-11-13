@@ -170,7 +170,7 @@ def _run_procedure(args: dict) -> dict:
         f"ok: {ok}",
     ]
     for idx, item in enumerate(results, 1):
-        content_lines.append(f"\n--- Step {idx} ---\n{shape_tool_result_content(item)}")
+        content_lines.append(f"\n--- Step {idx} ---\n{shape_tool_result_content(item, collect_spill_telemetry=True)}")
     return {
         "tool_name": "procedure",
         "ok": ok,
@@ -834,11 +834,13 @@ def shape_result_content(
     *,
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
+    collect_spill_telemetry: bool = False,
 ) -> str:
     return shape_tool_result_content(
         result,
         single_turn_ephemeral=single_turn_ephemeral,
         ephemeral=ephemeral,
+        collect_spill_telemetry=collect_spill_telemetry,
     )
 
 

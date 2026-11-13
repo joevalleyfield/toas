@@ -59,6 +59,143 @@ def test_shape_result_content_shell_success_and_error():
     )
 
 
+def test_shape_result_content_collects_one_bounded_spill_observation(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = {
+        "tool_name": "shell",
+        "ok": True,
+        "summary": "exit=0",
+        "stdout": "alpha\nβeta",
+        "threshold_lines": 1,
+        "threshold_bytes": 1000,
+    }
+
+    shape_result_content(result, collect_spill_telemetry=True, single_turn_ephemeral=True)
+    telemetry = result["spill_telemetry"]
+    assert telemetry["schema"] == "spill_observation.v0"
+    assert telemetry["coverage"] == "complete"
+    assert len(telemetry["outputs"]) == 1
+    observation = telemetry["outputs"][0]
+    assert observation["tool_name"] == "shell"
+    assert observation["original_lines"] == 2
+    assert observation["original_bytes"] == len("alpha\nβeta".encode())
+    assert observation["spilled"] is True
+    assert observation["block_id"].startswith("ib_")
+    assert "alpha" not in repr(telemetry) and ".toas/scratch/" not in repr(telemetry)
+
+    observation_id = observation["observation_id"]
+    shape_result_content(result, collect_spill_telemetry=True)
+    assert result["spill_telemetry"]["outputs"][0]["observation_id"] == observation_id
+
+
+def test_shape_result_content_collects_nonspill_and_exact_scratch_read_id(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    scratch = tmp_path / ".toas" / "scratch"
+    scratch.mkdir(parents=True)
+    source = scratch / "ib_0123456789abcdef.txt"
+    source.write_text("small output", encoding="utf-8")
+    result = {
+        "tool_name": "read_file",
+        "ok": True,
+        "path": str(source),
+        "content": "small output",
+        "threshold_lines": 100,
+        "threshold_bytes": 1000,
+    }
+
+    shape_result_content(result, collect_spill_telemetry=True)
+    telemetry = result["spill_telemetry"]
+    assert telemetry["read_block_id"] == "ib_0123456789abcdef"
+    assert telemetry["outputs"][0]["tool_name"] == "read_file"
+    assert telemetry["outputs"][0]["spilled"] is False
+
+
+def test_shape_result_content_records_each_eligible_shell_stream(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = {
+        "tool_name": "shell",
+        "ok": True,
+        "summary": "exit=0",
+        "stdout": "out one\nout two",
+        "stderr": "err one\nerr two",
+        "threshold_lines": 1,
+        "threshold_bytes": 1000,
+    }
+
+    shape_result_content(result, collect_spill_telemetry=True)
+
+    telemetry = result["spill_telemetry"]
+    assert [item["tool_name"] for item in telemetry["outputs"]] == ["shell", "shell"]
+    assert [item["original_lines"] for item in telemetry["outputs"]] == [2, 2]
+    assert [item["spilled"] for item in telemetry["outputs"]] == [True, True]
+
+
+def test_shape_result_content_marks_spill_exempt_skill_with_zero_eligible_blocks():
+    result = {
+        "tool_name": "skill",
+        "ok": True,
+        "summary": "skill loaded",
+        "content": "\n".join(f"instruction {index}" for index in range(60)),
+    }
+
+    shape_result_content(result, collect_spill_telemetry=True)
+
+    assert result["spill_telemetry"]["coverage"] == "complete"
+    assert result["spill_telemetry"]["outputs"] == []
+
+
+@pytest.mark.parametrize("path", ["", "outside.txt"])
+def test_shape_result_content_does_not_attribute_non_scratch_reads(tmp_path, monkeypatch, path):
+    monkeypatch.chdir(tmp_path)
+    result = {"tool_name": "read_file", "ok": True, "path": path, "content": "small output"}
+
+    shape_result_content(result, collect_spill_telemetry=True)
+
+    assert "read_block_id" not in result["spill_telemetry"]
+
+
+def test_shape_result_content_does_not_confirm_failed_scratch_read(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    scratch = tmp_path / ".toas" / "scratch"
+    scratch.mkdir(parents=True)
+    result = {
+        "tool_name": "read_file", "ok": False, "path": str(scratch / "ib_0123456789abcdef.txt"),
+        "error": "read failed",
+    }
+
+    shape_result_content(result, collect_spill_telemetry=True)
+
+    assert "read_block_id" not in result["spill_telemetry"]
+
+
+def test_shape_result_content_ignores_scratch_path_resolution_errors(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    scratch = tmp_path / ".toas" / "scratch"
+    scratch.mkdir(parents=True)
+    source = scratch / "ib_0123456789abcdef.txt"
+    source.write_text("small output", encoding="utf-8")
+    path_type = type(Path())
+    original_resolve = path_type.resolve
+    calls = 0
+    scratch_path = ".toas/scratch"
+
+    def fail_during_identity_check(path, *args, **kwargs):
+        nonlocal calls
+        if str(path) == scratch_path:
+            calls += 1
+        if str(path) == scratch_path and calls == 2:
+            raise OSError("private path failure")
+        return original_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(path_type, "resolve", fail_during_identity_check)
+    result = {"tool_name": "read_file", "ok": True, "path": str(source), "content": "small output"}
+
+    shape_result_content(result, collect_spill_telemetry=True)
+
+    assert calls == 2
+    assert "read_block_id" not in result["spill_telemetry"]
+
+
 def test_shape_result_content_python_error_preserves_process_output():
     rendered = shape_result_content(
         {

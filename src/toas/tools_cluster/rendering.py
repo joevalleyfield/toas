@@ -6,11 +6,14 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
+from uuid import uuid4
 
 from .spill_ops import extract_spill_preview
 
 _SINGLE_TURN_EPHEMERAL: ContextVar[bool] = ContextVar("toas_single_turn_ephemeral", default=False)
 _ACTIVE_SPILL_POLICY: ContextVar[object | None] = ContextVar("toas_active_spill_policy", default=None)
+_SPILL_OBSERVATIONS: ContextVar[list[dict] | None] = ContextVar("toas_spill_observations", default=None)
+_SPILL_TOOL_NAME: ContextVar[str | None] = ContextVar("toas_spill_tool_name", default=None)
 
 
 def get_active_spill_policy():
@@ -369,6 +372,8 @@ def render_fenced_output(  # noqa: PLR0913
     max_line_width: int | None = None,
     max_preview_bytes: int | None = None,
 ) -> str:
+    original_bytes = len(content.encode("utf-8"))
+    original_lines = len(content.splitlines())
     content = content.replace("\r\n", "\n").replace("\r", "\n")
     lines = content.splitlines()
     total_lines = len(lines)
@@ -397,7 +402,20 @@ def render_fenced_output(  # noqa: PLR0913
     effective_threshold_lines = min(base_thresh_lines, DEFAULT_SPILL_SAFETY_BRAKE_LINES)
     effective_threshold_bytes = min(base_thresh_bytes, DEFAULT_SPILL_SAFETY_BRAKE_BYTES)
     should_allow_spill = (kind in {"result", "stdout", "stderr"} and not source.startswith("command.")) if allow_spill is None else allow_spill
-    if should_allow_spill and (total_lines > effective_threshold_lines or total_bytes > effective_threshold_bytes):
+    spilled = should_allow_spill and (total_lines > effective_threshold_lines or total_bytes > effective_threshold_bytes)
+    observations = _SPILL_OBSERVATIONS.get()
+    if should_allow_spill and observations is not None:
+        obs = {
+            "observation_id": uuid4().hex,
+            "tool_name": _SPILL_TOOL_NAME.get() or (source[5:] if source.startswith("tool.") else "other"),
+            "original_lines": original_lines,
+            "original_bytes": original_bytes,
+            "spilled": bool(spilled),
+        }
+        if spilled:
+            obs["block_id"] = block_id or f"ib_{sha256(content.encode('utf-8')).hexdigest()[:16]}"
+        observations.append(obs)
+    if spilled:
         spilled_text, _, _ = spill_inert_block(
             content,
             kind=kind,
@@ -928,16 +946,53 @@ def shape_result_content(
     *,
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
+    collect_spill_telemetry: bool = False,
 ) -> str:
     if single_turn_ephemeral is None:
         single_turn_ephemeral = ephemeral
     if single_turn_ephemeral is None and isinstance(result, dict):
         single_turn_ephemeral = result.get("single_turn_ephemeral", result.get("ephemeral"))
 
-    if single_turn_ephemeral is not None:
-        with active_single_turn_ephemeral(bool(single_turn_ephemeral)):
-            return _shape_result_content_body(result)
-    return _shape_result_content_body(result)
+    if not collect_spill_telemetry or "spill_telemetry" in result:
+        if single_turn_ephemeral is not None:
+            with active_single_turn_ephemeral(bool(single_turn_ephemeral)):
+                return _shape_result_content_body(result)
+        return _shape_result_content_body(result)
+
+    observations: list[dict] = []
+    tool_name = str(result.get("tool_name") or "other")
+    observation_token = _SPILL_OBSERVATIONS.set(observations)
+    tool_token = _SPILL_TOOL_NAME.set(tool_name)
+    try:
+        if single_turn_ephemeral is not None:
+            with active_single_turn_ephemeral(bool(single_turn_ephemeral)):
+                rendered = _shape_result_content_body(result)
+        else:
+            rendered = _shape_result_content_body(result)
+    finally:
+        _SPILL_TOOL_NAME.reset(tool_token)
+        _SPILL_OBSERVATIONS.reset(observation_token)
+
+    telemetry = {"schema": "spill_observation.v0", "result_id": uuid4().hex, "coverage": "complete", "outputs": observations}
+    if tool_name == "read_file" and result.get("ok") is True:
+        read_block_id = _scratch_block_id(result.get("path"))
+        if read_block_id is not None:
+            telemetry["read_block_id"] = read_block_id
+    result["spill_telemetry"] = telemetry
+    return rendered
+
+
+def _scratch_block_id(path: object) -> str | None:
+    if not isinstance(path, str) or not path:
+        return None
+    candidate = Path(path)
+    try:
+        if not candidate.resolve().is_relative_to(default_scratch_dir().resolve()):
+            return None
+    except OSError:
+        return None
+    match = re.fullmatch(r"ib_([a-zA-Z0-9_-]+)\.txt", candidate.name)
+    return f"ib_{match.group(1)}" if match else None
 
 
 def _shape_result_content_body(result: dict) -> str:

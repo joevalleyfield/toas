@@ -628,7 +628,7 @@ def _execute_plan(
     effective_env = dict(env_modifiers or {})
     return [
         make_result_node(
-            shape_result_content(result),
+            shape_result_content(result, collect_spill_telemetry=True),
             origin_role=origin_role,
             origin_kind="tool_call",
             payload=result,
@@ -673,7 +673,7 @@ def _execute_plan_user_context(
                 }
                 nodes.append(
                     make_result_node(
-                        shape_result_content(result),
+                        shape_result_content(result, collect_spill_telemetry=True),
                         origin_role=origin_role,
                         origin_kind="tool_call",
                         payload=result,
@@ -692,7 +692,7 @@ def _execute_plan_user_context(
                     }
                     nodes.append(
                         make_result_node(
-                            shape_result_content(result),
+                        shape_result_content(result, collect_spill_telemetry=True),
                             origin_role=origin_role,
                             origin_kind="tool_call",
                             payload=result,
@@ -825,7 +825,7 @@ def _execute_user_shell(
     result["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return [
         make_result_node(
-            shape_result_content(result),
+            shape_result_content(result, collect_spill_telemetry=True),
             origin_role=origin_role,
             origin_kind="user_shell",
             payload=result,
