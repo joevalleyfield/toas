@@ -31,6 +31,7 @@ from .runtime.step_context_runtime import (
 )
 from .runtime.step_generation_runtime import StepCliDeps, build_step_cli_deps
 from .runtime.step_result_runtime import persist_step_outputs_runtime
+from .tools_cluster.rendering import active_spill_policy
 from .transcript import _lcp, parse_transcript, render_transcript
 
 write_text_with_newline_style = _write_text_with_newline_style
@@ -877,14 +878,15 @@ def _run_state_step_impl(*, deps, events_path: Path, session_path: Path, normali
         return StepOutcome(completed=True, quiescent=True, turns_executed=1, rendered_text=content if isinstance(content, str) else None)
 
     def execute_call(call: dict) -> list[dict]:
-        results = step_mod._execute_plan(
-            [call], origin_role="assistant", command_cwd=runtime_ctx["command_cwd"],
-            workspace_mode=runtime_ctx["workspace_mode"], workspace_roots=runtime_ctx["workspace_roots"],
-            env_modifiers=step_mod.resolve_effective_env_modifiers([]),
-            shell_allowed_commands=step_mod.resolve_effective_shell_allowed([], operator_config, events),
-            assistant_timeout_s=operator_config.shell.assistant_timeout_s,
-            assistant_timeout_source="default",
-        )
+        with active_spill_policy(operator_config.spill):
+            results = step_mod._execute_plan(
+                [call], origin_role="assistant", command_cwd=runtime_ctx["command_cwd"],
+                workspace_mode=runtime_ctx["workspace_mode"], workspace_roots=runtime_ctx["workspace_roots"],
+                env_modifiers=step_mod.resolve_effective_env_modifiers([]),
+                shell_allowed_commands=step_mod.resolve_effective_shell_allowed([], operator_config, events),
+                assistant_timeout_s=operator_config.shell.assistant_timeout_s,
+                assistant_timeout_source="default",
+            )
         for result in results:
             payload = result.get("payload")
             if not isinstance(payload, dict):

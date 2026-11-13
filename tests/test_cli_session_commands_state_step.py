@@ -1479,6 +1479,35 @@ def test_state_turn_pending_tools_execute_at_frontier(monkeypatch, tmp_path, cap
     assert results[0]["status"] == "completed"
 
 
+def test_state_pending_tool_uses_workspace_spill_config(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "toas.toml").write_text(
+        "[spill]\nthreshold_lines = 20\npreview_lines = 10\n", encoding="utf-8"
+    )
+    (tmp_path / "data.txt").write_text(
+        "\n".join(f"data line {number:03}" for number in range(1, 31)) + "\n",
+        encoding="utf-8",
+    )
+    session = tmp_path / "session.md"
+    session.write_text(
+        "## TOAS:STATE/1\n\n"
+        "state:\n  goal: inspect\n"
+        "pending_tools:\n"
+        "  - tool_name: read_file\n"
+        "    args:\n"
+        "      path: data.txt\n",
+        encoding="utf-8",
+    )
+
+    cli_session_commands.run_step(session_path=str(session))
+
+    out = capsys.readouterr().out
+    assert "spilled to" in out
+    assert "lines=1..10 of 30" in out
+    assert "data line 010" in out
+    assert "data line 011" not in out
+
+
 def test_state_turn_tools_outside_frontier_do_not_execute(monkeypatch, tmp_path, capsys):
     session = tmp_path / "session.md"
     events_path = tmp_path / ".toas" / "events.jsonl"

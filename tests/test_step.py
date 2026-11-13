@@ -3563,6 +3563,41 @@ def test_step_user_mixed_plan_and_slash_command_runs_in_text_order_by_default():
     assert out[1]["intent_execution"] == {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"}
 
 
+def test_step_user_tool_uses_live_spill_config(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data.txt").write_text(
+        "\n".join(f"data line {number:03}" for number in range(1, 101)) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "short.txt").write_text("short line\n" * 60, encoding="utf-8")
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- operation: read_file
+  arguments:
+    path: short.txt
+- operation: read_file
+  arguments:
+    path: data.txt
+```
+
+## TOAS:USER
+/config set spill.threshold_lines 80
+/config set spill.preview_lines 65
+/replay --index 1
+"""
+
+    _, out = step(transcript, [], command_cwd=str(tmp_path))
+    reads = [node["content"] for node in out if node.get("payload", {}).get("tool_name") == "read_file"]
+    full_read, limited_read = reads
+
+    assert "spilled to" not in full_read
+    assert full_read.count("short line") == 60
+    assert "lines=1..65 of 100" in limited_read
+    assert "data line 065" in limited_read
+    assert "data line 066" not in limited_read
+
+
 def test_step_user_mixed_plan_and_slash_command_first_wins_runs_only_first_text_intent():
     config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="first_wins"))
     transcript = """\
