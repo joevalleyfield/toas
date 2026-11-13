@@ -214,6 +214,21 @@ def test_execute_plan_applies_executable_grant_policy_to_shell_calls(fake_shell_
     assert user_run[0]["ok"] is True
 
 
+def test_shell_policy_receives_normalized_argv(fake_shell_subprocess):
+    expected = ["printf", "%s", "", "true", "42"]
+    policy = ExecutableGrantPolicy(
+        prefix_matchers={"printf": (lambda argv: argv == expected,)},
+    )
+    results = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["printf", "%s", "", True, 42]}}],
+        executable_grant_policy=policy,
+        shell_allowed_commands=["printf"],
+    )
+
+    assert results[0]["ok"] is True
+    assert fake_shell_subprocess.call_args.args[0] == expected
+
+
 def test_execute_plan_with_standard_matchers_library(fake_shell_subprocess):
     from toas.runtime.matchers import allow_subcommands, deny_flags
 

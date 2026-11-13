@@ -320,9 +320,6 @@ def _workspace_path(path_arg: str) -> Path:
 
 
 def _run_shell(args: dict) -> dict:
-    if "argv" in args and isinstance(args["argv"], list) and args["argv"]:
-        normalized = [str(x) if not isinstance(x, str) else x for x in args["argv"]]
-        _authorize_resolved_runtime(normalized, tool_name="shell")
     return execute_shell_call(args, context="assistant")
 
 
@@ -458,6 +455,7 @@ def execute_shell_call(
         context=context,
         workspace_path_fn=_workspace_path,
         effective_shell_allowed=_effective_shell_allowed(),
+        authorize_argv=lambda argv: _authorize_resolved_runtime(argv, tool_name="shell"),
         base_cwd=base_cwd,
         env_overrides=env_overrides,
     )

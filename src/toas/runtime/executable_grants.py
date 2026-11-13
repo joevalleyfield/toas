@@ -26,7 +26,7 @@ class ExecutableGrantPolicy:
 
     def evaluate(self, argv: Sequence[str]) -> ExecutableGrantDecision:
         """Evaluate matchers in order, stopping at the first decision."""
-        if not argv or not all(isinstance(part, str) and part for part in argv):
+        if not argv or not argv[0] or not all(isinstance(part, str) for part in argv):
             raise ValueError("argv must be a non-empty sequence[str]")
 
         prefix = argv[0]

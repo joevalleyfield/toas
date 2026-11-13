@@ -70,7 +70,7 @@ def test_helper_evaluates_a_prefix_indexed_policy():
     assert decision == decision.__class__(allowed=True, source="matcher", prefix="jj", matcher_index=0)
 
 
-@pytest.mark.parametrize("argv", [(), ("",), ("uv", "")])
+@pytest.mark.parametrize("argv", [(), ("",), ("uv", None)])
 def test_evaluator_rejects_invalid_argv(argv):
     with pytest.raises(ValueError, match=r"argv must be a non-empty sequence\[str\]"):
         ExecutableGrantPolicy().evaluate(argv)

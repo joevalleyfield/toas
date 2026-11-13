@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -64,8 +65,11 @@ def validate_shell_args(
     *,
     workspace_path_fn,
     effective_shell_allowed,
+    authorize_argv: Callable[[list[str]], None] | None = None,
 ) -> tuple[list[str], Path, int, dict[str, str] | None]:
     argv = normalize_shell_argv(args.get("argv"), tool_name="shell")
+    if authorize_argv is not None:
+        authorize_argv(argv)
 
     if not shell_command_decision(argv[0], effective_shell_allowed).allowed:
         raise RuntimeError(
@@ -417,6 +421,7 @@ def execute_shell_call(
     context: str,
     workspace_path_fn,
     effective_shell_allowed,
+    authorize_argv: Callable[[list[str]], None] | None = None,
     base_cwd: str | None = None,
     env_overrides: dict[str, str | None] | None = None,
 ) -> dict:
@@ -433,6 +438,7 @@ def execute_shell_call(
             args,
             workspace_path_fn=workspace_path_fn,
             effective_shell_allowed=effective_shell_allowed,
+            authorize_argv=authorize_argv,
         )
         try:
             result = run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)

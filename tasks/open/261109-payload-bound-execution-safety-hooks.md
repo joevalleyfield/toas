@@ -61,3 +61,55 @@ A unified **payload safety hook** resolves these issues by elevating authorizati
 3. When an executable policy or payload safety hook is active, it serves as the authoritative execution gate without requiring operators to configure `glob:*` on legacy string allowlists.
 4. Legacy string grants remain fully supported as a fallback or standard validator for workspaces without an explicit policy module.
 5. All tests pass with 100.00% statement coverage under `./scripts/check.sh`.
+
+## Authorization spike (2026-11-13)
+
+| Lane | Current gate and launch input |
+| --- | --- |
+| Assistant `shell` | Workspace policy sees normalized argv, then the legacy grant checks the executable token. Both must allow. Cwd, timeout, and environment validation remain in `tools_cluster/shell_ops.py`. |
+| Assistant `shell_script` | Legacy checks the parsed segment leaders first. Workspace policy checks each leader and, for an explicit or configured runtime, the launcher argv without the script operand. The system-default launcher is outside that launcher check. |
+| Assistant `python_script` / `powershell_script` | Workspace policy checks the explicit, configured, or default launcher. The tool validates and writes the script body to an artifact in its cluster runner after that check. |
+| Assistant `interpreter_script` | Workspace policy checks the required explicit launcher. The cluster runner validates and writes the body to an artifact. |
+| Direct user shell | `step._execute_user_shell` dispatches to the user branch of `execute_shell_call`, outside both assistant grants. User-owned YAML shell operations also use a separate user-context path. |
+
+The step runtime loads the module in `runtime/step_runtime.py` and threads its
+decision policy into the tools facade for assistant execution. Missing module
+returns `None`, leaving the legacy gates active for shell and shell scripts.
+The module and the effective transcript/config string grants are resolved
+independently. The existing shell order is module then legacy, while the
+shell-script order is legacy then module. Descriptions above of legacy checks
+preceding workspace policy apply to script segments only.
+
+The prefix selector evaluates the requested launcher token. The common process
+runner later applies environment policy and resolves a bare executable against
+PATH, so the token is not necessarily the filesystem executable ultimately
+passed to subprocess. Preserve prefix matching semantics when introducing an
+actual resolved launcher field. Queue execution in
+`runtime/operator_command_replay.py` also has a direct plan call without a
+workspace policy argument. Source-reference authority and queue adoption
+require a separate decision; the payload hook must follow the chosen authority
+at each entry point.
+
+This slice removes the shell facade's second argv conversion. Workspace
+matchers now receive the same normalized arguments that proceed to the legacy
+gate and subprocess, including lowercase YAML boolean scalars and empty
+positional strings. The public plan regression checks that the matcher and
+runner see the same vector. Both existing gates still apply.
+
+### Follow-on implementation order
+
+1. Specify the authority table before changing gates. Decide whether an
+   explicit payload decision ends evaluation, what an abstention falls
+   through to, and whether transcript grants have an effect under a module.
+   Define which queue and source-reference paths execute as assistant.
+   Cover combinations of explicit allow, deny and abstain, legacy allow and
+   deny, module absence, and direct user authority through public entry points.
+2. Bind the normalized payload once per assistant execution. Give shell
+   evaluators normalized argv and the resolved executable. Give script
+   evaluators the actual body and launcher ahead of artifact creation or
+   spawn. Assert on denied calls that no subprocess starts and no script
+   artifact is written.
+3. Separate POSIX grouping recognition from authorization convergence. Add
+   public shell-script tests for grouping around allowed commands and for
+   grouping around denied commands. Exercise grouping tokens without changing
+   policy authority.
