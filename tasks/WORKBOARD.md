@@ -150,9 +150,7 @@ Neither dated vote is a literal current queue.
 - **[T261010-rolling-tool-failure-memory]** Status: OPEN; maintain a compact rolling log of recent tool attempts and failures in observation to prevent repeating dead ends
 - **[T261010-state-result-history-sideslip]** Status: INCEPTION; retain observed state-mode history behavior for future consideration
 - **[T261011-streaming-mode-env-leak-parent]** The environment leak is fixed. Retain the design rationale and the prospective question of preserving distinct stdout/stderr in streamed tool results....
-- **[T261109-leading-assistant-turn-normalization]** Leading Assistant Turn Marker Ingress Normalization
 - **[T261109-payload-bound-execution-safety-hooks]** Payload-Bound Execution Safety Hooks and Grant Policy Convergence
-- **[T261109-runtime-spill-policy-binding]** Runtime Spill Policy Configuration Binding
 - **[T261109-tool-result-decorations-elapsed-time]** Tool Result Decorations Should Have Elapsed Time and Timestamp
 - **[T261110-indented-code-fence-marker-desync]** Indented Code Fence CommonMark Conformance and Turn Marker Containment
 - **[T261111-result-turn-id-namespace-advance]** When a user turn that already carries `## RESULT` content is re-saved with *added* user content, the reconciliation path must materialize the change a...

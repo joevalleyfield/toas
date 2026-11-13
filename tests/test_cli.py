@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import toas.runtime.step_generation_runtime as sgr
-from toas import cli
+from toas import cli, llm
 from toas.runtime.result_nodes import make_result_node
 
 
@@ -1710,6 +1710,31 @@ def test_run_step_streamed_delta_without_newline_separates_assistant_marker(monk
     cli.run_step()
     out = capsys.readouterr().out
     assert "stream-fragment\n## TOAS:ASSISTANT\n\nok\n\n" in out
+
+
+def test_run_step_streamed_leading_assistant_marker_stays_out_of_output_and_history(monkeypatch, capsys):
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    monkeypatch.setenv("TOAS_LLM_STREAM_MODE", "enabled")
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    chunks = [
+        types.SimpleNamespace(
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content=delta))]
+        )
+        for delta in ("## TOAS:ASS", "ISTANT/7\r\n", "\r\n", "answer")
+    ]
+    completions = types.SimpleNamespace(create=lambda **kwargs: iter(chunks))
+    monkeypatch.setattr(llm, "get_client", lambda settings: types.SimpleNamespace(chat=types.SimpleNamespace(
+        completions=completions,
+    )))
+
+    cli.run_step()
+
+    out = capsys.readouterr().out
+    assert out.count("## TOAS:ASSISTANT") == 1
+    assert "answer\n## TOAS:ASSISTANT\n\nanswer\n" in out
+    history = _events_without_message_timestamps(Path(".toas/events.jsonl"))
+    assert [event["content"] for event in history if event.get("role") == "assistant"] == ["answer"]
 
 
 def test_run_step_streaming_callable_result_includes_user_and_result_markers(fake_shell_subprocess, monkeypatch, tmp_path, capsys):

@@ -203,7 +203,6 @@ def infer_fence_language(path: str | None) -> str:
 
 DEFAULT_SPILL_THRESHOLD_LINES = 40
 DEFAULT_SPILL_THRESHOLD_BYTES = 4000
-DEFAULT_SPILL_PREVIEW_LINES = 30
 DEFAULT_BOUNDED_SPILL_THRESHOLD_LINES = 500
 DEFAULT_BOUNDED_SPILL_THRESHOLD_BYTES = 50_000
 DEFAULT_SPILL_SAFETY_BRAKE_LINES = 1000
@@ -230,7 +229,7 @@ def spill_inert_block(  # noqa: PLR0913
     scratch_dir: Path | None = None,
     threshold_lines: int = DEFAULT_SPILL_THRESHOLD_LINES,
     threshold_bytes: int = DEFAULT_SPILL_THRESHOLD_BYTES,
-    preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
+    preview_lines: int | None = None,
     block_id: str | None = None,
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
@@ -271,6 +270,8 @@ def spill_inert_block(  # noqa: PLR0913
 
     policy = get_active_spill_policy()
     chosen_mode = spill_mode or mode
+    if preview_lines is None:
+        preview_lines = policy.preview_lines
     if chosen_mode and chosen_mode in policy.profiles:
         profile = policy.profiles[chosen_mode]
         chosen_mode = profile.mode
@@ -357,7 +358,7 @@ def render_fenced_output(  # noqa: PLR0913
     scratch_dir: Path | None = None,
     threshold_lines: int = DEFAULT_SPILL_THRESHOLD_LINES,
     threshold_bytes: int = DEFAULT_SPILL_THRESHOLD_BYTES,
-    preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
+    preview_lines: int | None = None,
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
     mode: str | None = None,
@@ -474,7 +475,7 @@ def render_import_block(  # noqa: PLR0913
     scratch_dir: Path | None = None,
     threshold_lines: int | None = None,
     threshold_bytes: int | None = None,
-    preview_lines: int = DEFAULT_SPILL_PREVIEW_LINES,
+    preview_lines: int | None = None,
     single_turn_ephemeral: bool | None = None,
     ephemeral: bool | None = None,
     mode: str | None = None,

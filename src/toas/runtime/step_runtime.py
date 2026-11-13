@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 from ..config import OperatorConfig, apply_overrides, config_from_discovered_paths
 from ..graph import active_config_overrides
+from ..tools_cluster.rendering import active_spill_policy
 from ..transcript import (
     _lcp,
     _normalize_anchor_index,
@@ -783,7 +784,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
     )
     from .shell_runtime import active_shell_runtime
 
-    with active_shell_runtime(config.runtime.shell_runtime):
+    with active_shell_runtime(config.runtime.shell_runtime), active_spill_policy(config.spill):
         should_return_early = _route_frontier_consequence_path(
             step_mod=step_mod,
             frontier=frontier,
@@ -1347,28 +1348,29 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
     live_overrides = active_config_overrides(events)
     for candidate in candidates:
         consequence_start = len(consequences)
-        _run_user_intent_candidate(
-            candidate=candidate,
-            frontier_role=frontier["role"],
-            step_mod=step_mod,
-            consequences=consequences,
-            execute=execute,
-            events=events,
-            working=working,
-            transcript=transcript,
-            command_cwd=command_cwd,
-            previous_command_cwd=previous_command_cwd,
-            workspace_mode=workspace_mode,
-            workspace_roots=workspace_roots,
-            config=config,
-            config_sources=config_sources,
-            already_executed_indices=already_executed_indices,
-            env_modifiers=env_modifiers,
-            stream_stdout_enabled=stream_stdout_enabled,
-            arbitration_mode=arbitration_mode,
-            frontier_content=frontier["content"],
-            generate=generate,
-        )
+        with active_spill_policy(config.spill):
+            _run_user_intent_candidate(
+                candidate=candidate,
+                frontier_role=frontier["role"],
+                step_mod=step_mod,
+                consequences=consequences,
+                execute=execute,
+                events=events,
+                working=working,
+                transcript=transcript,
+                command_cwd=command_cwd,
+                previous_command_cwd=previous_command_cwd,
+                workspace_mode=workspace_mode,
+                workspace_roots=workspace_roots,
+                config=config,
+                config_sources=config_sources,
+                already_executed_indices=already_executed_indices,
+                env_modifiers=env_modifiers,
+                stream_stdout_enabled=stream_stdout_enabled,
+                arbitration_mode=arbitration_mode,
+                frontier_content=frontier["content"],
+                generate=generate,
+            )
         for node in consequences[consequence_start:]:
             if isinstance(node, dict):
                 config_update = node.get("config_update")

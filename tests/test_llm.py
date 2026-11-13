@@ -460,6 +460,71 @@ def test_complete_chat_response_keeps_toas_user_framing():
     assert "content_origin" not in response
 
 
+@pytest.mark.parametrize(
+    ("chunks", "expected"),
+    [
+        (["\r\n ", "## TOAS:ASS", "ISTANT/7 status=ok\r", "\n", "\r\n ", "answer\n"], "answer\n"),
+        (["## ASSIST", "ANT\n", "\nbody"], "body"),
+        (["\n## ASSIST", "ANTANCE\n", "literal"], "\n## ASSISTANTANCE\nliteral"),
+        (["## TOAS:ASSISTANTSHIP\n", "literal"], "## TOAS:ASSISTANTSHIP\nliteral"),
+        (["## TOAS:ASS"], "## TOAS:ASS"),
+        (["  ", "indented answer"], "  indented answer"),
+        (["\\## TOAS:ASSISTANT\n", "literal"], "\\## TOAS:ASSISTANT\nliteral"),
+        (["```text\n", "## TOAS:ASSISTANT\n", "```"], "```text\n## TOAS:ASSISTANT\n```"),
+        (["## TOAS:ASSISTANT\n", "answer\n", "## TOAS:ASSISTANT\n"], "answer\n## TOAS:ASSISTANT\n"),
+        (["## TOAS:ASSISTANT\n", "answer\n", "## USER\nignored"], "answer\n"),
+    ],
+)
+def test_leading_assistant_turn_normalization_matches_streamed_and_final_content(chunks, expected):
+    completion = _fake_response(content="".join(chunks))
+    stream = [
+        types.SimpleNamespace(choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content=chunk))])
+        for chunk in chunks
+    ]
+    deltas = []
+    for mode, payload in (("disabled", completion), ("enabled", stream)):
+        response = complete_chat_response(
+            [],
+            settings=Settings(llm_stream_mode=mode),
+            client=_FakeClient(payload, seen={}),
+            on_delta=deltas.append,
+        )
+        assert response["content"] == expected
+    assert "".join(deltas) == expected
+
+
+def test_leading_assistant_header_normalizes_reasoning_fallback_without_changing_reasoning_deltas():
+    raw_reasoning = "## TOAS:ASSISTANT\n\nRecovered answer"
+    chunk = types.SimpleNamespace(
+        choices=[types.SimpleNamespace(delta=types.SimpleNamespace(reasoning_content=raw_reasoning))]
+    )
+    reasoning = []
+    response = complete_chat_response(
+        [],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=_FakeClient([chunk], seen={}),
+        on_reasoning_delta=reasoning.append,
+    )
+    assert response["content_origin"] == "reasoning_fallback"
+    assert response["content"] == response["reasoning_content"] == "Recovered answer"
+    assert reasoning == [raw_reasoning]
+
+
+@pytest.mark.parametrize("header", ["## TOAS:ASSISTANT", "## ASSISTANT\n\n"])
+def test_leading_assistant_header_without_body_is_empty_completion(header):
+    stream = [types.SimpleNamespace(choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content=header))])]
+    for mode, payload in (("disabled", _fake_response(content=header)), ("enabled", stream)):
+        deltas = []
+        with pytest.raises(PermanentGenerationError, match="empty chat completion content"):
+            complete_chat_response(
+                [],
+                settings=Settings(llm_stream_mode=mode),
+                client=_FakeClient(payload, seen={}),
+                on_delta=deltas.append,
+            )
+        assert deltas == []
+
+
 def test_complete_chat_stream_mode_stops_before_hallucinated_user_turn():
     seen = {}
 
