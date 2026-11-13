@@ -895,19 +895,26 @@ def decorate_result_node(
     if tool_name == "user_shell":
         tool_name = "shell"
     dur = duration_ms if duration_ms is not None else payload.get("duration_ms")
+    ts = timestamp if timestamp is not None else payload.get("timestamp")
     tid = turn_id or node.get("turn_id")
     telemetry = format_turn_telemetry(
         turn_id=tid,
         target=tool_name,
         duration_ms=dur,
         status=status,
-        timestamp=timestamp,
+        timestamp=ts,
         tokens=tokens,
         style=style,
     )
     if telemetry:
         if tid:
             node["turn_id"] = tid
+        if dur is not None:
+            node["duration_ms"] = dur
+            node.setdefault("metadata", {})["duration_ms"] = dur
+        if ts is not None:
+            node["timestamp"] = ts
+            node.setdefault("metadata", {})["timestamp"] = ts
         if tokens is not None:
             node["tokens"] = tokens
         if style in {"compact", "inline"}:

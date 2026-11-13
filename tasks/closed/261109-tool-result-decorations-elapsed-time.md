@@ -3,11 +3,13 @@ FKA:
 AKA: tool result decorations should want to have elapsed time; tool result elapsed time; tool duration telemetry; result marker duration; tool result timestamp; result marker timestamp
 Legacy index:
 
-keywords: active, feature, surface, projection, runtime, usability, contract, transcript, telemetry
+keywords: historical, feature, surface, projection, runtime, usability, contract, transcript, telemetry
 
 Related: `260825-visible-transcript-turn-ids`; `260811-activity-health-telemetry`
 
 # Tool Result Decorations Should Have Elapsed Time and Timestamp
+
+Status: CLOSED (implemented)
 
 ## Intent
 
@@ -25,11 +27,21 @@ In operator workflows, seeing when a tool executed and how long it took provides
 
 ## In Scope
 
-- [ ] Measure wall-clock elapsed time (`duration_ms`) and record execution timestamp during tool invocation across tool execution paths (`execute_plan_calls`, user shell shorthand execution, and related tool runners).
-- [ ] Ensure result payloads and result nodes retain `duration_ms` and timestamp metadata.
-- [ ] Update `step_runtime.py` to supply `duration_ms` and `timestamp` when calling `decorate_result_node`.
-- [ ] Verify decoration formatting across all telemetry decoration styles (`compact`, `inline`, `comment`) and ensure `off` remains clean and unaffected.
-- [ ] Add targeted unit and integration tests covering elapsed time and timestamp decoration on tool results while maintaining 100.00% statement coverage.
+- [x] Measure wall-clock elapsed time (`duration_ms`) and record execution timestamp during plan tool execution and user shell shorthand execution.
+- [x] Ensure result payloads and decorated result nodes retain `duration_ms` and timestamp metadata.
+- [x] Result decoration reads timing fields from the payload, so the existing `step_runtime.py` public decoration call receives them without a duplicate argument path.
+- [x] Verify decoration formatting across all telemetry decoration styles (`compact`, `inline`, `comment`) and ensure `off` remains clean and unaffected.
+- [x] Add targeted unit and integration tests covering elapsed time and timestamp decoration on tool results while maintaining 100.00% statement coverage.
+
+## Progress Evidence
+
+- Added monotonic wall-clock duration and UTC completion timestamp to `execute_plan_calls` results, including raised failures, and `_execute_user_shell` results.
+- `decorate_result_node` now reads the payload timestamp as well as duration and retains both values on the transient result node and its metadata while formatting through the shared telemetry formatter.
+- Updated result execution assertions to account for the new fields, and added timestamp checks to compact, inline, and comment result decoration tests. The `off` case still returns its input node unchanged.
+- Focused verification passed: 631 tests across step/runtime telemetry and tool execution/rendering coverage sources.
+- Full `pytest -q` passed: 4,087 passed, 9 skipped, 17 deselected; 100.00% statement coverage.
+- Real CLI inspection verified plan execution and durable result payload timing, and readable timestamp/duration output in all four decoration settings (`compact`, `inline`, `comment`, `off`).
+- Bound each loop iteration's start time into its result timing closure to keep lint's loop-variable capture check satisfied.
 
 ## Out of Scope
 

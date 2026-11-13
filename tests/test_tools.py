@@ -25,6 +25,13 @@ from toas.tools import (
 from toas.tools_cluster.rendering import stable_import_block_id
 
 
+def _without_execution_timing(results):
+    return [
+        {key: value for key, value in result.items() if key not in {"duration_ms", "timestamp"}}
+        for result in results
+    ]
+
+
 def test_get_tool_returns_registered_tool():
     tool = get_tool("echo")
 
@@ -164,7 +171,7 @@ def test_execute_plan_applies_runtime_grants_only_to_assistant_calls(monkeypatch
 
     assert denied[0]["ok"] is False
     assert "disallows runtime: bc" in denied[0]["error"]
-    assert allowed == [{"tool_name": "interpreter_script", "ok": True, "summary": "ok"}]
+    assert _without_execution_timing(allowed) == [{"tool_name": "interpreter_script", "ok": True, "summary": "ok"}]
     assert seen == [call["args"]]
 
 
@@ -319,12 +326,13 @@ def test_execute_call_runs_validated_tool():
 
 
 def test_execute_plan_returns_success_and_error_results():
-    assert execute_plan(
+    results = execute_plan(
         [
             {"tool_name": "echo", "args": {"text": "hi"}},
             {"tool_name": "missing", "args": {}},
         ]
-    ) == [
+    )
+    assert _without_execution_timing(results) == [
         {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
         {
             "tool_name": "missing",
@@ -1210,7 +1218,7 @@ def test_search_tool_uses_assistant_timeout_when_omitted(tmp_path, monkeypatch):
         assistant_timeout_source="session_override",
     )
 
-    assert results == [
+    assert _without_execution_timing(results) == [
         {
             "tool_name": "search",
             "ok": True,

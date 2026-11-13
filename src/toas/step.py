@@ -2,6 +2,8 @@
 import os
 import re
 import shlex
+from datetime import datetime, timezone
+from time import monotonic
 from pathlib import Path
 from collections.abc import Callable
 
@@ -820,12 +822,15 @@ def _execute_user_shell(
     stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
     effective_env = dict(env_modifiers or {})
+    started = monotonic()
     result = execute_shell_call(
         shell_args,
         context="user",
         base_cwd=base_cwd,
         env_overrides=effective_env,
     )
+    result["duration_ms"] = round((monotonic() - started) * 1000)
+    result["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return [
         make_result_node(
             shape_result_content(result),

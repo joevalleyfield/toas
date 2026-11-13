@@ -247,19 +247,31 @@ def test_decorate_result_node():
     assert decorate_result_node(node_raw, style="off") == node_raw
 
     # compact style
-    node_compact = {"role": "result", "payload": {"tool_name": "shell", "ok": True, "duration_ms": 120}}
+    node_compact = {
+        "role": "result",
+        "payload": {"tool_name": "shell", "ok": True, "duration_ms": 120, "timestamp": "2026-11-12T10:18:20Z"},
+    }
     decorated_compact = decorate_result_node(node_compact, style="compact", turn_id="charlie")
-    assert decorated_compact["result_marker"] == "## RESULT [charlie OK shell 120ms]"
+    assert decorated_compact["result_marker"] == "## RESULT [charlie OK shell 10:18:20 120ms]"
+    assert decorated_compact["duration_ms"] == 120
+    assert decorated_compact["timestamp"] == "2026-11-12T10:18:20Z"
+    assert decorated_compact["metadata"] == {"duration_ms": 120, "timestamp": "2026-11-12T10:18:20Z"}
 
     # inline style
-    node_inline = {"role": "result", "payload": {"tool_name": "shell", "ok": True, "duration_ms": 120}}
+    node_inline = {
+        "role": "result",
+        "payload": {"tool_name": "shell", "ok": True, "duration_ms": 120, "timestamp": "2026-11-12T10:18:20Z"},
+    }
     decorated_inline = decorate_result_node(node_inline, style="inline")
-    assert decorated_inline["result_marker"] == "## RESULT [target=shell duration=120ms status=OK]"
+    assert decorated_inline["result_marker"] == "## RESULT [target=shell t=10:18:20 duration=120ms status=OK]"
 
     # comment style with failure
-    node_comment = {"role": "result", "payload": {"tool_name": "shell", "ok": False}}
+    node_comment = {
+        "role": "result",
+        "payload": {"tool_name": "shell", "ok": False, "timestamp": "2026-11-12T10:18:20Z", "duration_ms": 50},
+    }
     decorated_comment = decorate_result_node(node_comment, style="comment", turn_id="delta", duration_ms=50)
-    assert decorated_comment["telemetry_comment"] == "<!-- toas: id=delta target=shell duration=50ms status=ERROR -->"
+    assert decorated_comment["telemetry_comment"] == "<!-- toas: id=delta target=shell timestamp=2026-11-12T10:18:20+00:00 duration=50ms status=ERROR -->"
 
     # error inferred from [ERROR] content prefix without payload
     node_err_prefix = {"role": "result", "content": "[ERROR] /unknown: not found", "origin_kind": "slash_command"}
