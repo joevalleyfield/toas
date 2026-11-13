@@ -2056,6 +2056,74 @@ def test_extract_plan_normalizes_optional_intent_alias():
     ]
 
 
+@pytest.mark.parametrize("args_key", ["arguments", "args", "params"])
+@pytest.mark.parametrize("argv", ["[pwd]", "\n      - pwd"])
+@pytest.mark.parametrize("argv_indent", ["  ", "    "])
+def test_extract_plan_accepts_argv_with_canonical_or_sibling_indentation(args_key, argv, argv_indent):
+    content = (
+        "```yaml\n"
+        "- operation: shell\n"
+        f"  {args_key}:\n"
+        f"{argv_indent}argv: {argv}\n"
+        "- operation: echo\n"
+        "  arguments: {text: next}\n"
+        "```"
+    )
+    assert extract_plan(content) == [
+        {"tool_name": "shell", "args": {"argv": ["pwd"]}},
+        {"tool_name": "echo", "args": {"text": "next"}},
+    ]
+
+
+def test_extract_plan_preserves_empty_arguments_in_recovered_argv():
+    content = '```yaml\noperation: shell\narguments:\nargv: [echo, ""]\n```'
+    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["echo", ""]}}]
+
+
+@pytest.mark.parametrize("args_key,intent_key", [("arguments", "intent"), ("params", "intention")])
+def test_extract_plan_recovers_nested_intent_in_retry(args_key, intent_key):
+    content = (
+        "Retry failed operation (edit directly, then step):\n\n"
+        "```yaml\n"
+        "- tool_name: read_file\n"
+        f"  {args_key}:\n"
+        "    path: sample.txt\n"
+        f"    {intent_key}: inspect sample\n"
+        "```\n\n"
+        "Remaining forward plan (staged; not yet executable):\n\n"
+        "```yaml staged\n"
+        "- operation: echo\n"
+        "  arguments: {text: next}\n"
+        "```"
+    )
+    assert extract_plan(content) == [
+        {"tool_name": "read_file", "args": {"path": "sample.txt"}, "intention": "inspect sample"}
+    ]
+
+
+def test_extract_plan_rejects_conflicting_nested_intent():
+    content = "```yaml\noperation: read_file\nintent: first\nargs: {path: sample.txt, intention: second}\n```"
+    assert extract_plan(content) is None
+
+
+def test_extract_plan_rejects_non_string_nested_intent():
+    content = "```yaml\noperation: read_file\nargs: {path: sample.txt, intent: [inspect]}\n```"
+    assert extract_plan(content) is None
+
+
+def test_extract_plan_does_not_recover_argv_in_provider_native_calls():
+    content = (
+        "```yaml\n"
+        "tool_calls:\n"
+        "- type: function\n"
+        "  function:\n"
+        "    name: shell\n"
+        "    arguments: '{\"argv\":[\"pwd\"]}'\n"
+        "```"
+    )
+    assert extract_plan(content) is None
+
+
 def test_extract_plan_normalizes_command_sugar_to_shell_call():
     content = "```yaml\ncommand: pwd\n```"
 

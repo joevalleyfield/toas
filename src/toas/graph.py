@@ -1583,6 +1583,24 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
         return None, "arguments must be a mapping"
 
     if name.strip() == "shell":
+        # A misplaced sequence can still be valid YAML, leaving the arguments
+        # mapping empty. Recover only an explicit local shell call with no
+        # other misplaced payload fields.
+        misplaced_argv = item.get("argv")
+        if (
+            not normalized_args
+            and isinstance(misplaced_argv, list)
+            and misplaced_argv
+            and misplaced_argv[0]
+            and all(isinstance(part, str) for part in misplaced_argv)
+            and {"operation", "tool_name"} & name_fields.keys()
+            and {"args", "arguments", "params", "parameters"} & item.keys()
+            and item.keys() <= {
+                "operation", "tool_name", "args", "arguments", "params", "parameters",
+                "argv", "intent", "intention",
+            }
+        ):
+            normalized_args = {"argv": misplaced_argv}
         command = normalized_args.get("command")
         cmd = normalized_args.get("cmd")
         argv = normalized_args.get("argv")
@@ -1606,12 +1624,19 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
             normalized_args["command"] = normalized_shell["args"]["command"]
             normalized_args["argv"] = normalized_shell["args"]["argv"]
 
-    normalized: dict = {"tool_name": name.strip(), "args": normalized_args}
-    intent = item.get("intent")
-    intention = item.get("intention")
-    if intent is not None and intention is not None and intent != intention:
+    intent_values = [
+        scope[key]
+        for scope in (item, normalized_args)
+        for key in ("intent", "intention")
+        if scope.get(key) is not None
+    ]
+    normalized_intent = next(iter(intent_values), None)
+    if any(value != normalized_intent for value in intent_values):
         return None, "conflicting intent keys: intent and intention"
-    normalized_intent = intent if intent is not None else intention
+    normalized: dict = {
+        "tool_name": name.strip(),
+        "args": {key: value for key, value in normalized_args.items() if key not in ("intent", "intention")},
+    }
     if normalized_intent is not None:
         if not isinstance(normalized_intent, str):
             return None, "intent must be a string"

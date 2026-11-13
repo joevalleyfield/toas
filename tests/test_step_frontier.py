@@ -1,4 +1,5 @@
 
+import pytest
 import yaml
 
 from toas.runtime import frontier_resolution as step_frontier
@@ -312,9 +313,10 @@ def test_extract_frontier_assistant_candidates_non_callable_yaml_error_is_ignore
     assert skipped == []
 
 
-def test_extract_frontier_assistant_candidates_near_miss_argv_hint():
-    content = "```yaml\noperation: echo\nargv: [echo, hello]\n  extra: :bad\n```"
+@pytest.mark.parametrize("argv", ["[echo, [hello]", "\n    - \"unterminated"])
+def test_extract_frontier_assistant_candidates_near_miss_argv_hint(argv):
+    content = f"```yaml\noperation: shell\narguments:\n  argv: {argv}\n```"
     candidates, skipped = step_frontier.extract_frontier_assistant_candidates(content)
     assert candidates == []
     assert len(skipped) == 1
-    assert "hint: use block list style for argv" in skipped[0]
+    assert 'under `arguments`, use `argv: ["pwd"]` or indent a YAML list below `argv:`' in skipped[0]
