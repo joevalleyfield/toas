@@ -151,8 +151,9 @@ def test_state_invalid_response_preview_replacement_in_vim():
     assert '{"state_patch": broken' not in result["text"]
 
 
-def test_multi_turn_tool_projection_then_llm_stream():
-    result = _run("multi_turn_tool_projection_then_llm_stream")
+@pytest.mark.parametrize("prior_answer", ["", "_with_prior_answer"])
+def test_multi_turn_tool_projection_then_llm_stream(prior_answer):
+    result = _run(f"multi_turn_tool_projection_then_llm_stream{prior_answer}")
     assert result["run_id"] == "rmultiturn1"
     assert result["run_kind"] == "llm"
     assert "tool: read_file" not in result["text"]
@@ -160,8 +161,11 @@ def test_multi_turn_tool_projection_then_llm_stream():
     assert "## TOAS:ASSISTANT" in result["text"]
     assert "I have inspected the file." in result["text"]
     res_idx = result["text"].find("## RESULT")
-    asst_idx = result["text"].find("## TOAS:ASSISTANT")
+    asst_idx = result["text"].rfind("## TOAS:ASSISTANT")
     assert res_idx < asst_idx
+    assert ("Earlier answer" in result["text"]) == bool(prior_answer)
+    assert result["text"].count("## TOAS:ASSISTANT") == (2 if prior_answer else 1)
+    assert "I have inspected the file." in result["live_text"]
 
 
 
@@ -189,6 +193,17 @@ def test_stream_cursor_on_end_marker_lands_on_final_answer_line(projection):
     assert result["positions"][-1][1:] == [1, "fifth"]
     assert ("Prior turn" in result["text"]) == bool(projection)
     assert result["text"][-3:] == ["tail heading", "tail text", "last line"]
+
+
+def test_terminal_projection_replaces_same_batch_and_later_streamed_deltas():
+    result = _run("terminal_projection_dedup")
+    assert result["errors"] == []
+    assert result["status"] == "succeeded"
+    for lines in (result["live_text"], result["text"]):
+        assert [line for line in lines if line.startswith("## TOAS:ASSISTANT")] == ["## TOAS:ASSISTANT/2"]
+        assert lines.count("Canonical answer") == 1
+        assert all("stale tail" not in line for line in lines)
+    assert all("TOAS:RUN" not in line for line in result["text"])
 
 
 @pytest.mark.parametrize("scope", ["bare", "user", "control"])

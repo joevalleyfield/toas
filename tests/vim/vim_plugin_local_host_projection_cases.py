@@ -11,6 +11,7 @@ CURSOR_ANCHOR_SCENARIOS = {
     "stream_cursor_anchor_below_run",
     "stream_cursor_anchor_on_end_marker",
     "stream_cursor_anchor_on_end_marker_with_projection",
+    "terminal_projection_dedup",
 }
 
 
@@ -135,7 +136,7 @@ def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
         return ("rsilentwatch1", "## TOAS:USER\n", "", "")
     if scenario == "state_invalid_response_preview_replacement_wrapper":
         return ("rstateinv1", "## TOAS:USER\n", "", "")
-    if scenario == "multi_turn_tool_projection_then_llm_stream":
+    if scenario.startswith("multi_turn_tool_projection_then_llm_stream"):
         return (
             "rmultiturn1",
             "## TOAS:USER\n\n```yaml\n- tool_name: read_file\n```\n",
@@ -524,7 +525,7 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 f"call writefile([json_encode(g:result)], '{out_path}')",
                 "qa!",
             ]
-        elif scenario == "multi_turn_tool_projection_then_llm_stream":
+        elif scenario.startswith("multi_turn_tool_projection_then_llm_stream"):
             script_lines = [
                 "set nocompatible",
                 "set hidden",
@@ -548,6 +549,13 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 f"execute 'edit ' . fnameescape('{session_quoted}')",
                 f"call call(function(g:insert_fn), ['{run_id}', 'running', line('$')])",
                 "let g:events_turn1 = [{'type': 'projection_delta', 'lane': 'projection', 'phase': 'delta', 'seq': 1, 'payload': {'text': \"## TOAS:USER\\n\\n## RESULT [turn.1 OK read_file 10]\\n\\n[OK] read_file: path.txt\\n\"}}]",
+                *(
+                    [
+                        'call insert(g:events_turn1, {\'type\': \'projection_delta\', \'lane\': \'projection\', \'phase\': \'delta\', \'seq\': 0, \'payload\': {\'text\': "## TOAS:ASSISTANT/1\\n\\nEarlier answer\\n\\n"}})',
+                    ]
+                    if scenario.endswith("_with_prior_answer")
+                    else []
+                ),
                 f"call call(function(g:apply_fn), ['{run_id}', g:events_turn1])",
                 f"let g:preview1 = call(function(g:display_fn), ['{run_id}'])",
                 f"call call(function(g:replace_fn), ['{run_id}', 'running', g:preview1, 1])",
@@ -598,8 +606,20 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                     if scenario.endswith("_with_projection")
                     else []
                 ),
-                "    let l:status = g:phase == 3 ? 'succeeded' : 'running'",
-                "    return {'ok': v:true, 'payload': {'status': l:status, 'next_seq': g:phase, 'events': l:events}}",
+                *(
+                    [
+                        "    if g:phase == 3 && l:seq < 4",
+                        '      let l:events = [{\'type\': \'projection_delta\', \'lane\': \'projection\', \'phase\': \'delta\', \'seq\': 3, \'payload\': {\'text\': "## TOAS:ASSISTANT/2\\n\\nCanonical answer\\n"}}, {\'type\': \'llm_delta\', \'lane\': \'llm_answer\', \'phase\': \'delta\', \'seq\': 4, \'payload\': {\'text\': "same batch stale tail"}}]',
+                        "    elseif g:phase == 4 && l:seq < 5",
+                        '      let l:events = [{\'type\': \'llm_delta\', \'lane\': \'llm_answer\', \'phase\': \'delta\', \'seq\': 5, \'payload\': {\'text\': "later poll stale tail"}}]',
+                        "    endif",
+                        "    let l:status = g:phase == 4 ? 'succeeded' : 'running'",
+                        "    let l:next_seq = g:phase >= 3 ? g:phase + 1 : g:phase",
+                    ]
+                    if scenario == "terminal_projection_dedup"
+                    else ["    let l:status = g:phase == 3 ? 'succeeded' : 'running'", "    let l:next_seq = g:phase"]
+                ),
+                "    return {'ok': v:true, 'payload': {'status': l:status, 'next_seq': l:next_seq, 'events': l:events}}",
                 "  endif",
                 "  throw 'unexpected op=' . a:op",
                 "endfunction",
@@ -630,12 +650,21 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                     else []
                 ),
                 "let g:phase = 3",
+                *(
+                    [
+                        "call g:WaitForAnchorText('^Canonical answer$')",
+                        "let g:live_text = getline(1, '$')",
+                        "let g:phase = 4",
+                    ]
+                    if scenario == "terminal_projection_dedup"
+                    else ["let g:live_text = []"]
+                ),
                 "let g:deadline = reltime()",
                 "while search('^## /TOAS:RUN ', 'nw') > 0 && reltimefloat(reltime(g:deadline)) < 2.0",
                 "  sleep 10m",
                 "endwhile",
                 "call add(g:positions, [line('.'), col('.'), getline('.')])",
-                "let g:result = {'positions': g:positions, 'end_marker': g:end_marker, 'text': getline(1, '$'), 'errors': v:errors, 'status': get(g:, 'toas_last_run_status', '')}",
+                "let g:result = {'positions': g:positions, 'end_marker': g:end_marker, 'text': getline(1, '$'), 'live_text': g:live_text, 'errors': v:errors, 'status': get(g:, 'toas_last_run_status', '')}",
                 "let g:manual_text = 'manual chunk'",
                 "call ToasWatch('manual-watch')",
                 "let g:result.manual_preserved = [col('.'), getline('.'), getline('$')]",
@@ -781,7 +810,7 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 and "[ERROR] invalid state-step JSON response" in result.get("text", "")
                 and '{"state_patch": broken' not in result.get("text", "")
             )
-        if scenario == "multi_turn_tool_projection_then_llm_stream":
+        if scenario.startswith("multi_turn_tool_projection_then_llm_stream"):
             text = result.get("text", "")
             ok = (
                 result.get("run_id", "") == run_id
@@ -789,7 +818,7 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 and "## RESULT [turn.1 OK read_file 10]" in text
                 and "## TOAS:ASSISTANT" in text
                 and "I have inspected the file." in text
-                and text.find("## RESULT") < text.find("## TOAS:ASSISTANT")
+                and text.find("## RESULT") < text.rfind("## TOAS:ASSISTANT")
             )
         if scenario in CURSOR_ANCHOR_SCENARIOS:
             ok = True  # The pytest caller reports the individual cursor assertions.

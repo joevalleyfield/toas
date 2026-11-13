@@ -3,11 +3,13 @@ FKA:
 AKA: vim terminal projection stream deduplication; vim projection tail hunk leak; vim duplicate TOAS:ASSISTANT after projection; vim raw streamed tail leak
 Legacy index:
 
-keywords: active, bugfix, vim, streaming, projection, terminality, ux
+keywords: historical, bugfix, vim, streaming, projection, terminality, ux
 
 Related: `261109-leading-assistant-turn-normalization`
 
 # Vim Plugin Terminal Projection Stream Deduplication
+
+Status: CLOSED (implemented)
 
 ## Intent
 
@@ -35,9 +37,9 @@ In `vim/plugin/toas.vim`:
 
 ## In Scope
 
-- [ ] Ensure that once canonical projection is received or finalized, `s:toas_run_display_text` and `s:toas_finalize_terminal_run_region` use `l:projection_text` exclusively, rather than concatenating trailing `s:toas_run_text`.
-- [ ] Ensure `s:toas_apply_watch_events` ignores/drops stale `llm_delta` chunks once `projection` events start arriving or have already populated `s:toas_run_projection_text`.
-- [ ] Add/update Vader or python-vim tests (e.g. `tests/vim/streaming_*.vader` or `tests/vim/vim_plugin_local_host_projection_cases.py`) verifying no trailing hunk or duplicate `## TOAS:ASSISTANT` header is appended after canonical projection.
+- [x] Ensure that once the current assistant answer is canonically projected, `s:toas_run_display_text` and `s:toas_finalize_terminal_run_region` use `l:projection_text` exclusively, rather than concatenating trailing `s:toas_run_text`.
+- [x] Ensure `s:toas_apply_watch_events` ignores/drops stale `llm_delta` chunks from the projected answer, including deltas delivered in a later batch.
+- [x] Add/update Vader or python-vim tests (e.g. `tests/vim/streaming_*.vader` or `tests/vim/vim_plugin_local_host_projection_cases.py`) verifying no trailing hunk or duplicate `## TOAS:ASSISTANT` header is appended after canonical projection.
 
 ## Out of Scope
 
@@ -48,3 +50,21 @@ In `vim/plugin/toas.vim`:
 1. On terminal success with canonical projection, only canonical projection text replaces the run region in the Vim buffer.
 2. No duplicate `## TOAS:ASSISTANT` header or trailing raw hunk remains after the normalized projection.
 3. Existing and updated Vader/Vim integration tests pass cleanly.
+
+## Implementation and verification
+
+The run-region watcher treats a canonical assistant marker as the boundary for
+the current answer. It clears applied text, queued text, and provisional
+text from the same batch. Answer and reasoning deltas remain suppressed until
+an explicit LLM start opens another turn. Tool progress can still render
+after an assistant projection.
+
+The timer-driven Vim regression delivered a stale delta in the same poll as
+the canonical answer and another during a later terminal poll. Before the
+fix, the real Vim buffer showed a duplicate assistant marker. After the fix,
+both the live and finalized buffers showed one canonical assistant marker
+with no stale tail. The multi-turn case also preserves an earlier assistant
+answer, the tool result, and the answer from a subsequent LLM start.
+
+All 34 Python-driven Vim plugin integration tests passed. Ruff passed for
+both changed Python test files.

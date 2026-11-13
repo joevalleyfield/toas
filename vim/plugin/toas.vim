@@ -25,6 +25,7 @@ let s:toas_watch_offset = {}
 let s:toas_watch_seq = {}
 let s:toas_run_text = {}
 let s:toas_run_projection_text = {}
+let s:toas_run_answer_projected = {}
 let s:toas_run_tool_text = {}
 let s:toas_run_progress = {}
 let s:toas_run_status = {}
@@ -1102,6 +1103,7 @@ function! s:toas_apply_watch_events(run_id, events) abort
   let l:event_bytes_appended = 0
   let l:event_chunk = ''
   let l:projection_chunk = ''
+  let l:assistant_projected = 0
   let l:tool_chunk = ''
   let l:tool_meta_changed = 0
   if type(a:events) == type([])
@@ -1128,6 +1130,13 @@ function! s:toas_apply_watch_events(run_id, events) abort
         let l:tool_meta_changed = 1
       endif
       let l:lane = get(l:event, 'lane', '')
+      let l:phase = get(l:event, 'phase', '')
+      if l:lane ==# 'llm_answer' && l:phase ==# 'start'
+        let s:toas_run_answer_projected[a:run_id] = 0
+      elseif get(s:toas_run_answer_projected, a:run_id, 0)
+            \ && l:phase ==# 'delta' && (l:lane ==# 'llm_answer' || l:lane ==# 'llm_reasoning')
+        continue
+      endif
       if l:lane !=# ''
         call s:toas_note_run_kind(a:run_id, l:lane)
       endif
@@ -1138,6 +1147,15 @@ function! s:toas_apply_watch_events(run_id, events) abort
         let l:event_lane = get(l:event, 'lane', '')
         if l:event_lane ==# 'projection'
           let l:projection_chunk .= l:event_text
+          if l:event_text =~# '\%(^\|\n\)## TOAS:ASSISTANT\%([/ \t]\|\n\|$\)'
+            " The next LLM start opens a new turn. Until then, this answer
+            " is complete and any remaining streamed text is provisional.
+            let s:toas_run_answer_projected[a:run_id] = 1
+            let l:assistant_projected = 1
+            let s:toas_run_text[a:run_id] = ''
+            let s:toas_run_pending_append[a:run_id] = ''
+            let l:event_chunk = ''
+          endif
         elseif l:event_lane ==# 'tool'
           let l:tool_chunk .= l:event_text
         else
@@ -1165,7 +1183,7 @@ function! s:toas_apply_watch_events(run_id, events) abort
           \ l:projection_chunk,
           \ )
     let l:projection_changed = s:toas_run_projection_text[a:run_id] !=# l:projection_before
-    if l:projection_changed
+    if l:projection_changed && !l:assistant_projected
       let s:toas_run_text[a:run_id] = ''
     endif
   endif
@@ -1194,6 +1212,9 @@ endfunction
 function! s:toas_run_display_text(run_id) abort
   let l:projection = get(s:toas_run_projection_text, a:run_id, '')
   let l:kind = get(s:toas_run_kind, a:run_id, '')
+  if l:kind !=# 'tool' && get(s:toas_run_answer_projected, a:run_id, 0)
+    return l:projection
+  endif
   let l:active = ''
 
   if l:kind ==# 'tool'
@@ -1884,7 +1905,7 @@ function! s:toas_finalize_terminal_run_region(run_id, status, error_summary, ...
           \ get(s:toas_run_last_content_lane, a:run_id, ''),
           \ )
     let l:projection_text = get(s:toas_run_projection_text, a:run_id, '')
-    if l:projection_text !=# '' && get(s:toas_run_text, a:run_id, '') !=# ''
+    if l:projection_text !=# '' && !get(s:toas_run_answer_projected, a:run_id, 0) && get(s:toas_run_text, a:run_id, '') !=# ''
       let l:canonical_final_text = s:toas_finalize_success_text(s:toas_run_display_text(a:run_id), 'projection')
     elseif l:projection_text !=# ''
       let l:canonical_final_text = s:toas_finalize_success_text(l:projection_text, 'projection')
@@ -2046,6 +2067,9 @@ function! s:toas_stop_run_watcher(run_id) abort
   endif
   if has_key(s:toas_run_projection_text, a:run_id)
     call remove(s:toas_run_projection_text, a:run_id)
+  endif
+  if has_key(s:toas_run_answer_projected, a:run_id)
+    call remove(s:toas_run_answer_projected, a:run_id)
   endif
   if has_key(s:toas_run_tool_text, a:run_id)
     call remove(s:toas_run_tool_text, a:run_id)
@@ -3058,6 +3082,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
   let s:toas_run_projection_text[l:run_id] = ''
+  let s:toas_run_answer_projected[l:run_id] = 0
   let s:toas_run_tool_text[l:run_id] = ''
   let s:toas_run_kind[l:run_id] = 'run'
   let s:toas_run_kind_source[l:run_id] = ''
@@ -3677,6 +3702,7 @@ function! ToasStepAsync(...) abort
     let s:toas_watch_seq[l:run_id] = 0
     let s:toas_run_text[l:run_id] = ''
     let s:toas_run_projection_text[l:run_id] = ''
+    let s:toas_run_answer_projected[l:run_id] = 0
     let s:toas_run_tool_text[l:run_id] = ''
     let s:toas_run_kind[l:run_id] = 'run'
     let s:toas_run_kind_source[l:run_id] = ''
@@ -4190,6 +4216,7 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_watch_seq = {}
   let s:toas_run_text = {}
   let s:toas_run_projection_text = {}
+  let s:toas_run_answer_projected = {}
   let s:toas_run_tool_text = {}
   let s:toas_run_progress = {}
   let s:toas_run_status = {}
