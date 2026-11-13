@@ -254,7 +254,7 @@ def spill_inert_block(  # noqa: PLR0913
     effective_block_id = block_id or f"ib_{sha256(content.encode('utf-8')).hexdigest()[:16]}"
     target_dir = scratch_dir or default_scratch_dir()
     try:
-        scratch_rel_path = str(target_dir.resolve().relative_to(Path.cwd().resolve()) / f"{effective_block_id}.txt")
+        scratch_rel_path = (target_dir.resolve().relative_to(Path.cwd().resolve()) / f"{effective_block_id}.txt").as_posix()
     except Exception:
         scratch_rel_path = f".toas/scratch/{effective_block_id}.txt"
 
