@@ -199,3 +199,17 @@ def test_resolve_executable_grant_policy_integration(tmp_path):
     resolved_custom = resolve_executable_grant_policy(tmp_path, config=cfg)
     assert resolved_custom is not None
     assert resolved_custom.default is False
+
+
+def test_policy_default_rejects_truthy_non_boolean_values(tmp_path):
+    policy_file = tmp_path / "policy.py"
+    policy_file.write_text('default = "false"\nprefix_matchers = {}\n', encoding="utf-8")
+    with pytest.raises(TypeError, match="executable grant default must be bool"):
+        load_executable_policy(policy_file)
+
+    policy_file.write_text(
+        "from toas.runtime.executable_grants import ExecutableGrantPolicy\n"
+        'policy = ExecutableGrantPolicy(default="false")\n', encoding="utf-8"
+    )
+    with pytest.raises(RuntimeError, match="executable grant default must be bool"):
+        load_executable_policy(policy_file)

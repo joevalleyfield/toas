@@ -93,7 +93,7 @@ def load_executable_policy(
                 raise TypeError(
                     f"'{attr}' in {file_path} must be a Mapping[str, Sequence[Matcher]], got {type(matchers).__name__}"
                 )
-            default = bool(getattr(module, "default", getattr(module, "DEFAULT", False)))
+            default = getattr(module, "default", getattr(module, "DEFAULT", False))
             return ExecutableGrantPolicy(default=default, prefix_matchers=matchers)
 
     raise RuntimeError(

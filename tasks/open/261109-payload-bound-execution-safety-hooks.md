@@ -113,3 +113,51 @@ runner see the same vector. Both existing gates still apply.
    public shell-script tests for grouping around allowed commands and for
    grouping around denied commands. Exercise grouping tokens without changing
    policy authority.
+
+### Proposed authority decision table (2026-11-13; not implemented)
+
+| Authority / module | Payload decision | Executable policy | Legacy grant | Proposed result |
+| --- | --- | --- | --- | --- |
+| Direct user shell | any | any | any | Execute under user authority; assistant policy does not apply. |
+| Assistant, no module | unavailable | unavailable | allow / deny | Apply existing legacy behavior; other validation still applies. |
+| Assistant, module | allow | any | any | Allow authorization; ordinary input, workspace and process validation still applies. |
+| Assistant, module | deny | any | any | Deny before artifact creation or spawn. |
+| Assistant, module | abstain / absent | allow / deny | any | Apply module executable matcher or its default. |
+| Assistant, module | error / invalid result | any | any | Fail closed; surface the policy error. |
+
+This selects a single authoritative module, with terminal explicit payload
+answers. An operator may deliberately compose legacy grants into a module,
+provided the future validator makes that composition explicit. In particular,
+transcript grant and revoke mutations affect the legacy grant set; under a
+module they would have no effect unless the module explicitly consults that
+set. An operator relying on an immediate transcript revoke must not assume it
+constrains a module that does not opt in. Direct user shell remains separately
+authorized and is unaffected by either mechanism.
+
+This is a proposed breaking change from today's intersection of gates, not a
+safe silent upgrade: a module allow or permissive default may allow calls that
+legacy grants currently block, while a module default deny may block calls a
+transcript grant formerly enabled. Require an explicit configuration choice or
+migration opt-in before switching existing installations; retain current
+behavior until then and make the selected authority and transcript-grant effect
+visible to operators. A deny-only payload filter combined with the existing
+intersection would preserve legacy restrictions, but would not let a module
+express an independent allow, and perpetuates the `glob:*` workaround. A
+module-first policy with automatic legacy fallback on abstention preserves some
+old grants but makes module defaults and transcript revocations unexpectedly
+change authority; explicit composition is easier to audit. Decide the exact
+configuration and diagnostics with the implementation, not by silently
+changing the gate here.
+
+The payload must be the exact normalized execution input, with requested and
+resolved launcher identities distinguished; prefix matching keeps its current
+requested-token semantics. Bind it before script artifact creation, preserve
+normal validation, and test denial has neither artifacts nor subprocesses.
+Queue replay and source-reference paths need explicit authority classification
+before they can use this table. Grouping recognition needs quote-aware parsing:
+blindly treating shlex's unquoted output as syntax can confuse a quoted command
+name with shell punctuation and weaken the legacy gate.
+
+This slice rejects non-boolean executable policy defaults, including truthy
+strings such as `"false"`, rather than coercing them to allow. No authorization
+precedence or transcript grant behavior is changed.

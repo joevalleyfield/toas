@@ -24,6 +24,10 @@ class ExecutableGrantPolicy:
     default: bool = False
     prefix_matchers: Mapping[str, Sequence[Matcher]] | None = None
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.default, bool):
+            raise TypeError("executable grant default must be bool")
+
     def evaluate(self, argv: Sequence[str]) -> ExecutableGrantDecision:
         """Evaluate matchers in order, stopping at the first decision."""
         if not argv or not argv[0] or not all(isinstance(part, str) for part in argv):
