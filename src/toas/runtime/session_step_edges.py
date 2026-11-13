@@ -65,7 +65,6 @@ def _selected_plan_payload(*, content: str, fallback_plan: list[dict] | None, op
         shell_command=None,
         shell_argv=None,
         yaml_position=operator_config.extraction.yaml_position,
-        arbitration_mode=operator_config.extraction.intent_arbitration,
         include_plan_candidates=True,
         include_shell_candidates=False,
     )
@@ -85,7 +84,6 @@ def _selected_plan_toolset(*, content: str, fallback_plan: list[dict] | None, op
         shell_command=None,
         shell_argv=None,
         yaml_position=operator_config.extraction.yaml_position,
-        arbitration_mode=operator_config.extraction.intent_arbitration,
         include_plan_candidates=True,
         include_shell_candidates=False,
     )

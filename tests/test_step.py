@@ -2805,7 +2805,7 @@ def test_outline_surfaces_intent_and_queue_handles_when_present():
             {
                 "role": "result",
                 "content": "replay queue blocked",
-                "intent_execution": {"id": "d2", "kind": "plan", "order": 2, "total": 3, "arbitration": "in_order"},
+                "intent_execution": {"id": "d2", "kind": "plan", "order": 2, "total": 3},
                 "queue_update": {"id": "q9", "status": "blocked"},
             }
         ]
@@ -3570,9 +3570,38 @@ def test_step_user_mixed_plan_and_slash_command_runs_in_text_order_by_default():
     assert out[0]["role"] == "result"
     assert out[0]["role"] == "result"
     assert out[0].get("payload", {}).get("text") == "should-not-run"
-    assert out[0]["intent_execution"] == {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "in_order"}
+    assert out[0]["intent_execution"] == {"id": "d1", "kind": "plan", "order": 1, "total": 2}
     assert "help (compact):" in out[1]["content"]
-    assert out[1]["intent_execution"] == {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"}
+    assert out[1]["intent_execution"] == {"id": "d2", "kind": "operator", "order": 2, "total": 2}
+
+
+def test_step_config_before_and_after_yaml_uses_live_values_in_authored_order(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data.txt").write_text("sample line\n" * 50, encoding="utf-8")
+    transcript = """\
+## TOAS:USER
+```text inert
+/config set spill.threshold_lines 10
+A long inert region must not shift the plan ahead of the live config action.
+```
+/config set spill.threshold_lines 80
+```yaml
+operation: read_file
+arguments:
+  path: data.txt
+```
+/config set spill.threshold_lines 30
+```yaml
+operation: read_file
+arguments:
+  path: data.txt
+```
+"""
+    _, out = step(transcript, [], command_cwd=str(tmp_path))
+
+    assert [node["intent_execution"]["kind"] for node in out] == ["operator", "plan", "operator", "plan"]
+    assert "spilled to" not in out[1]["content"]
+    assert "spilled to" in out[3]["content"]
 
 
 def test_step_user_tool_uses_live_spill_config(tmp_path, monkeypatch):
@@ -3610,65 +3639,6 @@ def test_step_user_tool_uses_live_spill_config(tmp_path, monkeypatch):
     assert "data line 066" not in limited_read
 
 
-def test_step_user_mixed_plan_and_slash_command_first_wins_runs_only_first_text_intent():
-    config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="first_wins"))
-    transcript = """\
-## TOAS:USER
-```yaml
-- operation: echo
-  arguments:
-    text: should-not-run
-```
-/help
-"""
-
-    _, out = step(transcript, [], config=config)
-
-    assert len(out) == 1
-    assert out[0]["role"] == "result"
-    assert out[0].get("payload", {}).get("text") == "should-not-run"
-
-
-def test_step_user_mixed_plan_and_slash_command_last_wins_runs_only_last_text_intent():
-    config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="last_wins"))
-    transcript = """\
-## TOAS:USER
-```yaml
-- operation: echo
-  arguments:
-    text: should-run
-```
-/help
-"""
-
-    _, out = step(transcript, [], config=config)
-
-    assert len(out) == 1
-    assert out[0]["role"] == "result"
-    assert "help (compact):" in out[0]["content"]
-
-
-def test_step_user_mixed_plan_and_slash_command_strict_rejects_ambiguity():
-    config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="strict"))
-    transcript = """\
-## TOAS:USER
-```yaml
-- operation: echo
-  arguments:
-    text: should-not-run
-```
-/help
-"""
-
-    _, out = step(transcript, [], config=config)
-
-    assert len(out) == 1
-    assert out[0]["role"] == "result"
-    assert "mixed-intent strict mode" in out[0]["content"]
-    assert "#d1:plan" in out[0]["content"]
-    assert "#d2:operator" in out[0]["content"]
-
-
 def test_step_control_multi_slash_command_runs_in_source_order_by_default():
     transcript = """\
 ## TOAS:CONTROL
@@ -3682,10 +3652,10 @@ def test_step_control_multi_slash_command_runs_in_source_order_by_default():
     assert out[0]["role"] == "result"
     assert "generation.thinking_mode" in out[0]["content"]
     assert "enabled" in out[0]["content"]
-    assert out[0]["intent_execution"] == {"id": 1, "kind": "operator", "order": 1, "total": 2, "arbitration": "in_order"}
+    assert out[0]["intent_execution"] == {"id": "d1", "kind": "operator", "order": 1, "total": 2}
     assert out[1]["role"] == "result"
     assert "help (compact):" in out[1]["content"]
-    assert out[1]["intent_execution"] == {"id": 2, "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"}
+    assert out[1]["intent_execution"] == {"id": "d2", "kind": "operator", "order": 2, "total": 2}
 
 
 def test_step_user_multi_slash_command_runs_in_source_order_by_default():
@@ -3701,10 +3671,10 @@ def test_step_user_multi_slash_command_runs_in_source_order_by_default():
     assert out[0]["role"] == "result"
     assert "generation.thinking_mode" in out[0]["content"]
     assert "enabled" in out[0]["content"]
-    assert out[0]["intent_execution"] == {"id": 1, "kind": "operator", "order": 1, "total": 2, "arbitration": "in_order"}
+    assert out[0]["intent_execution"] == {"id": "d1", "kind": "operator", "order": 1, "total": 2}
     assert out[1]["role"] == "result"
     assert "help (compact):" in out[1]["content"]
-    assert out[1]["intent_execution"] == {"id": 2, "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"}
+    assert out[1]["intent_execution"] == {"id": "d2", "kind": "operator", "order": 2, "total": 2}
 
 
 def test_step_exports_extract_operator_commands():
@@ -3988,7 +3958,6 @@ def test_slash_help_result_contains_tools():
 def test_slash_help_result_contains_config_keys():
     _, consequences = step(_make_help_transcript(), [])
     content = consequences[0]["content"]
-    assert "/config set extraction.intent_arbitration in_order" in content
     assert "/session slot 2" in content
 
 
@@ -3997,8 +3966,6 @@ def test_slash_help_full_includes_common_goals_guidance():
     content = consequences[0]["content"]
     assert "Common goals:" in content
     assert "/config set generation.thinking_mode enabled" in content
-    assert "/config set extraction.intent_arbitration in_order" in content
-    assert "/config set extraction.intent_arbitration strict" in content
     assert "/replay --index #r1" in content
     assert "/queue approve" in content
     assert "/model select local qwen3.5-35b-a3b" in content
@@ -4149,7 +4116,7 @@ def test_slash_help_config_returns_config_section():
     assert "config help:" in content
     assert "/config values <key>" in content
     assert "compatibility notes:" in content
-    assert "execution-time intent selection is controlled by extraction.intent_arbitration." in content
+    assert "execution follows transcript source order." in content
     assert "tools-guidance-core" in content
     assert "tools-guidance-repo-work" in content
     assert "tools-guidance-first-edit-pass" in content

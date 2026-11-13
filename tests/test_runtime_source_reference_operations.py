@@ -39,7 +39,7 @@ def _ctx(working):
 
 class _Step:
     @staticmethod
-    def _select_assistant_plan_candidates(*, content, plan, yaml_position, arbitration_mode):
+    def _select_assistant_plan_candidates(*, content, plan, yaml_position):
         assert plan is None
         return [
             {"kind": "plan", "value": [{"tool_name": "echo", "args": {"text": "one"}}]},
@@ -229,7 +229,6 @@ def test_failed_referenced_python_fence_preserves_fence_form_and_materializes_ti
                 shell_command=None,
                 shell_argv=None,
                 yaml_position="any",
-                arbitration_mode="in_order",
                 include_plan_candidates=True,
                 include_shell_candidates=False,
             )
@@ -262,7 +261,7 @@ def test_failed_referenced_bash_fence_preserves_fence_form_and_materializes_time
         def _select_assistant_plan_candidates(**kwargs):
             return select_user_intent_candidates(
                 content=kwargs["content"], plan=None, operator_command=None, shell_command=None, shell_argv=None,
-                yaml_position="any", arbitration_mode="in_order", include_plan_candidates=True, include_shell_candidates=False,
+                yaml_position="any", include_plan_candidates=True, include_shell_candidates=False,
             )
 
         resolve_effective_env_modifiers = staticmethod(_Step.resolve_effective_env_modifiers)
@@ -287,7 +286,7 @@ def test_failed_referenced_fence_surfaces_explicit_materialization_refusal(monke
         _select_assistant_plan_candidates = staticmethod(
             lambda **kwargs: select_user_intent_candidates(
                 content=kwargs["content"], plan=None, operator_command=None, shell_command=None, shell_argv=None,
-                yaml_position="any", arbitration_mode="in_order", include_plan_candidates=True, include_shell_candidates=False,
+                yaml_position="any", include_plan_candidates=True, include_shell_candidates=False,
             )
         )
         resolve_effective_env_modifiers = staticmethod(_Step.resolve_effective_env_modifiers)

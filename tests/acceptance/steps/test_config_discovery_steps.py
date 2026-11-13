@@ -263,7 +263,7 @@ def then_extraction_discovery_contract(acceptance_state: dict) -> None:
     assert "does not execute" in plain
     assert "/help config extraction" in plain
     assert "config help: extraction" in config_help
-    for key in ("extraction.yaml_position =", "extraction.intent_arbitration =", "extraction.projection_shape ="):
+    for key in ("extraction.yaml_position =", "extraction.projection_shape ="):
         assert key in live
     assert "precedence stack" not in live
     assert "config_update" not in live

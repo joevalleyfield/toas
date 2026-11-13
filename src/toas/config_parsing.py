@@ -7,7 +7,6 @@ _CHOICE_MAP: dict[str, tuple[str, ...]] = {
     "generation.thinking_mode": ("disabled", "enabled"),
     "generation.transport_mode": ("chat_messages", "single_user_blob"),
     "extraction.shell_staging": ("auto", "manual"),
-    "extraction.intent_arbitration": ("first_wins", "last_wins", "in_order", "strict"),
     "extraction.projection_shape": ("auto", "yaml", "shell"),
     "llm.api_key_source": ("env", "keyring"),
     "runtime.context_budget_mode": ("balanced", "strict"),

@@ -201,7 +201,6 @@ def _select_user_intent_candidates(
     shell_command,
     shell_argv,
     yaml_position: str,
-    arbitration_mode: str,
     include_plan_candidates: bool = True,
     operator_commands: list[tuple[str, list[str]]] | None = None,
 ) -> list[dict]:
@@ -212,14 +211,13 @@ def _select_user_intent_candidates(
         shell_command=shell_command,
         shell_argv=shell_argv,
         yaml_position=yaml_position,
-        arbitration_mode=arbitration_mode,
         include_plan_candidates=include_plan_candidates,
         include_shell_candidates=shell_command is not None and shell_argv is not None,
         operator_commands=operator_commands,
     )
 
 
-def _select_assistant_plan_candidates(*, content: str, plan, yaml_position: str, arbitration_mode: str) -> list[dict]:
+def _select_assistant_plan_candidates(*, content: str, plan, yaml_position: str) -> list[dict]:
     return select_user_intent_candidates(
         content=content,
         plan=plan,
@@ -227,7 +225,6 @@ def _select_assistant_plan_candidates(*, content: str, plan, yaml_position: str,
         shell_command=None,
         shell_argv=None,
         yaml_position=yaml_position,
-        arbitration_mode=arbitration_mode,
         include_plan_candidates=True,
         include_shell_candidates=False,
     )
@@ -264,7 +261,6 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     already_executed_indices,
     env_modifiers: dict,
     stream_stdout_enabled: bool = True,
-    arbitration_mode: str,
     frontier_content: str = "",
     generate=None,
 ) -> None:
@@ -279,7 +275,6 @@ def _run_user_intent_candidate(  # noqa: PLR0913
                     "kind": candidate["kind"],
                     "order": candidate["order"],
                     "total": candidate["total"],
-                    "arbitration": arbitration_mode,
                 }
             appended_nodes.append(node)
         consequences.extend(appended_nodes)
@@ -940,12 +935,10 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
         if _should_return_after_user_or_control(consequences):
             return should_return_early
         return False
-    arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
     assistant_candidates = _select_assistant_plan_candidates(
         content=frontier["content"],
         plan=plan,
         yaml_position=config.extraction.yaml_position,
-        arbitration_mode=arbitration_mode,
     ) if frontier["role"] == "assistant" and not turn_inert else []
     if assistant_candidates:
         unsupported = [candidate for candidate in assistant_candidates if candidate["kind"] == "unsupported_exec"]
@@ -961,13 +954,6 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
             )
         assistant_candidates = [candidate for candidate in assistant_candidates if candidate["kind"] != "unsupported_exec"]
         if not assistant_candidates:
-            return False
-        if _append_strict_assistant_plan_error_if_needed(
-            step_mod=step_mod,
-            consequences=consequences,
-            candidates=assistant_candidates,
-            arbitration_mode=arbitration_mode,
-        ):
             return False
         for candidate in assistant_candidates:
             _handle_plan_frontier(
@@ -1331,7 +1317,6 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
     generate,
     baseline_config=None,
 ) -> bool:
-    arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
     candidates = _select_user_intent_candidates(
         content=frontier["content"],
         plan=plan,
@@ -1339,21 +1324,9 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
         shell_command=shell_command,
         shell_argv=shell_argv,
         yaml_position=config.extraction.yaml_position,
-        arbitration_mode=arbitration_mode,
         include_plan_candidates=not turn_inert,
-    )
-    candidates = _expand_in_order_operator_candidates(
-        candidates=candidates,
         operator_commands=operator_commands,
-        arbitration_mode=arbitration_mode,
     )
-    if _append_strict_mixed_intent_error_if_needed(
-        step_mod=step_mod,
-        consequences=consequences,
-        candidates=candidates,
-        arbitration_mode=arbitration_mode,
-    ):
-        return False
     live_overrides = active_config_overrides(events)
     for candidate in candidates:
         consequence_start = len(consequences)
@@ -1376,7 +1349,6 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
                 already_executed_indices=already_executed_indices,
                 env_modifiers=env_modifiers,
                 stream_stdout_enabled=stream_stdout_enabled,
-                arbitration_mode=arbitration_mode,
                 frontier_content=frontier["content"],
                 generate=generate,
             )
@@ -1416,60 +1388,6 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
         config=config,
         generate=generate,
     )
-
-
-def _expand_in_order_operator_candidates(*, candidates: list[dict], operator_commands: list, arbitration_mode: str) -> list[dict]:
-    if arbitration_mode != "in_order" or not operator_commands:
-        return candidates
-    kinds = {candidate.get("kind") for candidate in candidates}
-    if not kinds <= {"operator"}:
-        return candidates
-    return [
-        {
-            "kind": "operator",
-            "value": command_tuple,
-            "order": idx + 1,
-            "total": len(operator_commands),
-            "intent_id": idx + 1,
-        }
-        for idx, command_tuple in enumerate(operator_commands)
-    ]
-
-
-def _append_strict_mixed_intent_error_if_needed(*, step_mod=None, consequences: list[dict], candidates: list[dict], arbitration_mode: str) -> bool:
-    if arbitration_mode != "strict" or len(candidates) <= 1:
-        return False
-    handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
-    consequences.append(
-        make_result_node(
-            (
-                f"[ERROR] mixed-intent strict mode: {len(candidates)} intents detected; "
-                "resolve to one intent or change extraction.intent_arbitration\n"
-                f"detected intents: {handles}"
-            ),
-            origin_role="user",
-            origin_kind="tool_call",
-        )
-    )
-    return True
-
-
-def _append_strict_assistant_plan_error_if_needed(*, step_mod=None, consequences: list[dict], candidates: list[dict], arbitration_mode: str) -> bool:
-    if arbitration_mode != "strict" or len(candidates) <= 1:
-        return False
-    handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
-    consequences.append(
-        make_result_node(
-            (
-                f"[ERROR] assistant strict mode: {len(candidates)} callable groups detected; "
-                "resolve to one group or change extraction.intent_arbitration\n"
-                f"detected groups: {handles}"
-            ),
-            origin_role="assistant",
-            origin_kind="tool_call",
-        )
-    )
-    return True
 
 
 def _handle_user_generation_fallback(*, step_mod, frontier: dict, consequences: list[dict], candidates: list[dict], working: list[dict], config, generate) -> bool:

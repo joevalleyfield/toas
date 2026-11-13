@@ -20,6 +20,7 @@ from .executable_fence_lanes import (
     extract_write_fence_plans,
 )
 from .fence_activation import classify_fence_activation
+from .frontier_resolution import extract_operator_command_spans, yaml_sources_with_offsets
 from .markdown_fence import scan_markdown_fences
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
@@ -37,29 +38,19 @@ def _last_prefixed_line_position(content: str, *, prefix: str) -> int | None:
     return last
 
 
-def _prefixed_line_positions(content: str, *, prefix: str) -> list[int]:
-    positions: list[int] = []
-    for raw, source_offset in _retained_lines_with_offsets(content):
-        marker = raw.lstrip()
-        if marker.startswith(prefix):
-            positions.append(source_offset + len(raw) - len(marker))
-    return positions
-
-
 def _plan_position(content: str, *, plan: list[dict] | None, yaml_position: str) -> int | None:
     if plan is None:
         return None
-    stripped = strip_inert_regions(content)
-    matches = list(_YAML_BLOCK_RE.finditer(stripped))
-    if not matches:
+    sources = yaml_sources_with_offsets(content, _YAML_BLOCK_RE)
+    if not sources:
         return None
     if yaml_position == "tail":
-        return matches[-1].start()
+        return sources[-1][1]
     if yaml_position == "first":
-        return matches[0].start()
+        return sources[0][1]
     if yaml_position == "any":
         valid_indices: list[int] = []
-        for idx, match in enumerate(matches):
+        for idx, (match, _) in enumerate(sources):
             try:
                 parsed = yaml.safe_load(match.group(1))
             except yaml.YAMLError:
@@ -68,17 +59,16 @@ def _plan_position(content: str, *, plan: list[dict] | None, yaml_position: str)
             if candidate_plan is not None:
                 valid_indices.append(idx)
         if len(valid_indices) == 1:
-            return matches[valid_indices[0]].start()
+            return sources[valid_indices[0]][1]
     return None
 
 
 def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, str | None]]:
-    stripped = strip_inert_regions(content)
-    matches = list(_YAML_BLOCK_RE.finditer(stripped))
-    if not matches:
+    sources = yaml_sources_with_offsets(content, _YAML_BLOCK_RE)
+    if not sources:
         raw_candidates: list[tuple[list[dict], int, str | None]] = []
         try:
-            parsed = yaml.safe_load(stripped)
+            parsed = yaml.safe_load(strip_inert_regions(content))
             candidate_plan, _ = normalize_tool_plan(parsed)
             if candidate_plan is not None:
                 raw_candidates.append((candidate_plan, 0, "toas"))
@@ -95,9 +85,11 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
         ]
 
     candidates: list[tuple[list[dict], int, str | None]] = []
-    for match in matches:
+    fences = scan_markdown_fences(content)
+    for match, offset in sources:
+        opening_offset = content.rfind("\n", 0, offset) + 1
         matching_fence = next(
-            (fence for fence in scan_markdown_fences(content) if fence.opening_offset == match.start()),
+            (fence for fence in fences if fence.opening_offset == opening_offset),
             None,
         )
         if matching_fence is not None:
@@ -111,7 +103,7 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, s
         candidate_plan, _ = normalize_tool_plan(parsed)
         if candidate_plan is None:
             continue
-        candidates.append((candidate_plan, match.start(), "toas"))
+        candidates.append((candidate_plan, offset, "toas"))
 
     return (
         candidates
@@ -177,7 +169,6 @@ def select_user_intent_candidates(
     shell_command,
     shell_argv,
     yaml_position: str,
-    arbitration_mode: str,
     include_plan_candidates: bool = True,
     include_shell_candidates: bool = True,
     operator_commands: list[tuple[str, list[str]]] | None = None,
@@ -188,10 +179,12 @@ def select_user_intent_candidates(
         "shell": _last_prefixed_line_position(content, prefix="$ "),
     }
     all_candidates: list[dict] = []
-    operator_values = operator_commands or ([operator_command] if operator_command is not None else [])
-    operator_positions = _prefixed_line_positions(content, prefix="/")
-    for index, command in enumerate(operator_values):
-        position = operator_positions[index] if index < len(operator_positions) else positions["operator"]
+    operator_values = operator_commands
+    if operator_values is None:
+        operator_values = [operator_command] if operator_command is not None else []
+    operator_spans = iter(extract_operator_command_spans(content))
+    for command in operator_values:
+        position = next((offset for parsed, offset in operator_spans if parsed == command), positions["operator"])
         all_candidates.append(
             {"kind": "operator", "value": command, "position": position, "initial_index": len(all_candidates)}
         )
@@ -257,8 +250,4 @@ def select_user_intent_candidates(
     for candidate in all_candidates:
         candidate["total"] = total
 
-    if arbitration_mode == "first_wins":
-        return all_candidates[:1]
-    if arbitration_mode == "last_wins":
-        return all_candidates[-1:]
     return all_candidates

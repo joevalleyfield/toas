@@ -3450,7 +3450,7 @@ def test_config_values_yaml_position_with_choices(monkeypatch):
     assert "allowed values" in out[0]["content"]
     assert "yaml_position" in out[0]["content"].lower()
     # The compat note should appear in the choices branch
-    assert "compatibility-only" in out[0]["content"] or "intent_arbitration" in out[0]["content"]
+    assert "compatibility-only" in out[0]["content"]
 
 
 def test_extract_replay_additional_coverage(monkeypatch):

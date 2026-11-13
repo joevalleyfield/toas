@@ -26,7 +26,7 @@ from .operator_config_endpoint_ops import config_endpoint_result
 _PROJECT_CONFIG_DEFAULT_PATH = ".toas/config.toml"
 _YAML_POSITION_COMPAT_NOTE = (
     "note: extraction.yaml_position is compatibility-only for legacy plan extraction; "
-    "execution-time intent selection is governed by extraction.intent_arbitration."
+    "execution follows transcript source order."
 )
 
 _CONFIG_USAGE = (
@@ -239,7 +239,6 @@ def _config_overview(*, step_mod: Any, context: OperatorCommandContext) -> str:
         max_retries=generation.max_retries,
         retry_delay_s=generation.retry_delay_s,
         avoid_terms=avoid_terms,
-        arbitration=context.config.extraction.intent_arbitration,
         shell_staging=context.config.extraction.shell_staging,
         projection_shape=context.config.extraction.projection_shape,
         streaming_mode=context.config.runtime.streaming_mode,
@@ -509,7 +508,6 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             "  (TOAS records these settings but backend restart/apply is separate)",
             "",
             "Quick edits:",
-            "  /config values extraction.intent_arbitration",
             "  /config set generation.thinking_mode disabled",
             "  /config set generation.thinking_mode enabled",
             "  /config set generation.thinking_budget_tokens 1024",

@@ -69,7 +69,6 @@ def when_submit_mixed_multi_instance_user_turn(acceptance_state: dict, capsys, p
     (acceptance_state["repo"] / "toas.toml").write_text(
         (
             "[extraction]\n"
-            'intent_arbitration = "in_order"\n'
             "user_shell = true\n"
             "operator_command = true\n"
         ),
@@ -90,6 +89,7 @@ def when_submit_mixed_multi_instance_user_turn(acceptance_state: dict, capsys, p
             "  arguments:\n"
             "    text: second-plan\n"
             "```\n"
+            "/help cli\n"
             f"$ {shell_command}\n"
             f"$ {second_shell_command}\n"
         ),
@@ -110,10 +110,12 @@ def then_verify_mixed_multi_instance_order(acceptance_state: dict) -> None:
     rendered = acceptance_state.get("rendered", "")
     i_plan1 = rendered.find("[OK] echo: first-plan")
     i_plan2 = rendered.find("[OK] echo: second-plan")
+    i_help = rendered.find("help (compact):")
+    i_cli_help = rendered.find("cli commands:")
     # Shell stdout is projected inside a `toas-output` fence; key on the fence
     # header so we anchor on the durable RESULT block rather than the streamed
     # stdout copy that precedes the result lanes.
     i_shell1 = rendered.find("source=tool.shell potency=inert\nfirst-shell")
     i_shell2 = rendered.find("source=tool.shell potency=inert\nsecond-shell")
-    assert -1 not in (i_plan1, i_plan2, i_shell1, i_shell2)
-    assert i_plan1 < i_plan2 < i_shell1 < i_shell2
+    assert -1 not in (i_plan1, i_help, i_plan2, i_cli_help, i_shell1, i_shell2)
+    assert i_plan1 < i_help < i_plan2 < i_cli_help < i_shell1 < i_shell2

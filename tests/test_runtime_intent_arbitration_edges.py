@@ -15,34 +15,9 @@ def test_select_user_intent_candidates_orders_by_text_position():
         shell_command="echo hi",
         shell_argv=["echo", "hi"],
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
     assert [item["kind"] for item in out] == ["plan", "operator", "shell"]
     assert [item["intent_id"] for item in out] == ["d1", "d2", "d3"]
-
-
-def test_select_user_intent_candidates_first_and_last_wins_use_text_position():
-    content = "```yaml\n- operation: echo\n  arguments:\n    text: hi\n```\n/help"
-    first = select_user_intent_candidates(
-        content=content,
-        plan=[{"tool_name": "echo", "args": {"text": "hi"}}],
-        operator_command=("help", []),
-        shell_command=None,
-        shell_argv=None,
-        yaml_position="tail",
-        arbitration_mode="first_wins",
-    )
-    last = select_user_intent_candidates(
-        content=content,
-        plan=[{"tool_name": "echo", "args": {"text": "hi"}}],
-        operator_command=("help", []),
-        shell_command=None,
-        shell_argv=None,
-        yaml_position="tail",
-        arbitration_mode="last_wins",
-    )
-    assert [item["kind"] for item in first] == ["plan"]
-    assert [item["kind"] for item in last] == ["operator"]
 
 
 def test_select_user_intent_candidates_ignores_yaml_position_for_execution_stream():
@@ -58,7 +33,6 @@ def test_select_user_intent_candidates_ignores_yaml_position_for_execution_strea
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
     assert [item["kind"] for item in out] == ["plan", "operator", "plan"]
     assert out[0]["value"][0]["args"]["text"] == "first"
@@ -73,7 +47,6 @@ def test_select_user_intent_candidates_falls_back_to_stable_kind_order_when_posi
         shell_command="echo hi",
         shell_argv=["echo", "hi"],
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
     assert [item["kind"] for item in out] == ["operator", "plan", "shell"]
 
@@ -91,31 +64,10 @@ def test_select_user_intent_candidates_in_order_includes_multiple_yaml_blocks():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
     assert [item["kind"] for item in out] == ["plan", "operator", "plan"]
     assert out[0]["value"][0]["args"]["text"] == "first"
     assert out[2]["value"][0]["args"]["text"] == "second"
-
-
-def test_select_user_intent_candidates_last_wins_uses_last_yaml_instance():
-    content = (
-        "/help\n"
-        "```yaml\n- operation: echo\n  arguments:\n    text: first\n```\n"
-        "```yaml\n- operation: echo\n  arguments:\n    text: second\n```\n"
-    )
-    out = select_user_intent_candidates(
-        content=content,
-        plan=None,
-        operator_command=("help", []),
-        shell_command=None,
-        shell_argv=None,
-        yaml_position="first",
-        arbitration_mode="last_wins",
-    )
-    assert len(out) == 1
-    assert out[0]["kind"] == "plan"
-    assert out[0]["value"][0]["args"]["text"] == "second"
 
 
 def test_select_user_intent_candidates_plan_fallback_when_no_yaml_candidates():
@@ -126,7 +78,6 @@ def test_select_user_intent_candidates_plan_fallback_when_no_yaml_candidates():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
         include_plan_candidates=True,
     )
     assert len(out) == 1
@@ -145,7 +96,6 @@ def test_select_user_intent_candidates_any_mode_ignores_ambiguous_multiple_yaml_
         shell_command=None,
         shell_argv=None,
         yaml_position="any",
-        arbitration_mode="in_order",
         include_plan_candidates=False,
     )
     assert len(out) == 1
@@ -161,7 +111,6 @@ def test_select_user_intent_candidates_any_mode_ignores_yaml_parse_errors():
         shell_command=None,
         shell_argv=None,
         yaml_position="any",
-        arbitration_mode="in_order",
     )
     assert len(out) == 1
     assert out[0]["kind"] == "plan"
@@ -176,7 +125,6 @@ def test_select_user_intent_candidates_any_mode_plan_position_tolerates_yaml_par
         shell_command=None,
         shell_argv=None,
         yaml_position="any",
-        arbitration_mode="in_order",
         include_plan_candidates=False,
     )
     assert len(out) == 1
@@ -192,7 +140,6 @@ def test_select_user_intent_candidates_in_order_includes_multiple_shell_lines():
         shell_command="echo two",
         shell_argv=["echo", "two"],
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
     assert [item["kind"] for item in out] == ["shell", "operator", "shell"]
     assert out[0]["value"]["command"] == "echo one"
@@ -217,7 +164,6 @@ def test_select_user_intent_candidates_keeps_shell_after_inert_result():
         shell_command='find . -name "README.md"',
         shell_argv=["find", ".", "-name", "README.md"],
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert [item["kind"] for item in out] == ["shell"]
@@ -240,7 +186,6 @@ def test_select_user_intent_candidates_ignores_quoted_yaml_block():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
     assert out == []
 
@@ -263,7 +208,6 @@ def test_select_user_intent_candidates_interleaves_all_operator_commands_with_pl
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert [item["kind"] for item in out] == ["operator", "plan", "operator", "plan"]
@@ -282,7 +226,6 @@ def test_select_user_intent_candidates_does_not_duplicate_prompted_bash_fence_as
         shell_command="echo two",
         shell_argv=["echo", "two"],
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert [item["kind"] for item in out] == ["plan"]
@@ -307,7 +250,6 @@ def test_select_user_intent_candidates_interleaves_yaml_and_json_plans():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert [item["value"][0]["args"]["text"] for item in out] == ["json", "yaml"]
@@ -321,7 +263,6 @@ def test_select_user_intent_candidates_rejects_unknown_yaml_toolset():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert out[0]["kind"] == "unsupported_exec"
@@ -353,7 +294,6 @@ def test_select_user_intent_candidates_captures_python_exec_language():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert out[0]["kind"] == "plan"
@@ -368,7 +308,6 @@ def test_select_user_intent_candidates_captures_powershell_exec_language():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert out[0]["value"] == [{
@@ -385,7 +324,6 @@ def test_select_user_intent_candidates_captures_explicit_runtime_for_unknown_lan
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert out[0]["value"][0]["tool_name"] == "interpreter_script"
@@ -409,7 +347,6 @@ def test_select_user_intent_candidates_captures_write_fence_plan():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert len(out) == 1
@@ -431,7 +368,6 @@ def test_select_user_intent_candidates_captures_write_fence_with_yaml_block():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert len(out) == 2
@@ -450,7 +386,6 @@ def test_select_user_intent_candidates_reports_unsupported_write_fence():
         shell_command=None,
         shell_argv=None,
         yaml_position="tail",
-        arbitration_mode="in_order",
     )
 
     assert len(out) == 1

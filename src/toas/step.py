@@ -140,8 +140,6 @@ def render_session_help() -> str:
         "  /config show",
         "  /session show",
         "  /session slot 2",
-        "  /config set extraction.intent_arbitration in_order",
-        "  /config set extraction.intent_arbitration strict",
         "  /help full             show full command/tool/config guidance",
     ]
     return "\n".join(lines)
@@ -187,11 +185,6 @@ def render_session_help_full() -> str:
     lines.append("    /config show")
     lines.append("  Use single-blob transport for awkward backends")
     lines.append("    /config set generation.transport_mode single_user_blob")
-    lines.append("  Choose mixed-intent arbitration mode")
-    lines.append("    /config set extraction.intent_arbitration in_order")
-    lines.append("    /config set extraction.intent_arbitration first_wins")
-    lines.append("    /config set extraction.intent_arbitration last_wins")
-    lines.append("    /config set extraction.intent_arbitration strict")
     lines.append("  Replay by intent id and continue queue")
     lines.append("    /replay --index #r1")
     lines.append("    /queue approve")
@@ -271,7 +264,6 @@ def render_help_approvals() -> str:
         "- when multiple active queues exist, specify queue id (for example: /queue q2 approve)",
         "- replay entrypoint: /replay --index <n|rN>",
         "- replay direct queue controls also work: /replay --approve <qN> (and resume/skip/cancel)",
-        "- mixed-intent sequencing mode: /config set extraction.intent_arbitration in_order",
     ]
     return "\n".join(lines)
 

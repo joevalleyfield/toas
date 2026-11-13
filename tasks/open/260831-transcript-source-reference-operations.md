@@ -76,6 +76,25 @@ failed revoke before another tool. Verify the pending suffix and effective
 policy in each case. One-turn grants and compact pending-action forms retain
 their separate scope.
 
+### Source-order implementation (2026-11-13)
+
+The frontier dispatcher now interleaves all recognized slash commands, YAML
+plans, and shell candidates in authored order, including slash commands before
+a final plan. The arbitration configuration key and its help entries are
+retired. Authored offsets remain stable when the turn contains inert output.
+A real CLI step with `/config set spill.threshold_lines 80`, a 50-line read,
+`/config set spill.threshold_lines 30`, and a second read returned the first
+read inline and spilled the second. Multi-instance acceptance coverage verifies
+that two slash commands interleave with plans and shell commands.
+
+The first-failure portion remains open. The existing plan recovery path stages
+a plan-local tail; mixed user/control recovery still needs to carry later
+slash, YAML, and shell operations into the next frontier. Branch
+reconstruction currently reinterprets policy declarations in historical
+source. It must also distinguish successfully executed declarations from
+pending or failed mutations when replaying a mixed turn. Keep this dependency
+open for in-turn continuation overlays.
+
 ## Design sketch
 
 Use `P` only as explanatory notation for an assistant turn's ordered candidate

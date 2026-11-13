@@ -27,7 +27,7 @@ overview:
   - ""
   - "compatibility notes:"
   - "  extraction.yaml_position remains available for legacy extraction flows."
-  - "  execution-time intent selection is controlled by extraction.intent_arbitration."
+  - "  execution follows transcript source order."
   - ""
   - "prompt guidance constraints (for /prompt --constraint ...):"
   - "  tools-guidance-core"
@@ -74,15 +74,15 @@ topics:
           - "/config show --sources"
           - "/config show <topic> --sources"
   - id: extraction
-    aliases: [intent, intents, arbitration]
+    aliases: [intent, intents]
     summary: "Extraction identifies candidate operator, tool, and shell intent before later execution or authorization decisions."
     facets:
       plain:
         summary: "Extraction preserves authored source order and lane boundaries while selecting intent candidates; it does not execute them."
       config:
-        summary: "Adjust candidate fallback, lane participation, arbitration, staging, and projection behavior."
-        related_keys: [extraction.yaml_position, extraction.loose_command_fallback, extraction.user_shell, extraction.operator_command, extraction.intent_arbitration, extraction.shell_staging, extraction.projection_shape]
-        next_actions: [/config show extraction, /config values extraction.intent_arbitration, /config set extraction.intent_arbitration in_order]
+        summary: "Adjust candidate fallback, lane participation, staging, and projection behavior."
+        related_keys: [extraction.yaml_position, extraction.loose_command_fallback, extraction.user_shell, extraction.operator_command, extraction.shell_staging, extraction.projection_shape]
+        next_actions: [/config show extraction]
   - id: history
     aliases: [projections, durable-state]
     summary: "Durable-state inspection uses distinct projections for branch tips, lineage, topology, transcript reconstruction, and model-visible input."

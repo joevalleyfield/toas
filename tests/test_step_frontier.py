@@ -199,11 +199,11 @@ def test_extract_operator_command_variants():
 
 
 def test_extract_operator_commands_collects_all_slash_lines_in_order():
-    content = "/help\n/config set extraction.intent_arbitration in_order\nnote\n/config values extraction.intent_arbitration"
+    content = "/help\n/config set extraction.yaml_position tail\nnote\n/config values extraction.yaml_position"
     assert step_frontier.extract_operator_commands(content) == [
         ("help", []),
-        ("config", ["set", "extraction.intent_arbitration", "in_order"]),
-        ("config", ["values", "extraction.intent_arbitration"]),
+        ("config", ["set", "extraction.yaml_position", "tail"]),
+        ("config", ["values", "extraction.yaml_position"]),
     ]
 
 
@@ -291,7 +291,6 @@ def test_select_user_intent_candidates_any_yaml_parse_error_path():
         shell_command=None,
         shell_argv=None,
         yaml_position="any",
-        arbitration_mode="in_order",
     )
     assert len(out) == 1
     assert out[0]["kind"] == "plan"

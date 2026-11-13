@@ -71,7 +71,6 @@ def _assistant_candidates(*, step_mod, content: str, context: OperatorCommandCon
             content=content,
             plan=None,
             yaml_position="any",
-            arbitration_mode="in_order",
         )
     else:
         candidates = select_user_intent_candidates(
@@ -81,7 +80,6 @@ def _assistant_candidates(*, step_mod, content: str, context: OperatorCommandCon
             shell_command=None,
             shell_argv=None,
             yaml_position="any",
-            arbitration_mode="in_order",
             include_plan_candidates=True,
             include_shell_candidates=False,
         )

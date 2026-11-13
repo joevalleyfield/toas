@@ -60,7 +60,6 @@ overview: |-
     avoid terms: {avoid_terms} configured
 
   extraction:
-    arbitration: {arbitration}
     shell staging: {shell_staging}
     projection: {projection_shape}
 

@@ -6,12 +6,14 @@ import yaml
 
 from ..graph import normalize_tool_plan
 from ..shell_intent import (
+    _retained_lines_with_offsets,
     extract_yaml_blocks,
     project_loose_command_for_user,
     shell_argv_from_command,
     strip_inert_regions,
 )
 from ..tools import validate_call
+from .markdown_fence import scan_markdown_fences
 from .operator_command_parse import split_operator_command
 from .yaml_healing import heal_candidate_yaml
 
@@ -52,6 +54,22 @@ def _source_operation_spans(body: str, parsed: object, plan: list[dict]) -> tupl
     return (body,)
 
 
+def yaml_sources_with_offsets(content: str, pattern: re.Pattern[str]) -> list[tuple[re.Match[str], int]]:
+    """Match the inert-filtered view and retain offsets into the authored turn."""
+    retained = _retained_lines_with_offsets(content)
+    original_line_offsets: dict[int, int] = {}
+    cursor = 0
+    for line, original_offset in retained:
+        original_line_offsets[cursor] = original_offset
+        cursor += len(line) + 1
+    filtered = "\n".join(line for line, _ in retained)
+    sources = []
+    for match in pattern.finditer(filtered):
+        line_start = filtered.rfind("\n", 0, match.start()) + 1
+        sources.append((match, original_line_offsets[line_start] + match.start() - line_start))
+    return sources
+
+
 def extract_plan_source(
     content: str,
     *,
@@ -60,11 +78,10 @@ def extract_plan_source(
     source_position: int | None = None,
 ) -> PlanSource | None:
     """Find *plan* in a YAML fence and retain parser-validated authored spans."""
-    source_view = strip_inert_regions(content)
-    for match in _YAML_PLAN_RE.finditer(source_view):
-        if source_position is not None and match.start() != source_position:
+    for match, offset in yaml_sources_with_offsets(content, _YAML_PLAN_RE):
+        if source_position is not None and offset != source_position:
             continue
-        is_staged = content[match.start() : match.start() + 14].startswith("```yaml staged")
+        is_staged = match[0].startswith("```yaml staged")
         if is_staged != staged:
             continue
         body = match.group(1)
@@ -80,6 +97,7 @@ def extract_plan_source(
             return PlanSource(plan=normalized, operation_sources=spans)
     if not staged and (source_position is None or source_position == 0):
         try:
+            source_view = strip_inert_regions(content)
             parsed = yaml.safe_load(source_view)
             normalized, error = normalize_tool_plan(parsed)
             if error is None and normalized == plan:
@@ -251,10 +269,15 @@ def extract_operator_command(content: str) -> tuple[str, list[str]] | None:
 
 
 def extract_operator_commands(content: str) -> list[tuple[str, list[str]]]:
-    commands: list[tuple[str, list[str]]] = []
-    for raw in strip_inert_regions(content).splitlines():
+    return [command for command, _ in extract_operator_command_spans(content)]
+
+
+def extract_operator_command_spans(content: str) -> list[tuple[tuple[str, list[str]], int]]:
+    commands: list[tuple[tuple[str, list[str]], int]] = []
+    fences = scan_markdown_fences(content)
+    for raw, offset in _retained_lines_with_offsets(content):
         line = raw.rstrip()
-        if not line or not line.startswith("/"):
+        if not line.startswith("/") or any(fence.opening_offset < offset < fence.closing_offset for fence in fences):
             continue
         try:
             argv = split_operator_command(line[1:])
@@ -262,7 +285,7 @@ def extract_operator_commands(content: str) -> list[tuple[str, list[str]]]:
             continue
         if not argv:
             continue
-        commands.append((argv[0], argv[1:]))
+        commands.append(((argv[0], argv[1:]), offset))
     return commands
 
 

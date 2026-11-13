@@ -13,7 +13,6 @@ from toas.runtime.step_runtime import (
     _adjacent_config_load_resolution,
     _append_plan_frontier_results,
     _append_plan_recovery_consequence,
-    _append_strict_mixed_intent_error_if_needed,
     _apply_live_config_update,
     _bootstrap_seed_consequences,
     _branch_command_context_from_direct_declarations,
@@ -29,7 +28,6 @@ from toas.runtime.step_runtime import (
     _decorate_step_telemetry,
     _execute_frontier_consequences,
     _execute_plan_frontier_results,
-    _expand_in_order_operator_candidates,
     _failed_result_index,
     _frontier_callable_near_miss_error,
     _frontier_has_callable_intent,
@@ -1638,7 +1636,6 @@ def test_step_runtime_helper_run_user_intent_candidate_unknown_kind_raises():
             config_sources=None,
             already_executed_indices=None,
             env_modifiers={},
-            arbitration_mode="in_order",
         )
 
 
@@ -1669,7 +1666,6 @@ def test_step_runtime_helper_run_user_intent_candidate_reports_unsupported_exec(
         config_sources=None,
         already_executed_indices=None,
         env_modifiers={},
-        arbitration_mode="in_order",
     )
 
     assert "[ERROR] executable fence `python exec`: runtime unavailable" in consequences[0]["content"]
@@ -1701,7 +1697,6 @@ def test_step_runtime_helper_run_user_intent_candidate_wraps_operator_errors():
         already_executed_indices=set(),
         env_modifiers={},
         stream_stdout_enabled=True,
-        arbitration_mode="in_order",
     )
 
     assert consequences[0]["role"] == "result"
@@ -1765,7 +1760,7 @@ def test_step_runtime_helper_execute_frontier_consequences_user_respects_text_or
             "origin_role": "user",
             "origin_kind": "tool_call",
             "projection_lane": "user",
-            "intent_execution": {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "in_order"},
+            "intent_execution": {"id": "d1", "kind": "plan", "order": 1, "total": 2},
         },
         {
             "role": "result",
@@ -1773,7 +1768,7 @@ def test_step_runtime_helper_execute_frontier_consequences_user_respects_text_or
             "origin_role": "user",
             "origin_kind": "slash_command",
             "projection_lane": "user",
-            "intent_execution": {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"},
+            "intent_execution": {"id": "d2", "kind": "operator", "order": 2, "total": 2},
         },
     ]
 
@@ -1863,133 +1858,6 @@ def test_user_dollar_command_sequence_continues_after_nonzero_result():
     assert should_return_early is False
     assert calls == ["false", "echo later"]
     assert [node["payload"]["exit_code"] for node in consequences] == [1, 0]
-
-
-def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_uses_text_order():
-    calls: list[str] = []
-    step_mod = SimpleNamespace(
-        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
-        _has_turn_header_inert_directive=lambda _content: False,
-        _extract_operator_command=lambda _content: ("help", []),
-        _extract_user_shell_command=lambda _content: None,
-        _extract_user_shell_argv=lambda _cmd: None,
-        _extract_loose_command=lambda _content: (None, False),
-        resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [_result("plan-branch")],
-        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [_result("shell-branch", origin_kind="user_shell")],
-        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [_result("operator-branch", origin_kind="slash_command")],
-    )
-    config = OperatorConfig()
-    config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "first_wins"}))
-    consequences, should_return_early = _execute_frontier_consequences(
-        step_mod=step_mod,
-        events=[],
-        working=[{"role": "user", "content": "```yaml\n- tool_name: echo\n  args:\n    text: x\n```\n/help"}],
-        transcript="",
-        execute=lambda _working, _plan: [],
-        generate=lambda _working: [],
-        command_cwd=".",
-        previous_command_cwd=None,
-        workspace_mode="strict",
-        workspace_roots=["."],
-        config=config,
-        config_sources=None,
-        already_executed_indices=None,
-    )
-    assert should_return_early is False
-    assert calls == ["plan"]
-    assert consequences == [
-        {
-            "role": "result",
-            "content": "plan-branch",
-            "origin_role": "user",
-            "origin_kind": "tool_call",
-            "projection_lane": "user",
-            "intent_execution": {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "first_wins"},
-        }
-    ]
-
-
-def test_step_runtime_helper_execute_frontier_consequences_user_last_wins_uses_text_order():
-    calls: list[str] = []
-    step_mod = SimpleNamespace(
-        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
-        _has_turn_header_inert_directive=lambda _content: False,
-        _extract_operator_command=lambda _content: ("help", []),
-        _extract_user_shell_command=lambda _content: None,
-        _extract_user_shell_argv=lambda _cmd: None,
-        _extract_loose_command=lambda _content: (None, False),
-        resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [_result("plan-branch")],
-        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [_result("shell-branch", origin_kind="user_shell")],
-        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [_result("operator-branch", origin_kind="slash_command")],
-    )
-    config = OperatorConfig()
-    config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "last_wins"}))
-    consequences, should_return_early = _execute_frontier_consequences(
-        step_mod=step_mod,
-        events=[],
-        working=[{"role": "user", "content": "```yaml\n- tool_name: echo\n  args:\n    text: x\n```\n/help"}],
-        transcript="",
-        execute=lambda _working, _plan: [],
-        generate=lambda _working: [],
-        command_cwd=".",
-        previous_command_cwd=None,
-        workspace_mode="strict",
-        workspace_roots=["."],
-        config=config,
-        config_sources=None,
-        already_executed_indices=None,
-    )
-    assert should_return_early is False
-    assert calls == ["operator"]
-    assert consequences == [
-        {
-            "role": "result",
-            "content": "operator-branch",
-            "origin_role": "user",
-            "origin_kind": "slash_command",
-            "projection_lane": "user",
-            "intent_execution": {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "last_wins"},
-        }
-    ]
-
-
-def test_step_runtime_helper_execute_frontier_consequences_user_strict_rejects_mixed_intent():
-    calls: list[str] = []
-    step_mod = SimpleNamespace(
-        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
-        _has_turn_header_inert_directive=lambda _content: False,
-        _extract_operator_command=lambda _content: ("help", []),
-        _extract_user_shell_command=lambda _content: "echo hi",
-        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
-        _extract_loose_command=lambda _content: (None, False),
-        resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [_result("plan-branch")],
-        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [_result("shell-branch", origin_kind="user_shell")],
-        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [_result("operator-branch", origin_kind="slash_command")],
-    )
-    config = OperatorConfig()
-    config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "strict"}))
-    consequences, should_return_early = _execute_frontier_consequences(
-        step_mod=step_mod,
-        events=[],
-        working=[{"role": "user", "content": "mixed"}],
-        transcript="",
-        execute=lambda _working, _plan: [],
-        generate=lambda _working: [],
-        command_cwd=".",
-        previous_command_cwd=None,
-        workspace_mode="strict",
-        workspace_roots=["."],
-        config=config,
-        config_sources=None,
-        already_executed_indices=None,
-    )
-    assert should_return_early is False
-    assert calls == []
-    assert len(consequences) == 1
-    assert "mixed-intent strict mode" in consequences[0]["content"]
 
 
 def test_execute_frontier_consequences_control_operator_stamps_result_provenance():
@@ -2123,33 +1991,6 @@ def test_execute_frontier_consequences_user_shell_runtime_error_becomes_projecta
             },
         }
     ]
-
-
-def test_step_runtime_helper_expand_in_order_operator_candidates_replaces_operator_only_set():
-    candidates = [{"kind": "operator", "value": ("config", ["show"]), "intent_id": 1, "order": 1, "total": 1}]
-    operator_commands = [("config", ["show"]), ("config", ["set", "a", "b"])]
-    expanded = _expand_in_order_operator_candidates(
-        candidates=candidates,
-        operator_commands=operator_commands,
-        arbitration_mode="in_order",
-    )
-    assert [c["value"] for c in expanded] == operator_commands
-    assert [c["order"] for c in expanded] == [1, 2]
-    assert [c["total"] for c in expanded] == [2, 2]
-
-
-def test_step_runtime_helper_append_strict_mixed_intent_error_if_needed():
-    consequences: list[dict] = []
-    appended = _append_strict_mixed_intent_error_if_needed(
-        consequences=consequences,
-        candidates=[
-            {"intent_id": 1, "kind": "operator"},
-            {"intent_id": 2, "kind": "plan"},
-        ],
-        arbitration_mode="strict",
-    )
-    assert appended is True
-    assert "mixed-intent strict mode" in consequences[0]["content"]
 
 
 def test_step_runtime_helper_user_generation_fallback_guard_and_generate_paths():
@@ -2426,49 +2267,6 @@ def test_step_runtime_helper_assistant_frontier_resolves_multiple_yaml_plans_in_
     assert should_return_early is False
     assert [plan[0]["args"]["text"] for plan in executed] == ["first", "second"]
     assert consequences == [{"role": "result", "content": "ok"}, {"role": "result", "content": "ok"}]
-
-
-def test_step_runtime_helper_assistant_frontier_strict_rejects_multiple_yaml_plans():
-    step_mod = SimpleNamespace(
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: pytest.fail("strict mode must not execute"),
-        _plan_contains_shell=lambda _plan: False,
-        _assistant_results_include_shell_block=lambda _results: False,
-    )
-    content = "```yaml\n- operation: echo\n  arguments: {text: first}\n```\n```yaml\n- operation: echo\n  arguments: {text: second}\n```"
-    config = OperatorConfig(extraction=OperatorConfig().extraction.__class__(intent_arbitration="strict"))
-    consequences: list[dict] = []
-
-    _route_frontier_consequence_path(
-        step_mod=step_mod,
-        frontier={"role": "assistant", "content": content},
-        consequences=consequences,
-        plan=None,
-        operator_command=None,
-        operator_commands=[],
-        shell_command=None,
-        shell_argv=None,
-        loose_command=None,
-        loose_command_recovered=False,
-        turn_inert=False,
-        execute=lambda *_a, **_k: [],
-        events=[],
-        working=[{"role": "assistant", "content": content}],
-        transcript="",
-        command_cwd=".",
-        previous_command_cwd=None,
-        workspace_mode="strict",
-        workspace_roots=["."],
-        config=config,
-        config_sources={},
-        already_executed_indices=set(),
-        env_modifiers={},
-        stream_stdout_enabled=True,
-        generate=lambda *_a, **_k: [],
-    )
-
-    assert len(consequences) == 1
-    assert consequences[0]["origin_role"] == "assistant"
-    assert "assistant strict mode" in consequences[0]["content"]
 
 
 def test_step_runtime_helper_assistant_frontier_turn_inert_uses_legacy_plan_branch():
