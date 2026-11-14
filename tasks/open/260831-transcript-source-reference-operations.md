@@ -95,6 +95,22 @@ source. It must also distinguish successfully executed declarations from
 pending or failed mutations when replaying a mixed turn. Keep this dependency
 open for in-turn continuation overlays.
 
+### Thought experiment: preserving acknowledged policy across a branch
+
+A transcript contains `/shell add rubberduck` followed by TOAS's success
+acknowledgment. The operator fixes a spelling mistake in an earlier turn and
+synchronizes the edited transcript, retaining the command and acknowledgment.
+At the new frontier, `rubberduck` should still be allowed. The same reasoning
+applies to a retained `/model select` and its acknowledgment. Carry the outcome
+forward without rerunning the command. Check effective state after sync and
+rebuild, alongside the recovery case where an earlier action fails and the
+unacknowledged policy command stays pending and inert.
+
+This records desired behavior for a retained acknowledgment. Current behavior
+and the mechanism remain to be verified. Whether an operator can introduce a
+new outcome by authoring both command and acknowledgment is a separate, open
+design question. Durable records can preserve provenance in either case.
+
 ## Design sketch
 
 Use `P` only as explanatory notation for an assistant turn's ordered candidate
